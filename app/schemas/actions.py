@@ -29,6 +29,9 @@ class ActionType(str, enum.Enum):
     WRITE_NOTE = "WRITE_NOTE"
     ASK_QUESTION = "ASK_QUESTION"
     SEND_MESSAGE = "SEND_MESSAGE"
+    START_CONVERSATION = "START_CONVERSATION"
+    SPEAK = "SPEAK"
+    LEAVE_CONVERSATION = "LEAVE_CONVERSATION"
 
 
 #: Actions that address another agent. ASK_QUESTION always needs a recipient;
@@ -36,7 +39,16 @@ class ActionType(str, enum.Enum):
 DIRECTED_ACTIONS = {ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE}
 
 #: Actions whose content is the point of the action.
-CONTENT_ACTIONS = {ActionType.WRITE_NOTE, ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE}
+CONTENT_ACTIONS = {
+    ActionType.WRITE_NOTE,
+    ActionType.ASK_QUESTION,
+    ActionType.SEND_MESSAGE,
+    ActionType.START_CONVERSATION,
+    ActionType.SPEAK,
+}
+
+#: Actions that only make sense inside an open conversation.
+IN_CONVERSATION_ACTIONS = {ActionType.SPEAK, ActionType.LEAVE_CONVERSATION}
 
 
 class AgentAction(BaseModel):

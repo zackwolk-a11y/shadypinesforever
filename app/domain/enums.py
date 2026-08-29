@@ -107,10 +107,34 @@ class ConversationTrigger(str, enum.Enum):
 
 
 class ConversationStatus(str, enum.Enum):
-    """Whether a conversation is still running."""
+    """Where a conversation is in its short life.
+
+    WINDING_DOWN is the grace state: someone has gone quiet, and the
+    conversation will close unless it picks back up. Conversations are meant to
+    be short — four people and a handful of turns, not eight paragraphs.
+    """
 
     ACTIVE = "ACTIVE"
+    WINDING_DOWN = "WINDING_DOWN"
     ENDED = "ENDED"
+
+
+class ExposureType(str, enum.Enum):
+    """How an agent came to know about something.
+
+    Knowledge in the Village is partial by design. An exposure row is the only
+    reason an agent may be shown a piece of information: the research wall makes
+    things *discoverable*, not known.
+    """
+
+    CREATED = "CREATED"
+    DIRECT_MESSAGE = "DIRECT_MESSAGE"
+    CONVERSATION = "CONVERSATION"
+    SHARED_FINDING = "SHARED_FINDING"
+    WALL_GLIMPSE = "WALL_GLIMPSE"
+    WALL_READ = "WALL_READ"
+    SOURCE_READ = "SOURCE_READ"
+    FOUNDER_MESSAGE = "FOUNDER_MESSAGE"
 
 
 class EventType(str, enum.Enum):
@@ -121,6 +145,9 @@ class EventType(str, enum.Enum):
     # decision was executed, and that one was rejected.
     AGENT_ACTED = "AGENT_ACTED"
     INVALID_AGENT_DECISION = "INVALID_AGENT_DECISION"
+    PERIOD_ADVANCED = "PERIOD_ADVANCED"
+    DAY_ADVANCED = "DAY_ADVANCED"
+    FOUNDER_MESSAGE_DELIVERED = "FOUNDER_MESSAGE_DELIVERED"
     AGENT_RESEARCH_STARTED = "AGENT_RESEARCH_STARTED"
     SEARCH_EXECUTED = "SEARCH_EXECUTED"
     SOURCE_DISCOVERED = "SOURCE_DISCOVERED"

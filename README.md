@@ -122,9 +122,36 @@ live, set `LLM_PROVIDER=anthropic` with credentials in the environment. That pat
 is written but has not been run here — no key was available — so treat the first
 live call as a smoke test.
 
-A run stops with "no agent is eligible" once the period is spent. That is the
-correct end state for now: advancing the period or day is the day engine, a
-later packet.
+### Days and periods
+
+A day runs MORNING → RESEARCH → AFTERNOON → EVENING → NIGHT and rolls over.
+Periods do not schedule model calls — nothing fires every virtual hour. A period
+changes what the activation scheduler finds likely, and it ends when the agents
+in it have run out of reasons to act.
+
+```bash
+.venv/bin/python scripts/run_day.py            # one simulated day
+.venv/bin/python scripts/run_day.py --days 3   # three
+.venv/bin/python scripts/run_event.py --advance -n 40   # step, advancing as needed
+```
+
+```bash
+curl http://127.0.0.1:8000/simulation/clock
+curl -X POST http://127.0.0.1:8000/simulation/advance-period
+```
+
+`run_day.py` has a `--max-events` ceiling (400) so a runaway can never spend
+without limit.
+
+### Conversations
+
+The day opens with everyone in the room and no agenda — deliberately *not*
+"generate one research topic each", which produces exactly the eight-silo
+behaviour the experiment is trying to avoid. Turn-taking is mechanical
+(whoever has spoken least, never the same agent twice in a row); what anyone
+says is theirs. Silence is a legal move, and two consecutive silences wind a
+conversation down. A conversation also ends at the turn cap
+(`MAX_CONVERSATION_TURNS`) or when everyone has left.
 
 ## Design notes
 
@@ -159,6 +186,19 @@ database triggers yet.
 **Seed data is not in migrations.** The Founding Eight (§3) and the §5 location
 list are seeded by `scripts/seed_agents.py`. Migrations describe schema; seeding
 a roster from a migration would make it un-editable without a new revision.
+
+**Knowledge is partial, and `agent_exposures` is what enforces it.** Nothing is
+shown to an agent it has no exposure row for. Conversation turns reach the
+people who were in the room; a direct message reaches its sender and recipient;
+a targeted founder message reaches one person. The research wall contributes
+*headlines* only — enough to make something discoverable, never enough to make
+it known. A context builder that ever does `get_all_wall_entries()` makes all
+eight omniscient and ends the experiment.
+
+**`participant_ids` is who is in the room now; `departed_agent_ids` remembers
+who left.** Both are needed: turn-taking wants the first, and auditing who may
+legitimately know what wants the second — someone who walked out still heard
+what was said before they went.
 
 **The scheduler offers opportunities, it does not decide content.** Activation
 scoring is mechanism — unread mail, the period's baseline, a seeded curiosity

@@ -17,6 +17,7 @@ from app.db.models.conversations import (
     Message,
 )
 from app.db.models.events import Event, EventType
+from app.db.models.exposure import AgentExposure
 from app.db.models.reports import DailyReport, FounderMessage
 from app.db.models.memory import Memory, MemoryType
 from app.db.models.rabbit_holes import (
@@ -82,6 +83,7 @@ __all__ = [
     # events
     "Event",
     "EventType",
+    "AgentExposure",
     # telemetry
     "LLMRun",
 ]

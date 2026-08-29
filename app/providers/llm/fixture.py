@@ -15,6 +15,14 @@ import time
 from app.providers.llm.base import LLMResult, LLMUsage
 from app.schemas.actions import ActionType, AgentAction, AgentDecision
 
+#: In a conversation the weights change: people mostly talk when spoken to, and
+#: a conversation that nobody ever leaves would never end.
+_WEIGHTED_CONVERSATION_ACTIONS: tuple[tuple[ActionType, int], ...] = (
+    (ActionType.SPEAK, 6),
+    (ActionType.DO_NOTHING, 3),
+    (ActionType.LEAVE_CONVERSATION, 1),
+)
+
 #: Weighted so most activations are quiet. A village where everyone acts every
 #: time they are activated is the failure mode, not the goal.
 _WEIGHTED_ACTIONS: tuple[tuple[ActionType, int], ...] = (
@@ -26,6 +34,7 @@ _WEIGHTED_ACTIONS: tuple[tuple[ActionType, int], ...] = (
     (ActionType.WRITE_NOTE, 3),
     (ActionType.ASK_QUESTION, 3),
     (ActionType.SEND_MESSAGE, 2),
+    (ActionType.START_CONVERSATION, 3),
 )
 
 
@@ -58,8 +67,10 @@ class FixtureLLMProvider:
         peers = [p for p in (_extract(user, "PRESENT:") or "").split(", ") if p and p != agent_id]
         locations = [le for le in (_extract(user, "LOCATIONS:") or "").split(", ") if le]
 
-        population = [a for a, _ in _WEIGHTED_ACTIONS]
-        weights = [w for _, w in _WEIGHTED_ACTIONS]
+        in_conversation = "YOU ARE IN A CONVERSATION" in user
+        table = _WEIGHTED_CONVERSATION_ACTIONS if in_conversation else _WEIGHTED_ACTIONS
+        population = [a for a, _ in table]
+        weights = [w for _, w in table]
         chosen = rng.choices(population, weights=weights, k=1)[0]
 
         topic = rng.choice(interests) if interests else "the room"
@@ -71,20 +82,32 @@ class FixtureLLMProvider:
             ActionType.WRITE_NOTE: f"[fixture] A note about {topic}.",
             ActionType.ASK_QUESTION: f"[fixture] What do you make of {topic}?",
             ActionType.SEND_MESSAGE: f"[fixture] Something about {topic} came to mind.",
+            ActionType.SPEAK: f"[fixture] Something occurs to me about {topic}.",
+            ActionType.START_CONVERSATION: f"[fixture] Can I ask you about {topic}?",
         }.get(chosen)
 
+        directed = {
+            ActionType.ASK_QUESTION,
+            ActionType.SEND_MESSAGE,
+            ActionType.START_CONVERSATION,
+        }
         actions: list[AgentAction] = []
         if chosen is not ActionType.DO_NOTHING:
             actions.append(
                 AgentAction(
                     type=chosen,
-                    target_agent_id=target if chosen in (ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE) else None,
+                    target_agent_id=target if chosen in directed else None,
                     content=content,
                 )
             )
 
-        location = rng.choice(locations) if locations and rng.random() < 0.3 else None
-        speaks = chosen in (ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE) or rng.random() < 0.25
+        # Moving rooms mid-conversation would be strange.
+        location = (
+            rng.choice(locations)
+            if locations and not in_conversation and rng.random() < 0.3
+            else None
+        )
+        speaks = (not in_conversation) and (chosen in directed or rng.random() < 0.25)
 
         decision = AgentDecision(
             summary=f"[fixture] {agent_id} chose {chosen.value} regarding {topic}.",

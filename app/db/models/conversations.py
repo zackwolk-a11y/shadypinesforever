@@ -32,6 +32,17 @@ class Conversation(Base):
         nullable=False,
         default=ConversationStatus.ACTIVE,
     )
+    #: Speaking opportunities passed up in a row. Two winds the conversation
+    #: down. Kept as state rather than derived from the log, so "who stayed
+    #: quiet" never has to be reconstructed by inference.
+    consecutive_silences: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    #: Who has walked away. participant_ids is who is in the room *now*, which
+    #: is what turn-taking needs; departures are kept because someone who left
+    #: still heard what was said before they went, and an audit of who may know
+    #: what has to be able to tell that apart from a leak.
+    departed_agent_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    #: Ties every event of this conversation into one causal chain.
+    correlation_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
 
 
 class ConversationMessage(TimestampMixin, Base):

@@ -34,6 +34,11 @@ def main() -> int:
     parser.add_argument("-n", "--count", type=int, default=1, help="events to run")
     parser.add_argument("--scores", action="store_true", help="print activation scores")
     parser.add_argument("--seed", default="", help="seed for the activation jitter")
+    parser.add_argument(
+        "--advance",
+        action="store_true",
+        help="advance the clock when a period runs out of eligible agents",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
@@ -52,10 +57,16 @@ def main() -> int:
                     for c in scheduler.score_agents(session, clock, settings, seed=args.seed):
                         print(f"    {c.agent_id:<20} {c.score:6.2f}  (acted {c.activations_today}x today)")
 
-            outcome = run_next_event(session, settings=settings, provider=provider, seed=args.seed)
+            outcome = run_next_event(
+                session, settings=settings, provider=provider,
+                seed=args.seed, auto_advance=args.advance,
+            )
             session.commit()
 
             label = f"[{i + 1}/{args.count}]"
+            if outcome.clock_advance:
+                print(f"{label} -- {outcome.clock_advance}")
+                continue
             if outcome.note:
                 print(f"{label} {outcome.note}")
                 break
@@ -64,7 +75,8 @@ def main() -> int:
                 continue
 
             decision = outcome.decision
-            print(f"{label} {outcome.activated_agent_id}: {decision.summary}")
+            where = f" [conversation {outcome.conversation_id}]" if outcome.conversation_id else ""
+            print(f"{label} {outcome.activated_agent_id}{where}: {decision.summary}")
             print(f"      activity={decision.activity!r} actions={outcome.executed or ['(none)']}")
             if decision.public_dialogue:
                 print(f'      says: "{decision.public_dialogue}"')

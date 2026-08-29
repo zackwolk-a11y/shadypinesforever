@@ -28,15 +28,30 @@ from app.db.models.conversations import Message
 from app.db.models.memory import Memory
 from app.db.models.telemetry import LLMRun
 from app.db.base import utcnow
+from app.db.models.conversations import Conversation
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
-from app.domain.enums import EventType, MemoryType
+from app.domain.enums import (
+    ConversationStatus,
+    ConversationTrigger,
+    EventType,
+    ExposureType,
+    MemoryType,
+)
 from app.domain.ids import new_correlation_id
 from app.providers.llm import LLMError, LLMProvider, get_llm_provider
 from app.providers.llm.base import LLMResult
-from app.schemas.actions import ActionType, AgentDecision
-from app.services import scheduler
+from app.schemas.actions import (
+    CONTENT_ACTIONS,
+    IN_CONVERSATION_ACTIONS,
+    ActionType,
+    AgentDecision,
+)
+from app.services import clock as clock_service
+from app.services import conversations as convo
+from app.services import founder, scheduler
 from app.services.context_builder import build_agent_context
 from app.services.events import record_event
+from app.services.exposure import expose
 
 PROMPT_VERSION = "agent_decision.v1"
 
@@ -53,6 +68,9 @@ class EventOutcome:
     """What one RUN NEXT EVENT produced."""
 
     activated_agent_id: str | None = None
+    conversation_id: int | None = None
+    spoke: bool = False
+    clock_advance: str | None = None
     decision: AgentDecision | None = None
     executed: list[str] = field(default_factory=list)
     rejected_reason: str | None = None
@@ -89,6 +107,7 @@ def validate_decision(
     *,
     agent: Agent,
     present_agent_ids: tuple[str, ...],
+    in_conversation: bool = False,
 ) -> None:
     """Semantic validation, after the schema has already been satisfied.
 
@@ -104,6 +123,17 @@ def validate_decision(
         if action.type not in ALLOWED_ACTIONS:
             raise DecisionRejected(f"action {action.type} is not available in this packet")
 
+        if action.type in IN_CONVERSATION_ACTIONS and not in_conversation:
+            raise DecisionRejected(
+                f"{action.type.value} requires being in an open conversation"
+            )
+
+        if action.type is ActionType.START_CONVERSATION:
+            if in_conversation:
+                raise DecisionRejected("a conversation is already open")
+            if not action.target_agent_id:
+                raise DecisionRejected("START_CONVERSATION requires a target_agent_id")
+
         if action.type is ActionType.ASK_QUESTION and not action.target_agent_id:
             raise DecisionRejected("ASK_QUESTION requires a target_agent_id")
 
@@ -115,7 +145,7 @@ def validate_decision(
                     f"unknown target_agent_id {action.target_agent_id!r}"
                 )
 
-        if action.type in (ActionType.WRITE_NOTE, ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE):
+        if action.type in CONTENT_ACTIONS:
             if not (action.content or "").strip():
                 raise DecisionRejected(f"{action.type.value} requires content")
 
@@ -126,9 +156,15 @@ def execute_decision(
     decision: AgentDecision,
     clock: SimulationClock,
     correlation_id: str,
-) -> list[str]:
-    """Perform the state changes a validated decision calls for."""
+    conversation: Conversation | None = None,
+) -> tuple[list[str], bool]:
+    """Perform the state changes a validated decision calls for.
+
+    Returns what was performed and whether the agent spoke, which is what the
+    conversation engine needs to know to decide if the room has gone quiet.
+    """
     performed: list[str] = []
+    spoke = False
 
     agent.current_activity = decision.activity
     if decision.location:
@@ -144,13 +180,50 @@ def execute_decision(
                     related_ids=[],
                 )
             )
+        elif action.type is ActionType.SPEAK and conversation is not None:
+            convo.record_utterance(
+                session,
+                conversation,
+                agent.agent_id,
+                action.content or "",
+                clock,
+                correlation_id=correlation_id,
+            )
+            spoke = True
+        elif action.type is ActionType.LEAVE_CONVERSATION and conversation is not None:
+            convo.leave(session, conversation, agent.agent_id)
+        elif action.type is ActionType.START_CONVERSATION:
+            new_conversation = convo.start_conversation(
+                session,
+                trigger=ConversationTrigger.RANDOM_SOCIAL,
+                participant_ids=[agent.agent_id, action.target_agent_id],
+                clock=clock,
+                correlation_id=correlation_id,
+            )
+            new_conversation.correlation_id = correlation_id
+            convo.record_utterance(
+                session,
+                new_conversation,
+                agent.agent_id,
+                action.content or "",
+                clock,
+                correlation_id=correlation_id,
+            )
+            spoke = True
         elif action.type in (ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE):
-            session.add(
-                Message(
-                    sender_agent_id=agent.agent_id,
-                    recipient_agent_id=action.target_agent_id,
-                    content=action.content or "",
-                )
+            message = Message(
+                sender_agent_id=agent.agent_id,
+                recipient_agent_id=action.target_agent_id,
+                content=action.content or "",
+            )
+            session.add(message)
+            session.flush()
+            expose(
+                session,
+                agent_id=agent.agent_id,
+                entity_type="message",
+                entity_id=message.id,
+                exposure_type=ExposureType.CREATED,
             )
         # REST / OBSERVE / LISTEN_TO_MUSIC / DRINK_COFFEE / DO_NOTHING are fully
         # expressed by the activity and location already applied above.
@@ -160,7 +233,7 @@ def execute_decision(
     if not decision.actions:
         agent.interaction_target = None
 
-    return performed
+    return performed, spoke
 
 
 def run_next_event(
@@ -169,6 +242,7 @@ def run_next_event(
     settings: Settings | None = None,
     provider: LLMProvider | None = None,
     seed: str = "",
+    auto_advance: bool = False,
 ) -> EventOutcome:
     """Activate one agent and carry its decision through to persisted state.
 
@@ -184,23 +258,60 @@ def run_next_event(
     if clock.is_paused:
         return EventOutcome(note="Simulation is paused.")
 
-    candidate = scheduler.next_agent(session, clock, settings, seed=seed)
-    if candidate is None:
-        return EventOutcome(
-            note=(
-                f"No agent is eligible to act in day {clock.current_day} "
-                f"{clock.current_period}. Everyone with a reason to act has acted "
-                "and the period is spent. Advancing the period or day is the day "
-                "engine's job, which is a later packet."
-            )
-        )
+    # The Founder's mail reaches people before anyone decides anything.
+    founder.deliver_pending(session, clock)
 
-    agent = session.scalars(
-        select(Agent).where(Agent.agent_id == candidate.agent_id)
-    ).one()
-    correlation_id = new_correlation_id()
+    conversation = convo.active_conversation(session)
+
+    # The day opens with everyone in the room and no agenda.
+    if (
+        conversation is None
+        and clock.current_period == clock_service.FIRST_PERIOD
+        and not convo.morning_gathering_held_today(session, clock)
+    ):
+        gathering_correlation = new_correlation_id()
+        conversation = convo.start_morning_gathering(
+            session, clock, correlation_id=gathering_correlation
+        )
+        conversation.correlation_id = gathering_correlation
+
+    if conversation is not None:
+        speaker_id = convo.next_speaker(session, conversation)
+        if speaker_id is None:
+            convo.close(session, conversation, clock, "no participants left",
+                        correlation_id=conversation.correlation_id)
+            conversation = None
+        else:
+            candidate = None
+            agent = session.scalars(
+                select(Agent).where(Agent.agent_id == speaker_id)
+            ).one()
+            correlation_id = conversation.correlation_id or new_correlation_id()
+    if conversation is None:
+        candidate = scheduler.next_agent(session, clock, settings, seed=seed)
+        if candidate is None:
+            if auto_advance:
+                advance = clock_service.advance(session, clock)
+                return EventOutcome(
+                    clock_advance=str(advance),
+                    note=f"Period spent; clock advanced {advance}.",
+                )
+            return EventOutcome(
+                note=(
+                    f"No agent is eligible to act in day {clock.current_day} "
+                    f"{clock.current_period}. Everyone with a reason to act has "
+                    "acted and the period is spent. Pass --advance (or use "
+                    "run_day.py) to move the clock on."
+                )
+            )
+        agent = session.scalars(
+            select(Agent).where(Agent.agent_id == candidate.agent_id)
+        ).one()
+        correlation_id = new_correlation_id()
+
     outcome = EventOutcome(
         activated_agent_id=agent.agent_id,
+        conversation_id=conversation.id if conversation is not None else None,
         correlation_id=correlation_id,
         is_fixture=provider.is_fixture,
     )
@@ -211,20 +322,35 @@ def run_next_event(
         clock,
         settings,
         available_actions=tuple(a.value for a in ALLOWED_ACTIONS),
+        conversation=conversation,
     )
 
-    # Showing a message to an agent is delivering it.
+    # Showing a message to an agent is delivering it: mark it read so it stops
+    # inflating this agent's activation score, and record the exposure that
+    # says this agent — and only this agent — has now seen it.
     for message in context.delivered_messages:
         message.read_at = utcnow()
+        expose(
+            session,
+            agent_id=agent.agent_id,
+            entity_type="message",
+            entity_id=message.id,
+            exposure_type=ExposureType.DIRECT_MESSAGE,
+        )
 
     woke = record_event(
         session,
         event_type=EventType.AGENT_WOKE,
         agent_id=agent.agent_id,
         payload={
-            "activation_score": round(candidate.score, 3),
-            "components": {k: round(v, 3) for k, v in candidate.components.items()},
+            "activation_score": round(candidate.score, 3) if candidate else None,
+            "components": (
+                {k: round(v, 3) for k, v in candidate.components.items()}
+                if candidate
+                else {"conversation_turn": 1.0}
+            ),
             "approx_context_tokens": context.approx_tokens,
+            "conversation_id": conversation.id if conversation is not None else None,
         },
         correlation_id=correlation_id,
         clock=clock,
@@ -250,7 +376,10 @@ def run_next_event(
 
         try:
             validate_decision(
-                result.decision, agent=agent, present_agent_ids=context.present_agent_ids
+                result.decision,
+                agent=agent,
+                present_agent_ids=context.present_agent_ids,
+                in_conversation=conversation is not None,
             )
         except DecisionRejected as exc:
             rejection = str(exc)
@@ -276,10 +405,13 @@ def run_next_event(
         outcome.event_ids.append(invalid.id)
         outcome.rejected_reason = outcome.rejected_reason or rejection
         # Falling back to doing nothing is itself the outcome; no state changes.
+        # A rejected turn still counts as a pass in the room.
+        if conversation is not None:
+            _after_turn(session, conversation, clock, settings, spoke=False)
         return outcome
 
-    outcome.executed = execute_decision(
-        session, agent, outcome.decision, clock, correlation_id
+    outcome.executed, outcome.spoke = execute_decision(
+        session, agent, outcome.decision, clock, correlation_id, conversation
     )
     acted = record_event(
         session,
@@ -298,7 +430,53 @@ def run_next_event(
         clock=clock,
     )
     outcome.event_ids.append(acted.id)
+
+    if conversation is not None:
+        _after_turn(session, conversation, clock, settings, spoke=outcome.spoke)
     return outcome
+
+
+def _after_turn(
+    session: Session,
+    conversation: Conversation,
+    clock: SimulationClock,
+    settings: Settings,
+    *,
+    spoke: bool,
+) -> None:
+    """Track the room's energy and close the conversation when it runs out.
+
+    Silence is not failure — it is how a conversation ends naturally instead of
+    running to an arbitrary turn limit every time.
+    """
+    if spoke:
+        conversation.consecutive_silences = 0
+        if conversation.status is ConversationStatus.WINDING_DOWN:
+            conversation.status = ConversationStatus.ACTIVE
+    else:
+        conversation.consecutive_silences += 1
+        if (
+            conversation.consecutive_silences >= convo.SILENCES_TO_WIND_DOWN
+            and conversation.status is ConversationStatus.ACTIVE
+        ):
+            conversation.status = ConversationStatus.WINDING_DOWN
+
+    reason = None
+    if len(conversation.participant_ids or []) < 2:
+        reason = "everyone left"
+    elif convo.turn_count(session, conversation) >= settings.max_conversation_turns:
+        reason = "turn cap reached"
+    elif (
+        conversation.status is ConversationStatus.WINDING_DOWN
+        and conversation.consecutive_silences > convo.SILENCES_TO_WIND_DOWN
+    ):
+        reason = "the room went quiet"
+
+    if reason:
+        convo.close(
+            session, conversation, clock, reason,
+            correlation_id=conversation.correlation_id,
+        )
 
 
 def _record_run(

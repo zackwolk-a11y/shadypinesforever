@@ -19,8 +19,11 @@ from app.core.config import Settings
 from app.db.models.agents import Agent, AgentInterest
 from app.db.models.conversations import Message
 from app.db.models.memory import Memory
+from app.db.models.conversations import Conversation, ConversationMessage
 from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
+from app.services import founder
+from app.services.exposure import exposed_entity_ids
 
 SYSTEM_PROMPT = """You are one inhabitant of a small research clubhouse shared with seven friends.
 
@@ -40,6 +43,8 @@ class AgentContext:
     user: str
     agent_id: str
     present_agent_ids: tuple[str, ...]
+    #: The open conversation this agent is a participant in, if any.
+    conversation_id: int | None = None
     #: Messages actually shown to the agent this turn. The caller marks them
     #: read: putting a message in the context *is* delivering it, and a message
     #: that stays unread would keep boosting this agent's activation score
@@ -58,8 +63,15 @@ def build_agent_context(
     settings: Settings,
     *,
     available_actions: tuple[str, ...],
+    conversation: Conversation | None = None,
 ) -> AgentContext:
-    """Render the bounded context for one agent's turn."""
+    """Render the bounded context for one agent's turn.
+
+    Everything social in here is filtered through exposure: conversation turns
+    the agent was present for, founder messages delivered to it, its own unread
+    mail. The wall contributes headlines only — enough to make something
+    discoverable, never enough to make it known.
+    """
     interests = session.scalars(
         select(AgentInterest)
         .where(AgentInterest.agent_id == agent.agent_id)
@@ -96,6 +108,22 @@ def build_agent_context(
         )
     )
 
+    founder_messages = founder.messages_for(session, agent.agent_id)
+
+    conversation_turns: list[ConversationMessage] = []
+    if conversation is not None:
+        visible = exposed_entity_ids(session, agent.agent_id, "conversation_message")
+        conversation_turns = [
+            turn
+            for turn in session.scalars(
+                select(ConversationMessage)
+                .where(ConversationMessage.conversation_id == conversation.id)
+                .order_by(ConversationMessage.turn_number.desc())
+                .limit(settings.max_conversation_turns)
+            )
+            if str(turn.id) in visible
+        ][::-1]
+
     lines = [
         f"AGENT_ID: {agent.agent_id}",
         f"IDENTITY: {agent.identity}",
@@ -107,6 +135,29 @@ def build_agent_context(
         f"LOCATIONS: {', '.join(CLUBHOUSE_LOCATIONS)}",
         f"AVAILABLE ACTIONS: {', '.join(available_actions)}",
     ]
+
+    if conversation is not None:
+        others = [p for p in (conversation.participant_ids or []) if p != agent.agent_id]
+        lines.append(
+            f"YOU ARE IN A CONVERSATION ({conversation.trigger_type.value}) with: "
+            f"{', '.join(others) or 'nobody left'}"
+        )
+        if conversation_turns:
+            lines.append("WHAT HAS BEEN SAID:")
+            lines += [
+                f"  {t.turn_number}. {t.agent_id}: {_clip(t.content, 200)}"
+                for t in conversation_turns
+            ]
+        else:
+            lines.append("Nothing has been said yet.")
+        lines.append(
+            "You may SPEAK, LEAVE_CONVERSATION, or say nothing at all. "
+            "Saying nothing is a normal choice."
+        )
+
+    if founder_messages:
+        lines.append("FROM THE FOUNDER:")
+        lines += [f"  - {_clip(m.content, 200)}" for m in founder_messages]
 
     if memories:
         lines.append("RECENT MEMORIES:")
@@ -125,6 +176,7 @@ def build_agent_context(
         user="\n".join(lines),
         agent_id=agent.agent_id,
         present_agent_ids=present,
+        conversation_id=conversation.id if conversation is not None else None,
         delivered_messages=tuple(unread),
     )
 
