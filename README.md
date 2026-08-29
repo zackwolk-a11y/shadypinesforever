@@ -1,0 +1,103 @@
+# The Internal Village — Phase 1: The Research Clubhouse
+
+Persistence layer for Phase 1, per §17 of the build bible. This is **schema
+only**: SQLAlchemy 2.x models, Alembic migrations, and a FastAPI skeleton with a
+health check. No agent logic, no research execution, no LLM calls.
+
+## Setup
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+## Database
+
+The database URL comes from the `DATABASE_URL` environment variable and defaults
+to `sqlite:///./village.db`. `alembic.ini` deliberately leaves `sqlalchemy.url`
+blank so migrations and the app can never disagree about which database they mean.
+
+```bash
+.venv/bin/alembic upgrade head      # create every table
+.venv/bin/alembic downgrade base    # drop every table (reversible)
+.venv/bin/alembic check             # confirm models and migrations agree
+```
+
+Eyeball the result against §17:
+
+```bash
+.venv/bin/python scripts/inspect_schema.py               # read the live database
+.venv/bin/python scripts/inspect_schema.py --from-models # read ORM metadata only
+```
+
+## Running
+
+```bash
+.venv/bin/uvicorn app.main:app --reload
+curl http://127.0.0.1:8000/health
+```
+
+## Layout
+
+```
+app/
+  main.py            FastAPI app — /health only
+  db.py              engine, session factory, Base, timestamp mixins
+  models/
+    agent.py         agents, agent_interests, agent_beliefs, relationships
+    memory.py        memories
+    research.py      research_sessions, research_queries, research_sources, research_findings
+    wall.py          research_wall
+    rabbit_hole.py   rabbit_holes, rabbit_hole_members, rabbit_hole_research
+    conversation.py  conversations, conversation_messages, messages
+    world.py         world_state, simulation_clock, locations
+    founder.py       founder_messages, daily_reports
+    event.py         events (append-only)
+    belief.py        reserved extension point — beliefs live in agent.py
+alembic/             migration environment
+scripts/             inspect_schema.py (seed_agents.py not built yet)
+```
+
+22 tables in total.
+
+## Design notes
+
+**Foreign keys reference stable business keys.** `agent_id` columns point at
+`agents.agent_id` (`agent_optimisto`), and `research_session_id` /
+`related_research_id` point at `research_sessions.research_id` — not at the
+surrogate integer primary keys. §17 also stores these ids inside JSON columns
+(`conversations.participant_ids`, `research_sessions.related_research`,
+`agent_beliefs.basis`, `memories.related_ids`), and JSON cannot carry a foreign
+key. Pointing the real foreign keys at the same value space means an `agent_id`
+means exactly one thing everywhere in the schema. Surrogate `id` integer primary
+keys still exist on every table.
+
+**No cascading deletes.** Every foreign key uses the default `ON DELETE`
+behaviour (restrict). Phase 1 would rather fail a delete loudly than lose
+research silently. SQLite's foreign key pragma is enabled per connection in
+`app/db.py`, so the constraints are actually enforced.
+
+**Published vs. retrieved.** `research_sources.pub_date` and
+`research_sources.retrieved_at` are separate columns and neither is derived from
+the other (§6).
+
+**The nine finding classifications are not collapsible.** `research_findings.classification`
+carries all nine values of §2 — real-world fact, source claim, research finding,
+agent inference, agent belief, hypothesis, speculation, simulation event,
+creative content — even though Phase 1 will not populate every one.
+
+**`events` is append-only.** Insert, never update or delete. Phase 1 enforces
+this by convention (see the module docstring); no ORM-level immutability or
+database triggers yet.
+
+**Seed data is not in migrations.** The Founding Eight (§3) and the §5 location
+list belong in `scripts/seed_agents.py`, which is intentionally not built yet.
+Migrations describe schema; seeding a roster from a migration would make it
+un-editable without a new revision.
+
+**Extension points left open, not built.** `locations` is semantic rather than
+spatial but nothing forbids adding coordinates or a building reference later;
+`world_state` is a generic key/value store so new global state needs no
+migration; `simulation_clock.current_period` is a string so §5's day structure
+can grow periods as a data change; `models/belief.py` is reserved for Phase 2.
+None of this is implemented now.
