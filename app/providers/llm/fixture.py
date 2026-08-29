@@ -80,7 +80,7 @@ class FixtureLLMProvider:
         output_type: type[T],
     ) -> LLMResult:
         started = time.perf_counter()
-        rng = self._rng(purpose, user)
+        rng = self._rng(purpose, _stable_seed_text(user))
 
         generator = _GENERATORS.get(output_type)
         if generator is None:
@@ -216,6 +216,22 @@ _GENERATORS: dict[type, Callable[[random.Random, str], BaseModel]] = {
     AgentDecision: _generate_decision,
     ResearchSynthesis: _generate_research_synthesis,
 }
+
+
+#: Prompt lines that carry real wall-clock time (see
+#: app.services.research._render_synthesis_prompt). A research passage's
+#: ``retrieved:``/``published:`` line is genuinely the moment the fixture
+#: research provider ran, not fabricated — but hashing it into this
+#: provider's own seed would make a fixture LLM's output depend on what time
+#: it happened to be called, defeating the purpose of a fixture. Stripped
+#: only for seeding; the real lines are still what the model "sees".
+_VOLATILE_LINE_PREFIXES = ("    retrieved:", "    published:")
+
+
+def _stable_seed_text(user: str) -> str:
+    return "\n".join(
+        line for line in user.splitlines() if not line.startswith(_VOLATILE_LINE_PREFIXES)
+    )
 
 
 def _extract(text: str, label: str) -> str | None:
