@@ -18,6 +18,13 @@ Seeding deliberately writes no rows to ``events``: the event log records what
 happens *in* the simulation, and world setup happens before the simulation
 starts.
 
+Replacing a founding agent (Optimisto took Theo's place in the roster) is an
+*edit to this file*, not a database operation. On a village that was already
+seeded, the retired agent's row stays put: it may own research, memories or wall
+posts, and no foreign key in this schema cascades. Retiring an agent for real
+means deciding what happens to that work, which is a Phase 2 question — until
+then, use ``--reset`` on a throwaway database or leave the row alone.
+
 Usage::
 
     python scripts/seed_agents.py                # seed anything missing
@@ -71,11 +78,17 @@ class SeedInterest:
 
 @dataclass(frozen=True)
 class SeedAgent:
-    """One of the Founding Eight, exactly as §3 describes them."""
+    """One of the Founding Eight, exactly as §3 describes them.
+
+    ``voice`` is optional *here* but NOT NULL in the database: leaving it unset
+    lets the roster be transcribed in stages, and ``validate_roster`` refuses to
+    seed until every agent has one, rather than letting SQLite raise a bare
+    IntegrityError halfway through the insert.
+    """
 
     agent_id: str
     identity: str
-    voice: str
+    voice: str | None = None
     interests: tuple[SeedInterest, ...] = ()
     starting_location: str | None = None
 
@@ -89,30 +102,114 @@ class SeedRelationship:
     notes: str | None = None
 
 
+#: Starting pull toward a founding interest (§9). §3 lists each agent's interests
+#: without weights, so every founding interest starts at the same value — no
+#: agent is implicitly favoured — and the simulation moves them from there.
+DEFAULT_INTEREST_STRENGTH = 0.5
+
+#: Recorded as the origin of every interest seeded from the founding roster.
+FOUNDING_INTEREST_ORIGIN = "§3 founding roster"
+
+
+def founding_interests(*topics: str) -> tuple[SeedInterest, ...]:
+    """Build a founding agent's interests at the uniform starting strength."""
+    return tuple(
+        SeedInterest(topic, DEFAULT_INTEREST_STRENGTH, origin=FOUNDING_INTEREST_ORIGIN)
+        for topic in topics
+    )
+
+
 # --------------------------------------------------------------------------
 # THE FOUNDING EIGHT (§3)
 #
-# Fill this in from §3 of the build bible. Nothing here is invented: the roster
-# is authored content and belongs verbatim to the bible, so the list stays empty
-# until §3 is transcribed rather than being filled with plausible-looking
-# placeholders that could be mistaken for canon.
+# Names, roles and interests are transcribed verbatim from the locked roster.
+# `identity` keeps the emoji and character name alongside the role because §17's
+# agents table has no display_name or emoji column — folding them in here means
+# nothing from the roster is dropped on the floor.
 #
-# Each entry looks like:
+# `voice` is still blank on every agent: §3's roster gives roles and interests,
+# not how each one talks. Fill the eight voice= lines in and the seeder runs;
+# until then validate_roster() refuses, naming the agents still missing one.
 #
-#     SeedAgent(
-#         agent_id="agent_example",
-#         identity="who they are, in the bible's words",
-#         voice="how they talk",
-#         starting_location="espresso_counter",   # must be in CLUBHOUSE_LOCATIONS
-#         interests=(
-#             SeedInterest("corvid cognition", 0.8, origin="§3"),
-#         ),
-#     ),
-#
-# `validate_roster()` below refuses to seed a roster that is not exactly eight
-# agents, has duplicate agent_ids, or names a location outside §5.
+# Starting locations come from §5. Five map onto a station one-to-one
+# (espresso_counter, bar, zine_desk, recording_desk, phone). Sol, Dex and Lucid
+# have no dedicated station in §5, so they start in the shared space rather than
+# at an invented one.
 # --------------------------------------------------------------------------
-FOUNDING_EIGHT: tuple[SeedAgent, ...] = ()
+FOUNDING_EIGHT: tuple[SeedAgent, ...] = (
+    SeedAgent(
+        agent_id="agent_optimisto",
+        identity="\u2615 Optimisto — Barista / Wandering Philosopher",
+        voice=None,  # §3: pending
+        starting_location="espresso_counter",
+        interests=founding_interests(
+            "consciousness", "philosophy", "ethics", "espresso", "grounding"
+        ),
+    ),
+    SeedAgent(
+        agent_id="agent_vince",
+        identity="\U0001f378 Vince — Bartender / Social Observer",
+        voice=None,  # §3: pending
+        starting_location="bar",
+        interests=founding_interests(
+            "hospitality", "nightlife", "third places", "human dynamics"
+        ),
+    ),
+    SeedAgent(
+        agent_id="agent_questauthor",
+        identity="\u2702\ufe0f QuestAuthor — Zine Author / Printmaker",
+        voice=None,  # §3: pending
+        starting_location="zine_desk",
+        interests=founding_interests(
+            "Gut Check Digest", "typography", "physical publishing", "archiving"
+        ),
+    ),
+    SeedAgent(
+        agent_id="agent_alien",
+        identity="\U0001f47d The Alien — Media Capturer / Podcaster",
+        voice=None,  # §3: pending
+        starting_location="recording_desk",
+        interests=founding_interests(
+            "audio engineering", "field recording", "broadcasting", "documentation"
+        ),
+    ),
+    SeedAgent(
+        agent_id="agent_sol",
+        identity="\U0001f3a4 Sol — Conscious Rapper",
+        voice=None,  # §3: pending
+        starting_location="communal_table",
+        interests=founding_interests(
+            "lyrics", "cadence", "spoken word", "musical interpretation"
+        ),
+    ),
+    SeedAgent(
+        agent_id="agent_roxy",
+        identity="\U0001f4de Roxy — Hotline Operator",
+        voice=None,  # §3: pending
+        starting_location="phone",
+        interests=founding_interests(
+            "Portland Vibe Check", "underground events", "community connections"
+        ),
+    ),
+    SeedAgent(
+        agent_id="agent_dex",
+        identity="\U0001f4c8 Dex — Prediction Bettor",
+        voice=None,  # §3: pending
+        starting_location="communal_table",
+        interests=founding_interests(
+            "prediction markets", "probability", "sentiment", "forecasting"
+        ),
+    ),
+    SeedAgent(
+        agent_id="agent_lucid",
+        identity="\U0001f4f9 Lucid — Transformational Festival Documentarian",
+        voice=None,  # §3: pending
+        starting_location="communal_table",
+        interests=founding_interests(
+            "festival culture", "visual storytelling", "social media", "photography/video"
+        ),
+    ),
+)
 
 #: Relationships §3 establishes up front. Left empty rather than auto-generating
 #: all 28 pairs: who knows whom, and how, is authored content too.
@@ -165,6 +262,15 @@ def validate_roster(
         raise SeedError(
             f"Expected {EXPECTED_AGENT_COUNT} founding agents, found {len(roster)}. "
             "Pass --allow-partial if you are deliberately seeding a subset."
+        )
+
+    voiceless = [a.agent_id for a in roster if not (a.voice or "").strip()]
+    if voiceless:
+        raise SeedError(
+            "No voice line for: "
+            + ", ".join(voiceless)
+            + ". agents.voice is NOT NULL (§17); fill each voice= in FOUNDING_EIGHT "
+            "from §3 before seeding."
         )
 
     seen: set[str] = set()

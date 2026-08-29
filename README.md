@@ -44,11 +44,19 @@ what is missing, and never overwrites runtime state such as an agent's
 .venv/bin/python scripts/seed_agents.py --reset    # wipe seeded rows first
 ```
 
-**The roster is not transcribed yet.** `FOUNDING_EIGHT` in that file is an empty
-tuple. The roster is validated before anything is written, so until §3 is filled
-in the script writes nothing at all — not even locations — and exits 1 with an
-explanatory message. `--allow-partial` relaxes only the "exactly eight" check,
-not the empty-roster check.
+The Founding Eight are transcribed: Optimisto (espresso_counter), Vince (bar),
+QuestAuthor (zine_desk), The Alien (recording_desk), Sol, Roxy (phone), Dex and
+Lucid — 8 agents, 32 founding interests, 11 locations and the clock, 52 rows in
+all. Sol, Dex and Lucid have no dedicated §5 station and start at the
+`communal_table`. Since §17's `agents` table has no display-name or emoji
+column, `identity` carries the emoji and character name alongside the role so
+nothing from the roster is lost.
+
+**Voice lines are still blank.** The roster supplies roles and interests but not
+how each agent talks, and `agents.voice` is NOT NULL. The roster is validated
+before anything is written, so until the eight `voice=` lines are filled in the
+script writes nothing at all — not even locations — and exits 1 naming the
+agents still missing one.
 
 ## Running
 
