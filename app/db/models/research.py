@@ -7,56 +7,17 @@ retrieved it* are different facts, so ``ResearchSource`` keeps ``pub_date`` and
 
 from __future__ import annotations
 
-import enum
 from datetime import date, datetime
 
 from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, TimestampMixin, utcnow
-from app.models.agent import AGENT_FK
+from app.domain.enums import EvidenceStrength, FindingClassification, ResearchStatus
+
+from app.db.base import Base, TimestampMixin, utcnow
+from app.db.models.agents import AGENT_FK
 
 RESEARCH_FK = "research_sessions.research_id"
-
-
-class ResearchStatus(str, enum.Enum):
-    """Where a research session got to."""
-
-    IN_PROGRESS = "IN_PROGRESS"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    ABANDONED = "ABANDONED"
-
-
-class EvidenceStrength(str, enum.Enum):
-    """How well-supported a conclusion is (§6). Reused by rabbit holes."""
-
-    WEAK = "WEAK"
-    DEVELOPING = "DEVELOPING"
-    MODERATE = "MODERATE"
-    STRONG = "STRONG"
-    CONFLICTING = "CONFLICTING"
-    INSUFFICIENT = "INSUFFICIENT"
-
-
-class FindingClassification(str, enum.Enum):
-    """Epistemic status of a finding (§2).
-
-    These nine values are deliberately distinct and must never be collapsed into
-    a coarser set: the whole point of §2 is that a real-world fact, a source's
-    claim, an agent's inference, and a piece of creative content stay
-    distinguishable forever. Phase 1 may only populate a few of them.
-    """
-
-    REAL_WORLD_FACT = "REAL_WORLD_FACT"
-    SOURCE_CLAIM = "SOURCE_CLAIM"
-    RESEARCH_FINDING = "RESEARCH_FINDING"
-    AGENT_INFERENCE = "AGENT_INFERENCE"
-    AGENT_BELIEF = "AGENT_BELIEF"
-    HYPOTHESIS = "HYPOTHESIS"
-    SPECULATION = "SPECULATION"
-    SIMULATION_EVENT = "SIMULATION_EVENT"
-    CREATIVE_CONTENT = "CREATIVE_CONTENT"
 
 
 class ResearchSession(Base):

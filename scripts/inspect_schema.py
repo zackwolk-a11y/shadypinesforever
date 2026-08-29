@@ -23,8 +23,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import inspect  # noqa: E402
 
-import app.models  # noqa: E402,F401  (registers tables on Base.metadata)
-from app.db import Base, engine, get_database_url  # noqa: E402
+import app.db.models  # noqa: E402,F401  (registers tables on Base.metadata)
+from app.core.config import get_database_url  # noqa: E402
+from app.db.base import Base  # noqa: E402
+from app.db.session import engine  # noqa: E402
 
 
 def _fmt_column(name: str, type_: str, nullable: bool, primary_key: bool) -> str:

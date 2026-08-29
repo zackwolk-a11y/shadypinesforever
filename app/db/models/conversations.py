@@ -2,33 +2,15 @@
 
 from __future__ import annotations
 
-import enum
 from datetime import datetime
 
 from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, TimestampMixin, utcnow
-from app.models.agent import AGENT_FK
+from app.domain.enums import ConversationStatus, ConversationTrigger
 
-
-class ConversationTrigger(str, enum.Enum):
-    """Why a conversation started at all (§12)."""
-
-    RESEARCH_SHARING = "RESEARCH_SHARING"
-    WALL_ACTIVITY = "WALL_ACTIVITY"
-    DISAGREEMENT = "DISAGREEMENT"
-    SIMILAR_DISCOVERY = "SIMILAR_DISCOVERY"
-    MORNING_GATHERING = "MORNING_GATHERING"
-    RANDOM_SOCIAL = "RANDOM_SOCIAL"
-    FOUNDER_MESSAGE = "FOUNDER_MESSAGE"
-
-
-class ConversationStatus(str, enum.Enum):
-    """Whether a conversation is still running."""
-
-    ACTIVE = "ACTIVE"
-    ENDED = "ENDED"
+from app.db.base import Base, TimestampMixin, utcnow
+from app.db.models.agents import AGENT_FK
 
 
 class Conversation(Base):

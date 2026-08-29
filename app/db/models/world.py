@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, utcnow
+from app.db.base import Base, utcnow
 
 #: The semantic locations of the Phase 1 clubhouse (§5). Seeded by
 #: ``scripts/seed_agents.py``, not by a migration.

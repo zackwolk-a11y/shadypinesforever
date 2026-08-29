@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app import __version__
-from app.db import get_database_url
+from app.core.config import get_database_url
 
 app = FastAPI(
     title="The Internal Village",

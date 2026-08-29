@@ -2,29 +2,18 @@
 
 from __future__ import annotations
 
-import enum
 from datetime import datetime
 
 from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, TimestampMixin, utcnow
-from app.models.agent import AGENT_FK
-from app.models.research import RESEARCH_FK, EvidenceStrength
+from app.domain.enums import EvidenceStrength, RabbitHoleStatus
+
+from app.db.base import Base, TimestampMixin, utcnow
+from app.db.models.agents import AGENT_FK
+from app.db.models.research import RESEARCH_FK
 
 RABBIT_HOLE_FK = "rabbit_holes.id"
-
-
-class RabbitHoleStatus(str, enum.Enum):
-    """How alive a rabbit hole currently is."""
-
-    NEW = "NEW"
-    ACTIVE = "ACTIVE"
-    HOT = "HOT"
-    COOLING = "COOLING"
-    DORMANT = "DORMANT"
-    RESOLVED = "RESOLVED"
-    ABANDONED = "ABANDONED"
 
 
 class RabbitHole(TimestampMixin, Base):

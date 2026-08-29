@@ -10,25 +10,16 @@ the same value space means an ``agent_id`` means exactly one thing everywhere.
 
 from __future__ import annotations
 
-import enum
 from datetime import datetime
 
 from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, TimestampMixin
+from app.domain.enums import BeliefStatus
+
+from app.db.base import Base, TimestampMixin
 
 AGENT_FK = "agents.agent_id"
-
-
-class BeliefStatus(str, enum.Enum):
-    """Lifecycle of an agent-held belief (§2, §9)."""
-
-    PROVISIONAL = "PROVISIONAL"
-    SUPPORTED = "SUPPORTED"
-    CONTESTED = "CONTESTED"
-    REJECTED = "REJECTED"
-    RETIRED = "RETIRED"
 
 
 class Agent(TimestampMixin, Base):

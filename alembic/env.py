@@ -12,10 +12,11 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.db import Base, get_database_url
+from app.core.config import get_database_url
+from app.db.base import Base
 
 # Importing the models package is what registers the tables on Base.metadata.
-import app.models  # noqa: F401  (side-effecting import)
+import app.db.models  # noqa: F401  (side-effecting import)
 
 config = context.config
 

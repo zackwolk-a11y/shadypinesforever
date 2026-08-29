@@ -45,8 +45,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-from app.db import SessionLocal, get_database_url  # noqa: E402
-from app.models import (  # noqa: E402
+from app.core.config import get_database_url  # noqa: E402
+from app.db.session import SessionLocal  # noqa: E402
+from app.db.models import (  # noqa: E402
     Agent,
     AgentBelief,
     AgentInterest,
@@ -54,7 +55,7 @@ from app.models import (  # noqa: E402
     Relationship,
     SimulationClock,
 )
-from app.models.world import CLUBHOUSE_LOCATIONS  # noqa: E402
+from app.db.models.world import CLUBHOUSE_LOCATIONS  # noqa: E402
 
 EXPECTED_AGENT_COUNT = 8
 

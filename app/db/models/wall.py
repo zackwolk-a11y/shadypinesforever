@@ -2,27 +2,15 @@
 
 from __future__ import annotations
 
-import enum
 
 from sqlalchemy import Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, TimestampMixin
-from app.models.agent import AGENT_FK
-from app.models.research import RESEARCH_FK
+from app.domain.enums import WallPostType
 
-
-class WallPostType(str, enum.Enum):
-    """What kind of thing an agent pinned to the wall."""
-
-    FINDING = "FINDING"
-    SOURCE = "SOURCE"
-    QUESTION = "QUESTION"
-    HYPOTHESIS = "HYPOTHESIS"
-    DISAGREEMENT = "DISAGREEMENT"
-    CONNECTION = "CONNECTION"
-    MYSTERY = "MYSTERY"
-    RABBIT_HOLE_SUGGESTION = "RABBIT_HOLE_SUGGESTION"
+from app.db.base import Base, TimestampMixin
+from app.db.models.agents import AGENT_FK
+from app.db.models.research import RESEARCH_FK
 
 
 class ResearchWallPost(TimestampMixin, Base):

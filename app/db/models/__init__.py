@@ -7,25 +7,25 @@ both rely on that, so keep every new model module imported here.
 
 from __future__ import annotations
 
-from app.db import Base
-from app.models.agent import Agent, AgentBelief, AgentInterest, BeliefStatus, Relationship
-from app.models.conversation import (
+from app.db.base import Base
+from app.db.models.agents import Agent, AgentBelief, AgentInterest, BeliefStatus, Relationship
+from app.db.models.conversations import (
     Conversation,
     ConversationMessage,
     ConversationStatus,
     ConversationTrigger,
     Message,
 )
-from app.models.event import Event, EventType
-from app.models.founder import DailyReport, FounderMessage
-from app.models.memory import Memory, MemoryType
-from app.models.rabbit_hole import (
+from app.db.models.events import Event, EventType
+from app.db.models.reports import DailyReport, FounderMessage
+from app.db.models.memory import Memory, MemoryType
+from app.db.models.rabbit_holes import (
     RabbitHole,
     RabbitHoleMember,
     RabbitHoleResearch,
     RabbitHoleStatus,
 )
-from app.models.research import (
+from app.db.models.research import (
     EvidenceStrength,
     FindingClassification,
     ResearchFinding,
@@ -34,8 +34,8 @@ from app.models.research import (
     ResearchSource,
     ResearchStatus,
 )
-from app.models.wall import ResearchWallPost, WallPostType
-from app.models.world import CLUBHOUSE_LOCATIONS, Location, SimulationClock, WorldState
+from app.db.models.wall import ResearchWallPost, WallPostType
+from app.db.models.world import CLUBHOUSE_LOCATIONS, Location, SimulationClock, WorldState
 
 __all__ = [
     "Base",

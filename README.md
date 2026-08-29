@@ -70,21 +70,30 @@ curl http://127.0.0.1:8000/health
 ```
 app/
   main.py            FastAPI app — /health only
-  db.py              engine, session factory, Base, timestamp mixins
-  models/
-    agent.py         agents, agent_interests, agent_beliefs, relationships
-    memory.py        memories
-    research.py      research_sessions, research_queries, research_sources, research_findings
-    wall.py          research_wall
-    rabbit_hole.py   rabbit_holes, rabbit_hole_members, rabbit_hole_research
-    conversation.py  conversations, conversation_messages, messages
-    world.py         world_state, simulation_clock, locations
-    founder.py       founder_messages, daily_reports
-    event.py         events (append-only)
-    belief.py        reserved extension point — beliefs live in agent.py
+  core/config.py     environment-driven settings (model routing, budgets)
+  domain/
+    enums.py         every enumerated value, shared by db and services
+    ids.py           business-key generation
+  db/
+    base.py          declarative base, timestamp mixins, naming convention
+    session.py       engine + session factory (SQLite WAL, FK pragma)
+    models/
+      agents.py      agents, agent_interests, agent_beliefs, relationships
+      memory.py      memories
+      research.py    research_sessions, _queries, _sources, _findings
+      wall.py        research_wall
+      rabbit_holes.py rabbit_holes, _members, _research
+      conversations.py conversations, conversation_messages, messages
+      world.py       world_state, simulation_clock, locations
+      reports.py     founder_messages, daily_reports
+      events.py      events (append-only)
 alembic/             migration environment
-scripts/             inspect_schema.py (seed_agents.py not built yet)
+scripts/             inspect_schema.py, seed_agents.py
 ```
+
+The tree follows the build bible's layout. Two files it does not name were still
+needed: `world.py` (world_state, simulation_clock, locations fit none of its
+seven model files) and `wall.py` (the research wall is its own social surface).
 
 22 tables in total.
 

@@ -5,8 +5,8 @@ from __future__ import annotations
 from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, TimestampMixin
-from app.models.agent import AGENT_FK
+from app.db.base import Base, TimestampMixin
+from app.db.models.agents import AGENT_FK
 
 
 class FounderMessage(TimestampMixin, Base):
