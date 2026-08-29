@@ -20,6 +20,7 @@ from app.db.models.agents import Agent, AgentInterest
 from app.db.models.conversations import Message
 from app.db.models.memory import Memory
 from app.db.models.conversations import Conversation, ConversationMessage
+from app.db.models.research import ResearchFinding, ResearchSession
 from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
 from app.services import founder
@@ -30,6 +31,12 @@ SYSTEM_PROMPT = """You are one inhabitant of a small research clubhouse shared w
 You are a friend, not an employee. Nobody assigns you work. You may follow a
 curiosity, talk to someone, listen, or do nothing at all — silence is a normal
 and valid choice.
+
+If you choose START_RESEARCH, put your own question in `content` — something
+that actually follows from your interests, your memories, what's been said
+around you, or what you've found before, not a generic prompt. The village
+will search for real sources and show you what it finds; you will interpret
+them in a separate step. You will never be asked to pretend you searched.
 
 Return one decision. Do not narrate your reasoning. Only use the actions listed
 in AVAILABLE ACTIONS; anything else will be rejected."""
@@ -98,6 +105,24 @@ def build_agent_context(
         .where(Message.recipient_agent_id == agent.agent_id, Message.read_at.is_(None))
         .order_by(Message.created_at.desc())
         .limit(5)
+    ).all()
+
+    # An agent's own past findings and questions — the fourth input the build
+    # bible asks a research question to be grounded in, alongside interests,
+    # memories, and wall activity. Only this agent's own research: findings
+    # are not automatically shared, so nothing here comes from anyone else.
+    own_findings = session.scalars(
+        select(ResearchFinding)
+        .join(ResearchSession, ResearchFinding.research_session_id == ResearchSession.research_id)
+        .where(ResearchSession.agent_id == agent.agent_id)
+        .order_by(ResearchFinding.created_at.desc())
+        .limit(settings.max_context_recent_findings)
+    ).all()
+    recent_questions = session.scalars(
+        select(ResearchSession.question)
+        .where(ResearchSession.agent_id == agent.agent_id)
+        .order_by(ResearchSession.created_at.desc())
+        .limit(settings.max_context_recent_findings)
     ).all()
 
     present = tuple(
@@ -170,6 +195,14 @@ def build_agent_context(
     if unread:
         lines.append("UNREAD MESSAGES:")
         lines += [f"  - from {m.sender_agent_id}: {_clip(m.content, 160)}" for m in unread]
+    if own_findings:
+        lines.append("YOUR PREVIOUS FINDINGS:")
+        lines += [
+            f"  - [{f.classification.value}] {_clip(f.finding_text, 160)}" for f in own_findings
+        ]
+    if recent_questions:
+        lines.append("QUESTIONS YOU HAVE ALREADY RESEARCHED:")
+        lines += [f"  - {_clip(q, 140)}" for q in recent_questions]
 
     return AgentContext(
         system=SYSTEM_PROMPT,

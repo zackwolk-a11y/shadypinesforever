@@ -3,3 +3,7 @@ fastapi>=0.110
 pydantic>=2.6
 sqlalchemy>=2.0
 uvicorn[standard]>=0.29
+
+# Optional — only needed for live providers, never for the fixture path.
+# anthropic>=0.40      # LLM_PROVIDER=anthropic
+# httpx>=0.27          # RESEARCH_PROVIDER=brave or tavily

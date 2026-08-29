@@ -69,6 +69,14 @@ class FindingClassification(str, enum.Enum):
     CREATIVE_CONTENT = "CREATIVE_CONTENT"
 
 
+class EvidenceRelation(str, enum.Enum):
+    """How one piece of evidence bears on one claim (§6's provenance chain)."""
+
+    SUPPORTS = "SUPPORTS"
+    CONTRADICTS = "CONTRADICTS"
+    CONTEXT = "CONTEXT"
+
+
 class WallPostType(str, enum.Enum):
     """What kind of thing an agent pinned to the research wall."""
 
@@ -148,6 +156,9 @@ class EventType(str, enum.Enum):
     PERIOD_ADVANCED = "PERIOD_ADVANCED"
     DAY_ADVANCED = "DAY_ADVANCED"
     FOUNDER_MESSAGE_DELIVERED = "FOUNDER_MESSAGE_DELIVERED"
+    # Also beyond §18: retrieval failed or returned nothing, and the research
+    # service stopped rather than let a model invent findings from nothing.
+    RESEARCH_UNAVAILABLE = "RESEARCH_UNAVAILABLE"
     AGENT_RESEARCH_STARTED = "AGENT_RESEARCH_STARTED"
     SEARCH_EXECUTED = "SEARCH_EXECUTED"
     SOURCE_DISCOVERED = "SOURCE_DISCOVERED"

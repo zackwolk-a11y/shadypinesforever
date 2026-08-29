@@ -9,7 +9,18 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.domain.enums import EvidenceStrength, FindingClassification, ResearchStatus
@@ -53,6 +64,12 @@ class ResearchSession(Base):
         DateTime(timezone=True), nullable=False, default=utcnow
     )
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Beyond §17: whether this session ran against the fixture research
+    #: provider rather than a live search. A session's sources already say
+    #: ``provider="fixture"``, but this makes the whole session unmistakable
+    #: at a glance — "live research must never be confused with fixture
+    #: research" is a hard requirement, not a nice-to-have.
+    is_fixture: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class ResearchQuery(Base):
@@ -95,7 +112,19 @@ class ResearchSource(Base):
     retrieved_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
     )
+    #: The short relevance snippet the search call itself returned — what the
+    #: village saw *before* deciding whether to fetch this source at all. The
+    #: exact bounded text actually shown to the interpreting model lives on
+    #: ResearchSourcePassage instead, with its own sha256; the two are kept
+    #: separate because they answer different questions ("did this look worth
+    #: reading" vs. "what did the model actually see").
     excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Beyond §17: which search vendor produced this result, and that vendor's
+    #: own id for it, plus the bare domain — needed to detect when several
+    #: sources ultimately trace back to one press release (§6).
+    provider: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True)
+    provider_result_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
 class ResearchFinding(TimestampMixin, Base):

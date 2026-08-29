@@ -69,11 +69,14 @@ curl http://127.0.0.1:8000/health
 
 ```
 app/
-  main.py            FastAPI app — /health only
-  core/config.py     environment-driven settings (model routing, budgets)
+  main.py            FastAPI app
+  core/config.py     environment-driven settings (model + research routing, budgets)
   domain/
     enums.py         every enumerated value, shared by db and services
     ids.py           business-key generation
+  schemas/
+    actions.py       the agent decision envelope (what a model may return)
+    research.py      search results, source documents, research synthesis
   db/
     base.py          declarative base, timestamp mixins, naming convention
     session.py       engine + session factory (SQLite WAL, FK pragma)
@@ -81,21 +84,33 @@ app/
       agents.py      agents, agent_interests, agent_beliefs, relationships
       memory.py      memories
       research.py    research_sessions, _queries, _sources, _findings
+      research_provenance.py  research_source_passages, claims, claim_evidence
       wall.py        research_wall
       rabbit_holes.py rabbit_holes, _members, _research
       conversations.py conversations, conversation_messages, messages
       world.py       world_state, simulation_clock, locations
       reports.py     founder_messages, daily_reports
       events.py      events (append-only)
+      exposure.py    agent_exposures (partial-knowledge enforcement)
+      telemetry.py   llm_runs
+  providers/
+    llm/             base.py (Protocol), fixture.py, anthropic.py
+    research/        base.py (Protocol), fixture.py, brave.py, tavily.py
+  services/
+    scheduler.py, context_builder.py, conversations.py, clock.py,
+    research.py, orchestrator.py, exposure.py, telemetry.py, founder.py, events.py
 alembic/             migration environment
-scripts/             inspect_schema.py, seed_agents.py
+scripts/             inspect_schema.py, inspect_research.py, seed_agents.py,
+                     run_event.py, run_day.py
 ```
 
-The tree follows the build bible's layout. Two files it does not name were still
+The tree follows the build bible's layout. Files it does not name were still
 needed: `world.py` (world_state, simulation_clock, locations fit none of its
-seven model files) and `wall.py` (the research wall is its own social surface).
+seven model files), `wall.py` (the research wall is its own social surface),
+`exposure.py` and `telemetry.py` (§17's own tables, `agent_exposures` and
+`llm_runs`, doubling as their service modules).
 
-22 tables in total.
+27 tables in total.
 
 ## Running the loop
 
@@ -152,6 +167,58 @@ behaviour the experiment is trying to avoid. Turn-taking is mechanical
 says is theirs. Silence is a legal move, and two consecutive silences wind a
 conversation down. A conversation also ends at the turn cap
 (`MAX_CONVERSATION_TURNS`) or when everyone has left.
+
+### Research
+
+An agent's own `START_RESEARCH` action names a question — its own, grounded in
+its interests, memories, recent conversation, wall activity, and its own past
+findings (all shown in context; nothing is assigned). What happens next is a
+pipeline, not a single state change:
+
+```
+validate today's research budget
+  -> research_provider.search()        real, independent retrieval
+  -> persist the query + every source's metadata
+  -> research_provider.fetch_source()  bounded, exact text, for a few sources
+  -> persist each passage, with its sha256
+  -> llm_provider.complete(ResearchSynthesis)   interprets ONLY the persisted passages
+  -> persist findings, atomic claims, and claim -> passage evidence links
+```
+
+If search fails, returns nothing, or every fetch fails, the pipeline stops
+before the LLM is ever called — the session is marked `RESEARCH_UNAVAILABLE`
+and no interpretation is produced. **A model is never asked to pretend it
+searched.** Whatever sources' metadata was already retrieved (even if every
+fetch then failed) stays on the record; only the interpretation step is
+skipped.
+
+```bash
+.venv/bin/python scripts/inspect_research.py               # every session's full chain
+.venv/bin/python scripts/inspect_research.py --agent agent_dex
+.venv/bin/python scripts/inspect_research.py --failed-only  # RESEARCH_UNAVAILABLE only
+```
+
+Two provider hierarchies, entirely independent of each other:
+
+- `LLM_PROVIDER` (`fixture` | `anthropic`) picks who interprets evidence.
+- `RESEARCH_PROVIDER` (`fixture` | `brave` | `tavily`) picks who retrieves it.
+
+Running Claude as the agent brain against Tavily's index, or swapping either
+side out later (OpenAI, Gemini, Perplexity, a different search vendor), is a
+one-file adapter behind the existing `LLMProvider` / `ResearchProvider`
+Protocols — nothing in `app/services` imports a vendor name. `brave.py` and
+`tavily.py` are written against each API's publicly documented shape but are
+**unverified**: no key or live network access was available while building
+them. Treat the first live call as a smoke test, same as the Anthropic LLM
+adapter.
+
+Research budgets default to the build bible's numbers
+(`MAX_RESEARCH_SESSIONS_PER_AGENT_PER_DAY=2`, `MAX_SOURCES_PER_QUERY=5`,
+`MAX_EVIDENCE_TOKENS_PER_RESEARCH_SESSION=6000`). `MAX_SEARCH_QUERIES_PER_SESSION`
+and `MAX_FOLLOW_UP_DEPTH` are declared but not yet enforced — Packet 5 runs one
+query per session and stores follow-up questions without auto-chaining into a
+new session; an agent choosing one of its own follow-ups next time it acts is
+that agent's decision, not mechanical chaining.
 
 ## Design notes
 
@@ -229,6 +296,39 @@ leaves rows alone. `--update` refreshes the authored fields (identity, voice)
 only. `--reset` deletes seeded rows for a throwaway database and will fail
 loudly — by foreign key, not silently — if real research or memories still
 reference an agent.
+
+**Provenance is a chain, not a URL-plus-summary.** A claim points at a
+passage (the exact bounded text a model was shown, with a sha256 of it); the
+passage points at a source and the query that produced it. That is what makes
+it possible to tell "the source says this" apart from "the agent thinks the
+source implies this" after the fact — the distinction the build bible calls
+the single most important provenance improvement over the bare §17 schema.
+
+**Every finding decomposes into independently-classified atomic claims.** A
+finding can be `RESEARCH_FINDING` while bundling a `SOURCE_CLAIM` alongside
+the `AGENT_INFERENCE` drawn from it; collapsing that to one classification per
+finding would erase exactly the distinction §2 exists to preserve. Claims
+reuse the same nine-value classification as findings — it is one reality
+classification, applied at two granularities, never two vocabularies.
+
+**`research_sources.excerpt` and `research_source_passages.excerpt_text` answer
+different questions.** The first is the short relevance snippet the search
+call itself returned — what the Village saw *before* deciding whether a
+source was worth reading. The second is the exact bounded text actually shown
+to the interpreting model, with its own sha256. Neither is derived from the
+other.
+
+**The LLM provider interface is generic over the output schema, not one
+method per purpose.** `complete(..., output_type=AgentDecision)` and
+`complete(..., output_type=ResearchSynthesis)` are the same call through the
+same adapter; a later packet's report generator needs a new Pydantic model,
+not a new provider method every adapter must grow.
+
+**Research is private until shared.** A completed session's findings and
+claims are exposed only to the agent who ran it (`CREATED` exposure), exactly
+like everything else partial knowledge governs. Nothing here posts to the
+research wall or notifies anyone else — that mechanism belongs to a later
+packet.
 
 **Extension points left open, not built.** `locations` is semantic rather than
 spatial but nothing forbids adding coordinates or a building reference later;

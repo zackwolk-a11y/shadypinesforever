@@ -32,6 +32,10 @@ class ActionType(str, enum.Enum):
     START_CONVERSATION = "START_CONVERSATION"
     SPEAK = "SPEAK"
     LEAVE_CONVERSATION = "LEAVE_CONVERSATION"
+    #: Packet 5. ``content`` carries the research question — the agent's own,
+    #: drawn from its interests, memories, conversations and what it has seen
+    #: on the wall, never assigned.
+    START_RESEARCH = "START_RESEARCH"
 
 
 #: Actions that address another agent. ASK_QUESTION always needs a recipient;
@@ -45,6 +49,7 @@ CONTENT_ACTIONS = {
     ActionType.SEND_MESSAGE,
     ActionType.START_CONVERSATION,
     ActionType.SPEAK,
+    ActionType.START_RESEARCH,
 }
 
 #: Actions that only make sense inside an open conversation.

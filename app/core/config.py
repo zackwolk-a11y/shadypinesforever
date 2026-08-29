@@ -62,10 +62,29 @@ class Settings:
     max_context_wall_headlines: int
     max_daily_agent_activations: int
 
+    # Research provider routing. Separate from LLM routing on purpose — the
+    # Village should be able to run any model against any search vendor.
+    research_provider: str
+    brave_search_api_key: str | None
+    tavily_api_key: str | None
+
+    # Research budgets (§ "add soft global research throttling").
+    max_research_sessions_per_agent_per_day: int
+    max_search_queries_per_session: int
+    max_sources_per_query: int
+    max_follow_up_depth: int
+    target_research_sessions_per_village_day: int
+    max_evidence_tokens_per_research_session: int
+
     @property
     def uses_fixture_llm(self) -> bool:
         """True when decisions come from the fixture provider, not a live model."""
         return self.llm_provider == "fixture"
+
+    @property
+    def uses_fixture_research(self) -> bool:
+        """True when research comes from the fixture provider, not a live search."""
+        return self.research_provider == "fixture"
 
 
 def get_settings() -> Settings:
@@ -85,6 +104,21 @@ def get_settings() -> Settings:
         max_context_recent_findings=_env_int("MAX_CONTEXT_RECENT_FINDINGS", 5),
         max_context_wall_headlines=_env_int("MAX_CONTEXT_WALL_HEADLINES", 5),
         max_daily_agent_activations=_env_int("MAX_DAILY_AGENT_ACTIVATIONS", 6),
+        research_provider=_env("RESEARCH_PROVIDER", "fixture").strip().lower(),
+        brave_search_api_key=os.getenv("BRAVE_SEARCH_API_KEY") or None,
+        tavily_api_key=os.getenv("TAVILY_API_KEY") or None,
+        max_research_sessions_per_agent_per_day=_env_int(
+            "MAX_RESEARCH_SESSIONS_PER_AGENT_PER_DAY", 2
+        ),
+        max_search_queries_per_session=_env_int("MAX_SEARCH_QUERIES_PER_SESSION", 3),
+        max_sources_per_query=_env_int("MAX_SOURCES_PER_QUERY", 5),
+        max_follow_up_depth=_env_int("MAX_FOLLOW_UP_DEPTH", 2),
+        target_research_sessions_per_village_day=_env_int(
+            "TARGET_RESEARCH_SESSIONS_PER_VILLAGE_DAY", 4
+        ),
+        max_evidence_tokens_per_research_session=_env_int(
+            "MAX_EVIDENCE_TOKENS_PER_RESEARCH_SESSION", 6000
+        ),
     )
 
 

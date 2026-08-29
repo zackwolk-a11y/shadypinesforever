@@ -6,13 +6,18 @@ The order is fixed and the whitelist is enforced at every step:
       -> context builder renders a bounded prompt
       -> provider returns a structured decision
       -> schema validation (Pydantic)
-      -> semantic validation (does this reference things that exist?)
+      -> semantic validation (does this reference things that exist, and is it
+         within budget?)
       -> whitelisted executor performs the state changes
       -> event log + telemetry, in the same transaction
 
 A decision that fails validation gets at most one correction attempt. After
 that the run is logged as INVALID_AGENT_DECISION and the agent does nothing —
 no retry spiral, and no silently executing a decision nobody validated.
+
+START_RESEARCH is executed like any other action, but what it does is a whole
+pipeline (real search, real fetch, then interpretation) rather than a single
+state change — see :mod:`app.services.research`.
 """
 
 from __future__ import annotations
@@ -22,13 +27,11 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import MODEL_PRICES_USD_PER_MTOK, Settings, get_settings
-from app.db.models.agents import Agent
-from app.db.models.conversations import Message
-from app.db.models.memory import Memory
-from app.db.models.telemetry import LLMRun
+from app.core.config import Settings, get_settings
 from app.db.base import utcnow
-from app.db.models.conversations import Conversation
+from app.db.models.agents import Agent
+from app.db.models.conversations import Conversation, Message
+from app.db.models.memory import Memory
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
 from app.domain.enums import (
     ConversationStatus,
@@ -40,6 +43,7 @@ from app.domain.enums import (
 from app.domain.ids import new_correlation_id
 from app.providers.llm import LLMError, LLMProvider, get_llm_provider
 from app.providers.llm.base import LLMResult
+from app.providers.research import ResearchProviderError, get_research_provider
 from app.schemas.actions import (
     CONTENT_ACTIONS,
     IN_CONVERSATION_ACTIONS,
@@ -48,14 +52,15 @@ from app.schemas.actions import (
 )
 from app.services import clock as clock_service
 from app.services import conversations as convo
-from app.services import founder, scheduler
+from app.services import founder, research, scheduler
 from app.services.context_builder import build_agent_context
 from app.services.events import record_event
 from app.services.exposure import expose
+from app.services.telemetry import record_llm_run
 
 PROMPT_VERSION = "agent_decision.v1"
 
-#: The only actions Packet 3 will execute. Anything else is rejected.
+#: Every action currently implemented. Anything else is rejected.
 ALLOWED_ACTIONS: tuple[ActionType, ...] = tuple(ActionType)
 
 
@@ -79,27 +84,11 @@ class EventOutcome:
     correlation_id: str | None = None
     is_fixture: bool = True
     note: str | None = None
+    research: research.ResearchOutcome | None = None
 
     @property
     def acted(self) -> bool:
         return self.decision is not None and self.rejected_reason is None
-
-
-def estimate_cost_usd(model: str, usage) -> float:
-    """Rough spend for one call, from the operator-maintained price table.
-
-    Fixture runs cost nothing and are reported as zero — never as what the same
-    tokens would have cost live, which would make a fixture day look like a
-    priced one. An unrecognised live model also returns zero; check the model
-    against MODEL_PRICES_USD_PER_MTOK before reading a cost report as complete.
-    """
-    if model.startswith("fixture:"):
-        return 0.0
-    prices = MODEL_PRICES_USD_PER_MTOK.get(model)
-    if not prices:
-        return 0.0
-    inp, out = prices
-    return (usage.input_tokens * inp + usage.output_tokens * out) / 1_000_000
 
 
 def validate_decision(
@@ -108,17 +97,23 @@ def validate_decision(
     agent: Agent,
     present_agent_ids: tuple[str, ...],
     in_conversation: bool = False,
+    session: Session | None = None,
+    clock: SimulationClock | None = None,
+    settings: Settings | None = None,
 ) -> None:
     """Semantic validation, after the schema has already been satisfied.
 
     Schema validation proves the shape; this proves the decision refers to a
-    world that exists.
+    world that exists and stays within budget. The research budget check only
+    runs when ``session``/``clock``/``settings`` are supplied — callers that
+    only exercise non-research actions may omit them.
     """
     if decision.location is not None and decision.location not in CLUBHOUSE_LOCATIONS:
         raise DecisionRejected(
             f"location {decision.location!r} is not a clubhouse location"
         )
 
+    research_actions = 0
     for action in decision.actions:
         if action.type not in ALLOWED_ACTIONS:
             raise DecisionRejected(f"action {action.type} is not available in this packet")
@@ -136,6 +131,17 @@ def validate_decision(
 
         if action.type is ActionType.ASK_QUESTION and not action.target_agent_id:
             raise DecisionRejected("ASK_QUESTION requires a target_agent_id")
+
+        if action.type is ActionType.START_RESEARCH:
+            research_actions += 1
+            if research_actions > 1:
+                raise DecisionRejected("at most one START_RESEARCH action per decision")
+            if in_conversation:
+                raise DecisionRejected("cannot START_RESEARCH while in a conversation")
+            if session is not None and clock is not None and settings is not None:
+                reason = research.check_research_budget(session, agent, clock, settings)
+                if reason:
+                    raise DecisionRejected(reason)
 
         if action.target_agent_id is not None:
             if action.target_agent_id == agent.agent_id:
@@ -156,15 +162,18 @@ def execute_decision(
     decision: AgentDecision,
     clock: SimulationClock,
     correlation_id: str,
-    conversation: Conversation | None = None,
-) -> tuple[list[str], bool]:
+    conversation: Conversation | None,
+    settings: Settings,
+    llm_provider: LLMProvider,
+) -> tuple[list[str], bool, research.ResearchOutcome | None]:
     """Perform the state changes a validated decision calls for.
 
-    Returns what was performed and whether the agent spoke, which is what the
-    conversation engine needs to know to decide if the room has gone quiet.
+    Returns what was performed, whether the agent spoke (for the conversation
+    engine), and the research outcome if a START_RESEARCH action ran.
     """
     performed: list[str] = []
     spoke = False
+    research_outcome: research.ResearchOutcome | None = None
 
     agent.current_activity = decision.activity
     if decision.location:
@@ -210,6 +219,29 @@ def execute_decision(
                 correlation_id=correlation_id,
             )
             spoke = True
+        elif action.type is ActionType.START_RESEARCH:
+            try:
+                research_provider = get_research_provider(settings)
+            except ResearchProviderError as exc:
+                research_outcome = research.record_unavailable_session(
+                    session,
+                    agent,
+                    action.content or "",
+                    clock,
+                    correlation_id,
+                    f"research provider unavailable: {exc}",
+                )
+            else:
+                research_outcome = research.start_research(
+                    session,
+                    agent,
+                    action.content or "",
+                    clock,
+                    correlation_id,
+                    settings,
+                    llm_provider,
+                    research_provider,
+                )
         elif action.type in (ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE):
             message = Message(
                 sender_agent_id=agent.agent_id,
@@ -233,7 +265,7 @@ def execute_decision(
     if not decision.actions:
         agent.interaction_target = None
 
-    return performed, spoke
+    return performed, spoke, research_outcome
 
 
 def run_next_event(
@@ -275,6 +307,7 @@ def run_next_event(
         )
         conversation.correlation_id = gathering_correlation
 
+    candidate = None
     if conversation is not None:
         speaker_id = convo.next_speaker(session, conversation)
         if speaker_id is None:
@@ -282,7 +315,6 @@ def run_next_event(
                         correlation_id=conversation.correlation_id)
             conversation = None
         else:
-            candidate = None
             agent = session.scalars(
                 select(Agent).where(Agent.agent_id == speaker_id)
             ).one()
@@ -362,13 +394,14 @@ def run_next_event(
     rejection: str | None = None
     for attempt in range(2):
         try:
-            result = provider.decide(
+            result = provider.complete(
                 system=context.system,
                 user=context.user
                 if attempt == 0
                 else f"{context.user}\n\nYOUR PREVIOUS DECISION WAS REJECTED: {rejection}\nReturn a valid decision.",
                 model=settings.agent_model,
                 purpose="agent_decision",
+                output_type=AgentDecision,
             )
         except LLMError as exc:
             outcome.rejected_reason = f"provider error: {exc}"
@@ -376,20 +409,30 @@ def run_next_event(
 
         try:
             validate_decision(
-                result.decision,
+                result.output,
                 agent=agent,
                 present_agent_ids=context.present_agent_ids,
                 in_conversation=conversation is not None,
+                session=session,
+                clock=clock,
+                settings=settings,
             )
         except DecisionRejected as exc:
             rejection = str(exc)
-            _record_run(session, result, agent.agent_id, outcome)
+            record_llm_run(
+                session, result, purpose="agent_decision", agent_id=agent.agent_id,
+                prompt_version=PROMPT_VERSION,
+            )
             if attempt == 1:
                 outcome.rejected_reason = rejection
             continue
 
-        _record_run(session, result, agent.agent_id, outcome)
-        outcome.decision = result.decision
+        run = record_llm_run(
+            session, result, purpose="agent_decision", agent_id=agent.agent_id,
+            prompt_version=PROMPT_VERSION,
+        )
+        outcome.llm_run_id = run.id
+        outcome.decision = result.output
         break
 
     if outcome.decision is None:
@@ -410,8 +453,9 @@ def run_next_event(
             _after_turn(session, conversation, clock, settings, spoke=False)
         return outcome
 
-    outcome.executed, outcome.spoke = execute_decision(
-        session, agent, outcome.decision, clock, correlation_id, conversation
+    outcome.executed, outcome.spoke, outcome.research = execute_decision(
+        session, agent, outcome.decision, clock, correlation_id, conversation,
+        settings, provider,
     )
     acted = record_event(
         session,
@@ -424,6 +468,7 @@ def run_next_event(
             "actions": outcome.executed,
             "public_dialogue": outcome.decision.public_dialogue,
             "is_fixture": provider.is_fixture,
+            "research_id": outcome.research.research_id if outcome.research else None,
         },
         correlation_id=correlation_id,
         causation_id=woke.id,
@@ -477,27 +522,3 @@ def _after_turn(
             session, conversation, clock, reason,
             correlation_id=conversation.correlation_id,
         )
-
-
-def _record_run(
-    session: Session, result: LLMResult, agent_id: str, outcome: EventOutcome
-) -> None:
-    """Persist one model call's telemetry."""
-    run = LLMRun(
-        purpose="agent_decision",
-        agent_id=agent_id,
-        provider=result.provider,
-        model=result.model,
-        is_fixture=result.is_fixture,
-        prompt_version=PROMPT_VERSION,
-        input_tokens=result.usage.input_tokens,
-        output_tokens=result.usage.output_tokens,
-        cache_creation_input_tokens=result.usage.cache_creation_input_tokens,
-        cache_read_input_tokens=result.usage.cache_read_input_tokens,
-        estimated_cost_usd=estimate_cost_usd(result.model, result.usage),
-        latency_ms=result.latency_ms,
-        stop_reason=result.usage.stop_reason,
-    )
-    session.add(run)
-    session.flush()
-    outcome.llm_run_id = run.id

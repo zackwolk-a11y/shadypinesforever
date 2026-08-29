@@ -36,6 +36,7 @@ from app.db.models.research import (
     ResearchSource,
     ResearchStatus,
 )
+from app.db.models.research_provenance import Claim, ClaimEvidence, ResearchSourcePassage
 from app.db.models.wall import ResearchWallPost, WallPostType
 from app.db.models.world import CLUBHOUSE_LOCATIONS, Location, SimulationClock, WorldState
 
@@ -58,6 +59,10 @@ __all__ = [
     "ResearchSession",
     "ResearchSource",
     "ResearchStatus",
+    # research provenance
+    "Claim",
+    "ClaimEvidence",
+    "ResearchSourcePassage",
     # wall
     "ResearchWallPost",
     "WallPostType",
