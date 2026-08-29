@@ -30,6 +30,26 @@ Eyeball the result against §17:
 .venv/bin/python scripts/inspect_schema.py --from-models # read ORM metadata only
 ```
 
+## Seeding
+
+`scripts/seed_agents.py` seeds the Founding Eight (§3), the eleven clubhouse
+locations (§5) and the simulation clock. It is idempotent — re-running only adds
+what is missing, and never overwrites runtime state such as an agent's
+`current_location` or an interest's drifted `strength`.
+
+```bash
+.venv/bin/python scripts/seed_agents.py            # seed anything missing
+.venv/bin/python scripts/seed_agents.py --dry-run  # report, then roll back
+.venv/bin/python scripts/seed_agents.py --update   # refresh identity/voice
+.venv/bin/python scripts/seed_agents.py --reset    # wipe seeded rows first
+```
+
+**The roster is not transcribed yet.** `FOUNDING_EIGHT` in that file is an empty
+tuple. The roster is validated before anything is written, so until §3 is filled
+in the script writes nothing at all — not even locations — and exits 1 with an
+explanatory message. `--allow-partial` relaxes only the "exactly eight" check,
+not the empty-roster check.
+
 ## Running
 
 ```bash
@@ -91,9 +111,19 @@ this by convention (see the module docstring); no ORM-level immutability or
 database triggers yet.
 
 **Seed data is not in migrations.** The Founding Eight (§3) and the §5 location
-list belong in `scripts/seed_agents.py`, which is intentionally not built yet.
-Migrations describe schema; seeding a roster from a migration would make it
-un-editable without a new revision.
+list are seeded by `scripts/seed_agents.py`. Migrations describe schema; seeding
+a roster from a migration would make it un-editable without a new revision.
+
+**Seeding writes no events.** `events` records what happens *in* the simulation;
+world setup happens before the simulation starts.
+
+**Re-seeding never clobbers runtime state.** `Agent.current_location`,
+`current_activity`, `interaction_target` and `AgentInterest.strength` all drift
+as the simulation runs, so the seeder inserts what is missing and otherwise
+leaves rows alone. `--update` refreshes the authored fields (identity, voice)
+only. `--reset` deletes seeded rows for a throwaway database and will fail
+loudly — by foreign key, not silently — if real research or memories still
+reference an agent.
 
 **Extension points left open, not built.** `locations` is semantic rather than
 spatial but nothing forbids adding coordinates or a building reference later;
