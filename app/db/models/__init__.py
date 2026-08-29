@@ -25,6 +25,7 @@ from app.db.models.rabbit_holes import (
     RabbitHoleResearch,
     RabbitHoleStatus,
 )
+from app.db.models.telemetry import LLMRun
 from app.db.models.research import (
     EvidenceStrength,
     FindingClassification,
@@ -81,4 +82,6 @@ __all__ = [
     # events
     "Event",
     "EventType",
+    # telemetry
+    "LLMRun",
 ]

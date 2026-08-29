@@ -15,6 +15,15 @@ from dataclasses import dataclass
 
 DEFAULT_DATABASE_URL = "sqlite:///./village.db"
 
+#: (input, output) US dollars per million tokens, for local budgeting only.
+#: Operator-maintained — verify against current published pricing before
+#: trusting a cost report. Unknown models estimate as zero rather than guessing.
+MODEL_PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-haiku-4-5": (1.00, 5.00),
+    "claude-sonnet-5": (2.00, 10.00),
+    "claude-opus-5": (5.00, 25.00),
+}
+
 
 def _env(name: str, default: str) -> str:
     return os.getenv(name, default)
@@ -66,7 +75,7 @@ def get_settings() -> Settings:
         database_url=_env("DATABASE_URL", DEFAULT_DATABASE_URL),
         llm_provider=_env("LLM_PROVIDER", "fixture").strip().lower(),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY") or None,
-        agent_model=_env("VILLAGE_AGENT_MODEL", "claude-haiku-4-5-20251001"),
+        agent_model=_env("VILLAGE_AGENT_MODEL", "claude-haiku-4-5"),
         research_model=_env("VILLAGE_RESEARCH_MODEL", "claude-sonnet-5"),
         report_model=_env("VILLAGE_REPORT_MODEL", "claude-sonnet-5"),
         research_effort=_env("VILLAGE_RESEARCH_EFFORT", "low"),

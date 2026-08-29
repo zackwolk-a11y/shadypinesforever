@@ -117,6 +117,10 @@ class EventType(str, enum.Enum):
     """Every kind of thing the village records (§18)."""
 
     AGENT_WOKE = "AGENT_WOKE"
+    # Beyond the build bible's §18 list: the action loop needs to record that a
+    # decision was executed, and that one was rejected.
+    AGENT_ACTED = "AGENT_ACTED"
+    INVALID_AGENT_DECISION = "INVALID_AGENT_DECISION"
     AGENT_RESEARCH_STARTED = "AGENT_RESEARCH_STARTED"
     SEARCH_EXECUTED = "SEARCH_EXECUTED"
     SOURCE_DISCOVERED = "SOURCE_DISCOVERED"

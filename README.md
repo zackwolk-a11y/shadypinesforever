@@ -97,6 +97,35 @@ seven model files) and `wall.py` (the research wall is its own social surface).
 
 22 tables in total.
 
+## Running the loop
+
+`RUN NEXT EVENT` activates one agent, has it decide, validates the decision and
+executes it. It runs against the **fixture provider** by default — no API key,
+no network, no spend — so the loop can be exercised end to end today:
+
+```bash
+.venv/bin/python scripts/run_event.py            # one event
+.venv/bin/python scripts/run_event.py -n 20      # twenty
+.venv/bin/python scripts/run_event.py --scores   # show the activation scoreboard
+```
+
+Or over HTTP:
+
+```bash
+.venv/bin/uvicorn app.main:app --reload
+curl -X POST http://127.0.0.1:8000/simulation/next-event
+```
+
+Fixture decisions are prefixed `[fixture]` and every `llm_runs` row they write
+is flagged `is_fixture`, so a fixture day can never be read as a live one. To go
+live, set `LLM_PROVIDER=anthropic` with credentials in the environment. That path
+is written but has not been run here — no key was available — so treat the first
+live call as a smoke test.
+
+A run stops with "no agent is eligible" once the period is spent. That is the
+correct end state for now: advancing the period or day is the day engine, a
+later packet.
+
 ## Design notes
 
 **Foreign keys reference stable business keys.** `agent_id` columns point at
@@ -130,6 +159,25 @@ database triggers yet.
 **Seed data is not in migrations.** The Founding Eight (§3) and the §5 location
 list are seeded by `scripts/seed_agents.py`. Migrations describe schema; seeding
 a roster from a migration would make it un-editable without a new revision.
+
+**The scheduler offers opportunities, it does not decide content.** Activation
+scoring is mechanism — unread mail, the period's baseline, a seeded curiosity
+jitter, minus a penalty for having just acted. What an activated agent then does
+is the agent's own. One event activates one agent, not all eight.
+
+**A decision gets one correction attempt, then the agent does nothing.** Schema
+validation proves the shape; semantic validation proves the decision refers to a
+world that exists (a real location, a real recipient, not itself). A decision
+that fails twice is logged as `INVALID_AGENT_DECISION` and changes no state —
+no retry spiral, and nothing unvalidated is ever executed.
+
+**Showing a message to an agent marks it delivered.** Otherwise an unread
+message keeps boosting that agent's activation score forever and one inbox
+monopolises the Village.
+
+**Fixture runs are costed at zero**, never at what the same tokens would have
+cost live. An unrecognised live model also costs zero, so check
+`MODEL_PRICES_USD_PER_MTOK` before reading a cost report as complete.
 
 **Seeding writes no events.** `events` records what happens *in* the simulation;
 world setup happens before the simulation starts.
