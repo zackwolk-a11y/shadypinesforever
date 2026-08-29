@@ -52,11 +52,11 @@ all. Sol, Dex and Lucid have no dedicated §5 station and start at the
 column, `identity` carries the emoji and character name alongside the role so
 nothing from the roster is lost.
 
-**Voice lines are still blank.** The roster supplies roles and interests but not
-how each agent talks, and `agents.voice` is NOT NULL. The roster is validated
-before anything is written, so until the eight `voice=` lines are filled in the
-script writes nothing at all — not even locations — and exits 1 naming the
-agents still missing one.
+Voice lines are the canonical Phase 1 voice definitions, seeded verbatim into
+`agents.voice` (NOT NULL, unchanged from §17). The roster is validated before
+anything is written, so a missing voice, a wrong agent count, a duplicate
+`agent_id` or a starting location outside §5 all fail up front rather than
+part-way through the insert.
 
 ## Running
 
