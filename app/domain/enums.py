@@ -188,6 +188,21 @@ class ConversationStatus(str, enum.Enum):
     ENDED = "ENDED"
 
 
+class ReflectionStatus(str, enum.Enum):
+    """Lifecycle of an agent's higher-level reflection (§15, Packet 9).
+
+    Deliberately smaller than :class:`BeliefStatus`: a reflection is "a
+    pattern I think I am noticing", not a proposition to be
+    supported/contested/rejected the way a belief is. ACTIVE is every
+    reflection's starting and ordinary state; SUPERSEDED is set mechanically,
+    only on the specific prior reflection a later one names via
+    ``supersedes_reflection_id`` — never inferred by topic similarity.
+    """
+
+    ACTIVE = "ACTIVE"
+    SUPERSEDED = "SUPERSEDED"
+
+
 class ExposureType(str, enum.Enum):
     """How an agent came to know about something.
 
@@ -265,3 +280,7 @@ class EventType(str, enum.Enum):
     # participant_ids with no event at all.
     CONVERSATION_JOINED = "CONVERSATION_JOINED"
     CONVERSATION_LEFT = "CONVERSATION_LEFT"
+    # Packet 9: the reflection engine and the daily Founder report. Recall is
+    # only logged for a genuine gap, the same discipline as MEMORY_RECALLED.
+    REFLECTION_CREATED = "REFLECTION_CREATED"
+    REFLECTION_RECALLED = "REFLECTION_RECALLED"

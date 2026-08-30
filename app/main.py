@@ -16,6 +16,7 @@ from app.db.models.world import SimulationClock
 from app.db.session import get_session
 from app.providers.llm import get_llm_provider
 from app.services import clock as clock_service
+from app.services import daily_synthesis
 from app.services.orchestrator import run_next_event
 
 app = FastAPI(
@@ -60,6 +61,11 @@ def advance_period(session: Session = Depends(get_session)) -> dict:
     if clock is None:
         return {"advanced": False, "note": "No simulation clock. Seed the village first."}
     advance = clock_service.advance(session, clock)
+    if advance.crossed_day_boundary:
+        settings = get_settings()
+        daily_synthesis.generate_report(
+            session, advance.from_day, clock, settings, get_llm_provider(settings),
+        )
     session.commit()
     return {
         "advanced": True,

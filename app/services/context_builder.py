@@ -33,7 +33,7 @@ from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
 from app.domain import characters
 from app.domain.enums import EventType, InterestOrigin, MemoryType, RabbitHoleStatus
-from app.services import dialogue, founder, memory, wall
+from app.services import dialogue, founder, memory, reflection, wall
 from app.services.exposure import exposed_entity_ids
 
 SYSTEM_PROMPT = """You are one inhabitant of a small research clubhouse shared with seven friends.
@@ -269,6 +269,15 @@ def build_agent_context(
         only_types={MemoryType.PROJECT}, related_rabbit_hole_ids=tuple(member_hole_ids),
         require_related_rabbit_hole=True,
     )
+    # Packet 9: an agent's own reflections — the read side of the reflection
+    # engine (app/services/reflection.py). Shown with real bracket ids, the
+    # same convention as every other id-bearing section here, so a later
+    # action (research, a wall post, a rabbit hole) can genuinely be
+    # influenced by a pattern this agent noticed earlier, not just re-told it.
+    relevant_reflections = reflection.retrieve_relevant(
+        session, agent.agent_id, clock=clock, limit=settings.max_context_reflections,
+        keywords=topic_keywords,
+    )
 
     emerging_interests = session.scalars(
         select(AgentInterest)
@@ -381,6 +390,13 @@ def build_agent_context(
     if rabbit_hole_memories:
         lines.append("RECENT RABBIT-HOLE EXPERIENCE:")
         lines += [f"  - {_clip(m.content, 220)}" for m in rabbit_hole_memories]
+    if relevant_reflections:
+        lines.append("RECENT REFLECTIONS (your own patterns, noticed across several things):")
+        lines += [
+            f"  [{r.id}] {r.topic}: {_clip(r.summary, 200)}"
+            + (f" (open question: {_clip(r.open_question, 100)})" if r.open_question else "")
+            for r in relevant_reflections
+        ]
     if emerging_interests:
         lines.append("EMERGING INTERESTS (developed since you started, not your founding ones):")
         lines += [

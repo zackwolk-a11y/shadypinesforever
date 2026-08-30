@@ -38,6 +38,14 @@ class Agent(TimestampMixin, Base):
     current_location: Mapped[str | None] = mapped_column(String(64), nullable=True)
     current_activity: Mapped[str | None] = mapped_column(Text, nullable=True)
     interaction_target: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: Packet 9's reflection trigger, mirroring the "mechanical, testable"
+    #: significance accumulator app/services/reflection.py implements: every
+    #: memory-worthy event nudges this up by a documented amount; crossing
+    #: Settings.reflection_significance_threshold fires a reflection and
+    #: resets it (keeping the remainder, never dropping it to exactly zero —
+    #: see the module docstring there). Never asked of a model.
+    reflection_pressure: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    last_reflection_sim_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class AgentInterest(TimestampMixin, Base):

@@ -53,6 +53,8 @@ from app.domain.moves import (
 )
 from app.providers.llm.base import LLMResult, LLMSchemaError, LLMUsage
 from app.schemas.actions import ActionType, AgentAction, AgentDecision, Reflection
+from app.schemas.reflection import ReflectionSynthesis
+from app.schemas.report import FounderReportSynthesis
 from app.schemas.research import (
     ResearchSynthesis,
     SynthesizedClaim,
@@ -342,6 +344,13 @@ class _Context:
         self.nearby_subject, self.nearby_participants = _extract_nearby_conversation(user)
         self.profile = CHARACTER_PROFILES.get(self.agent_id, _DEFAULT_PROFILE)
 
+        # Packet 9: this agent's own reflections, shown in its context — the
+        # concrete mechanism by which a reflection can go on to shape a later
+        # decision (see the topic-selection bias in _generate_decision below).
+        self.reflections = _extract_labeled_items(
+            user, "RECENT REFLECTIONS (your own patterns, noticed across several things):"
+        )
+
 
 def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
     ctx = _Context(user)
@@ -361,6 +370,16 @@ def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
     chosen = rng.choices(population, weights=weights, k=1)[0]
 
     topic = rng.choice(ctx.interests) if ctx.interests else "the room"
+    # Packet 9: sometimes let an earlier reflection actually steer what this
+    # turn is about — the observable "a reflection later influenced a later
+    # action" chain a live model would also be free to draw on, since
+    # RECENT REFLECTIONS is rendered in context exactly like any other
+    # relevant-experience section.
+    if ctx.reflections and rng.random() < 0.4:
+        _, reflection_text = rng.choice(ctx.reflections)
+        reflection_kw = sorted(_words(reflection_text))
+        if reflection_kw:
+            topic = reflection_kw[0]
     target = rng.choice(ctx.peers) if ctx.peers else None
     if chosen in _DIRECTED and target is None:
         chosen = ActionType.OBSERVE
@@ -720,9 +739,133 @@ def _generate_research_synthesis(rng: random.Random, user: str) -> ResearchSynth
     )
 
 
+def _generate_reflection_synthesis(rng: random.Random, user: str) -> ReflectionSynthesis:
+    """Ground one reflection in 1-2 real, distinct kinds of the agent's own
+    prior experience — never inventing an id, and never a bare restatement
+    of a single item (the fixture mirrors the "pattern across two or more
+    things" instruction the same way a live model is asked to follow it).
+    """
+    pools = {
+        "memory": _extract_labeled_items(user, "RECENT MEMORIES:"),
+        "research": _extract_labeled_items(user, "RECENT RESEARCH:"),
+        "belief": _extract_labeled_items(user, "YOUR BELIEFS:"),
+        "conversation": _extract_labeled_items(user, "RECENT CONVERSATIONS:"),
+        "rabbit_hole": _extract_labeled_items(user, "RABBIT HOLES YOU ARE PART OF:"),
+        "wall_post": _extract_labeled_items(user, "YOUR OWN WALL ACTIVITY:"),
+        "reflection": _extract_labeled_items(user, "YOUR EARLIER REFLECTIONS:"),
+    }
+    nonempty_kinds = [k for k, v in pools.items() if v]
+    picked_kinds = rng.sample(nonempty_kinds, k=min(2, len(nonempty_kinds))) if nonempty_kinds else []
+
+    source_memory_ids: list[int] = []
+    source_research_ids: list[str] = []
+    source_belief_ids: list[int] = []
+    source_conversation_ids: list[int] = []
+    source_rabbit_hole_ids: list[int] = []
+    source_wall_post_ids: list[int] = []
+    source_reflection_ids: list[int] = []
+    topic_text = ""
+    for kind in picked_kinds:
+        item_id, item_text = rng.choice(pools[kind])
+        topic_text = topic_text or item_text
+        if kind == "memory":
+            source_memory_ids.append(int(item_id))
+        elif kind == "research":
+            source_research_ids.append(item_id)
+        elif kind == "belief":
+            source_belief_ids.append(int(item_id))
+        elif kind == "conversation":
+            source_conversation_ids.append(int(item_id))
+        elif kind == "rabbit_hole":
+            source_rabbit_hole_ids.append(int(item_id))
+        elif kind == "wall_post":
+            source_wall_post_ids.append(int(item_id))
+        elif kind == "reflection":
+            source_reflection_ids.append(int(item_id))
+
+    kw = sorted(_words(topic_text))
+    topic_word = kw[0] if kw else "something"
+    supersedes = source_reflection_ids[0] if source_reflection_ids and rng.random() < 0.3 else None
+
+    return ReflectionSynthesis(
+        topic=f"[fixture] A pattern around {topic_word}",
+        summary=(
+            f"[fixture] A few recent things ({', '.join(picked_kinds) or 'nothing much'}) "
+            f"seem to point toward the same underlying question about {topic_word}."
+        ),
+        confidence=float(rng.randint(40, 85)),
+        open_question=(
+            f"[fixture] Is {topic_word} actually as settled as it looks?" if rng.random() < 0.6 else None
+        ),
+        suggested_follow_up=(
+            f"[fixture] Worth researching {topic_word} more directly." if rng.random() < 0.4 else None
+        ),
+        supersedes_reflection_id=supersedes,
+        source_memory_ids=source_memory_ids,
+        source_research_ids=source_research_ids,
+        source_belief_ids=source_belief_ids,
+        source_conversation_ids=source_conversation_ids,
+        source_rabbit_hole_ids=source_rabbit_hole_ids,
+        source_wall_post_ids=source_wall_post_ids,
+        source_reflection_ids=source_reflection_ids,
+    )
+
+
+def _generate_founder_report_synthesis(rng: random.Random, user: str) -> FounderReportSynthesis:
+    """Template prose directly from the already-ranked, already-bounded facts
+    app.services.daily_synthesis.gather_facts rendered — this generator never
+    re-ranks or re-selects; the ordering it templates from is already the
+    real significance ordering, the same discipline a live model is asked to
+    respect ("treat the ranking ... as authoritative")."""
+    findings = _extract_labeled_items(user, "RESEARCH FINDINGS:")
+    failed = _extract_labeled_items(user, "FAILED OR ABANDONED RESEARCH:")
+    wall = _extract_labeled_items(user, "WALL ACTIVITY:")
+    cross = _extract_labeled_items(user, "CROSS-POLLINATION:")
+    holes = _extract_labeled_items(user, "RABBIT HOLES:")
+    belief_changes = _extract_labeled_items(user, "BELIEF CHANGES:")
+    memories = _extract_labeled_items(user, "MEMORIES:")
+    conversations = _extract_labeled_items(user, "CONVERSATIONS:")
+    reflections = _extract_labeled_items(user, "REFLECTIONS:")
+    questions = [
+        line.strip().lstrip("-").strip() for line in _extract_section(user, "UNRESOLVED QUESTIONS:")
+    ]
+    source_quality = _extract(
+        user, "SOURCE QUALITY (already computed, restate — do not recompute):"
+    ) or "No research today."
+
+    had_activity = bool(findings or wall or holes or belief_changes or conversations)
+
+    def _texts(items: list[tuple[str, str]], k: int = 4) -> list[str]:
+        return [f"[fixture] {text}" for _, text in items[:k]]
+
+    standout = next(iter(findings or holes or belief_changes or wall), None)
+
+    return FounderReportSynthesis(
+        what_mattered_today=(
+            f"[fixture] {len(findings)} finding(s), {len(wall)} wall post(s), "
+            f"{len(holes)} rabbit hole update(s), {len(belief_changes)} belief change(s) today."
+            if had_activity
+            else "[fixture] Nothing significant happened today."
+        ),
+        top_discoveries=_texts(findings),
+        unexpected_connections=_texts(cross),
+        active_rabbit_holes=_texts(holes),
+        beliefs_that_changed=_texts(belief_changes),
+        character_development=_texts(memories + reflections),
+        disagreements_and_uncertainties=_texts(belief_changes[:3] + failed[:2]),
+        questions_the_village_wants_to_follow=[f"[fixture] {q}" for q in questions[:5] if q],
+        source_quality=f"[fixture] {source_quality}",
+        one_thing_worth_your_attention=(
+            f"[fixture] {standout[1]}" if standout else "[fixture] Nothing stood out today."
+        ),
+    )
+
+
 _GENERATORS: dict[type, Callable[[random.Random, str], BaseModel]] = {
     AgentDecision: _generate_decision,
     ResearchSynthesis: _generate_research_synthesis,
+    ReflectionSynthesis: _generate_reflection_synthesis,
+    FounderReportSynthesis: _generate_founder_report_synthesis,
 }
 
 
@@ -808,6 +951,23 @@ def _extract_bracket_id(text: str, marker: str) -> int | None:
             if m:
                 return int(m.group(1))
     return None
+
+
+def _extract_labeled_items(text: str, header_prefix: str) -> list[tuple[str, str]]:
+    """Every ``[id] rest of the line`` item in a section — generic across
+    every shape this file's sections render (a bare int id, a ``res_...``
+    string id, with or without a further ``[TAG]``/``(...)`` after it).
+    Packet 9's reflection and daily-report generators use this instead of
+    ``_extract_bracket_ids`` because several of their sections carry string
+    ids (``research_id``), not just integers."""
+    section = _extract_section(text, header_prefix)
+    pattern = re.compile(r"^\s*\[([^\]]+)\]\s*(.*)$")
+    items: list[tuple[str, str]] = []
+    for line in section:
+        m = pattern.match(line)
+        if m:
+            items.append((m.group(1), m.group(2)))
+    return items
 
 
 def _extract_wall_posts(text: str, header_prefix: str) -> list[tuple[int, str, str, str]]:

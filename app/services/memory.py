@@ -187,6 +187,7 @@ def _upsert(
             correlation_id=correlation_id,
             clock=clock,
         )
+        _nudge_reflection_pressure(session, agent_id, reinforce.importance, clock)
         return reinforce
 
     memory = Memory(
@@ -215,7 +216,24 @@ def _upsert(
         correlation_id=correlation_id,
         clock=clock,
     )
+    _nudge_reflection_pressure(session, agent_id, memory.importance, clock)
     return memory
+
+
+def _nudge_reflection_pressure(
+    session: Session, agent_id: str, importance: float, clock: SimulationClock
+) -> None:
+    """Every memory formed or reinforced is a candidate reflection-trigger
+    signal (Packet 9, §15) — nearly every signal the spec lists ("several
+    related memories accumulate", "a belief changes substantially", "a major
+    Founder message arrives", ...) already flows through a memory being
+    created here with an importance that reflects exactly that significance.
+    Local import: app.services.reflection reads Memory/Agent rows directly
+    rather than importing this module back, so this stays a one-way
+    dependency despite the local import looking circular at a glance."""
+    from app.services import reflection
+
+    reflection.accumulate_pressure(session, agent_id, importance, clock)
 
 
 def write_note(

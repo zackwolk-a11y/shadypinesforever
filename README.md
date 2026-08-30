@@ -641,6 +641,139 @@ Weaknesses for the one open question about its exact completion timing.
 .venv/bin/python scripts/inspect_conversations.py --agent agent_dex
 ```
 
+### Reflection engine and the Founder Daily Field Report
+
+Packet 9's premise: raw memories and findings are not enough on their own.
+An agent needs to notice a pattern *across* several of its own real
+experiences — "several recent things seem to point toward the same
+unresolved question" — and the Village as a whole needs to produce one
+report the Founder would actually want to read after leaving eight
+autonomous researchers alone for a day, not eight diaries stapled together.
+
+**A reflection is not a memory and not a belief.** A memory is "this
+happened"; a belief is "I hold this proposition, with this confidence, on
+this evidence"; a reflection (`app/db/models/reflection.py`'s
+`AgentReflection`) is "here is a pattern I think I am noticing" — a step of
+abstraction above any one event. It is never generated as hidden
+chain-of-thought: only the concise conclusion is ever requested or stored
+(`app/schemas/reflection.py`'s `ReflectionSynthesis`). Forming one never
+automatically creates a belief — an agent may go on to research the open
+question a reflection raises, or form a belief from what it finds, but that
+is a separate, later, ordinary action.
+
+**The trigger is mechanical, not "does this feel significant".**
+`app/services/reflection.py` splits the engine into a cheap and an expensive
+half. `accumulate_pressure` is called from `memory._upsert` every time a
+memory is created or reinforced — no model call, session + clock only.
+Nearly every signal the spec lists as a reflection trigger (several related
+memories accumulating, a belief changing substantially, repeated rabbit-hole
+activity, an important contradiction, a major Founder message) already flows
+through a memory being formed with an importance that reflects exactly that
+significance, so this one hook point covers nearly the whole trigger list by
+reusing Packet 7's already-computed signal rather than re-deriving it from
+the event log a second time. `maybe_reflect`, called once per activation
+from `orchestrator.run_next_event` (the one place that already has the
+settings and provider a model call needs), checks whether the *acting*
+agent's `Agent.reflection_pressure` has crossed
+`Settings.reflection_significance_threshold` — a real float compared to a
+real number, nothing asks a model whether it feels like reflecting — and
+caps at one reflection per agent per simulated day.
+
+**Retrieval mirrors memory's own RECENCY + IMPORTANCE scoring**
+(`reflection.retrieve_relevant`), gathering a small, bounded slice — recent
+memories, completed research, beliefs, conversations, rabbit holes, wall
+posts, and the agent's own earlier ACTIVE reflections — never the whole
+history. The model's `ReflectionSynthesis` may only cite ids actually shown;
+anything else is dropped before persistence, and a reflection with no
+surviving real provenance across any source list is never stored at all
+(exactly the "never an untraceable fact" discipline §2/§6 already hold
+research and beliefs to). Hierarchical reflection — a later, higher-order
+reflection built from earlier ones — is supported through
+`source_reflection_ids` and an optional `supersedes_reflection_id`, which
+mechanically flips the older reflection's `status` to `SUPERSEDED` when a
+newer one names it.
+
+**A reflection actually reaches later behavior, not just a database row.**
+`context_builder.build_agent_context` renders a bounded "RECENT REFLECTIONS"
+section with real bracket ids, the same convention every other id-bearing
+section here uses — so a reflection an agent formed can genuinely shape a
+later research question, wall post, or rabbit hole, the same mechanism that
+already lets a research discovery or an emerging interest shape a later
+choice (Packets 5-7).
+
+**The Founder Daily Field Report is a staged pipeline, never one prompt over
+the raw log** (`app/services/daily_synthesis.py`). Stage 1, `gather_facts`,
+is pure deterministic database queries scoped to one simulated day — most
+tables here carry no `sim_day` column of their own (`ResearchSession` in
+particular), so "did this happen on day N" is always answered by joining
+through `Event.sim_day`, never by filtering a row's wall-clock `created_at`.
+Stage 2 ranks everything gathered by real significance (evidence strength,
+belief-revision magnitude, memory importance, rabbit-hole heat) before
+anything is capped by a `MAX_REPORT_*` setting — what survives the cap is
+what scored highest, never what happened most often or most recently, which
+is what makes "ten low-value actions should not outrank one major discovery"
+true by construction rather than by asking a model to remember it. Stage 3
+asks a model for exactly one `FounderReportSynthesis` — prose and
+prioritization judgment over facts that are already verified, never new
+facts, since the model is never shown anything Stage 1 didn't already pull
+from the database. Stage 4 persists one `DailyReport`: rendered prose in the
+exact ten-section shape (`THE INTERNAL VILLAGE` / `DAILY FIELD REPORT` / `DAY
+N`, sections 1-10), *and* the ranked structured facts alongside it in a
+`structured` JSON column — so a later multi-day/weekly synthesis has real
+data to read back, never only prose to re-parse. A day with nothing
+meaningful says so plainly in every section rather than inventing
+significance; `DailyReport.had_meaningful_activity` records that
+mechanically. Generation is idempotent per day and hooked into both places
+the clock actually rolls a day over: `orchestrator.run_next_event`'s
+`auto_advance` branch and the `/simulation/advance-period` endpoint, guarded
+by `advance.crossed_day_boundary`.
+
+**Provenance and epistemic classification are structural, not asserted
+after the fact.** Every fact `gather_facts` gathers already carries its real
+database id and a §2 classification before a model ever sees it: a research
+finding keeps the `FindingClassification` it was already given in Packet
+5/6; a belief change is tagged `AGENT_BELIEF`; a reflection is tagged
+`AGENT_INFERENCE`; a simulation-level item (a memory, a conversation, a
+rabbit-hole touch, a wall post) is tagged `SIMULATION_EVENT`. That same
+tagged data is what lands in `structured`, so "does this report's prose
+really map to real activity" is checkable directly against real rows, not
+only by trusting the prose.
+
+**Token/context budgets are configurable, not hard-coded**
+(`MAX_REPORT_FINDINGS`, `MAX_REPORT_WALL_POSTS`, `MAX_REPORT_RABBIT_HOLES`,
+`MAX_REPORT_CONVERSATIONS`, `MAX_REPORT_MEMORY_EVENTS`,
+`MAX_REPORT_REFLECTIONS`, `MAX_REPORT_BELIEF_CHANGES`, and
+`REFLECTION_SIGNIFICANCE_THRESHOLD`/`MAX_CONTEXT_REFLECTIONS` for the
+reflection engine itself) — every gathered list is capped before it ever
+reaches a prompt, and full transcripts are never fed in; only summaries and
+real ids are. `Settings.report_model`/`Settings.report_effort` (present
+since Packet 1) are what let nightly synthesis eventually route to a
+stronger model than routine per-turn agent decisions without any
+architecture change.
+
+```bash
+.venv/bin/python scripts/smoke_test_reflection_report.py
+```
+
+Drives the real loop with a fixed seed until both chains have genuinely
+occurred: several of an agent's own memories accumulate real significance,
+the mechanical pressure threshold is crossed, a reflection is formed citing
+real prior experience (never an invented id), and that reflection goes on to
+shape a later action's real content (checked the same way Packet 7's
+emerging-interest smoke test checks a later citation: real keyword overlap,
+on a genuinely later simulated day) — and, independently, a Daily Field
+Report is generated automatically at a day boundary, its content mapped back
+to real rows with provenance intact, and ranked by actual significance
+rather than activity volume. All seven required checkpoints are asserted
+directly against the database, never assumed.
+
+```bash
+.venv/bin/python scripts/inspect_reflections.py
+.venv/bin/python scripts/inspect_reflections.py --agent agent_alien
+.venv/bin/python scripts/inspect_daily_report.py
+.venv/bin/python scripts/inspect_daily_report.py --day 3 --structured
+```
+
 ## Design notes
 
 **Foreign keys reference stable business keys.** `agent_id` columns point at

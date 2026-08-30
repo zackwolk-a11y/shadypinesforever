@@ -27,6 +27,7 @@ from app.db.models.rabbit_holes import (
     RabbitHoleResearch,
     RabbitHoleStatus,
 )
+from app.db.models.reflection import AgentReflection, ReflectionStatus
 from app.db.models.telemetry import LLMRun
 from app.db.models.research import (
     EvidenceStrength,
@@ -84,9 +85,12 @@ __all__ = [
     "Location",
     "SimulationClock",
     "WorldState",
-    # founder
+    # founder / reports
     "DailyReport",
     "FounderMessage",
+    # reflection
+    "AgentReflection",
+    "ReflectionStatus",
     # events
     "Event",
     "EventType",

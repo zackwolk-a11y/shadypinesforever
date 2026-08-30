@@ -60,7 +60,8 @@ from app.schemas.actions import (
 from app.services import beliefs
 from app.services import clock as clock_service
 from app.services import conversations as convo
-from app.services import dialogue, founder, memory, rabbit_holes as rh, research, scheduler, wall
+from app.services import daily_synthesis
+from app.services import dialogue, founder, memory, rabbit_holes as rh, reflection, research, scheduler, wall
 from app.services.context_builder import build_agent_context
 from app.services.events import record_event
 from app.services.exposure import expose, has_been_exposed
@@ -648,6 +649,10 @@ def run_next_event(
         if candidate is None:
             if auto_advance:
                 advance = clock_service.advance(session, clock)
+                if advance.crossed_day_boundary:
+                    daily_synthesis.generate_report(
+                        session, advance.from_day, clock, settings, provider,
+                    )
                 return EventOutcome(
                     clock_advance=str(advance),
                     note=f"Period spent; clock advanced {advance}.",
@@ -802,6 +807,11 @@ def run_next_event(
         memory.consider_reflection(
             session, agent.agent_id, outcome.decision.reflection, clock, correlation_id
         )
+    # Packet 9: the reflection engine's expensive half — see
+    # app/services/reflection.py's module docstring for why this only checks
+    # the acting agent, and why the cheap accumulation happens elsewhere
+    # (app.services.memory._upsert, on every memory formed this turn above).
+    reflection.maybe_reflect(session, agent, clock, correlation_id, settings, provider)
 
     acted = record_event(
         session,

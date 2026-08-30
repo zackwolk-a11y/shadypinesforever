@@ -50,6 +50,26 @@
   (challenge/connection/anecdote/proposal) occurs, the conversation produces
   a persistent memory, and that memory is genuinely recalled again later —
   and asserts every link of it.
+- `inspect_reflections.py` — prints every agent's reflections: topic,
+  summary, importance, confidence, status, open question, and its full
+  provenance chain back to the real memories/research/beliefs/conversations/
+  rabbit holes/wall posts/earlier reflections it actually cites. Takes
+  optional `--agent` and `--day` filters.
+- `inspect_daily_report.py` — prints the Founder Daily Field Report(s)
+  exactly as the Founder would read them (the ten §-numbered sections).
+  `--structured` also prints the machine-queryable facts and synthesis
+  backing the prose — every item's real database id and §2 classification,
+  the same data that makes the report's provenance checkable. Takes
+  optional `--day` and `--structured`.
+- `smoke_test_reflection_report.py` — deterministic Packet 9 check: drives
+  the same real event loop until both an organic reflection chain has
+  occurred — several of an agent's own memories accumulate real
+  significance, the mechanical pressure threshold is crossed, a reflection
+  is formed citing real prior experience, and that reflection goes on to
+  shape a later action's real content — and a Daily Field Report has been
+  generated automatically at a day boundary, its content mapped back to real
+  rows with provenance intact and ranked by actual significance rather than
+  activity volume. Asserts all seven checkpoints independently.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur

@@ -76,6 +76,24 @@ class Settings:
     target_research_sessions_per_village_day: int
     max_evidence_tokens_per_research_session: int
 
+    # Reflection engine (Packet 9). The threshold is deliberately a Settings
+    # value, not a literal in app/services/reflection.py: retuning "how much
+    # accumulated significance earns a reflection" should never require
+    # editing code.
+    reflection_significance_threshold: float
+    max_context_reflections: int
+
+    # Daily Founder report token/context budgets (§ "especially important for
+    # future operating cost") — bounded inputs into daily_synthesis, the same
+    # discipline max_context_* already applies to a single agent's turn.
+    max_report_findings: int
+    max_report_wall_posts: int
+    max_report_rabbit_holes: int
+    max_report_conversations: int
+    max_report_memory_events: int
+    max_report_reflections: int
+    max_report_belief_changes: int
+
     @property
     def uses_fixture_llm(self) -> bool:
         """True when decisions come from the fixture provider, not a live model."""
@@ -119,6 +137,17 @@ def get_settings() -> Settings:
         max_evidence_tokens_per_research_session=_env_int(
             "MAX_EVIDENCE_TOKENS_PER_RESEARCH_SESSION", 6000
         ),
+        reflection_significance_threshold=float(
+            _env("REFLECTION_SIGNIFICANCE_THRESHOLD", "100.0")
+        ),
+        max_context_reflections=_env_int("MAX_CONTEXT_REFLECTIONS", 3),
+        max_report_findings=_env_int("MAX_REPORT_FINDINGS", 8),
+        max_report_wall_posts=_env_int("MAX_REPORT_WALL_POSTS", 6),
+        max_report_rabbit_holes=_env_int("MAX_REPORT_RABBIT_HOLES", 6),
+        max_report_conversations=_env_int("MAX_REPORT_CONVERSATIONS", 6),
+        max_report_memory_events=_env_int("MAX_REPORT_MEMORY_EVENTS", 8),
+        max_report_reflections=_env_int("MAX_REPORT_REFLECTIONS", 6),
+        max_report_belief_changes=_env_int("MAX_REPORT_BELIEF_CHANGES", 6),
     )
 
 
