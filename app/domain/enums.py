@@ -188,6 +188,24 @@ class ConversationStatus(str, enum.Enum):
     ENDED = "ENDED"
 
 
+class SourceQualityTier(str, enum.Enum):
+    """A rough, mechanical read on what kind of source this is (Packet 10,
+    Part D) — never itself an unsupported factual claim, and never asked of
+    a model. ``app.services.source_quality`` classifies purely from a
+    source's domain/TLD; anything it cannot place with real confidence is
+    ``UNKNOWN``, which is an entirely acceptable, honest answer, not a
+    failure."""
+
+    PRIMARY = "PRIMARY"
+    OFFICIAL = "OFFICIAL"
+    NEWS = "NEWS"
+    ACADEMIC = "ACADEMIC"
+    INDUSTRY = "INDUSTRY"
+    BLOG = "BLOG"
+    COMMUNITY = "COMMUNITY"
+    UNKNOWN = "UNKNOWN"
+
+
 class ReflectionStatus(str, enum.Enum):
     """Lifecycle of an agent's higher-level reflection (§15, Packet 9).
 

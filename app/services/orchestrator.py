@@ -461,6 +461,7 @@ def execute_decision(
                     clock,
                     correlation_id,
                     f"research provider unavailable: {exc}",
+                    provider_name=settings.research_provider,
                 )
             else:
                 research_outcome = research.start_research(

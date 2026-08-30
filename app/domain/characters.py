@@ -64,6 +64,18 @@ class CharacterProfile:
     anecdote_bias: float = 1.0
     uncertainty_bias: float = 1.0
 
+    # Packet 10: this agent's epistemic style — when it reaches for research
+    # versus when it is comfortable interpreting, speculating, or arguing
+    # philosophically without sourcing anything. Rendered into context (a
+    # bias on judgment, same as every other field above this line — never a
+    # rule a model must obey). ``research_bias`` is the fixture-only numeric
+    # counterpart (0.4-1.8, 1.0 = neutral): it only scales how often the
+    # deterministic fixture *offers* START_RESEARCH as a candidate action; a
+    # live model's actual research decisions are shaped by ``epistemic_style``
+    # in the rendered text instead, never by a number it never sees.
+    epistemic_style: str = ""
+    research_bias: float = 1.0
+
 
 CHARACTER_PROFILES: dict[str, CharacterProfile] = {
     "agent_optimisto": CharacterProfile(
@@ -85,6 +97,13 @@ CHARACTER_PROFILES: dict[str, CharacterProfile] = {
         questions=("what does that actually mean, underneath", "is that the real reason or the given one"),
         blind_spots=("can turn a simple moment abstract when a direct answer would do",),
         challenge_bias=0.9, humor_bias=0.8, question_bias=1.4, anecdote_bias=0.9, uncertainty_bias=1.3,
+        epistemic_style=(
+            "comfortable with philosophical reasoning, thought experiments, and open "
+            "uncertainty — \"I think,\" \"perhaps,\" \"one way to read this\" need no "
+            "citation; distinguishes a philosophical argument from an empirical claim, "
+            "and rarely reaches for research at all"
+        ),
+        research_bias=0.5,
     ),
     "agent_vince": CharacterProfile(
         agent_id="agent_vince",
@@ -105,6 +124,13 @@ CHARACTER_PROFILES: dict[str, CharacterProfile] = {
         questions=("but what actually happened when you tried that", "who was there for that"),
         blind_spots=("can generalize too fast from one good night at the bar",),
         challenge_bias=1.1, humor_bias=1.2, question_bias=1.0, anecdote_bias=1.5, uncertainty_bias=0.9,
+        epistemic_style=(
+            "relies on lived, simulated social observation and pattern recognition, "
+            "presented as his own read, not a universal fact; reaches for research when "
+            "a claim about hospitality, nightlife, or social trends gets broader than "
+            "what he's actually seen"
+        ),
+        research_bias=0.9,
     ),
     "agent_questauthor": CharacterProfile(
         agent_id="agent_questauthor",
@@ -125,6 +151,12 @@ CHARACTER_PROFILES: dict[str, CharacterProfile] = {
         questions=("where did that actually come from", "what happens to that in ten years"),
         blind_spots=("can make everything sound like it's about zines even when it isn't",),
         challenge_bias=1.2, humor_bias=0.7, question_bias=1.1, anecdote_bias=0.7, uncertainty_bias=1.0,
+        epistemic_style=(
+            "moderately evidence-oriented; especially careful, and quick to research, "
+            "historical claims, print history, and archival or publishing facts — but "
+            "comfortable making an aesthetic or editorial judgment with no sourcing at all"
+        ),
+        research_bias=1.1,
     ),
     "agent_alien": CharacterProfile(
         agent_id="agent_alien",
@@ -145,6 +177,12 @@ CHARACTER_PROFILES: dict[str, CharacterProfile] = {
         questions=("what did that actually sound like", "what got cut from that story"),
         blind_spots=("a tangent can wander far enough that the original point gets lost",),
         challenge_bias=0.9, humor_bias=1.1, question_bias=1.0, anecdote_bias=1.2, uncertainty_bias=1.1,
+        epistemic_style=(
+            "exploratory and associative; comfortable with artistic, sonic, documentary, "
+            "and cultural interpretation with no citation, but researches a technical "
+            "audio/broadcast claim or a historical claim when precision actually matters"
+        ),
+        research_bias=1.0,
     ),
     "agent_sol": CharacterProfile(
         agent_id="agent_sol",
@@ -165,6 +203,13 @@ CHARACTER_PROFILES: dict[str, CharacterProfile] = {
         questions=("how would you actually tell that story", "what's the rhythm of that argument"),
         blind_spots=("a good line can get chosen over the more accurate one",),
         challenge_bias=1.0, humor_bias=1.5, question_bias=0.9, anecdote_bias=1.3, uncertainty_bias=0.9,
+        epistemic_style=(
+            "comfortable with metaphor, interpretation, and creative association — "
+            "poetry and lyrical reading need no source — but researches a concrete "
+            "historical claim about music, an artist, a movement, a date, or a "
+            "technique before asserting it as fact"
+        ),
+        research_bias=0.9,
     ),
     "agent_roxy": CharacterProfile(
         agent_id="agent_roxy",
@@ -185,6 +230,13 @@ CHARACTER_PROFILES: dict[str, CharacterProfile] = {
         questions=("okay but who's actually doing that", "how would people even find out about it"),
         blind_spots=("can get swept into enthusiasm before checking whether a scene is really there",),
         challenge_bias=1.0, humor_bias=1.3, question_bias=1.2, anecdote_bias=1.4, uncertainty_bias=0.8,
+        epistemic_style=(
+            "mixes community observation with real research; speculates freely about "
+            "scene dynamics when clearly framed as her own read, but verifies a "
+            "concrete claim about a current venue, event, organization, date, or local "
+            "development"
+        ),
+        research_bias=1.1,
     ),
     "agent_dex": CharacterProfile(
         agent_id="agent_dex",
@@ -205,6 +257,14 @@ CHARACTER_PROFILES: dict[str, CharacterProfile] = {
         questions=("what would change your mind", "is that a fact, an estimate, or a guess"),
         blind_spots=("can come across as needling people who just wanted to vibe, not analyze",),
         challenge_bias=1.6, humor_bias=0.7, question_bias=1.3, anecdote_bias=0.5, uncertainty_bias=1.5,
+        epistemic_style=(
+            "highest evidence standard in the Village, skeptical by default; distinguishes "
+            "FACT, DATA, ESTIMATE, INFERENCE, and SPECULATION explicitly, frequently asks "
+            "what evidence supports a claim, never fabricates a current market or "
+            "probability number, and researches even a moderate factual claim, not only a "
+            "high-stakes one"
+        ),
+        research_bias=1.6,
     ),
     "agent_lucid": CharacterProfile(
         agent_id="agent_lucid",
@@ -225,6 +285,13 @@ CHARACTER_PROFILES: dict[str, CharacterProfile] = {
         questions=("what did that actually look like", "who was that experience really for"),
         blind_spots=("can read too much meaning into an aesthetic that was just practical",),
         challenge_bias=0.8, humor_bias=1.1, question_bias=1.1, anecdote_bias=1.3, uncertainty_bias=1.0,
+        epistemic_style=(
+            "comfortable with visual and cultural interpretation and subjective, "
+            "experiential observation without citation, but verifies a concrete claim "
+            "about a festival, an organization, a date, attendance, a location, or a "
+            "historical development"
+        ),
+        research_bias=1.1,
     ),
 }
 
@@ -249,5 +316,6 @@ def render_voice_block(agent_id: str) -> str | None:
             f"  humor: {profile.humor_style}",
             f"  tends to notice: {'; '.join(profile.notices)}",
             f"  typical verbosity: {profile.verbosity.value}",
+            f"  evidence style: {profile.epistemic_style}",
         ]
     )

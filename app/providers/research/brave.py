@@ -88,8 +88,8 @@ class BraveResearchProvider:
         now = datetime.now(timezone.utc)
         results = [
             candidate
-            for raw in raw_results[:max_results]
-            if (candidate := _parse_result(raw, now)) is not None
+            for i, raw in enumerate(raw_results[:max_results], start=1)
+            if (candidate := _parse_result(raw, now, i)) is not None
         ]
         return SearchResponse(provider=self.name, query=query, results=results, is_fixture=False)
 
@@ -125,7 +125,7 @@ class BraveResearchProvider:
         )
 
 
-def _parse_result(raw: dict, now: datetime) -> SourceCandidate | None:
+def _parse_result(raw: dict, now: datetime, rank: int) -> SourceCandidate | None:
     url = raw.get("url")
     if not url:
         return None
@@ -148,4 +148,5 @@ def _parse_result(raw: dict, now: datetime) -> SourceCandidate | None:
         retrieved_at=now,
         source_type="article",
         snippet=raw.get("description"),
+        rank=rank,
     )

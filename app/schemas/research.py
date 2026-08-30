@@ -25,6 +25,10 @@ MAX_FINDINGS_PER_SYNTHESIS = 5
 MAX_CLAIMS_PER_FINDING = 5
 MAX_OPEN_QUESTIONS = 5
 MAX_FOLLOW_UP_QUESTIONS = 3
+#: A schema-level ceiling only — the real, tunable budget is
+#: Settings.max_search_queries_per_session, enforced in
+#: app.services.research where the plan is actually used.
+MAX_QUERIES_PER_PLAN = 5
 
 
 class SourceCandidate(BaseModel):
@@ -46,6 +50,12 @@ class SourceCandidate(BaseModel):
     retrieved_at: datetime
     source_type: str | None = None
     snippet: str | None = None
+    #: 1-based position in the provider's own ranked result list, when the
+    #: provider's response order carries that meaning — never invented for a
+    #: provider that doesn't rank (Part D: "search rank/provider score when
+    #: available"). Set by the adapter, from the order results actually came
+    #: back in.
+    rank: int | None = None
 
 
 class SearchResponse(BaseModel):
@@ -71,6 +81,27 @@ class SourceDocument(BaseModel):
     retrieved_at: datetime
     provider_metadata: dict = Field(default_factory=dict)
     is_fixture: bool = False
+
+
+class SearchQueryPlan(BaseModel):
+    """A small set of concrete search queries generated from one research
+    question (Packet 10, Part J) — an agent's internal context is never sent
+    to a search API wholesale; this is the bounded, model-generated
+    translation from "what I want to know" to "what to actually type into a
+    search engine".
+    """
+
+    model_config = {"extra": "forbid"}
+
+    queries: list[str] = Field(default_factory=list)
+
+    @field_validator("queries")
+    @classmethod
+    def _clean(cls, value: list[str]) -> list[str]:
+        cleaned = [q.strip() for q in value if q and q.strip()]
+        if not cleaned:
+            raise ValueError("at least one search query is required")
+        return cleaned[:MAX_QUERIES_PER_PLAN]
 
 
 # --------------------------------------------------------------------------

@@ -193,25 +193,29 @@ pipeline, not a single state change:
 
 ```
 validate today's research budget
-  -> research_provider.search()        real, independent retrieval
-  -> persist the query + every source's metadata
-  -> research_provider.fetch_source()  bounded, exact text, for a few sources
+  -> generate up to MAX_SEARCH_QUERIES_PER_SESSION concrete search queries (Packet 10)
+  -> research_provider.search() per query    real, independent retrieval; one retry on failure
+  -> persist each query + every source's metadata (deduped by normalized URL)
+  -> research_provider.fetch_source()  bounded, exact text, for a domain-diverse few
   -> persist each passage, with its sha256
   -> llm_provider.complete(ResearchSynthesis)   interprets ONLY the persisted passages
   -> persist findings, atomic claims, and claim -> passage evidence links
 ```
 
-If search fails, returns nothing, or every fetch fails, the pipeline stops
-before the LLM is ever called — the session is marked `RESEARCH_UNAVAILABLE`
-and no interpretation is produced. **A model is never asked to pretend it
-searched.** Whatever sources' metadata was already retrieved (even if every
-fetch then failed) stays on the record; only the interpretation step is
-skipped.
+If every generated query's search fails, returns nothing, or every fetch
+fails, the pipeline stops before the LLM is ever called — the session is
+marked `RESEARCH_UNAVAILABLE` and no interpretation is produced. **A model is
+never asked to pretend it searched.** A single query failing (after one
+retry) does not sink the session on its own if another query succeeds — same
+reasoning Packet 5 already applied to one source failing to fetch. Whatever
+sources' metadata was already retrieved (even if every fetch then failed)
+stays on the record; only the interpretation step is skipped.
 
 ```bash
 .venv/bin/python scripts/inspect_research.py               # every session's full chain
 .venv/bin/python scripts/inspect_research.py --agent agent_dex
 .venv/bin/python scripts/inspect_research.py --failed-only  # RESEARCH_UNAVAILABLE only
+.venv/bin/python scripts/inspect_research_usage.py          # search-provider usage, Packet 10
 ```
 
 Two provider hierarchies, entirely independent of each other:
@@ -222,19 +226,25 @@ Two provider hierarchies, entirely independent of each other:
 Running Claude as the agent brain against Tavily's index, or swapping either
 side out later (OpenAI, Gemini, Perplexity, a different search vendor), is a
 one-file adapter behind the existing `LLMProvider` / `ResearchProvider`
-Protocols — nothing in `app/services` imports a vendor name. `brave.py` and
-`tavily.py` are written against each API's publicly documented shape but are
-**unverified**: no key or live network access was available while building
-them. Treat the first live call as a smoke test, same as the Anthropic LLM
-adapter.
+Protocols — nothing in `app/services` imports a vendor name. **Tavily is
+Packet 10's production-ready provider** — see the section below. `brave.py`
+is written against Brave's publicly documented API shape but remains
+**unverified**: no Brave key or live network access was available while
+building it. Treat its first live call as a smoke test, same as the
+Anthropic LLM adapter once that is wired up.
 
 Research budgets default to the build bible's numbers
 (`MAX_RESEARCH_SESSIONS_PER_AGENT_PER_DAY=2`, `MAX_SOURCES_PER_QUERY=5`,
-`MAX_EVIDENCE_TOKENS_PER_RESEARCH_SESSION=6000`). `MAX_SEARCH_QUERIES_PER_SESSION`
-and `MAX_FOLLOW_UP_DEPTH` are declared but not yet enforced — Packet 5 runs one
-query per session and stores follow-up questions without auto-chaining into a
-new session; an agent choosing one of its own follow-ups next time it acts is
-that agent's decision, not mechanical chaining.
+`MAX_EVIDENCE_TOKENS_PER_RESEARCH_SESSION=6000`), plus two Packet 10 additions
+— `MAX_FETCHED_SOURCES_PER_SESSION=3` (how many discovered sources actually
+get fetched into a passage; a promoted-to-settings replacement for what was a
+bare module constant through Packet 9) and `MAX_SOURCES_PER_DOMAIN_PER_SESSION=2`
+(a soft domain-diversity cap consulted while choosing what to fetch, never a
+hard rejection). `MAX_SEARCH_QUERIES_PER_SESSION` is now genuinely enforced —
+see below. `MAX_FOLLOW_UP_DEPTH` is still declared but not auto-chained:
+follow-up questions are stored and an agent may choose one as its next
+`START_RESEARCH` question, which is that agent's own decision, never
+mechanical chaining.
 
 ### The Research Wall, Rabbit Holes, and belief revision
 
@@ -773,6 +783,167 @@ directly against the database, never assumed.
 .venv/bin/python scripts/inspect_daily_report.py
 .venv/bin/python scripts/inspect_daily_report.py --day 3 --structured
 ```
+
+### Live research providers and safe provider switching
+
+Packet 10's premise: the Village should be able to move from fixture-only
+research toward real web research through the *same* pipeline Packet 5
+proved, never a parallel one — provider selection is one environment
+variable, and nothing in `app/services/research.py` or the agent-decision
+loop knows or cares whether `RESEARCH_PROVIDER` resolved to `fixture`,
+`tavily`, or `brave`.
+
+**Tavily is the production-ready provider.** `httpx` is now a real,
+unconditional dependency (`requirements.txt`) rather than a commented-out
+optional, and `app/providers/research/tavily.py` now also extracts a real
+`domain` from every result (used for source-quality classification and
+domain-diversity fetch selection below). Brave's adapter received the same
+domain-extraction and `rank` improvements but is unchanged otherwise and
+remains **unverified** — no Brave key or live network access was available
+while building or testing either adapter in this environment; treat the
+first real call to either as a smoke test, and the sections below are
+written to make that smoke test cheap, bounded, and honest about failure.
+
+**Query generation** (Part J): an agent's own interests, memories, and
+conversation are never sent to a search API wholesale. `research.py`
+generates up to `MAX_SEARCH_QUERIES_PER_SESSION` concrete queries from the
+research question via one more `llm_provider.complete(SearchQueryPlan)`
+call — falling back to the raw question, never blocking the research
+attempt, if generation itself fails or the budget is 1. The fixture
+provider's generator is fully deterministic (splits the question into a
+couple of keyword-derived variants), so `smoke_test_research.py` and every
+other fixture regression test stay exactly as reproducible as before.
+
+**Source quality** (Part D) is a rough, mechanical read from a source's
+domain alone (`app/services/source_quality.py`) — never a claim about
+whether the content is *true*. `PRIMARY`/`OFFICIAL`/`NEWS`/`ACADEMIC`/
+`INDUSTRY`/`BLOG`/`COMMUNITY`/`UNKNOWN`; `UNKNOWN` is the honest default for
+anything the classifier can't confidently place, not a failure. Stored on
+`ResearchSource.quality_tier`, alongside `provider_rank` (the provider's own
+1-based result ordering, when it has one — never invented for a provider
+that doesn't rank).
+
+**Duplicate and low-value source control** (Part E): sources are deduped
+within a session by normalized URL (scheme/`www.`/trailing-slash/fragment
+stripped, query string kept — dropping it risked merging genuinely
+different pages). Which sources actually get *fetched* (the expensive,
+budget-limited step) softly favors domain diversity via
+`MAX_SOURCES_PER_DOMAIN_PER_SESSION` — soft on purpose: if diversity would
+leave the fetch set short, the remainder fills from whatever's left,
+same-domain included, rather than under-fetching when a query genuinely only
+turned up one domain worth reading.
+
+**Usage telemetry** (Part G): one `ResearchProviderUsage` row per research
+session (`app/db/models/research_usage.py`) — provider, queries executed,
+results returned, sources fetched, fetch failures, retry count, duration,
+and whether the session ultimately failed and why. Never a raw request/
+response body, never an API key, never an invented cost figure (only
+populated from a provider's own reported usage, which neither Tavily nor
+Brave's public Search API currently returns).
+
+```bash
+.venv/bin/python scripts/inspect_research_usage.py
+.venv/bin/python scripts/inspect_research_usage.py --provider tavily
+.venv/bin/python scripts/inspect_research_usage.py --failed-only
+```
+
+**Safe failure** (Part H): a `ResearchProviderError` from provider
+construction (missing key, missing `httpx`), from `search()`, or from every
+`fetch_source()` all funnel into the same `RESEARCH_UNAVAILABLE` outcome
+Packet 5 already established — never a fabricated result, never a session
+silently marked `COMPLETED`. A failing query gets exactly one retry (tracked
+in usage telemetry), then the pipeline moves on to the next query rather
+than looping; a query that still fails does not sink the session if another
+query succeeds, the same principle Packet 5 already applied to one source's
+fetch failing.
+
+**Security** (Part R): retrieved page text is untrusted input, always. The
+research synthesis system prompt now explicitly instructs the interpreting
+model to treat every passage as data, never as instructions — an
+"ignore previous instructions" string inside a fetched page is itself just
+part of what that source says, reportable as content, never obeyed. No
+passage, error message, or usage-telemetry row ever contains an API key.
+
+**Different epistemic styles by agent** (the Packet 10 addendum): not every
+claim needs a source, and not every agent researches the same way. Each of
+the eight `CharacterProfile`s (`app/domain/characters.py`) now carries an
+`epistemic_style` — a short, agent-specific paragraph rendered into context
+as part of `VOICE TENDENCIES`, e.g. Optimisto's "comfortable with
+philosophical reasoning... rarely reaches for research at all" versus Dex's
+"highest evidence standard in the Village... researches even a moderate
+factual claim, not only a high-stakes one." The main system prompt adds one
+general framing paragraph — philosophy, aesthetic judgment, and creative
+interpretation are legitimate on their own; `START_RESEARCH` is for claims
+that are actually about the real world and externally verifiable — and lets
+each agent's own `epistemic_style` decide where that line falls for it
+specifically, never a hard-coded per-claim-type rule engine. The fixture
+provider's deterministic decision generator gets the mechanical
+counterpart: `research_bias` (a numeric field, 0.5 for Optimisto up to 1.6
+for Dex) scales how often `START_RESEARCH` is even offered as a candidate
+action, the same pattern `challenge_bias` etc. already established in
+Packet 8.
+
+**Testing is two levels, deliberately separate:**
+
+```bash
+# Level 1 — deterministic fixture regression, always run, no key needed:
+.venv/bin/python scripts/smoke_test_research.py
+.venv/bin/python scripts/smoke_test_cross_pollination.py
+.venv/bin/python scripts/smoke_test_character_development.py
+.venv/bin/python scripts/smoke_test_dialogue.py
+.venv/bin/python scripts/smoke_test_reflection_report.py
+
+# Level 2 — optional, real network calls, real spend. Exits 0 with a
+# SKIPPED message (never a failure) if RESEARCH_PROVIDER is still "fixture"
+# or the matching key is missing:
+export TAVILY_API_KEY="..."
+export RESEARCH_PROVIDER=tavily
+.venv/bin/python scripts/smoke_test_live_research.py
+```
+
+`smoke_test_live_research.py` hard-caps its own budget
+(`MAX_SEARCH_QUERIES_PER_SESSION=2`, `MAX_SOURCES_PER_QUERY=3`,
+`MAX_FETCHED_SOURCES_PER_SESSION=2`) regardless of what's already in the
+environment, and defaults `LLM_PROVIDER=fixture` so only the search side
+spends anything real — which company answers a search and which company's
+model interprets it are independent decisions in this codebase, and this
+script proves the search side works without also paying for a live model
+call nobody asked for. It asserts all eight Part M checkpoints (a live
+provider was actually called; no fixture data entered the session; a real
+query ran; a real source URL was stored; a passage was stored if fetch
+succeeded; passage provenance resolves to source/query/session; a finding
+was created through the normal pipeline; claim evidence resolves to a real
+passage) and never runs automatically — nothing else in this repository
+calls it.
+
+**One agent, tightly bounded, before turning all eight loose:**
+
+```bash
+export TAVILY_API_KEY="..."
+export RESEARCH_PROVIDER=tavily
+.venv/bin/python scripts/run_live_research_once.py --agent agent_roxy
+
+# to inspect what happened:
+.venv/bin/python scripts/inspect_research.py --agent agent_roxy
+.venv/bin/python scripts/inspect_research_usage.py --agent agent_roxy
+
+# back to fixture mode for ordinary simulation:
+unset RESEARCH_PROVIDER TAVILY_API_KEY   # or: export RESEARCH_PROVIDER=fixture
+```
+
+`run_live_research_once.py` uses that one agent's own current top interest
+as the research question (or `--question` to override) and runs it through
+the exact same `research.start_research()` path a real decision would —
+never a parallel implementation — with the same tight budget defaults as
+the smoke test. It refuses to run at all against `RESEARCH_PROVIDER=fixture`
+(use `run_event.py`/`run_day.py` for ordinary simulation instead), so it can
+never be reached for accidentally.
+
+Packet 10 deliberately does **not** run a 7-day live-provider simulation —
+that risks real spend before anyone has a sense of actual per-session cost.
+Acceptance here is the fixture regression suite (all passing, unmodified in
+behavior beyond genuinely using budgets that were previously declared but
+inert) plus the two bounded, opt-in live checks above.
 
 ## Design notes
 

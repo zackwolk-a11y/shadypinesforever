@@ -12,6 +12,11 @@
 - `inspect_research.py` — prints every research session's full provenance
   chain: sources, fetched passages with their sha256, findings, and each
   atomic claim's classification and cited evidence.
+- `inspect_research_usage.py` — prints search-provider usage telemetry
+  (Packet 10): one row per research session — provider, queries executed,
+  results returned, sources fetched, fetch failures, retries, duration, and
+  failure reason where applicable. Takes optional `--agent`, `--provider`,
+  and `--failed-only` filters.
 - `inspect_wall.py` — prints the Research Wall (posts and their connections),
   every Rabbit Hole with its members and computed heat/status, and every
   belief with its full `belief_basis` trail. Takes an optional `--agent` to
@@ -70,6 +75,18 @@
   generated automatically at a day boundary, its content mapped back to real
   rows with provenance intact and ranked by actual significance rather than
   activity volume. Asserts all seven checkpoints independently.
+- `smoke_test_live_research.py` — optional Level 2 check (Packet 10): one
+  real research session against a live search provider. Requires
+  `RESEARCH_PROVIDER` set to `tavily`/`brave` and its API key present, or it
+  exits 0 with a SKIPPED message rather than failing — never runs
+  automatically, never runs in a loop, hard-caps its own budget, and
+  defaults the LLM side to the fixture provider so only the search itself
+  spends anything real.
+- `run_live_research_once.py --agent <agent_id>` — developer tool (Packet
+  10): runs exactly one agent through one real, tightly-bounded research
+  session (that agent's own top interest, or `--question`), using the exact
+  same `research.start_research()` path a real decision takes. Refuses to
+  run against `RESEARCH_PROVIDER=fixture`.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur

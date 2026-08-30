@@ -23,7 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.domain.enums import EvidenceStrength, FindingClassification, ResearchStatus
+from app.domain.enums import EvidenceStrength, FindingClassification, ResearchStatus, SourceQualityTier
 
 from app.db.base import Base, TimestampMixin, utcnow
 from app.db.models.agents import AGENT_FK
@@ -125,6 +125,19 @@ class ResearchSource(Base):
     provider: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True)
     provider_result_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: Packet 10: a rough, mechanical read on source type (app.services.
+    #: source_quality) — never a claim about whether the content is true,
+    #: only about what kind of publisher it is. UNKNOWN is the honest
+    #: default, not a failure.
+    quality_tier: Mapped[SourceQualityTier] = mapped_column(
+        Enum(SourceQualityTier, name="source_quality_tier"),
+        nullable=False,
+        default=SourceQualityTier.UNKNOWN,
+    )
+    #: The provider's own relevance/rank score for this result, when it
+    #: supplies one (Part D: "search rank/provider score when available") —
+    #: never invented when the provider doesn't return one.
+    provider_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class ResearchFinding(TimestampMixin, Base):

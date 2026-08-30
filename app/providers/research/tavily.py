@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from app.providers.research.base import ResearchProviderError
 from app.schemas.research import SearchResponse, SourceCandidate, SourceDocument
@@ -75,8 +76,8 @@ class TavilyResearchProvider:
         now = datetime.now(timezone.utc)
         results = [
             candidate
-            for raw in raw_results[:max_results]
-            if (candidate := _parse_result(raw, now)) is not None
+            for i, raw in enumerate(raw_results[:max_results], start=1)
+            if (candidate := _parse_result(raw, now, i)) is not None
         ]
         return SearchResponse(provider=self.name, query=query, results=results, is_fixture=False)
 
@@ -112,10 +113,16 @@ class TavilyResearchProvider:
         )
 
 
-def _parse_result(raw: dict, now: datetime) -> SourceCandidate | None:
+def _parse_result(raw: dict, now: datetime, rank: int) -> SourceCandidate | None:
     url = raw.get("url")
     if not url:
         return None
+
+    domain = None
+    try:
+        domain = urlparse(url).netloc or None
+    except ValueError:
+        pass
 
     published_at = None
     raw_date = raw.get("published_date")
@@ -134,11 +141,12 @@ def _parse_result(raw: dict, now: datetime) -> SourceCandidate | None:
         provider_result_id=hashlib.sha256(url.encode()).hexdigest()[:16],
         url=url,
         title=raw.get("title") or url,
-        domain=None,
+        domain=domain,
         author=None,
         publication=None,
         published_at=published_at,
         retrieved_at=now,
         source_type="article",
         snippet=content,
+        rank=rank,
     )

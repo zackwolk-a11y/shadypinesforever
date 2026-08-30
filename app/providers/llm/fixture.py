@@ -57,6 +57,7 @@ from app.schemas.reflection import ReflectionSynthesis
 from app.schemas.report import FounderReportSynthesis
 from app.schemas.research import (
     ResearchSynthesis,
+    SearchQueryPlan,
     SynthesizedClaim,
     SynthesizedEvidenceLink,
     SynthesizedFinding,
@@ -358,7 +359,14 @@ def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
     if ctx.in_conversation:
         table = _WEIGHTED_CONVERSATION_ACTIONS
     else:
-        table = list(_BASE_WEIGHTED_ACTIONS)
+        # Packet 10: START_RESEARCH's weight scales by this agent's own
+        # research_bias (app.domain.characters) — Dex reaches for research
+        # noticeably more often than Optimisto, mechanically, the same way
+        # challenge_bias already varies conversational-move weighting.
+        table = [
+            (a, w * ctx.profile.research_bias) if a is ActionType.START_RESEARCH else (a, w)
+            for a, w in _BASE_WEIGHTED_ACTIONS
+        ]
         for action_type, weight in _EXTRA_WEIGHTED_ACTIONS.items():
             if _precondition_met(action_type, ctx):
                 table.append((action_type, weight))
@@ -861,11 +869,29 @@ def _generate_founder_report_synthesis(rng: random.Random, user: str) -> Founder
     )
 
 
+def _generate_search_query_plan(rng: random.Random, user: str) -> SearchQueryPlan:
+    """Deterministically split one research question into a small set of
+    concrete queries (Packet 10, Part J) — never the raw question sent
+    wholesale, and never a fabricated topic unrelated to it."""
+    question = _extract(user, "RESEARCH QUESTION:") or "the topic"
+    max_queries = _extract(user, "MAX_QUERIES:")
+    cap = int(max_queries) if max_queries and max_queries.isdigit() else 3
+
+    kw = sorted(_words(question))
+    queries = [f"[fixture] {question}"]
+    if cap > 1 and kw:
+        queries.append(f"[fixture] {' '.join(kw[:4])}")
+    if cap > 2 and len(kw) > 2:
+        queries.append(f"[fixture] {' '.join(kw[-3:])} overview")
+    return SearchQueryPlan(queries=queries[:cap])
+
+
 _GENERATORS: dict[type, Callable[[random.Random, str], BaseModel]] = {
     AgentDecision: _generate_decision,
     ResearchSynthesis: _generate_research_synthesis,
     ReflectionSynthesis: _generate_reflection_synthesis,
     FounderReportSynthesis: _generate_founder_report_synthesis,
+    SearchQueryPlan: _generate_search_query_plan,
 }
 
 

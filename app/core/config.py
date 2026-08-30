@@ -75,6 +75,15 @@ class Settings:
     max_follow_up_depth: int
     target_research_sessions_per_village_day: int
     max_evidence_tokens_per_research_session: int
+    # Packet 10: how many discovered sources actually get fetched into a
+    # passage (a real network call live, a deterministic stand-in on
+    # fixture) — was a bare module constant before this packet, promoted to
+    # a real budget so it can be tuned without editing code. Domain
+    # diversity is soft on purpose (Part E: "configurable rather than
+    # rigid") — it is consulted while picking what to fetch, never a hard
+    # rejection.
+    max_fetched_sources_per_session: int
+    max_sources_per_domain_per_session: int
 
     # Reflection engine (Packet 9). The threshold is deliberately a Settings
     # value, not a literal in app/services/reflection.py: retuning "how much
@@ -137,6 +146,8 @@ def get_settings() -> Settings:
         max_evidence_tokens_per_research_session=_env_int(
             "MAX_EVIDENCE_TOKENS_PER_RESEARCH_SESSION", 6000
         ),
+        max_fetched_sources_per_session=_env_int("MAX_FETCHED_SOURCES_PER_SESSION", 3),
+        max_sources_per_domain_per_session=_env_int("MAX_SOURCES_PER_DOMAIN_PER_SESSION", 2),
         reflection_significance_threshold=float(
             _env("REFLECTION_SIGNIFICANCE_THRESHOLD", "100.0")
         ),

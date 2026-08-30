@@ -77,6 +77,7 @@ class FixtureResearchProvider:
                     retrieved_at=now,
                     source_type="article",
                     snippet=f"[fixture] A snippet touching on {query}, result {i + 1} of {count}.",
+                    rank=i + 1,
                 )
             )
         return SearchResponse(provider=self.name, query=query, results=results, is_fixture=True)
