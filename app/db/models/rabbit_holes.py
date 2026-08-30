@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, String, Text
+from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.domain.enums import EvidenceStrength, RabbitHoleStatus
@@ -46,10 +46,22 @@ class RabbitHole(TimestampMixin, Base):
         default=RabbitHoleStatus.NEW,
     )
     last_activity: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: The simulated day of the most recent activity — what staleness and
+    #: cooling are actually judged against. ``last_activity`` is a wall-clock
+    #: timestamp (useful for ordering); heat decays in *simulated* days, which
+    #: real time cannot answer on its own.
+    last_activity_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class RabbitHoleMember(Base):
-    """An agent's membership in a rabbit hole."""
+    """An agent's membership in a rabbit hole.
+
+    A row is never deleted on LEAVE_RABBIT_HOLE — ``left_at`` is stamped
+    instead, the same pattern conversations use for
+    ``departed_agent_ids``: the audit trail of who was ever in this hole
+    matters as much as who is in it now, and "currently a member" is simply
+    ``left_at IS NULL``.
+    """
 
     __tablename__ = "rabbit_hole_members"
 
@@ -63,6 +75,7 @@ class RabbitHoleMember(Base):
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
     )
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class RabbitHoleResearch(Base):

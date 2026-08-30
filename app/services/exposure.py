@@ -76,6 +76,77 @@ def exposed_entity_ids(
     )
 
 
+def expose_shared_research(
+    session: Session,
+    *,
+    agent_id: str,
+    research_session_id: str,
+    source_event_id: int | None = None,
+) -> list[AgentExposure]:
+    """Grant one agent real exposure to *another agent's* completed research.
+
+    This is the cross-pollination mechanism made concrete: reading a wall post
+    that cites research, or joining a rabbit hole research has been linked
+    into, is what lets an agent go from "I glimpsed a headline" to "I can cite
+    QuestAuthor's actual finding" — grounded in something it was genuinely
+    shown, never in omniscience. Idempotent in effect (repeat exposure rows are
+    harmless and cheap; `has_been_exposed` is what callers check).
+
+    Exposes the session, every one of its findings, and every claim inside
+    those findings — a shared finding without its constituent claims would
+    leave nothing for CHALLENGE_CLAIM or a claim-based REVISE_BELIEF to
+    actually target, since claims (not findings) are the atomic unit both
+    operate on.
+    """
+    from app.db.models.research import ResearchFinding
+    from app.db.models.research_provenance import Claim
+
+    rows = [
+        expose(
+            session,
+            agent_id=agent_id,
+            entity_type="research_session",
+            entity_id=research_session_id,
+            exposure_type=ExposureType.SHARED_FINDING,
+            source_event_id=source_event_id,
+        )
+    ]
+    finding_ids = list(
+        session.scalars(
+            select(ResearchFinding.id).where(
+                ResearchFinding.research_session_id == research_session_id
+            )
+        )
+    )
+    for finding_id in finding_ids:
+        rows.append(
+            expose(
+                session,
+                agent_id=agent_id,
+                entity_type="research_finding",
+                entity_id=finding_id,
+                exposure_type=ExposureType.SHARED_FINDING,
+                source_event_id=source_event_id,
+            )
+        )
+    if finding_ids:
+        claim_ids = session.scalars(
+            select(Claim.id).where(Claim.finding_id.in_(finding_ids))
+        )
+        for claim_id in claim_ids:
+            rows.append(
+                expose(
+                    session,
+                    agent_id=agent_id,
+                    entity_type="claim",
+                    entity_id=claim_id,
+                    exposure_type=ExposureType.SHARED_FINDING,
+                    source_event_id=source_event_id,
+                )
+            )
+    return rows
+
+
 def has_been_exposed(
     session: Session, agent_id: str, entity_type: str, entity_id: str | int
 ) -> bool:

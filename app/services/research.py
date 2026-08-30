@@ -494,6 +494,60 @@ def start_research(
     return outcome
 
 
+def find_claim(session: Session, claim_id: int) -> Claim | None:
+    return session.get(Claim, claim_id)
+
+
+def challenge_claim(
+    session: Session,
+    challenger_agent_id: str,
+    claim: Claim,
+    argument: str,
+    clock: SimulationClock,
+    correlation_id: str,
+) -> int:
+    """Record a disagreement with a specific atomic claim.
+
+    Disagreement is ordinary intellectual friction, not manufactured drama —
+    this only ever fires when an agent (or a live model prompted the same way)
+    chooses to challenge something, with its own real argument as
+    ``argument``. Nothing here scores agents against each other or resolves
+    who was "right"; it is a fact on the record that the researcher who owns
+    the claim can see and choose to respond to, including by revising a belief
+    that rested on it (Packet 6's cross-pollination chain).
+    """
+    event = record_event(
+        session,
+        event_type=EventType.CLAIM_CHALLENGED,
+        agent_id=challenger_agent_id,
+        payload={
+            "claim_id": claim.id,
+            "claim_text": claim.claim_text,
+            "argument": argument,
+            "research_session_id": claim.research_session_id,
+        },
+        entity_type="claim",
+        entity_id=str(claim.id),
+        correlation_id=correlation_id,
+        clock=clock,
+    )
+    # The challenge itself is exposed to the challenger (obviously) and to the
+    # original researcher, whose claim this is — that is what lets them see it
+    # next time they are activated, without exposing it to anyone else who
+    # hasn't otherwise encountered this research.
+    original_researcher = session.scalars(
+        select(ResearchSession.agent_id).where(
+            ResearchSession.research_id == claim.research_session_id
+        )
+    ).first()
+    for agent_id in {challenger_agent_id, original_researcher} - {None}:
+        expose(
+            session, agent_id=agent_id, entity_type="claim", entity_id=claim.id,
+            exposure_type=ExposureType.CREATED, source_event_id=event.id,
+        )
+    return event.id
+
+
 def _persist_source(
     session: Session, research_session: ResearchSession, candidate: SourceCandidate
 ) -> ResearchSource:

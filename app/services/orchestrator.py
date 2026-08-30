@@ -32,6 +32,10 @@ from app.db.base import utcnow
 from app.db.models.agents import Agent
 from app.db.models.conversations import Conversation, Message
 from app.db.models.memory import Memory
+from app.db.models.rabbit_holes import RabbitHole
+from app.db.models.research import ResearchSession
+from app.db.models.research_provenance import Claim
+from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
 from app.domain.enums import (
     ConversationStatus,
@@ -39,6 +43,8 @@ from app.domain.enums import (
     EventType,
     ExposureType,
     MemoryType,
+    RabbitHoleStatus,
+    WallPostType,
 )
 from app.domain.ids import new_correlation_id
 from app.providers.llm import LLMError, LLMProvider, get_llm_provider
@@ -47,15 +53,18 @@ from app.providers.research import ResearchProviderError, get_research_provider
 from app.schemas.actions import (
     CONTENT_ACTIONS,
     IN_CONVERSATION_ACTIONS,
+    NOT_IN_CONVERSATION_ACTIONS,
+    SINGLETON_ACTIONS,
     ActionType,
     AgentDecision,
 )
+from app.services import beliefs
 from app.services import clock as clock_service
 from app.services import conversations as convo
-from app.services import founder, research, scheduler
+from app.services import founder, rabbit_holes as rh, research, scheduler, wall
 from app.services.context_builder import build_agent_context
 from app.services.events import record_event
-from app.services.exposure import expose
+from app.services.exposure import expose, has_been_exposed
 from app.services.telemetry import record_llm_run
 
 PROMPT_VERSION = "agent_decision.v1"
@@ -113,7 +122,7 @@ def validate_decision(
             f"location {decision.location!r} is not a clubhouse location"
         )
 
-    research_actions = 0
+    seen_singletons: set[ActionType] = set()
     for action in decision.actions:
         if action.type not in ALLOWED_ACTIONS:
             raise DecisionRejected(f"action {action.type} is not available in this packet")
@@ -122,6 +131,13 @@ def validate_decision(
             raise DecisionRejected(
                 f"{action.type.value} requires being in an open conversation"
             )
+        if action.type in NOT_IN_CONVERSATION_ACTIONS and in_conversation:
+            raise DecisionRejected(f"cannot {action.type.value} while in a conversation")
+
+        if action.type in SINGLETON_ACTIONS:
+            if action.type in seen_singletons:
+                raise DecisionRejected(f"at most one {action.type.value} action per decision")
+            seen_singletons.add(action.type)
 
         if action.type is ActionType.START_CONVERSATION:
             if in_conversation:
@@ -133,11 +149,6 @@ def validate_decision(
             raise DecisionRejected("ASK_QUESTION requires a target_agent_id")
 
         if action.type is ActionType.START_RESEARCH:
-            research_actions += 1
-            if research_actions > 1:
-                raise DecisionRejected("at most one START_RESEARCH action per decision")
-            if in_conversation:
-                raise DecisionRejected("cannot START_RESEARCH while in a conversation")
             if session is not None and clock is not None and settings is not None:
                 reason = research.check_research_budget(session, agent, clock, settings)
                 if reason:
@@ -154,6 +165,163 @@ def validate_decision(
         if action.type in CONTENT_ACTIONS:
             if not (action.content or "").strip():
                 raise DecisionRejected(f"{action.type.value} requires content")
+
+        if session is not None:
+            _validate_wall_and_rabbit_hole_action(session, agent, action)
+
+
+def _validate_wall_and_rabbit_hole_action(session: Session, agent: Agent, action) -> None:
+    """The part of semantic validation that needs a database: every id an
+    action names must be real, and the anti-repetition guards live here."""
+
+    # target_research_id is carried by several action types (POST_TO_WALL,
+    # CREATE_RABBIT_HOLE, CONTRIBUTE_TO_RABBIT_HOLE); FORM_BELIEF and
+    # REVISE_BELIEF apply their own stricter rules further down instead.
+    if action.target_research_id is not None and action.type not in (
+        ActionType.FORM_BELIEF,
+        ActionType.REVISE_BELIEF,
+    ):
+        rs = session.scalars(
+            select(ResearchSession).where(
+                ResearchSession.research_id == action.target_research_id
+            )
+        ).first()
+        if rs is None:
+            raise DecisionRejected(f"unknown research session {action.target_research_id!r}")
+        if rs.agent_id != agent.agent_id and not has_been_exposed(
+            session, agent.agent_id, "research_session", action.target_research_id
+        ):
+            raise DecisionRejected(
+                "no real exposure to that research session — read a wall post citing "
+                "it, or join a rabbit hole it's linked into, first"
+            )
+
+    if action.type is ActionType.POST_TO_WALL:
+        if action.wall_post_type is None:
+            raise DecisionRejected("POST_TO_WALL requires wall_post_type")
+        if action.wall_post_type is WallPostType.CONNECTION:
+            if not action.target_wall_post_id:
+                raise DecisionRejected("a CONNECTION post requires target_wall_post_id")
+            if session.get(ResearchWallPost, action.target_wall_post_id) is None:
+                raise DecisionRejected(f"unknown wall post {action.target_wall_post_id!r}")
+            if wall.already_connected(session, agent.agent_id, action.target_wall_post_id):
+                raise DecisionRejected(
+                    "already posted a connection to this post — "
+                    "recently explored connections are not repeated"
+                )
+
+    if action.type is ActionType.READ_WALL_POST:
+        if not action.target_wall_post_id:
+            raise DecisionRejected("READ_WALL_POST requires target_wall_post_id")
+        if session.get(ResearchWallPost, action.target_wall_post_id) is None:
+            raise DecisionRejected(f"unknown wall post {action.target_wall_post_id!r}")
+
+    if action.type is ActionType.CREATE_RABBIT_HOLE:
+        if not (action.title or "").strip():
+            raise DecisionRejected("CREATE_RABBIT_HOLE requires a title")
+        if rh.has_similar_active_title(session, action.title):
+            raise DecisionRejected(
+                f"a rabbit hole named {action.title!r} is already open — "
+                "join or contribute to it instead of duplicating it"
+            )
+        if action.target_wall_post_id and session.get(ResearchWallPost, action.target_wall_post_id) is None:
+            raise DecisionRejected(f"unknown wall post {action.target_wall_post_id!r}")
+
+    if action.type in (
+        ActionType.JOIN_RABBIT_HOLE,
+        ActionType.CONTRIBUTE_TO_RABBIT_HOLE,
+        ActionType.LEAVE_RABBIT_HOLE,
+        ActionType.RESOLVE_RABBIT_HOLE,
+    ):
+        if not action.target_rabbit_hole_id:
+            raise DecisionRejected(f"{action.type.value} requires target_rabbit_hole_id")
+        hole = session.get(RabbitHole, action.target_rabbit_hole_id)
+        if hole is None:
+            raise DecisionRejected(f"unknown rabbit hole {action.target_rabbit_hole_id!r}")
+        if action.type is ActionType.JOIN_RABBIT_HOLE:
+            if hole.status in (RabbitHoleStatus.RESOLVED, RabbitHoleStatus.ABANDONED):
+                raise DecisionRejected(f"rabbit hole {hole.id} is {hole.status.value.lower()}")
+            if rh.is_member(session, hole.id, agent.agent_id):
+                raise DecisionRejected(f"already a member of rabbit hole {hole.id}")
+        if action.type in (ActionType.CONTRIBUTE_TO_RABBIT_HOLE, ActionType.LEAVE_RABBIT_HOLE, ActionType.RESOLVE_RABBIT_HOLE):
+            if not rh.is_member(session, hole.id, agent.agent_id):
+                raise DecisionRejected(
+                    f"not a member of rabbit hole {hole.id} — JOIN_RABBIT_HOLE first"
+                )
+        if action.type is ActionType.CONTRIBUTE_TO_RABBIT_HOLE:
+            if hole.status in (RabbitHoleStatus.RESOLVED, RabbitHoleStatus.ABANDONED):
+                raise DecisionRejected(f"rabbit hole {hole.id} is {hole.status.value.lower()}")
+
+    if action.type is ActionType.CHALLENGE_CLAIM:
+        if not action.target_claim_id:
+            raise DecisionRejected("CHALLENGE_CLAIM requires target_claim_id")
+        claim = session.get(Claim, action.target_claim_id)
+        if claim is None:
+            raise DecisionRejected(f"unknown claim {action.target_claim_id!r}")
+        owner = session.scalars(
+            select(ResearchSession.agent_id).where(
+                ResearchSession.research_id == claim.research_session_id
+            )
+        ).first()
+        if owner == agent.agent_id:
+            raise DecisionRejected("cannot challenge your own claim")
+
+    if action.type is ActionType.FORM_BELIEF:
+        if not action.target_research_id:
+            raise DecisionRejected("FORM_BELIEF requires target_research_id")
+        rs = session.scalars(
+            select(ResearchSession).where(ResearchSession.research_id == action.target_research_id)
+        ).first()
+        if rs is None:
+            raise DecisionRejected(f"unknown research session {action.target_research_id!r}")
+        if rs.agent_id != agent.agent_id:
+            raise DecisionRejected("can only FORM_BELIEF from your own research")
+        if rs.status.value != "COMPLETED":
+            raise DecisionRejected(f"research session {rs.research_id} is not completed")
+
+    if action.type is ActionType.REVISE_BELIEF:
+        if not action.target_belief_id:
+            raise DecisionRejected("REVISE_BELIEF requires target_belief_id")
+        if action.belief_relation is None:
+            raise DecisionRejected("REVISE_BELIEF requires belief_relation")
+        if beliefs.owned_by(session, agent.agent_id, action.target_belief_id) is None:
+            raise DecisionRejected(f"no belief {action.target_belief_id!r} owned by {agent.agent_id}")
+        basis_count = sum(
+            1 for x in (action.target_research_id, action.target_wall_post_id, action.target_claim_id) if x
+        )
+        if basis_count != 1:
+            raise DecisionRejected(
+                "REVISE_BELIEF requires exactly one of target_research_id / "
+                "target_wall_post_id / target_claim_id as the new evidence"
+            )
+        if action.target_research_id:
+            rs = session.scalars(
+                select(ResearchSession).where(
+                    ResearchSession.research_id == action.target_research_id
+                )
+            ).first()
+            if rs is None:
+                raise DecisionRejected(f"unknown research session {action.target_research_id!r}")
+            if rs.agent_id != agent.agent_id and not has_been_exposed(
+                session, agent.agent_id, "research_session", action.target_research_id
+            ):
+                raise DecisionRejected("no real exposure to that research session")
+        if action.target_wall_post_id:
+            if session.get(ResearchWallPost, action.target_wall_post_id) is None:
+                raise DecisionRejected(f"unknown wall post {action.target_wall_post_id!r}")
+            if not has_been_exposed(session, agent.agent_id, "research_wall", action.target_wall_post_id):
+                raise DecisionRejected("must READ_WALL_POST before citing it as belief evidence")
+        if action.target_claim_id:
+            if session.get(Claim, action.target_claim_id) is None:
+                raise DecisionRejected(f"unknown claim {action.target_claim_id!r}")
+            if not has_been_exposed(session, agent.agent_id, "claim", action.target_claim_id):
+                raise DecisionRejected("no real exposure to that claim")
+
+    if action.type is ActionType.RETIRE_BELIEF:
+        if not action.target_belief_id:
+            raise DecisionRejected("RETIRE_BELIEF requires target_belief_id")
+        if beliefs.owned_by(session, agent.agent_id, action.target_belief_id) is None:
+            raise DecisionRejected(f"no belief {action.target_belief_id!r} owned by {agent.agent_id}")
 
 
 def execute_decision(
@@ -257,6 +425,69 @@ def execute_decision(
                 entity_id=message.id,
                 exposure_type=ExposureType.CREATED,
             )
+        elif action.type is ActionType.POST_TO_WALL:
+            wall.post_to_wall(
+                session, agent.agent_id, action.wall_post_type, action.content or "",
+                clock, correlation_id,
+                related_research_id=action.target_research_id,
+                related_wall_post_id=action.target_wall_post_id,
+                related_rabbit_hole_id=action.target_rabbit_hole_id,
+            )
+        elif action.type is ActionType.READ_WALL_POST:
+            post = session.get(ResearchWallPost, action.target_wall_post_id)
+            wall.read_wall_post(session, agent.agent_id, post, clock, correlation_id)
+        elif action.type is ActionType.CREATE_RABBIT_HOLE:
+            rh.create(
+                session, agent.agent_id, action.title or "", action.content or "",
+                clock, correlation_id,
+                related_research_id=action.target_research_id,
+                related_wall_post_id=action.target_wall_post_id,
+            )
+        elif action.type is ActionType.JOIN_RABBIT_HOLE:
+            rh.join(session, action.target_rabbit_hole_id, agent.agent_id, clock, correlation_id)
+        elif action.type is ActionType.CONTRIBUTE_TO_RABBIT_HOLE:
+            rh.contribute(
+                session, action.target_rabbit_hole_id, agent.agent_id, action.content or "",
+                clock, correlation_id, research_id=action.target_research_id,
+            )
+        elif action.type is ActionType.LEAVE_RABBIT_HOLE:
+            rh.leave(session, action.target_rabbit_hole_id, agent.agent_id, clock, correlation_id)
+        elif action.type is ActionType.RESOLVE_RABBIT_HOLE:
+            rh.resolve(
+                session, action.target_rabbit_hole_id, agent.agent_id, action.content or "",
+                clock, correlation_id,
+            )
+        elif action.type is ActionType.CHALLENGE_CLAIM:
+            claim = session.get(Claim, action.target_claim_id)
+            research.challenge_claim(
+                session, agent.agent_id, claim, action.content or "", clock, correlation_id
+            )
+        elif action.type is ActionType.FORM_BELIEF:
+            rs = session.scalars(
+                select(ResearchSession).where(
+                    ResearchSession.research_id == action.target_research_id
+                )
+            ).one()
+            initial_confidence = rs.confidence if rs.confidence is not None else 50.0
+            beliefs.form(
+                session, agent.agent_id, action.content or "", action.target_research_id,
+                initial_confidence, clock, correlation_id,
+            )
+        elif action.type is ActionType.REVISE_BELIEF:
+            belief = beliefs.owned_by(session, agent.agent_id, action.target_belief_id)
+            if action.target_research_id:
+                basis_type, basis_id = "research_session", action.target_research_id
+            elif action.target_wall_post_id:
+                basis_type, basis_id = "wall_post", str(action.target_wall_post_id)
+            else:
+                basis_type, basis_id = "claim", str(action.target_claim_id)
+            beliefs.revise(
+                session, agent.agent_id, belief, action.belief_relation, basis_type, basis_id,
+                action.content, clock, correlation_id,
+            )
+        elif action.type is ActionType.RETIRE_BELIEF:
+            belief = beliefs.owned_by(session, agent.agent_id, action.target_belief_id)
+            beliefs.retire(session, agent.agent_id, belief, action.content or "", clock, correlation_id)
         # REST / OBSERVE / LISTEN_TO_MUSIC / DRINK_COFFEE / DO_NOTHING are fully
         # expressed by the activity and location already applied above.
         agent.interaction_target = action.target_agent_id

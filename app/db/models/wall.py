@@ -12,9 +12,19 @@ from app.db.base import Base, TimestampMixin
 from app.db.models.agents import AGENT_FK
 from app.db.models.research import RESEARCH_FK
 
+WALL_FK = "research_wall.id"
+
 
 class ResearchWallPost(TimestampMixin, Base):
-    """A single pinned post."""
+    """A single pinned post.
+
+    ``related_wall_post_id`` is what a CONNECTION post points at — the other
+    agent's earlier post this one is drawing a line to. ``related_rabbit_hole_id``
+    marks a post as being about a specific rabbit hole (a contribution note, a
+    RABBIT_HOLE_SUGGESTION that named an existing hole rather than proposing a
+    new one, etc). Both are nullable and independent of ``related_research_id``
+    — a post can cite research, a wall post, a rabbit hole, all three, or none.
+    """
 
     __tablename__ = "research_wall"
 
@@ -28,4 +38,10 @@ class ResearchWallPost(TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     related_research_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey(RESEARCH_FK), index=True, nullable=True
+    )
+    related_wall_post_id: Mapped[int | None] = mapped_column(
+        ForeignKey(WALL_FK), index=True, nullable=True
+    )
+    related_rabbit_hole_id: Mapped[int | None] = mapped_column(
+        ForeignKey("rabbit_holes.id"), index=True, nullable=True
     )

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from app.db.base import Base
 from app.db.models.agents import Agent, AgentBelief, AgentInterest, BeliefStatus, Relationship
+from app.db.models.belief import BeliefBasis
 from app.db.models.conversations import (
     Conversation,
     ConversationMessage,
@@ -48,6 +49,7 @@ __all__ = [
     "AgentInterest",
     "BeliefStatus",
     "Relationship",
+    "BeliefBasis",
     # memory
     "Memory",
     "MemoryType",

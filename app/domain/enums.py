@@ -77,6 +77,22 @@ class EvidenceRelation(str, enum.Enum):
     CONTEXT = "CONTEXT"
 
 
+class BeliefBasisRelation(str, enum.Enum):
+    """How one piece of new evidence moved a belief (Packet 6).
+
+    Deliberately a separate vocabulary from :class:`EvidenceRelation`: a claim
+    is supported/contradicted/given-context *by a passage*, which is a fact
+    about the evidence; a belief is strengthened/weakened/rejected *by an
+    agent's judgment* of what new evidence means, which is an epistemic act.
+    Collapsing the two would blur exactly the distinction §2 exists to keep —
+    "the source says X" is not the same claim as "I now believe X less".
+    """
+
+    STRENGTHENS = "STRENGTHENS"
+    WEAKENS = "WEAKENS"
+    REJECTS = "REJECTS"
+
+
 class WallPostType(str, enum.Enum):
     """What kind of thing an agent pinned to the research wall."""
 
@@ -177,6 +193,13 @@ class EventType(str, enum.Enum):
     BELIEF_CREATED = "BELIEF_CREATED"
     BELIEF_UPDATED = "BELIEF_UPDATED"
     BELIEF_REJECTED = "BELIEF_REJECTED"
+    # Beyond §18: the wall and rabbit holes need finer-grained events than the
+    # base list gives them — posting and reading are different acts, and a
+    # rabbit hole's ending needs to say which ending.
+    WALL_POST_READ = "WALL_POST_READ"
+    RABBIT_HOLE_LEFT = "RABBIT_HOLE_LEFT"
+    RABBIT_HOLE_RESOLVED = "RABBIT_HOLE_RESOLVED"
+    RABBIT_HOLE_ABANDONED = "RABBIT_HOLE_ABANDONED"
     INTEREST_INCREASED = "INTEREST_INCREASED"
     INTEREST_DECREASED = "INTEREST_DECREASED"
     MEMORY_CREATED = "MEMORY_CREATED"
