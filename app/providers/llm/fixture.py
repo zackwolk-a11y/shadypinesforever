@@ -29,12 +29,27 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
+from app.domain.characters import CHARACTER_PROFILES, CharacterProfile, Verbosity
 from app.domain.enums import (
     BeliefBasisRelation,
     EvidenceStrength,
     FindingClassification,
     MemoryType,
     WallPostType,
+)
+from app.domain.moves import (
+    MOVE_ADMIT_UNCERTAINTY,
+    MOVE_ANECDOTE,
+    MOVE_ANSWER,
+    MOVE_CHALLENGE,
+    MOVE_CHANGE_SUBJECT,
+    MOVE_CLARIFY,
+    MOVE_CONNECT,
+    MOVE_EXTEND,
+    MOVE_JOKE,
+    MOVE_OPEN,
+    MOVE_PROPOSE_RESEARCH,
+    MOVE_QUESTION,
 )
 from app.providers.llm.base import LLMResult, LLMSchemaError, LLMUsage
 from app.schemas.actions import ActionType, AgentAction, AgentDecision, Reflection
@@ -54,6 +69,135 @@ _WEIGHTED_CONVERSATION_ACTIONS: tuple[tuple[ActionType, int], ...] = (
     (ActionType.DO_NOTHING, 3),
     (ActionType.LEAVE_CONVERSATION, 1),
 )
+
+#: Packet 8. A default profile for anything not in the canonical eight (never
+#: expected in practice, but keeps this generator from crashing on an
+#: unrecognized agent_id rather than silently reading None everywhere).
+_DEFAULT_PROFILE = CharacterProfile(
+    agent_id="unknown",
+    communication_style="plainspoken",
+    conversational_tendencies=(), intellectual_tendencies=(),
+    humor_style="mild", disagreement_style="direct", curiosity_style="general",
+    verbosity=Verbosity.MODERATE,
+    notices=(), questions=(),
+)
+
+#: Base weights for a reply turn's conversational move — multiplied by the
+#: speaking agent's numeric bias fields (app.domain.characters) below, so
+#: which move wins varies by who's talking, not just by topic.
+_MOVE_BASE_WEIGHTS: dict[str, float] = {
+    MOVE_ANSWER: 4.0,
+    MOVE_QUESTION: 3.0,
+    MOVE_CHALLENGE: 2.0,
+    MOVE_CLARIFY: 1.5,
+    MOVE_EXTEND: 3.0,
+    MOVE_CONNECT: 2.0,
+    MOVE_JOKE: 1.5,
+    MOVE_ANECDOTE: 2.0,
+    MOVE_ADMIT_UNCERTAINTY: 1.0,
+    MOVE_PROPOSE_RESEARCH: 1.0,
+    MOVE_CHANGE_SUBJECT: 0.7,
+}
+
+
+def _move_weights(profile: CharacterProfile, relationship: dict | None) -> dict[str, float]:
+    w = dict(_MOVE_BASE_WEIGHTS)
+    w[MOVE_CHALLENGE] *= profile.challenge_bias
+    w[MOVE_JOKE] *= profile.humor_bias
+    w[MOVE_QUESTION] *= profile.question_bias
+    w[MOVE_ANECDOTE] *= profile.anecdote_bias
+    w[MOVE_ADMIT_UNCERTAINTY] *= profile.uncertainty_bias
+    if relationship is not None:
+        # A close, trusted relationship makes disagreement lower-stakes and
+        # more comfortable, not less likely — friends push back on friends.
+        # A brand-new relationship leans toward lower-risk moves instead.
+        # This is the mechanical half of "Optimisto talking with Vince
+        # should not feel identical to Optimisto talking with Dex."
+        if relationship["trust"] >= 70:
+            w[MOVE_CHALLENGE] *= 1.3
+            w[MOVE_ANECDOTE] *= 1.2
+        elif relationship["familiarity"] < 10:
+            w[MOVE_CHALLENGE] *= 0.7
+            w[MOVE_QUESTION] *= 1.2
+        if relationship["intellectual_affinity"] >= 65:
+            w[MOVE_EXTEND] *= 1.3
+            w[MOVE_CONNECT] *= 1.3
+    return w
+
+
+_DEX_LABELS = ("SPECULATION", "SPECULATION", "INFERENCE", "INFERENCE", "ESTIMATE", "FACT")
+
+
+def _dex_label(rng: random.Random) -> str:
+    """Dex must distinguish FACT/MARKET DATA/ESTIMATE/INFERENCE/SPECULATION
+    (§ Dex's character spec) and never fabricate a market price or
+    probability — so this fixture leans heavily toward the labels that carry
+    no invented number (SPECULATION/INFERENCE/ESTIMATE) and only rarely
+    claims FACT; MARKET DATA never appears here at all, since the fixture
+    has no real market feed to cite and citing one anyway would be exactly
+    the fabrication the spec forbids."""
+    return rng.choice(_DEX_LABELS)
+
+
+def _reply_templates(move: str, speaker_kw: str, topic: str) -> tuple[str, ...]:
+    """Several phrasings per move, so the same move doesn't read identically
+    turn to turn — the main defense against synthetic-sounding repetition,
+    alongside the exact-duplicate and filler-opener guards in
+    app.services.dialogue."""
+    if move == MOVE_ANSWER:
+        return (
+            f"Yeah — the {speaker_kw} part tracks with what I've seen.",
+            f"I think so, especially about {speaker_kw}.",
+        )
+    if move == MOVE_QUESTION:
+        return (
+            f"What makes you say that about {speaker_kw}?",
+            f"Wait, how does {speaker_kw} actually work here?",
+        )
+    if move == MOVE_CHALLENGE:
+        return (
+            f"I don't think that follows — what's the evidence for {speaker_kw}?",
+            f"Maybe, but there's another explanation for {speaker_kw}.",
+            f"I used to think that too, but {speaker_kw} doesn't quite hold up.",
+        )
+    if move == MOVE_CLARIFY:
+        return (
+            f"Wait, do you mean {speaker_kw} specifically, or the whole thing?",
+            f"Hold on — say more about {speaker_kw}?",
+        )
+    if move == MOVE_EXTEND:
+        return (
+            f"Right, and it connects to {topic} too.",
+            f"That, plus {topic} — same underlying thing, maybe.",
+        )
+    if move == MOVE_CONNECT:
+        return (
+            f"That actually reminds me of {topic}.",
+            f"Huh — that's not unlike {topic}.",
+        )
+    if move == MOVE_JOKE:
+        return (
+            f"(laughs) Only you'd connect {speaker_kw} to this.",
+            f"That's either brilliant or completely made up — {speaker_kw}.",
+        )
+    if move == MOVE_ANECDOTE:
+        return (
+            f"Reminds me of something — {topic}, actually.",
+            f"Had something like that happen once, around {topic}.",
+        )
+    if move == MOVE_ADMIT_UNCERTAINTY:
+        return (
+            f"Honestly, I'm not sure about {speaker_kw}. Could be wrong.",
+            f"That sounds plausible, but we're guessing on {speaker_kw}.",
+        )
+    if move == MOVE_PROPOSE_RESEARCH:
+        return (
+            f"Someone should actually look into {speaker_kw}.",
+            f"I might dig into {speaker_kw} properly later.",
+        )
+    if move == MOVE_CHANGE_SUBJECT:
+        return (f"Different question — what about {topic}?",)
+    return (f"{topic}, maybe.",)  # MOVE_OPEN fallback, overridden below
 
 #: Weighted so most activations are quiet. A village where everyone acts every
 #: time they are activated is the failure mode, not the goal. Packet 6 actions
@@ -191,6 +335,13 @@ class _Context:
             user, "OPEN RABBIT HOLES", only_matching=r"\[(\d+)\] \(you are in this one\)"
         )
 
+        # Packet 8: dialogue signals.
+        self.subject = _extract(user, "SUBJECT:")
+        self.last_turn = _extract_last_turn(user)
+        self.relationships = _extract_relationships(user)
+        self.nearby_subject, self.nearby_participants = _extract_nearby_conversation(user)
+        self.profile = CHARACTER_PROFILES.get(self.agent_id, _DEFAULT_PROFILE)
+
 
 def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
     ctx = _Context(user)
@@ -202,6 +353,8 @@ def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
         for action_type, weight in _EXTRA_WEIGHTED_ACTIONS.items():
             if _precondition_met(action_type, ctx):
                 table.append((action_type, weight))
+        if ctx.nearby_subject is not None or ctx.nearby_participants:
+            table.append((ActionType.JOIN_CONVERSATION, _join_weight(ctx)))
 
     population = [a for a, _ in table]
     weights = [w for _, w in table]
@@ -294,9 +447,16 @@ def _build_action(
     if chosen is ActionType.SEND_MESSAGE:
         return AgentAction(type=chosen, target_agent_id=target, content=f"[fixture] Something about {topic} came to mind.")
     if chosen is ActionType.START_CONVERSATION:
-        return AgentAction(type=chosen, target_agent_id=target, content=f"[fixture] Can I ask you about {topic}?")
+        return AgentAction(
+            type=chosen, target_agent_id=target, conversational_move=MOVE_OPEN,
+            content=_open_line(rng, ctx.profile, topic),
+        )
     if chosen is ActionType.START_RESEARCH:
         return AgentAction(type=chosen, content=f"[fixture] What is the current state of {topic}?")
+    if chosen is ActionType.SPEAK:
+        return _build_speak(rng, ctx, topic)
+    if chosen is ActionType.JOIN_CONVERSATION:
+        return AgentAction(type=chosen)
 
     if chosen is ActionType.POST_TO_WALL:
         return _build_post_to_wall(rng, ctx, topic)
@@ -394,6 +554,92 @@ def _build_action(
             content="[fixture] I don't hold this one anymore.",
         )
     return None
+
+
+def _open_line(rng: random.Random, profile: CharacterProfile, topic: str) -> str:
+    templates = (
+        f"Hey — been thinking about {topic}.",
+        f"Can I ask you about {topic}?",
+        f"Something about {topic} came to mind.",
+        f"Got a minute? {topic.capitalize()}'s been on my mind.",
+        f"Random question, but — {topic}?",
+        f"You around? Wanted to talk through {topic}.",
+    )
+    return f"[fixture] {rng.choice(templates)}"
+
+
+def _join_weight(ctx: _Context) -> float:
+    """How much this agent wants to join the conversation happening nearby
+    — real overlap with its own interests, or a strong relationship with
+    someone already in it (rendered relationship lines aren't available for
+    a non-participant, so this leans on subject-keyword overlap alone,
+    matching find_joiner's own primary signal)."""
+    if not ctx.nearby_subject:
+        return 0.5
+    interest_words: set[str] = set()
+    for i in ctx.interests:
+        interest_words |= _words(i)
+    overlap = interest_words & _words(ctx.nearby_subject)
+    return 0.5 + 2.0 * len(overlap)
+
+
+def _build_speak(rng: random.Random, ctx: _Context, topic: str) -> AgentAction:
+    """A reply that actually engages the last thing said — never an
+    independent monologue that merely shares a topic (§ "Direct Response").
+    """
+    if ctx.last_turn is None:
+        # First to speak in this conversation (e.g. the opener already
+        # happened via START_CONVERSATION and nobody else has spoken since,
+        # or a solo/degenerate case) — open rather than "reply to nothing".
+        return AgentAction(
+            type=ActionType.SPEAK, conversational_move=MOVE_OPEN,
+            content=_open_line(rng, ctx.profile, topic),
+        )
+
+    last_speaker, last_content = ctx.last_turn
+    speaker_kw_set = _words(last_content)
+    if speaker_kw_set and rng.random() < 0.7:
+        # Prefer the longest surviving word(s): a real topic noun
+        # ("consciousness", "hospitality") tends to run longer than the
+        # connector words that leak through a coarse length+stopword filter
+        # ("plus", "hold", "can") — a cheap second line of defense on top of
+        # the stopword list itself. The remaining 30% of the time falls back
+        # to the speaker's own topic instead: every reply template's own
+        # vocabulary becomes the *next* turn's extraction source once a
+        # conversation runs several turns, so leaning on this agent's own
+        # interest sometimes keeps that from cascading into nonsense over a
+        # long exchange (found by inspecting real multi-day runs).
+        longest_len = max(len(w) for w in speaker_kw_set)
+        speaker_kw = rng.choice(sorted(w for w in speaker_kw_set if len(w) == longest_len))
+    else:
+        speaker_kw = topic
+
+    relationship = ctx.relationships.get(last_speaker)
+    weights = _move_weights(ctx.profile, relationship)
+    moves = list(weights.keys())
+    move = rng.choices(moves, weights=[weights[m] for m in moves], k=1)[0]
+
+    line = rng.choice(_reply_templates(move, speaker_kw, topic))
+    if ctx.agent_id == "agent_dex" and move in (MOVE_CHALLENGE, MOVE_QUESTION, MOVE_ANSWER):
+        line = f"[{_dex_label(rng)}] {line}"
+    content = f"[fixture] {line}"
+
+    action_kwargs: dict = {}
+    if move == MOVE_CHANGE_SUBJECT:
+        action_kwargs["new_subject"] = topic[:200]
+    # Occasionally ground the turn in something real — citing a real id, the
+    # same discipline every other Packet 6/7 action already follows, never
+    # an invented one. Only offered when the fixture actually has one.
+    if move in (MOVE_PROPOSE_RESEARCH, MOVE_EXTEND) and ctx.own_research_ids and rng.random() < 0.4:
+        action_kwargs["target_research_id"] = rng.choice(ctx.own_research_ids)
+    elif move in (MOVE_CONNECT, MOVE_EXTEND) and ctx.wall_read and rng.random() < 0.3:
+        action_kwargs["target_wall_post_id"] = rng.choice(ctx.wall_read)[0]
+    elif move == MOVE_CONNECT and ctx.member_hole_ids and rng.random() < 0.3:
+        action_kwargs["target_rabbit_hole_id"] = rng.choice(ctx.member_hole_ids)
+
+    return AgentAction(
+        type=ActionType.SPEAK, conversational_move=move, content=content, **action_kwargs
+    )
 
 
 def _build_post_to_wall(rng: random.Random, ctx: _Context, topic: str) -> AgentAction:
@@ -574,6 +820,100 @@ def _extract_wall_posts(text: str, header_prefix: str) -> list[tuple[int, str, s
         if m:
             posts.append((int(m.group(1)), m.group(2), m.group(3).rstrip(":"), m.group(4)))
     return posts
+
+
+#: Small, local, deliberately not shared with app.services.wall.keywords:
+#: providers sit below services in this codebase's layering, so this file
+#: never imports a service — a few lines of duplication here is cheaper than
+#: inverting that dependency.
+_STOPWORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "to", "of", "in", "on",
+    "and", "or", "for", "with", "about", "this", "that", "it", "as", "at",
+    "be", "by", "from", "has", "have", "not", "what", "how", "do", "does",
+    "you", "your", "i", "we", "they", "he", "she", "maybe", "actually",
+    "something", "someone", "somewhere", "thing", "things", "came", "mind",
+    "yeah", "right", "well", "just", "really", "still", "even", "much",
+    # Every fixture-generated utterance is prefixed "[fixture] " (the marker
+    # that keeps fixture output from ever being mistaken for a live model's,
+    # same as everywhere else in this codebase) — without this, "fixture"
+    # itself would keep winning as an "extracted keyword" from any content.
+    "fixture",
+    # Connective/filler words that show up across this file's own templates
+    # ("Hey — been thinking about...", "What is the current state of...")
+    # and would otherwise get extracted as a "keyword" from one template and
+    # threaded into a *different* template, producing nonsense like "but
+    # reminds doesn't quite hold up" or "what's the evidence for plus" —
+    # found by inspecting real multi-day runs. Every reply template in this
+    # file was re-read word by word to build this list, rather than adding
+    # entries only as each awkward case turned up one at a time.
+    "been", "hey", "thinking", "ask", "reminds", "state", "current",
+    "wondering", "keep", "worth", "sharing", "here", "there", "regarding",
+    "part", "tracks", "seen", "makes", "say", "wait", "work", "follows",
+    "evidence", "another", "explanation", "used", "quite", "hold", "mean",
+    "specifically", "whole", "connects", "plus", "underlying", "same",
+    "unlike", "laughs", "only", "connect", "either", "brilliant",
+    "completely", "made", "happen", "once", "around", "honestly", "sure",
+    "could", "wrong", "sounds", "plausible", "guessing", "look", "into",
+    "might", "dig", "properly", "later", "different", "question", "held",
+    "shifts", "bit", "changes", "fair", "point", "held", "run", "course",
+    "convinced", "generalizes", "assume", "real", "people", "worthwhile",
+    "can", "could've", "would've",
+    # Contractions: _words() keeps the apostrophe (see its regex), so these
+    # need listing whole rather than relying on the length/stopword filter
+    # to catch their stem.
+    "don't", "can't", "won't", "you'd", "i'd", "that's", "there's",
+    "what's", "it's", "you're", "i'm", "isn't", "doesn't", "didn't",
+    "especially", "probably", "definitely", "certainly", "obviously",
+    "random", "minute", "wanted", "talk", "through", "around",
+}
+
+
+def _words(text: str) -> set[str]:
+    tokens = re.findall(r"[a-z0-9']+", (text or "").lower())
+    return {w for w in tokens if len(w) > 2 and w not in _STOPWORDS}
+
+
+def _extract_last_turn(text: str) -> tuple[str, str] | None:
+    """The most recent line of ``WHAT HAS BEEN SAID:`` — ``(speaker, content)``
+    — so a reply can be built to actually respond to it, not just share a
+    topic with it."""
+    section = _extract_section(text, "WHAT HAS BEEN SAID:")
+    if not section:
+        return None
+    m = re.match(r"\s*\d+\.\s+(\S+):\s*(.*)$", section[-1])
+    if not m:
+        return None
+    return m.group(1).rstrip(":"), m.group(2)
+
+
+def _extract_relationships(text: str) -> dict[str, dict[str, float]]:
+    out: dict[str, dict[str, float]] = {}
+    pattern = re.compile(
+        r"YOUR RELATIONSHIP WITH (\S+): trust=(-?\d+) familiarity=(-?\d+) "
+        r"intellectual_affinity=(-?\d+) conversations_together=(\d+)"
+    )
+    for line in text.splitlines():
+        m = pattern.search(line)
+        if m:
+            out[m.group(1)] = {
+                "trust": float(m.group(2)),
+                "familiarity": float(m.group(3)),
+                "intellectual_affinity": float(m.group(4)),
+                "conversations_together": float(m.group(5)),
+            }
+    return out
+
+
+def _extract_nearby_conversation(text: str) -> tuple[str | None, list[str]]:
+    m = re.search(
+        r"A CONVERSATION IS HAPPENING NEARBY \([A-Z_]+\) between ([^\n]+?)"
+        r"(?: about \"([^\"]*)\")?\.",
+        text,
+    )
+    if not m:
+        return None, []
+    participants = [p.strip() for p in m.group(1).split(",") if p.strip()]
+    return m.group(2), participants
 
 
 def _extract_own_research_ids(text: str) -> list[str]:

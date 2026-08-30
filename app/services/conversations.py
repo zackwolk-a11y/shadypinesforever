@@ -76,6 +76,8 @@ def start_conversation(
         trigger_type=trigger,
         participant_ids=list(participant_ids),
         status=ConversationStatus.ACTIVE,
+        started_sim_day=clock.current_day,
+        started_sim_period=clock.current_period,
     )
     session.add(conversation)
     session.flush()
@@ -149,8 +151,15 @@ def record_utterance(
     *,
     correlation_id: str | None = None,
     causation_id: int | None = None,
+    move: str | None = None,
 ) -> ConversationMessage:
-    """Add one turn, and expose it to everyone in the room."""
+    """Add one turn, and expose it to everyone in the room.
+
+    ``move`` (Packet 8, ``app.services.dialogue.MOVE_*``) is stored on the
+    event, not the message row — it's ephemeral tagging metadata for
+    anti-repetition/memory-worthiness detection, not a permanent property of
+    what was said.
+    """
     message = ConversationMessage(
         conversation_id=conversation.id,
         agent_id=agent_id,
@@ -164,7 +173,7 @@ def record_utterance(
         session,
         event_type=EventType.CONVERSATION_MESSAGE,
         agent_id=agent_id,
-        payload={"conversation_id": conversation.id, "turn": message.turn_number},
+        payload={"conversation_id": conversation.id, "turn": message.turn_number, "move": move},
         entity_type="conversation_message",
         entity_id=str(message.id),
         correlation_id=correlation_id,
@@ -184,7 +193,14 @@ def record_utterance(
     return message
 
 
-def leave(session: Session, conversation: Conversation, agent_id: str) -> None:
+def leave(
+    session: Session,
+    conversation: Conversation,
+    agent_id: str,
+    clock: SimulationClock,
+    *,
+    correlation_id: str | None = None,
+) -> None:
     """Walk someone out of the room.
 
     ``participant_ids`` is who is here now; ``departed_agent_ids`` remembers who
@@ -196,6 +212,66 @@ def leave(session: Session, conversation: Conversation, agent_id: str) -> None:
     ]
     if agent_id not in (conversation.departed_agent_ids or []):
         conversation.departed_agent_ids = [*(conversation.departed_agent_ids or []), agent_id]
+    record_event(
+        session,
+        event_type=EventType.CONVERSATION_LEFT,
+        agent_id=agent_id,
+        payload={"conversation_id": conversation.id},
+        entity_type="conversation",
+        entity_id=str(conversation.id),
+        correlation_id=correlation_id,
+        clock=clock,
+    )
+
+
+def join(
+    session: Session,
+    conversation: Conversation,
+    agent_id: str,
+    clock: SimulationClock,
+    *,
+    correlation_id: str | None = None,
+) -> None:
+    """Bring an outsider into an open conversation (Packet 8).
+
+    Exposes them to every turn already said — joining mid-conversation means
+    hearing what's already been said, the same as being there from the
+    start, not a redacted view forward-only from here.
+    """
+    if agent_id not in (conversation.participant_ids or []):
+        conversation.participant_ids = [*(conversation.participant_ids or []), agent_id]
+    conversation.departed_agent_ids = [
+        a for a in (conversation.departed_agent_ids or []) if a != agent_id
+    ]
+    event = record_event(
+        session,
+        event_type=EventType.CONVERSATION_JOINED,
+        agent_id=agent_id,
+        payload={"conversation_id": conversation.id},
+        entity_type="conversation",
+        entity_id=str(conversation.id),
+        correlation_id=correlation_id,
+        clock=clock,
+    )
+    expose_many(
+        session,
+        agent_ids=[agent_id],
+        entity_type="conversation",
+        entity_id=conversation.id,
+        exposure_type=ExposureType.CONVERSATION,
+        source_event_id=event.id,
+    )
+    existing_turns = session.scalars(
+        select(ConversationMessage.id).where(ConversationMessage.conversation_id == conversation.id)
+    ).all()
+    for message_id in existing_turns:
+        from app.services.exposure import expose
+
+        expose(
+            session, agent_id=agent_id, entity_type="conversation_message", entity_id=message_id,
+            exposure_type=ExposureType.CONVERSATION, source_event_id=event.id,
+        )
+    _touch_relationships(session, conversation.participant_ids or [], agent_id)
 
 
 def everyone_who_was_present(conversation: Conversation) -> set[str]:
@@ -230,6 +306,7 @@ def close(
     """End a conversation and log why."""
     conversation.status = ConversationStatus.ENDED
     conversation.ended_at = utcnow()
+    conversation.ending_reason = reason
     record_event(
         session,
         event_type=EventType.CONVERSATION_ENDED,

@@ -14,7 +14,15 @@ from app.db.models.agents import AGENT_FK
 
 
 class Conversation(Base):
-    """A multi-agent exchange. ``participant_ids`` is a JSON list of ``agent_id``."""
+    """A multi-agent exchange. ``participant_ids`` is a JSON list of ``agent_id``.
+
+    Packet 8 adds the fields a real conversation needs to be inspectable and
+    to actually connect to the rest of the Village: where it happened, what
+    it was about, and what it touched (research/wall posts/rabbit holes/
+    memories) — the same typed-list convention Packets 6-7 already use, and
+    for the same reason: a conversation may reference something that has
+    since changed shape, and should still say so.
+    """
 
     __tablename__ = "conversations"
 
@@ -43,6 +51,23 @@ class Conversation(Base):
     departed_agent_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     #: Ties every event of this conversation into one causal chain.
     correlation_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+
+    location: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: A short label for what's being discussed right now — set at start,
+    #: updatable by a CHANGE_SUBJECT-flavored SPEAK (app/services/dialogue.py).
+    current_subject: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The concrete, mechanical reason this conversation began — distinct
+    #: from trigger_type's coarse category, e.g. "agent_dex challenged a
+    #: claim in agent_vince's research". See dialogue.pick_trigger.
+    initiating_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ending_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_sim_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    started_sim_period: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    related_research_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    related_wall_post_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    related_rabbit_hole_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    related_memory_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
 
 class ConversationMessage(TimestampMixin, Base):

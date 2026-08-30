@@ -79,6 +79,10 @@ class Memory(TimestampMixin, Base):
     #: latest twist be found and reinforced on the belief's *next* revision
     #: (§5) without collapsing belief and memory into one concept (§14).
     related_belief_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    #: Packet 8: which conversation(s) this memory came out of — lets a later
+    #: conversation reference "that thing you said" honestly, by finding the
+    #: real conversation behind a memory rather than inferring one.
+    related_conversation_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
     decay_score: Mapped[float] = mapped_column(Float, nullable=False, default=DEFAULT_DECAY_SCORE)
     reinforcement_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

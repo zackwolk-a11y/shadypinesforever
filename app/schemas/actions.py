@@ -37,6 +37,11 @@ class ActionType(str, enum.Enum):
     START_CONVERSATION = "START_CONVERSATION"
     SPEAK = "SPEAK"
     LEAVE_CONVERSATION = "LEAVE_CONVERSATION"
+    #: Packet 8. Join a conversation already in progress that the agent is
+    #: not part of. Requires a real reason (app/services/dialogue.py checks
+    #: it independently of whatever the model claims) — proximity alone
+    #: never justifies it.
+    JOIN_CONVERSATION = "JOIN_CONVERSATION"
     #: Packet 5. ``content`` carries the research question — the agent's own,
     #: drawn from its interests, memories, conversations and what it has seen
     #: on the wall, never assigned.
@@ -108,7 +113,9 @@ IN_CONVERSATION_ACTIONS = {ActionType.SPEAK, ActionType.LEAVE_CONVERSATION}
 
 #: Actions that cannot happen while in a conversation — each needs the agent's
 #: full attention on something outside the room (research, the wall, a rabbit
-#: hole), the same way START_RESEARCH already does.
+#: hole), the same way START_RESEARCH already does. JOIN_CONVERSATION belongs
+#: here too: an existing participant cannot "join" the conversation it is
+#: already in.
 NOT_IN_CONVERSATION_ACTIONS = {
     ActionType.START_RESEARCH,
     ActionType.POST_TO_WALL,
@@ -122,6 +129,7 @@ NOT_IN_CONVERSATION_ACTIONS = {
     ActionType.FORM_BELIEF,
     ActionType.REVISE_BELIEF,
     ActionType.RETIRE_BELIEF,
+    ActionType.JOIN_CONVERSATION,
 }
 
 #: One action of each of these kinds per decision — the same reasoning as
@@ -143,6 +151,7 @@ SINGLETON_ACTIONS = {
     ActionType.FORM_BELIEF,
     ActionType.REVISE_BELIEF,
     ActionType.RETIRE_BELIEF,
+    ActionType.JOIN_CONVERSATION,
 }
 
 
@@ -178,6 +187,15 @@ class AgentAction(BaseModel):
     memory_type: MemoryType | None = Field(
         default=None, description="Optional for WRITE_NOTE: EPISODIC, SEMANTIC, SOCIAL, INTEREST, or PROJECT."
     )
+    #: Packet 8. Only meaningful for SPEAK/START_CONVERSATION — what kind of
+    #: conversational move this turn is (see app/services/dialogue.py's
+    #: MOVE_* constants). Optional and never validated against content: it is
+    #: metadata for anti-repetition and memory-worthiness detection, not a
+    #: constraint on what the agent may say.
+    conversational_move: str | None = None
+    #: Packet 8. Only meaningful for a MOVE_CHANGE_SUBJECT-tagged SPEAK —
+    #: updates the conversation's tracked subject.
+    new_subject: str | None = None
 
 
 class Reflection(BaseModel):

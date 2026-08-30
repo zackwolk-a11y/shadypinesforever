@@ -39,6 +39,17 @@
   recalled, and a new emerging interest created, strengthened through
   repeated engagement, and then actually cited as the topic of a later
   action — and asserts every link of it.
+- `inspect_conversations.py` — prints every conversation: participants,
+  location, why it started and ended, the full transcript, what it
+  connected to (research/wall posts/rabbit holes), and any memories it
+  produced. Takes optional `--agent` and `--id` filters.
+- `smoke_test_dialogue.py` — deterministic Packet 8 check: drives the same
+  real event loop until an organic dialogue chain has occurred — a
+  conversation begins for a real reason, runs several turns, a later turn
+  directly responds to a different agent's turn, a meaningful moment
+  (challenge/connection/anecdote/proposal) occurs, the conversation produces
+  a persistent memory, and that memory is genuinely recalled again later —
+  and asserts every link of it.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur

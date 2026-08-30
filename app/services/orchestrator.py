@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -39,7 +39,6 @@ from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
 from app.domain.enums import (
     ConversationStatus,
-    ConversationTrigger,
     EventType,
     ExposureType,
     MemoryType,
@@ -61,7 +60,7 @@ from app.schemas.actions import (
 from app.services import beliefs
 from app.services import clock as clock_service
 from app.services import conversations as convo
-from app.services import founder, memory, rabbit_holes as rh, research, scheduler, wall
+from app.services import dialogue, founder, memory, rabbit_holes as rh, research, scheduler, wall
 from app.services.context_builder import build_agent_context
 from app.services.events import record_event
 from app.services.exposure import expose, has_been_exposed
@@ -106,6 +105,7 @@ def validate_decision(
     agent: Agent,
     present_agent_ids: tuple[str, ...],
     in_conversation: bool = False,
+    open_conversation_id: int | None = None,
     session: Session | None = None,
     clock: SimulationClock | None = None,
     settings: Settings | None = None,
@@ -166,6 +166,27 @@ def validate_decision(
             if not (action.content or "").strip():
                 raise DecisionRejected(f"{action.type.value} requires content")
 
+        if action.type in (ActionType.SPEAK, ActionType.START_CONVERSATION) and session is not None:
+            if dialogue.has_generic_filler_opener(action.content or ""):
+                raise DecisionRejected(
+                    "opens with a generic filler phrase (\"that's fascinating\", \"great "
+                    "point\", ...) — respond to what was actually said instead"
+                )
+            if dialogue.is_repetitive(session, agent.agent_id, action.content or ""):
+                raise DecisionRejected(
+                    "repeats one of your own recent utterances verbatim — say something new"
+                )
+
+        if action.type is ActionType.JOIN_CONVERSATION:
+            if open_conversation_id is None:
+                raise DecisionRejected("no open conversation to join")
+            elif session is not None:
+                open_convo = session.get(Conversation, open_conversation_id)
+                if open_convo is None or open_convo.status is ConversationStatus.ENDED:
+                    raise DecisionRejected("that conversation has already ended")
+                if len(open_convo.participant_ids or []) >= dialogue.MAX_SPONTANEOUS_PARTICIPANTS:
+                    raise DecisionRejected("that conversation is already full")
+
         if session is not None:
             _validate_wall_and_rabbit_hole_action(session, agent, action)
 
@@ -195,6 +216,19 @@ def _validate_wall_and_rabbit_hole_action(session: Session, agent: Agent, action
                 "no real exposure to that research session — read a wall post citing "
                 "it, or join a rabbit hole it's linked into, first"
             )
+
+    if action.type is ActionType.SPEAK:
+        # target_research_id already validated generically above. Wall posts
+        # and rabbit holes referenced in dialogue get the same treatment as
+        # everywhere else: a real id, actually exposed — never invented.
+        if action.target_wall_post_id is not None:
+            if session.get(ResearchWallPost, action.target_wall_post_id) is None:
+                raise DecisionRejected(f"unknown wall post {action.target_wall_post_id!r}")
+            if not has_been_exposed(session, agent.agent_id, "research_wall", action.target_wall_post_id):
+                raise DecisionRejected("no real exposure to that wall post")
+        if action.target_rabbit_hole_id is not None:
+            if session.get(RabbitHole, action.target_rabbit_hole_id) is None:
+                raise DecisionRejected(f"unknown rabbit hole {action.target_rabbit_hole_id!r}")
 
     if action.type is ActionType.POST_TO_WALL:
         if action.wall_post_type is None:
@@ -324,6 +358,19 @@ def _validate_wall_and_rabbit_hole_action(session: Session, agent: Agent, action
             raise DecisionRejected(f"no belief {action.target_belief_id!r} owned by {agent.agent_id}")
 
 
+def _link_conversation_references(conversation: Conversation, action) -> None:
+    """A SPEAK that cites real research/a wall post/a rabbit hole records
+    that connection on the conversation itself (§ "cross-pollination... a
+    conversation may lead to a Research Wall post... a Rabbit Hole..." and
+    the reverse: dialogue should be traceable back to what it drew on)."""
+    if action.target_research_id and action.target_research_id not in conversation.related_research_ids:
+        conversation.related_research_ids = [*conversation.related_research_ids, action.target_research_id]
+    if action.target_wall_post_id and action.target_wall_post_id not in conversation.related_wall_post_ids:
+        conversation.related_wall_post_ids = [*conversation.related_wall_post_ids, action.target_wall_post_id]
+    if action.target_rabbit_hole_id and action.target_rabbit_hole_id not in conversation.related_rabbit_hole_ids:
+        conversation.related_rabbit_hole_ids = [*conversation.related_rabbit_hole_ids, action.target_rabbit_hole_id]
+
+
 def execute_decision(
     session: Session,
     agent: Agent,
@@ -361,19 +408,37 @@ def execute_decision(
                 action.content or "",
                 clock,
                 correlation_id=correlation_id,
+                move=action.conversational_move,
             )
+            if action.conversational_move == dialogue.MOVE_CHANGE_SUBJECT and action.new_subject:
+                conversation.current_subject = action.new_subject[:200]
+            _link_conversation_references(conversation, action)
             spoke = True
         elif action.type is ActionType.LEAVE_CONVERSATION and conversation is not None:
-            convo.leave(session, conversation, agent.agent_id)
+            convo.leave(session, conversation, agent.agent_id, clock, correlation_id=correlation_id)
+        elif action.type is ActionType.JOIN_CONVERSATION and conversation is not None:
+            convo.join(session, conversation, agent.agent_id, clock, correlation_id=correlation_id)
         elif action.type is ActionType.START_CONVERSATION:
+            reason = dialogue.pick_trigger(session, agent.agent_id, action.target_agent_id, clock)
             new_conversation = convo.start_conversation(
                 session,
-                trigger=ConversationTrigger.RANDOM_SOCIAL,
+                trigger=reason.trigger,
                 participant_ids=[agent.agent_id, action.target_agent_id],
                 clock=clock,
                 correlation_id=correlation_id,
             )
             new_conversation.correlation_id = correlation_id
+            new_conversation.location = agent.current_location
+            new_conversation.current_subject = reason.subject[:200]
+            new_conversation.initiating_reason = reason.reason
+            if reason.related_research_id:
+                new_conversation.related_research_ids = [reason.related_research_id]
+            if reason.related_wall_post_id:
+                new_conversation.related_wall_post_ids = [reason.related_wall_post_id]
+            if reason.related_rabbit_hole_id:
+                new_conversation.related_rabbit_hole_ids = [reason.related_rabbit_hole_id]
+            if reason.related_memory_id:
+                new_conversation.related_memory_ids = [reason.related_memory_id]
             convo.record_utterance(
                 session,
                 new_conversation,
@@ -381,6 +446,7 @@ def execute_decision(
                 action.content or "",
                 clock,
                 correlation_id=correlation_id,
+                move=dialogue.MOVE_OPEN,
             )
             spoke = True
         elif action.type is ActionType.START_RESEARCH:
@@ -536,19 +602,48 @@ def run_next_event(
         )
         conversation.correlation_id = gathering_correlation
 
-    candidate = None
+    # Packet 8: every few activations, check whether someone outside this
+    # conversation has a real reason to be pulled into it. Gated on the
+    # global event id, not on this conversation's own turn_count: turn_count
+    # only advances when someone actually speaks, so a candidate offered the
+    # slot and declining (or joining without immediately speaking) would
+    # otherwise leave turn_count unchanged — making a turn_count-based gate
+    # stay permanently true and the *same* joiner-check win every single
+    # subsequent activation forever, starving the real participants (a
+    # genuine runaway/monopolization bug caught by
+    # scripts/smoke_test_dialogue.py). The last event id strictly increases
+    # every activation regardless of what happens, so this gate always moves.
+    joiner = None
     if conversation is not None:
+        last_event_id = session.scalar(select(func.max(Event.id))) or 0
+        if last_event_id % 4 == 0:
+            joiner = dialogue.find_joiner(session, conversation, clock, settings, seed=seed)
+
+    # ``conversation`` is always the one real open conversation, if any —
+    # needed later for execute_decision regardless of who gets this turn.
+    # ``context_conversation`` is only set when the acting agent is actually
+    # a participant in it right now: that's what governs whether this turn
+    # sees the transcript, may SPEAK, and whether _after_turn applies.
+    candidate = None
+    context_conversation = conversation
+    if joiner is not None:
+        agent = session.scalars(select(Agent).where(Agent.agent_id == joiner.agent_id)).one()
+        correlation_id = new_correlation_id()
+        context_conversation = None
+    elif conversation is not None:
         speaker_id = convo.next_speaker(session, conversation)
         if speaker_id is None:
             convo.close(session, conversation, clock, "no participants left",
                         correlation_id=conversation.correlation_id)
+            _finalize_conversation(session, conversation, clock)
             conversation = None
+            context_conversation = None
         else:
             agent = session.scalars(
                 select(Agent).where(Agent.agent_id == speaker_id)
             ).one()
             correlation_id = conversation.correlation_id or new_correlation_id()
-    if conversation is None:
+    if conversation is None and joiner is None:
         candidate = scheduler.next_agent(session, clock, settings, seed=seed)
         if candidate is None:
             if auto_advance:
@@ -583,7 +678,8 @@ def run_next_event(
         clock,
         settings,
         available_actions=tuple(a.value for a in ALLOWED_ACTIONS),
-        conversation=conversation,
+        conversation=context_conversation,
+        nearby_conversation=conversation if context_conversation is None else None,
     )
 
     # Showing a message to an agent is delivering it: mark it read so it stops
@@ -641,7 +737,8 @@ def run_next_event(
                 result.output,
                 agent=agent,
                 present_agent_ids=context.present_agent_ids,
-                in_conversation=conversation is not None,
+                in_conversation=context_conversation is not None,
+                open_conversation_id=conversation.id if conversation is not None else None,
                 session=session,
                 clock=clock,
                 settings=settings,
@@ -678,8 +775,8 @@ def run_next_event(
         outcome.rejected_reason = outcome.rejected_reason or rejection
         # Falling back to doing nothing is itself the outcome; no state changes.
         # A rejected turn still counts as a pass in the room.
-        if conversation is not None:
-            _after_turn(session, conversation, clock, settings, spoke=False)
+        if context_conversation is not None:
+            _after_turn(session, context_conversation, clock, settings, spoke=False)
         return outcome
 
     outcome.executed, outcome.spoke, outcome.research = execute_decision(
@@ -725,8 +822,8 @@ def run_next_event(
     )
     outcome.event_ids.append(acted.id)
 
-    if conversation is not None:
-        _after_turn(session, conversation, clock, settings, spoke=outcome.spoke)
+    if context_conversation is not None:
+        _after_turn(session, context_conversation, clock, settings, spoke=outcome.spoke)
     return outcome
 
 
@@ -771,3 +868,17 @@ def _after_turn(
             session, conversation, clock, reason,
             correlation_id=conversation.correlation_id,
         )
+        _finalize_conversation(session, conversation, clock)
+
+
+def _finalize_conversation(session: Session, conversation: Conversation, clock: SimulationClock) -> None:
+    """Once, right after a conversation closes: nudge the relationships of
+    everyone who was in it (§ "conversations should gradually influence
+    relationships"), and — only if this exchange actually cleared the bar —
+    lay down one memory per participant (§ "meaningful conversations should
+    be candidates ... do NOT store every utterance").
+    """
+    dialogue.update_relationship_dimensions(session, conversation, clock)
+    worthy, reason = dialogue.conversation_worthy(session, conversation)
+    if worthy:
+        memory.consider_conversation_ended(session, conversation, reason, clock)

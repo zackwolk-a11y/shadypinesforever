@@ -74,6 +74,8 @@ app/
   domain/
     enums.py         every enumerated value, shared by db and services
     ids.py           business-key generation
+    characters.py    structured per-agent voice/personality bias (Packet 8)
+    moves.py         conversational "move" vocabulary (Packet 8)
   schemas/
     actions.py       the agent decision envelope (what a model may return)
     research.py      search results, source documents, research synthesis
@@ -100,14 +102,16 @@ app/
   services/
     scheduler.py, context_builder.py, conversations.py, clock.py,
     research.py, wall.py, rabbit_holes.py, beliefs.py,
-    memory.py, interests.py,
+    memory.py, interests.py, dialogue.py,
     orchestrator.py, exposure.py, telemetry.py, founder.py, events.py
 alembic/             migration environment
 scripts/             inspect_schema.py, inspect_research.py, inspect_wall.py,
                      inspect_memories.py, inspect_interests.py,
+                     inspect_conversations.py,
                      seed_agents.py, run_event.py, run_day.py,
                      smoke_test_research.py, smoke_test_cross_pollination.py,
-                     smoke_test_character_development.py
+                     smoke_test_character_development.py,
+                     smoke_test_dialogue.py
 ```
 
 The tree follows the build bible's layout. Files it does not name were still
@@ -115,7 +119,10 @@ needed: `world.py` (world_state, simulation_clock, locations fit none of its
 seven model files), `wall.py` (the research wall is its own social surface),
 `exposure.py` and `telemetry.py` (§17's own tables, `agent_exposures` and
 `llm_runs`, doubling as their service modules), `belief.py` (`belief_basis`,
-new in Packet 6 — see below).
+new in Packet 6 — see below). `characters.py`/`moves.py` live in `domain/`
+rather than `services/` specifically so `providers/llm/fixture.py` — which
+sits *below* `services/` in this codebase's layering — can use the same
+vocabulary without a provider importing a service (see Packet 8 below).
 
 28 tables in total.
 
@@ -173,7 +180,9 @@ behaviour the experiment is trying to avoid. Turn-taking is mechanical
 (whoever has spoken least, never the same agent twice in a row); what anyone
 says is theirs. Silence is a legal move, and two consecutive silences wind a
 conversation down. A conversation also ends at the turn cap
-(`MAX_CONVERSATION_TURNS`) or when everyone has left.
+(`MAX_CONVERSATION_TURNS`) or when everyone has left. Packet 8 below covers
+what actually happens inside one — why it started, how a reply engages what
+was just said, and how an outsider can join.
 
 ### Research
 
@@ -482,6 +491,154 @@ coincidence rather than the mechanism.
 ```bash
 .venv/bin/python scripts/inspect_memories.py --agent agent_alien
 .venv/bin/python scripts/inspect_interests.py --emerging-only
+```
+
+### Autonomous dialogue, social intelligence, and character voice
+
+Packet 8's premise: a conversation is not "two agents each contribute a
+paragraph about the same topic." It is one agent saying something, another
+agent actually responding to *that*, and the exchange going somewhere neither
+of them planned. Nothing here generates dialogue centrally — every line is
+still one agent's own decision, validated and executed exactly like every
+other action — but three things needed to become real for that to work at
+all: a reason to start talking, a way to answer what was just said instead of
+a nearby topic, and somewhere for the exchange to leave a trace.
+
+**Character voice is a bias, not a script.** `app/domain/characters.py`
+holds a structured `CharacterProfile` per founding agent — communication
+style, conversational/intellectual tendencies, disagreement style, curiosity
+style, verbosity, what it tends to notice — separate from `Agent.identity`/
+`Agent.voice` (the free-text character sheet Packet 1 already seeded, left
+untouched). `render_voice_block` renders a compact, capped version into
+context, explicitly framed as bias ("let the moment and your own memories
+shape what you actually say"), never as instructions to obey verbatim.
+`FixtureLLMProvider` additionally reads each profile's numeric
+`*_bias` fields directly (a Python lookup by `agent_id`, never text-parsed)
+to weight its own deterministic conversational-move choice per agent —
+never rendered into context itself, since a live model never needs to see a
+number to have a voice, only the qualitative description everyone reads.
+
+**A conversation begins for a real, computed reason — never a placeholder.**
+Before this packet, every `START_CONVERSATION` was hardcoded to
+`ConversationTrigger.RANDOM_SOCIAL`, regardless of what actually prompted it.
+`dialogue.pick_trigger` now checks, in priority order, against real database
+state: a live disagreement between the two agents, a rabbit hole they're both
+currently in, research the initiator hasn't shared yet, a memory that
+specifically concerns the other agent (`MEMORY_PROMPTED`, new this packet),
+a wall post connecting them, genuine shared-interest overlap, and only then
+falls back to `RANDOM_SOCIAL` — itself a legitimate, common reason (§ "they
+simply have a social reason to talk"), not a default masking the absence of
+one. The concrete reason, the resulting subject, and whatever it references
+(a research session, a wall post, a rabbit hole, a memory) are all stored on
+the `Conversation` row itself, not just implied by the trigger category.
+
+**Multi-agent conversations, and joining requires a reason.** The Village
+still runs one authoritative conversation at a time (Packet 4's design,
+unchanged) — Packet 8 adds `JOIN_CONVERSATION` for an agent who is not yet a
+participant. `dialogue.find_joiner` scores every eligible outsider by real
+signals — keyword overlap between their own interests and the conversation's
+subject, a trusted relationship with a current participant — and only offers
+the slot when a candidate clears a minimal bar; proximity alone is never
+enough. The scheduler offers this slot periodically (gated on the database's
+own running event count, not the conversation's turn count — an earlier
+version of this gate could get permanently stuck re-offering the same
+declined candidate forever once a conversation's turn count stopped moving,
+which is exactly the "runaway conversation" failure mode this packet asks to
+be checked for; see Weaknesses below). `LEAVE_CONVERSATION` now logs
+`CONVERSATION_LEFT` (previously silent), and joining logs `CONVERSATION_JOINED`
+and exposes the joiner to every turn already said — hearing what's already
+been said, not a redacted view forward-only from the moment they arrive.
+
+**Direct response, not parallel monologues.** Every `SPEAK`/
+`START_CONVERSATION` action may carry a `conversational_move`
+(`app/domain/moves.py`: `ANSWER`, `QUESTION`, `CHALLENGE`, `CLARIFY`,
+`EXTEND`, `CONNECT`, `JOKE`, `ANECDOTE`, `ADMIT_UNCERTAINTY`,
+`PROPOSE_RESEARCH`, `CHANGE_SUBJECT`, plus `OPEN` for an opener) — ephemeral
+metadata on the event, never a constraint on content, that names what kind
+of turn this was for anti-repetition and memory-worthiness detection. The
+fixture provider extracts the previous turn's actual speaker and content
+from the rendered transcript (the same "read only what's in context, same as
+a live model" discipline every other fixture generator in this codebase
+already follows) and builds its reply around a real word from it, weighted
+per-move by the speaking agent's profile *and* its relationship with whoever
+it's replying to — a trusted, intellectually-engaged relationship leans
+toward more `CHALLENGE`/`EXTEND`; a brand-new one leans safer. This is the
+mechanical half of "Optimisto talking with Vince should not feel identical
+to Optimisto talking with Dex." Dex specifically prefixes challenge/question/
+answer turns with one of `FACT`/`ESTIMATE`/`INFERENCE`/`SPECULATION` (never
+`MARKET DATA` — the fixture has no real market feed to cite, and citing one
+anyway would be exactly the fabrication his character spec forbids).
+
+**Disagreement stays ordinary.** `CHALLENGE`-flavored turns use plain
+phrasing ("I don't think that follows", "what's the evidence for that") —
+no scoring, no manufactured hostility. A real disagreement that runs its
+course (§ "productive disagreement") nudges `intellectual_affinity` up for
+the pair, same direction as agreement — friction between friends is
+rewarded as engagement, not penalized as conflict.
+
+**Anti-repetition is a mix of guardrail and design.** Two mechanical checks
+in `validate_decision`: an exact-duplicate check against an agent's own last
+three utterances (`dialogue.is_repetitive`), and a check against a short list
+of synthetic-AI-dialogue clichés ("that's fascinating", "great point", "I
+completely agree", ...) as literal banned *openers* — a narrow, targeted
+check, not the general word-banning the spec itself warns against. Both
+force the existing one-retry correction path when tripped, the same
+mechanism `INVALID_AGENT_DECISION` already uses elsewhere. The larger
+defense is architectural: many templates per move, chosen by extracted real
+content, keyed off a per-agent profile — genuinely narrow phrasing collision
+is rare, not eliminated by a rule.
+
+**A conversation becomes a memory only when it clears a real bar.**
+`dialogue.conversation_worthy` checks, once, right when a conversation
+closes: was it triggered by disagreement, a rabbit hole, or a remembered
+prior exchange; did it connect to real research/wall/rabbit-hole activity;
+did a salient move (`CHALLENGE`/`CONNECT`/`ANECDOTE`/`PROPOSE_RESEARCH`)
+occur; or did it simply run long. Most conversations — a passed-up
+gathering, a two-line pleasantry — produce no memory at all.
+`memory.consider_conversation_ended` then lays down one EPISODIC memory per
+participant (who, roughly what about, why it mattered), letting a later
+conversation reference it honestly through the same retrieval mechanism
+Packet 7 already built — never a fabricated line the agent didn't actually
+say.
+
+**Relationships gain two dimensions, kept deliberately separate from
+`trust_score`** (§ "do not turn relationships into simplistic like/dislike
+meters"): `familiarity` (how much interaction history exists at all — grows
+from every exchange, trust-neutral) and `intellectual_affinity` (how much
+two agents specifically enjoy engaging each other's ideas — moves only from
+disagreement that ran its course or a genuinely shared-interest/research
+thread, never small talk). "Shared interests" stays a computed function
+(`dialogue.shared_interest_overlap`), not a stored column, so it can never
+go stale the moment either agent's interests move.
+
+**Cross-pollination happens through the systems already built, not a
+scripted sequence.** A `SPEAK` may carry `target_research_id`/
+`target_wall_post_id`/`target_rabbit_hole_id` (validated for real exposure,
+same as every other packet's actions), recorded onto the conversation. What
+the conversation produces afterward — a memory, an interest nudge, a
+relationship shift — is exactly the same kind of state Packets 5-7 already
+made visible in context, so the *next* decision (a `POST_TO_WALL`, a
+`START_RESEARCH`, a `CREATE_RABBIT_HOLE`) reflecting what a conversation
+surfaced needs no new machinery at all — it is the identical mechanism that
+already let a research discovery shape a later choice.
+
+```bash
+.venv/bin/python scripts/smoke_test_dialogue.py
+```
+
+Drives the real loop with a fixed seed until an organic dialogue chain has
+occurred: a conversation begins for a real reason; it runs three or more
+turns; a later turn is tagged with a direct-response move immediately
+following a *different* agent's turn (not an independent monologue that
+merely shares a topic); a salient moment occurs; the conversation produces a
+persistent memory; and that memory is genuinely recalled again after a
+multi-day gap. Nothing is scripted, hand-written, or set directly. Completes
+in a few hundred events, comfortably inside a generous ceiling — see
+Weaknesses for the one open question about its exact completion timing.
+
+```bash
+.venv/bin/python scripts/inspect_conversations.py
+.venv/bin/python scripts/inspect_conversations.py --agent agent_dex
 ```
 
 ## Design notes

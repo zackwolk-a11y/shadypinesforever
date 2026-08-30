@@ -20,6 +20,10 @@ Two places hook in:
 - :func:`consider_founder_delivery` — called separately, right after
   ``founder.deliver_pending``, since a founder message reaches its recipients
   before anyone is activated, outside any one agent's turn.
+- :func:`consider_conversation_ended` (Packet 8) — called once, right after a
+  conversation closes, but only when ``dialogue.conversation_worthy`` says
+  this exchange cleared the bar — most conversations produce no memory at
+  all, matching "do NOT store every utterance".
 
 Retrieval (:func:`retrieve_relevant`) is the other half: an agent's context
 never gets the whole memory table, only a small, scored slice — see the
@@ -141,6 +145,7 @@ def _upsert(
     related_agent_ids: list[str] = (),
     related_rabbit_hole_ids: list[int] = (),
     related_belief_ids: list[int] = (),
+    related_conversation_ids: list[int] = (),
     reinforce: Memory | None = None,
     replace_content: bool = False,
 ) -> Memory:
@@ -168,6 +173,9 @@ def _upsert(
         reinforce.related_agent_ids = sorted(set(reinforce.related_agent_ids or []) | set(related_agent_ids))
         reinforce.related_rabbit_hole_ids = sorted(set(reinforce.related_rabbit_hole_ids or []) | set(related_rabbit_hole_ids))
         reinforce.related_belief_ids = sorted(set(reinforce.related_belief_ids or []) | set(related_belief_ids))
+        reinforce.related_conversation_ids = sorted(
+            set(reinforce.related_conversation_ids or []) | set(related_conversation_ids)
+        )
         record_event(
             session,
             event_type=EventType.MEMORY_REINFORCED,
@@ -193,6 +201,7 @@ def _upsert(
         related_agent_ids=list(related_agent_ids),
         related_rabbit_hole_ids=list(related_rabbit_hole_ids),
         related_belief_ids=list(related_belief_ids),
+        related_conversation_ids=list(related_conversation_ids),
     )
     session.add(memory)
     session.flush()
@@ -545,6 +554,45 @@ def _all_agent_ids(session: Session) -> list[str]:
     from app.db.models.agents import Agent
 
     return list(session.scalars(select(Agent.agent_id)))
+
+
+#: Conversations triggered for one of these reasons are memory-worthy at a
+#: higher baseline importance than a plain shared-interest or social chat —
+#: mirrors dialogue.conversation_worthy's own priority ordering.
+_HIGH_IMPORTANCE_TRIGGERS = {"DISAGREEMENT", "RABBIT_HOLE", "MEMORY_PROMPTED"}
+
+
+def consider_conversation_ended(session: Session, conversation, reason: str, clock: SimulationClock) -> None:
+    """One EPISODIC memory per participant, for a conversation that actually
+    cleared :func:`app.services.dialogue.conversation_worthy`'s bar.
+
+    Content is the *fact* of the exchange — who, roughly what about, why it
+    mattered — never a fabricated quote: nothing here invents what was said,
+    only that it happened and who else was there, which is exactly what
+    "you remember that thing you said about X" (§ conversational memory)
+    needs to be honestly reconstructable from later.
+    """
+    from app.services.conversations import everyone_who_was_present
+
+    participants = everyone_who_was_present(conversation)
+    if len(participants) < 2:
+        return
+
+    importance = 65.0 if conversation.trigger_type.value in _HIGH_IMPORTANCE_TRIGGERS else 45.0
+    subject = conversation.current_subject or "something"
+
+    for agent_id in participants:
+        others = sorted(participants - {agent_id})
+        content = f"Talked with {', '.join(others)} about \"{subject}\" — {reason}."
+        _upsert(
+            session, agent_id=agent_id, memory_type=MemoryType.EPISODIC, content=content[:300],
+            importance=importance, confidence=85.0, clock=clock,
+            correlation_id=conversation.correlation_id,
+            related_agent_ids=others,
+            related_conversation_ids=[conversation.id],
+            related_research_ids=list(conversation.related_research_ids or []),
+            related_rabbit_hole_ids=list(conversation.related_rabbit_hole_ids or []),
+        )
 
 
 def consider_reflection(

@@ -31,8 +31,9 @@ from app.db.models.research import ResearchFinding, ResearchSession
 from app.db.models.research_provenance import Claim
 from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
+from app.domain import characters
 from app.domain.enums import EventType, InterestOrigin, MemoryType, RabbitHoleStatus
-from app.services import founder, memory, wall
+from app.services import dialogue, founder, memory, wall
 from app.services.exposure import exposed_entity_ids
 
 SYSTEM_PROMPT = """You are one inhabitant of a small research clubhouse shared with seven friends.
@@ -88,6 +89,7 @@ def build_agent_context(
     *,
     available_actions: tuple[str, ...],
     conversation: Conversation | None = None,
+    nearby_conversation: Conversation | None = None,
 ) -> AgentContext:
     """Render the bounded context for one agent's turn.
 
@@ -95,6 +97,13 @@ def build_agent_context(
     the agent was present for, founder messages delivered to it, its own unread
     mail. The wall contributes headlines only — enough to make something
     discoverable, never enough to make it known.
+
+    ``nearby_conversation`` (Packet 8) is different from ``conversation``: it
+    is set only when this agent is *not* a participant but is being offered a
+    chance to decide whether to JOIN_CONVERSATION (app.services.dialogue.
+    find_joiner). Only the public facts — who, roughly what about — are
+    rendered; never the transcript, since the agent hasn't actually been
+    there to hear it (§11, partial knowledge).
     """
     interests = session.scalars(
         select(AgentInterest)
@@ -227,6 +236,20 @@ def build_agent_context(
     # table (§4). Relevance leans on whatever is actually in play this turn:
     # this agent's own topics, who is in the room, and the rabbit holes it
     # belongs to (especially a dormant one it is drifting back toward).
+    #
+    # "Who is relevant right now" (Packet 8) is conversation participants
+    # when in one — not the entire eight-agent roster, which ``present``
+    # always is regardless of who is actually being talked to. Scoping this
+    # tightly is also what lets a memory ever go stale enough to be
+    # genuinely *recalled* again later (§ MEMORY_RECALLED): against the
+    # whole roster, a memory naming almost anyone would keep re-qualifying
+    # for the relation bonus every single turn and never leave the "just
+    # accessed" state.
+    relevant_others = (
+        tuple(p for p in (conversation.participant_ids or []) if p != agent.agent_id)
+        if conversation is not None
+        else present
+    )
     topic_keywords: set[str] = set()
     for i in interests:
         topic_keywords |= wall.keywords(i.interest)
@@ -234,11 +257,11 @@ def build_agent_context(
     important_memories = memory.retrieve_relevant(
         session, agent.agent_id, clock=clock, limit=4,
         exclude_types={MemoryType.SOCIAL, MemoryType.PROJECT},
-        related_agent_ids=present, keywords=topic_keywords,
+        related_agent_ids=relevant_others, keywords=topic_keywords,
     )
     social_memories = memory.retrieve_relevant(
         session, agent.agent_id, clock=clock, limit=3,
-        only_types={MemoryType.SOCIAL}, related_agent_ids=present,
+        only_types={MemoryType.SOCIAL}, related_agent_ids=relevant_others,
         require_related_agent=True,
     )
     rabbit_hole_memories = memory.retrieve_relevant(
@@ -297,12 +320,26 @@ def build_agent_context(
         f"AVAILABLE ACTIONS: {', '.join(available_actions)}",
     ]
 
+    voice_block = characters.render_voice_block(agent.agent_id)
+    if voice_block:
+        lines.append(voice_block)
+
     if conversation is not None:
         others = [p for p in (conversation.participant_ids or []) if p != agent.agent_id]
         lines.append(
             f"YOU ARE IN A CONVERSATION ({conversation.trigger_type.value}) with: "
             f"{', '.join(others) or 'nobody left'}"
         )
+        if conversation.current_subject:
+            lines.append(f"SUBJECT: {_clip(conversation.current_subject, 140)}")
+        for other in others:
+            rel = dialogue.relationship_between(session, agent.agent_id, other)
+            if rel is not None:
+                lines.append(
+                    f"YOUR RELATIONSHIP WITH {other}: trust={rel.trust_score:.0f} "
+                    f"familiarity={rel.familiarity:.0f} intellectual_affinity={rel.intellectual_affinity:.0f} "
+                    f"conversations_together={rel.interaction_count}"
+                )
         if conversation_turns:
             lines.append("WHAT HAS BEEN SAID:")
             lines += [
@@ -313,7 +350,20 @@ def build_agent_context(
             lines.append("Nothing has been said yet.")
         lines.append(
             "You may SPEAK, LEAVE_CONVERSATION, or say nothing at all. "
-            "Saying nothing is a normal choice."
+            "Saying nothing is a normal choice. If you SPEAK, respond to what "
+            "was actually just said — answer, question, challenge, extend, "
+            "connect, joke, disagree, admit uncertainty, or change the "
+            "subject, as your own voice and the moment call for. Avoid "
+            "generic openers like 'that's fascinating' or 'great point'."
+        )
+    elif nearby_conversation is not None:
+        near_others = ", ".join(nearby_conversation.participant_ids or [])
+        lines.append(
+            f"A CONVERSATION IS HAPPENING NEARBY ({nearby_conversation.trigger_type.value}) "
+            f"between {near_others}"
+            + (f" about \"{_clip(nearby_conversation.current_subject, 100)}\"" if nearby_conversation.current_subject else "")
+            + ". You are not part of it. JOIN_CONVERSATION only if you have a real reason to; "
+              "otherwise it is entirely normal to do something else."
         )
 
     if founder_messages:

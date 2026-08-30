@@ -106,6 +106,20 @@ class Relationship(Base):
     is a fact about how the two agents have gotten on, entirely separate from
     any SOCIAL memory either of them holds about the other (a memory can
     fade in retrieval priority; this number is the running total it fed).
+
+    Packet 8 adds two more dimensions deliberately kept distinct from
+    ``trust_score`` rather than folded into one like/dislike meter (§ "do not
+    turn relationships into simplistic like/dislike meters"): ``familiarity``
+    (how much interaction history exists at all — grows with every exchange,
+    trust-neutral) and ``intellectual_affinity`` (how much these two enjoy
+    engaging each other's ideas specifically — moves from productive
+    disagreement and shared-interest conversations, not from small talk).
+    ``productive_disagreement_count`` is the mechanical record behind the
+    second: a real disagreement that ran its course, not a proxy for
+    conflict. "Shared interests" is deliberately not a stored column — it is
+    computed on demand from the current ``agent_interests`` rows
+    (``dialogue.shared_interest_overlap``), since a stored snapshot would go
+    stale the moment either agent's interests moved.
     """
 
     __tablename__ = "relationships"
@@ -123,3 +137,6 @@ class Relationship(Base):
     )
     trust_score: Mapped[float] = mapped_column(Float, nullable=False, default=60.0)
     interaction_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    familiarity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    intellectual_affinity: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
+    productive_disagreement_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -154,7 +154,15 @@ class RabbitHoleStatus(str, enum.Enum):
 
 
 class ConversationTrigger(str, enum.Enum):
-    """Why a conversation started at all (§12)."""
+    """Why a conversation started at all (§12).
+
+    Packet 8 makes this a real, computed choice (``app/services/dialogue.py``)
+    rather than the placeholder every conversation used before — see
+    ``dialogue.pick_trigger``. RABBIT_HOLE and MEMORY_PROMPTED are new:
+    "following a Rabbit Hole" and "remembering a previous conversation" are
+    both explicit reasons the spec lists that the original seven values had
+    no honest way to name.
+    """
 
     RESEARCH_SHARING = "RESEARCH_SHARING"
     WALL_ACTIVITY = "WALL_ACTIVITY"
@@ -163,6 +171,8 @@ class ConversationTrigger(str, enum.Enum):
     MORNING_GATHERING = "MORNING_GATHERING"
     RANDOM_SOCIAL = "RANDOM_SOCIAL"
     FOUNDER_MESSAGE = "FOUNDER_MESSAGE"
+    RABBIT_HOLE = "RABBIT_HOLE"
+    MEMORY_PROMPTED = "MEMORY_PROMPTED"
 
 
 class ConversationStatus(str, enum.Enum):
@@ -250,3 +260,8 @@ class EventType(str, enum.Enum):
     INTEREST_CREATED = "INTEREST_CREATED"
     INTEREST_DORMANT = "INTEREST_DORMANT"
     INTEREST_REVIVED = "INTEREST_REVIVED"
+    # Packet 8: joining/leaving weren't separately logged before — joining
+    # didn't exist as an action, and LEAVE_CONVERSATION silently mutated
+    # participant_ids with no event at all.
+    CONVERSATION_JOINED = "CONVERSATION_JOINED"
+    CONVERSATION_LEFT = "CONVERSATION_LEFT"
