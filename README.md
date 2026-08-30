@@ -945,6 +945,141 @@ Acceptance here is the fixture regression suite (all passing, unmodified in
 behavior beyond genuinely using budgets that were previously declared but
 inert) plus the two bounded, opt-in live checks above.
 
+### Live LLM intelligence and one-agent end-to-end cognition
+
+Packet 11's premise: everything through Packet 10 proved the *pipeline* —
+research, provenance, reflection, reporting — end to end against a
+deterministic stand-in brain. Packet 11 replaces that brain, for one
+tightly bounded agent at a time, with a real model — through the exact same
+decision schema, validation, and execution path the fixture always used,
+never a second "live agent" architecture.
+
+**Anthropic is the production-ready provider**
+(`app/providers/llm/anthropic.py`). `anthropic>=1.2` is now a real,
+unconditional dependency (installed and verified importable, same as
+`httpx` was for Packet 10), and `complete()` uses the SDK's native
+structured outputs (`client.messages.parse(..., output_format=SomeSchema)`)
+so every response is schema-validated by the API itself, not regex-parsed
+out of prose — `response.parsed_output` is the same kind of validated
+Pydantic instance the fixture provider already returned. Failure handling
+is a most-specific-first exception chain (`AuthenticationError` ->
+`PermissionDeniedError` -> `NotFoundError` -> `RateLimitError` ->
+`APITimeoutError` -> `APIConnectionError` -> `APIStatusError` -> `APIError`),
+each mapped to a clear `LLMError` whose message never contains the request
+body or the key — the key lives only in the client's own auth header. The
+SDK's own bounded retry (429/5xx/connection errors, `max_retries=2` by
+default) is left alone rather than reimplemented; the one thing it can't
+retry — a response that parses with no `tool_use`/structured content
+(`parsed_output is None`, no exception raised) — gets exactly one bounded
+manual retry here, tracked as `retry_count` on the returned usage and on the
+persisted `llm_runs` row.
+
+**Model routing was already tiered — Packet 11 didn't need to invent
+it.** `Settings.agent_model` (routine per-turn decisions, `claude-haiku-4-5`
+by default), `Settings.research_model` (search-query generation, research
+interpretation, and reflection — all judgment-heavier, `claude-sonnet-5` by
+default), and `Settings.report_model` (nightly Founder synthesis) already
+existed from Packets 1/9/10. That *is* the "cheaper model for routine
+decisions, stronger model for interpretation/reflection/synthesis"
+architecture Packet 11 asks for — extending it meant wiring a real provider
+underneath it, not adding a parallel routing scheme.
+
+**Per-purpose token budgets are now real** (Part N):
+`LLMProvider.complete()` gained an explicit `max_tokens: int | None`
+parameter — passed by the *caller*, never inferred by a provider from
+`purpose` (that would violate the Protocol's own documented rule that
+`purpose` is a label, not a behavior switch). Every one of the five
+structured-output call sites (agent decision, search query generation,
+research synthesis, reflection, daily report) now passes its own
+`Settings.max_tokens_*` budget. The fixture provider accepts and ignores the
+parameter (its output size is fixed by the schema and generator, not a
+token count) — untouched behaviorally.
+
+**Confidence, source quality, and prompt-injection resistance are prompt-
+level disciplines, not new code** (Parts G/H/I), consistent with this
+codebase's "mechanism, not content" split: a research finding's
+`evidence_strength`/`confidence` were already model-supplied fields (unlike
+a belief's confidence, which is code-computed), so strengthening how the
+model reasons about them belongs in the system prompt, not in new
+arithmetic. `RESEARCH_SYSTEM_PROMPT` now explicitly asks for: independent-
+source counting (two pages restating one press release are one source, not
+two), agreement/disagreement, directness of evidence, and treating
+interpretive claims differently from factual ones; each rendered passage
+now shows its Packet 10 `quality_tier`, with an explicit instruction that
+publisher type is a signal to weigh, never a verdict, and that consensus
+among several low-quality sources is never automatically strong evidence;
+and the existing anti-injection paragraph now explicitly enumerates
+"ignore previous instructions," secrets/credentials, commands, role
+changes, and file/setting modification — all still just content to report,
+never instructions to follow.
+
+**Epistemic style reaches a live model exactly as it reached the fixture.**
+`context_builder.build_agent_context` already renders each agent's
+`epistemic_style` into `VOICE TENDENCIES` regardless of provider — Packet
+11 needed zero new code here, only a real model reading that same rendered
+text. `run_live_agent_once.py`'s own empirical check (below) is what
+confirms this in practice, not a special live-only code path.
+
+**Single-agent live mode** (Part J) works through
+`app.services.orchestrator.run_next_event`'s new `force_agent_id`
+parameter — a small, additive bypass of `scheduler.next_agent` that
+activates one named agent instead of whoever the scheduler would otherwise
+pick. Everything downstream (context building, the real provider call,
+validation, execution, memory/reflection/telemetry) is the identical path
+any other activation takes.
+
+```bash
+export ANTHROPIC_API_KEY="..."
+export LLM_PROVIDER=anthropic
+export TAVILY_API_KEY="..."
+export RESEARCH_PROVIDER=tavily
+.venv/bin/python scripts/run_live_agent_once.py --agent agent_roxy
+```
+
+Reports honestly either way: if the agent's own real decision is *not* to
+research this turn, that is printed as a legitimate outcome, never forced
+and never treated as a failure. `--nudge "some topic"` optionally
+strengthens one real interest first (via the ordinary `interests.bump()`
+mechanism) to raise the odds of a research-worthy turn without touching the
+final decision. When research *does* happen, it asserts all twelve Part L
+checkpoints — a real LLM was called; no `[fixture]` text entered live
+cognition; a real question/query exists; Tavily was actually called; real
+source URLs and passages were stored; a real interpretation was stored with
+no fixture finding text; every evidence link resolves to a real stored
+passage (which is also how "unsupported source IDs are rejected" is
+verified — an invalid citation is dropped by `research.py` before it is
+ever persisted, so a passing check here means none survived); usage
+telemetry recorded the call; and a failure never fabricates cognition.
+
+**Usage telemetry** (Part M) extends the existing `llm_runs` table
+(`app.db.models.telemetry.LLMRun`, unchanged since Packet 3) with one new
+`retry_count` column — every other field Part M asks for (provider, model,
+purpose, agent_id, input/output tokens, cache tokens, duration, stop
+reason) already existed.
+
+```bash
+.venv/bin/python scripts/inspect_llm_usage.py
+.venv/bin/python scripts/inspect_llm_usage.py --agent agent_dex --live-only
+```
+
+**Level 2 testing** (Part K), same discipline as Packet 10's live research
+smoke test — optional, real spend, never runs automatically, SKIPPED (exit
+0) without `ANTHROPIC_API_KEY`:
+
+```bash
+.venv/bin/python scripts/smoke_test_live_llm.py
+```
+
+Makes exactly two live calls (one `AgentDecision` through the real
+`context_builder`/`validate_decision` path, one `SearchQueryPlan`) — enough
+to prove structured output works for more than one schema without spending
+further credits proving the same thing twice.
+
+Packet 11 deliberately does **not** run a live cost benchmark or connect a
+key in this environment — see Weaknesses in the delivery report for why,
+and the commands above for running one locally. Packets 5-10's fixture
+regression suite (all five smoke tests) passes unmodified.
+
 ## Design notes
 
 **Foreign keys reference stable business keys.** `agent_id` columns point at

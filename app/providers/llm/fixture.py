@@ -277,7 +277,12 @@ class FixtureLLMProvider:
         model: str,
         purpose: str,
         output_type: type[T],
+        max_tokens: int | None = None,
     ) -> LLMResult:
+        # max_tokens (Packet 11) is a live-provider output budget; fixture
+        # output size is fixed by the schema and generator, not a token
+        # count, so it is accepted for interface parity and otherwise unused.
+        del max_tokens
         started = time.perf_counter()
         rng = self._rng(purpose, _stable_seed_text(user))
 

@@ -87,6 +87,25 @@
   session (that agent's own top interest, or `--question`), using the exact
   same `research.start_research()` path a real decision takes. Refuses to
   run against `RESEARCH_PROVIDER=fixture`.
+- `inspect_llm_usage.py` — prints LLM call telemetry (Packet 11): one row
+  per model call — provider, model, purpose, agent, input/output/cache
+  tokens, retries, latency, estimated cost — plus a by-purpose breakdown
+  (decision vs. query generation vs. research synthesis vs. reflection vs.
+  daily report). Takes optional `--agent`, `--purpose`, and `--live-only`
+  filters.
+- `smoke_test_live_llm.py` — optional Level 2 check (Packet 11): two real,
+  tightly-bounded calls to the live Anthropic provider — one `AgentDecision`
+  through the real context/validation path, one `SearchQueryPlan`. Requires
+  `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY`, or exits 0 with a
+  SKIPPED message. Never runs automatically.
+- `run_live_agent_once.py --agent <agent_id>` — developer tool (Packet 11):
+  drives one named agent through one complete real decision via
+  `orchestrator.run_next_event`'s `force_agent_id`, honestly reporting when
+  the agent's own real choice is not to research. When research does
+  happen (live Tavily search configured), asserts all twelve live-research
+  checkpoints end to end. `--nudge "topic"` optionally strengthens one real
+  interest first without forcing the final decision. Refuses to run against
+  `LLM_PROVIDER=fixture`.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur

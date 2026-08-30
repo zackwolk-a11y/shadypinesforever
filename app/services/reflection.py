@@ -309,6 +309,7 @@ def _generate(
             model=settings.research_model,
             purpose="reflection",
             output_type=ReflectionSynthesis,
+            max_tokens=settings.max_tokens_reflection,
         )
     except LLMError:
         return None

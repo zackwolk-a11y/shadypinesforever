@@ -570,11 +570,21 @@ def run_next_event(
     provider: LLMProvider | None = None,
     seed: str = "",
     auto_advance: bool = False,
+    force_agent_id: str | None = None,
 ) -> EventOutcome:
     """Activate one agent and carry its decision through to persisted state.
 
     The caller commits. Everything this writes — state, events, telemetry —
     belongs to one transaction.
+
+    ``force_agent_id`` (Packet 11, Part J) bypasses ``scheduler.next_agent``
+    to activate one named agent instead of whoever the activation scheduler
+    would otherwise pick — for a bounded single-agent developer test
+    (``scripts/run_live_agent_once.py``), never for ordinary simulation.
+    Everything downstream of the pick — context building, the real provider
+    call, validation, execution, memory/reflection/telemetry — is the exact
+    same path any other activation takes; this is not a parallel decision
+    architecture, only a different way to choose whose turn it is.
     """
     settings = settings or get_settings()
     provider = provider or get_llm_provider(settings)
@@ -628,7 +638,15 @@ def run_next_event(
     # sees the transcript, may SPEAK, and whether _after_turn applies.
     candidate = None
     context_conversation = conversation
-    if joiner is not None:
+    if force_agent_id is not None:
+        agent = session.scalars(select(Agent).where(Agent.agent_id == force_agent_id)).one()
+        correlation_id = new_correlation_id()
+        context_conversation = (
+            conversation
+            if conversation is not None and force_agent_id in (conversation.participant_ids or [])
+            else None
+        )
+    elif joiner is not None:
         agent = session.scalars(select(Agent).where(Agent.agent_id == joiner.agent_id)).one()
         correlation_id = new_correlation_id()
         context_conversation = None
@@ -645,7 +663,7 @@ def run_next_event(
                 select(Agent).where(Agent.agent_id == speaker_id)
             ).one()
             correlation_id = conversation.correlation_id or new_correlation_id()
-    if conversation is None and joiner is None:
+    if conversation is None and joiner is None and force_agent_id is None:
         candidate = scheduler.next_agent(session, clock, settings, seed=seed)
         if candidate is None:
             if auto_advance:
@@ -733,6 +751,7 @@ def run_next_event(
                 model=settings.agent_model,
                 purpose="agent_decision",
                 output_type=AgentDecision,
+                max_tokens=settings.max_tokens_agent_decision,
             )
         except LLMError as exc:
             outcome.rejected_reason = f"provider error: {exc}"

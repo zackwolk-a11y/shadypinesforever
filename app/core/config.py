@@ -103,6 +103,16 @@ class Settings:
     max_report_reflections: int
     max_report_belief_changes: int
 
+    # Packet 11: per-purpose live-LLM output token budgets (Part N). Explicit
+    # per call site, never inferred by a provider from ``purpose`` — see
+    # app/providers/llm/base.py's LLMProvider.complete docstring. The fixture
+    # provider ignores these entirely; only a live provider spends on them.
+    max_tokens_agent_decision: int
+    max_tokens_search_query: int
+    max_tokens_research_synthesis: int
+    max_tokens_reflection: int
+    max_tokens_daily_report: int
+
     @property
     def uses_fixture_llm(self) -> bool:
         """True when decisions come from the fixture provider, not a live model."""
@@ -159,6 +169,11 @@ def get_settings() -> Settings:
         max_report_memory_events=_env_int("MAX_REPORT_MEMORY_EVENTS", 8),
         max_report_reflections=_env_int("MAX_REPORT_REFLECTIONS", 6),
         max_report_belief_changes=_env_int("MAX_REPORT_BELIEF_CHANGES", 6),
+        max_tokens_agent_decision=_env_int("MAX_TOKENS_AGENT_DECISION", 1536),
+        max_tokens_search_query=_env_int("MAX_TOKENS_SEARCH_QUERY", 512),
+        max_tokens_research_synthesis=_env_int("MAX_TOKENS_RESEARCH_SYNTHESIS", 3072),
+        max_tokens_reflection=_env_int("MAX_TOKENS_REFLECTION", 1024),
+        max_tokens_daily_report=_env_int("MAX_TOKENS_DAILY_REPORT", 4096),
     )
 
 

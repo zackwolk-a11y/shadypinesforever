@@ -9,5 +9,7 @@ uvicorn[standard]>=0.29
 # live provider is one env var away rather than a separate install step.
 httpx>=0.27
 
-# Optional — only needed for a live LLM provider, never for the fixture path.
-# anthropic>=0.40      # LLM_PROVIDER=anthropic
+# Packet 11: LLM_PROVIDER=anthropic needs this. Not needed for
+# LLM_PROVIDER=fixture, but installed unconditionally like httpx above.
+# >=1.2 for native structured outputs (client.messages.parse / output_format).
+anthropic>=1.2

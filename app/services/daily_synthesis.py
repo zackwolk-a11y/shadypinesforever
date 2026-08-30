@@ -536,6 +536,7 @@ def generate_report(
         result = llm_provider.complete(
             system=SYSTEM_PROMPT, user=prompt, model=settings.report_model,
             purpose="daily_report", output_type=FounderReportSynthesis,
+            max_tokens=settings.max_tokens_daily_report,
         )
     except LLMError:
         # Never fabricate the Founder's report from nothing — fall back to

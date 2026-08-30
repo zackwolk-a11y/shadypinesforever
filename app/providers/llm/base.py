@@ -39,6 +39,10 @@ class LLMUsage:
     cache_creation_input_tokens: int = 0
     cache_read_input_tokens: int = 0
     stop_reason: str | None = None
+    #: Packet 11, Part M/O: how many times this call was retried after a
+    #: schema-validation failure (never for network/rate-limit errors — the
+    #: SDK already retries those transparently). 0 for every fixture call.
+    retry_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -74,11 +78,19 @@ class LLMProvider(Protocol):
         model: str,
         purpose: str,
         output_type: type[T],
+        max_tokens: int | None = None,
     ) -> LLMResult:
         """Return one validated instance of ``output_type``.
 
         ``purpose`` is a free-text label (``"agent_decision"``,
         ``"research_synthesis"``, ...) carried onto telemetry; it never changes
         provider behaviour, so a provider may not branch on it.
+
+        ``max_tokens`` (Packet 11, Part N) is the caller's own per-purpose
+        output budget — explicit, not inferred from ``purpose`` inside the
+        provider, which would violate the rule above. ``None`` lets the
+        provider fall back to its own conservative default; the fixture
+        provider ignores it entirely (its output size is fixed by what the
+        schema allows, not by a token count).
         """
         ...

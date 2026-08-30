@@ -55,6 +55,7 @@ def record_llm_run(
         estimated_cost_usd=estimate_cost_usd(result.model, result.usage),
         latency_ms=result.latency_ms,
         stop_reason=result.usage.stop_reason,
+        retry_count=result.usage.retry_count,
     )
     session.add(run)
     session.flush()

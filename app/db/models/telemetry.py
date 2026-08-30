@@ -37,3 +37,8 @@ class LLMRun(TimestampMixin, Base):
     estimated_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     stop_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    #: Packet 11: how many times this call was retried after a schema-
+    #: validation failure (app.providers.llm.anthropic) — never for network/
+    #: rate-limit errors, which the SDK already retries transparently and
+    #: this column does not see. Always 0 for a fixture run.
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
