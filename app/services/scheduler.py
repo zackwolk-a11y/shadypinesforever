@@ -22,8 +22,10 @@ from app.core.config import Settings
 from app.db.models.agents import Agent
 from app.db.models.conversations import Message
 from app.db.models.events import Event
+from app.db.models.rabbit_holes import RabbitHoleMember
+from app.db.models.rabbit_holes import RabbitHole as RabbitHoleModel
 from app.db.models.world import SimulationClock
-from app.domain.enums import EventType
+from app.domain.enums import EventType, RabbitHoleStatus
 
 #: How likely each period is to produce activity at all (§ daily rhythm).
 PERIOD_WEIGHT: dict[str, float] = {
@@ -37,6 +39,12 @@ PERIOD_WEIGHT: dict[str, float] = {
 UNREAD_MESSAGE_POINTS = 3.0
 RECENT_ACTIVATION_PENALTY = 2.5
 CURIOSITY_MAX = 2.0
+#: Packet 7: a member of a dormant rabbit hole gets a small, deterministic
+#: pull back toward it — "agents returning to a dormant rabbit hole" (§13)
+#: should happen more than by pure chance, without ever forcing the choice;
+#: it only raises how likely this agent is to be activated at all, same as
+#: an unread message would.
+DORMANT_RABBIT_HOLE_PULL = 1.5
 
 #: Events that count as an agent having been activated today.
 ACTIVATION_EVENTS = (EventType.AGENT_ACTED, EventType.INVALID_AGENT_DECISION)
@@ -72,6 +80,17 @@ def score_agents(
     period_score = PERIOD_WEIGHT.get(clock.current_period, 1.0)
     candidates: list[ActivationCandidate] = []
 
+    dormant_hole_member_ids: set[str] = set(
+        session.scalars(
+            select(RabbitHoleMember.agent_id)
+            .join(RabbitHoleModel, RabbitHoleMember.rabbit_hole_id == RabbitHoleModel.id)
+            .where(
+                RabbitHoleMember.left_at.is_(None),
+                RabbitHoleModel.status == RabbitHoleStatus.DORMANT,
+            )
+        )
+    )
+
     for agent in session.scalars(select(Agent).order_by(Agent.id)):
         unread = session.scalar(
             select(func.count())
@@ -102,6 +121,9 @@ def score_agents(
             "period": period_score,
             "curiosity": rng.random() * CURIOSITY_MAX,
             "recent_activation_penalty": -activations_today * RECENT_ACTIVATION_PENALTY,
+            "dormant_rabbit_hole_pull": (
+                DORMANT_RABBIT_HOLE_PULL if agent.agent_id in dormant_hole_member_ids else 0.0
+            ),
         }
         # A hard daily ceiling, so no agent can monopolise a day however it scores.
         score = (

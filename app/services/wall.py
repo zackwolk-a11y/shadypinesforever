@@ -29,16 +29,16 @@ from app.services.exposure import expose, expose_shared_research, exposed_entity
 
 #: A CONNECTION this deliberately similar to one already made is noise, not
 #: cross-pollination — "recently explored connections" penalty from the spec.
-_STOPWORDS = {
+STOPWORDS = {
     "the", "a", "an", "is", "are", "was", "were", "to", "of", "in", "on",
     "and", "or", "for", "with", "about", "this", "that", "it", "as", "at",
     "be", "by", "from", "has", "have", "not", "what", "how", "do", "does",
 }
 
 
-def _keywords(text: str) -> set[str]:
+def keywords(text: str) -> set[str]:
     words = re.findall(r"[a-z0-9']+", text.lower())
-    return {w for w in words if len(w) > 2 and w not in _STOPWORDS}
+    return {w for w in words if len(w) > 2 and w not in STOPWORDS}
 
 
 def post_to_wall(
@@ -176,7 +176,7 @@ def find_cross_pollination_candidate(
     ).all()
     interest_words: set[str] = set()
     for interest in interests:
-        interest_words |= _keywords(interest)
+        interest_words |= keywords(interest)
     if not interest_words:
         return None
 
@@ -194,7 +194,7 @@ def find_cross_pollination_candidate(
     for post in candidates:
         if str(post.id) in read_ids:
             continue
-        overlap = interest_words & _keywords(post.content)
+        overlap = interest_words & keywords(post.content)
         if len(overlap) > best_score:
             best = (post, overlap)
             best_score = len(overlap)

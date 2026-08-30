@@ -21,12 +21,47 @@ class BeliefStatus(str, enum.Enum):
 
 
 class MemoryType(str, enum.Enum):
-    """What kind of memory this is (§9)."""
+    """What kind of memory this is (§9, Packet 7).
+
+    Five kinds, deliberately kept distinct rather than collapsed into one
+    generic "note": an EPISODIC memory of a specific moment, a SEMANTIC
+    conclusion that survives the moment that produced it, a SOCIAL read on
+    how another agent thinks or collaborates, an INTEREST shift in what an
+    agent is curious about, and PROJECT context accumulated by returning to
+    the same rabbit hole over time. Mixing these would blur exactly the
+    distinction that makes retrieval useful — "what happened" and "what I
+    now believe" and "what I know about Dex" are different kinds of recall.
+    """
 
     EPISODIC = "EPISODIC"
     SEMANTIC = "SEMANTIC"
     SOCIAL = "SOCIAL"
     INTEREST = "INTEREST"
+    PROJECT = "PROJECT"
+
+
+class InterestOrigin(str, enum.Enum):
+    """Why an agent came to hold an interest (§9, Packet 7).
+
+    Stored as plain text on ``AgentInterest.origin`` (unchanged since Packet 1
+    — a free-text column, not a DB enum), so this is a vocabulary for the
+    application layer to use consistently, not a schema constraint. Founding
+    interests keep using the literal string ``seed_agents.py`` already writes
+    (``"§3 founding roster"``); everything an agent develops afterward uses
+    one of these.
+    """
+
+    #: The literal string ``scripts/seed_agents.py`` has always written for
+    #: the Founding Eight's starting interests (§3) — kept unchanged here so
+    #: an existing seeded database's rows still match.
+    FOUNDING = "§3 founding roster"
+    RESEARCH_DISCOVERY = "research discovery"
+    RABBIT_HOLE = "rabbit hole participation"
+    AGENT_INFLUENCE = "another agent's influence"
+    CONVERSATION = "conversation"
+    FOUNDER_SUGGESTION = "founder suggestion"
+    UNRESOLVED_QUESTION = "unresolved question"
+    REPEATED_EXPOSURE = "repeated exposure"
 
 
 class ResearchStatus(str, enum.Enum):
@@ -205,3 +240,13 @@ class EventType(str, enum.Enum):
     MEMORY_CREATED = "MEMORY_CREATED"
     FOUNDER_MESSAGE = "FOUNDER_MESSAGE"
     DAILY_REPORT_CREATED = "DAILY_REPORT_CREATED"
+    # Packet 7: memory reinforcement/recall and the rest of interest evolution.
+    # Creation is common enough (every new emerging interest) to log plainly;
+    # reinforcement and recall are deliberately only logged when they reflect
+    # a genuine repeat signal, never on routine context-building reads — see
+    # app/services/memory.py.
+    MEMORY_REINFORCED = "MEMORY_REINFORCED"
+    MEMORY_RECALLED = "MEMORY_RECALLED"
+    INTEREST_CREATED = "INTEREST_CREATED"
+    INTEREST_DORMANT = "INTEREST_DORMANT"
+    INTEREST_REVIVED = "INTEREST_REVIVED"

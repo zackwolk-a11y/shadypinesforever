@@ -18,21 +18,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db.models.agents import Agent, AgentBelief, AgentInterest
+from app.db.models.belief import BeliefBasis
 from app.db.models.conversations import Conversation, ConversationMessage, Message
 from app.db.models.events import Event
-from app.db.models.memory import Memory
 from app.db.models.rabbit_holes import RabbitHole, RabbitHoleMember
 from app.db.models.research import ResearchFinding, ResearchSession
 from app.db.models.research_provenance import Claim
 from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
-from app.domain.enums import EventType, RabbitHoleStatus
-from app.services import founder, wall
+from app.domain.enums import EventType, InterestOrigin, MemoryType, RabbitHoleStatus
+from app.services import founder, memory, wall
 from app.services.exposure import exposed_entity_ids
 
 SYSTEM_PROMPT = """You are one inhabitant of a small research clubhouse shared with seven friends.
@@ -101,13 +101,6 @@ def build_agent_context(
         .where(AgentInterest.agent_id == agent.agent_id)
         .order_by(AgentInterest.strength.desc(), AgentInterest.id.desc())
         .limit(6)
-    ).all()
-
-    memories = session.scalars(
-        select(Memory)
-        .where(Memory.agent_id == agent.agent_id)
-        .order_by(Memory.created_at.desc(), Memory.id.desc())
-        .limit(settings.max_context_memories)
     ).all()
 
     # Headlines only — reading the wall in detail is an action, not a freebie.
@@ -230,6 +223,52 @@ def build_agent_context(
         )
     )
 
+    # Memory retrieval (Packet 7) — a small, scored slice, never the whole
+    # table (§4). Relevance leans on whatever is actually in play this turn:
+    # this agent's own topics, who is in the room, and the rabbit holes it
+    # belongs to (especially a dormant one it is drifting back toward).
+    topic_keywords: set[str] = set()
+    for i in interests:
+        topic_keywords |= wall.keywords(i.interest)
+
+    important_memories = memory.retrieve_relevant(
+        session, agent.agent_id, clock=clock, limit=4,
+        exclude_types={MemoryType.SOCIAL, MemoryType.PROJECT},
+        related_agent_ids=present, keywords=topic_keywords,
+    )
+    social_memories = memory.retrieve_relevant(
+        session, agent.agent_id, clock=clock, limit=3,
+        only_types={MemoryType.SOCIAL}, related_agent_ids=present,
+        require_related_agent=True,
+    )
+    rabbit_hole_memories = memory.retrieve_relevant(
+        session, agent.agent_id, clock=clock, limit=3,
+        only_types={MemoryType.PROJECT}, related_rabbit_hole_ids=tuple(member_hole_ids),
+        require_related_rabbit_hole=True,
+    )
+
+    emerging_interests = session.scalars(
+        select(AgentInterest)
+        .where(
+            AgentInterest.agent_id == agent.agent_id,
+            AgentInterest.origin != InterestOrigin.FOUNDING.value,
+        )
+        .order_by(AgentInterest.strength.desc(), AgentInterest.id.desc())
+        .limit(5)
+    ).all()
+
+    # "BELIEF HISTORY WHEN RELEVANT" — a revision count per belief, so a
+    # belief that has been through several twists reads differently from one
+    # still on its founding evidence, without dumping every BeliefBasis row.
+    belief_revision_counts: dict[int, int] = {
+        belief_id: count
+        for belief_id, count in session.execute(
+            select(BeliefBasis.belief_id, func.count())
+            .where(BeliefBasis.belief_id.in_([b.id for b in own_beliefs]))
+            .group_by(BeliefBasis.belief_id)
+        )
+    } if own_beliefs else {}
+
     founder_messages = founder.messages_for(session, agent.agent_id)
 
     conversation_turns: list[ConversationMessage] = []
@@ -281,9 +320,23 @@ def build_agent_context(
         lines.append("FROM THE FOUNDER:")
         lines += [f"  - {_clip(m.content, 200)}" for m in founder_messages]
 
-    if memories:
-        lines.append("RECENT MEMORIES:")
-        lines += [f"  - {_clip(m.content, 160)}" for m in memories]
+    if important_memories:
+        lines.append("IMPORTANT MEMORIES:")
+        lines += [
+            f"  - [{m.memory_type.value}] {_clip(m.content, 160)}" for m in important_memories
+        ]
+    if social_memories:
+        lines.append("RELEVANT SOCIAL MEMORIES:")
+        lines += [f"  - {_clip(m.content, 160)}" for m in social_memories]
+    if rabbit_hole_memories:
+        lines.append("RECENT RABBIT-HOLE EXPERIENCE:")
+        lines += [f"  - {_clip(m.content, 220)}" for m in rabbit_hole_memories]
+    if emerging_interests:
+        lines.append("EMERGING INTERESTS (developed since you started, not your founding ones):")
+        lines += [
+            f"  - {i.interest} (strength={i.strength:.2f}, from {i.origin})"
+            for i in emerging_interests
+        ]
     if headlines:
         lines.append("RESEARCH WALL HEADLINES (you have not read these in full):")
         lines += [
@@ -321,7 +374,7 @@ def build_agent_context(
             f"  - [{f.classification.value}] {_clip(f.finding_text, 160)}" for f in own_findings
         ]
     if recent_questions:
-        lines.append("QUESTIONS YOU HAVE ALREADY RESEARCHED:")
+        lines.append("RECENTLY EXPLORED QUESTIONS (avoid repeating these unless new evidence has appeared):")
         lines += [f"  - {_clip(q, 140)}" for q in recent_questions]
     if own_claims:
         lines.append("YOUR RECENT CLAIMS (usable as basis for FORM_BELIEF/REVISE_BELIEF):")
@@ -345,7 +398,9 @@ def build_agent_context(
     if own_beliefs:
         lines.append("YOUR BELIEFS:")
         lines += [
-            f"  [{b.id}] ({b.status.value}, confidence={b.confidence:.0f}) {_clip(b.statement, 140)}"
+            f"  [{b.id}] ({b.status.value}, confidence={b.confidence:.0f}"
+            + (f", revised {belief_revision_counts[b.id] - 1}x" if belief_revision_counts.get(b.id, 0) > 1 else "")
+            + f") {_clip(b.statement, 140)}"
             for b in own_beliefs
         ]
     if open_holes:

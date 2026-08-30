@@ -25,10 +25,24 @@
   the same real event loop until a full organic chain has occurred —
   research, a wall post citing it, another agent reading and connecting to
   it, a rabbit hole, a second agent's different research joining that hole,
-  and a belief revision — and asserts every link of it. Nothing in either
-  smoke test scripts an agent's choice or inserts a finished record
-  directly; a fixed seed only makes which choices happen to occur
-  reproducible.
+  and a belief revision — and asserts every link of it.
+- `inspect_memories.py` — prints every agent's memories: type, importance,
+  confidence, reinforcement count, decay score, when it was created and last
+  recalled, and its typed relations (agents/research/rabbit holes/beliefs).
+  Takes optional `--agent`, `--type`, and `--min-importance` filters.
+- `inspect_interests.py` — prints every agent's interests, founding and
+  emerging, with strength, origin, and last-engaged day. Takes an optional
+  `--agent` filter and `--emerging-only` to hide the founding roster.
+- `smoke_test_character_development.py` — deterministic Packet 7 check:
+  drives the same real event loop until an organic character-development
+  chain has occurred — a meaningful memory created and later genuinely
+  recalled, and a new emerging interest created, strengthened through
+  repeated engagement, and then actually cited as the topic of a later
+  action — and asserts every link of it.
+
+Nothing in any smoke test scripts an agent's choice or inserts a finished
+record directly; a fixed seed only makes which choices happen to occur
+reproducible.
 
 Seed data lives here rather than in an Alembic migration: migrations describe
 schema, and a roster seeded from a migration could not be corrected without

@@ -83,7 +83,7 @@ app/
     models/
       agents.py      agents, agent_interests, agent_beliefs, relationships
       belief.py      belief_basis (directional evidence trail behind a belief)
-      memory.py      memories
+      memory.py      memories (typed, scored, agent-private — Packet 7)
       research.py    research_sessions, _queries, _sources, _findings
       research_provenance.py  research_source_passages, claims, claim_evidence
       wall.py        research_wall
@@ -100,11 +100,14 @@ app/
   services/
     scheduler.py, context_builder.py, conversations.py, clock.py,
     research.py, wall.py, rabbit_holes.py, beliefs.py,
+    memory.py, interests.py,
     orchestrator.py, exposure.py, telemetry.py, founder.py, events.py
 alembic/             migration environment
 scripts/             inspect_schema.py, inspect_research.py, inspect_wall.py,
+                     inspect_memories.py, inspect_interests.py,
                      seed_agents.py, run_event.py, run_day.py,
-                     smoke_test_research.py, smoke_test_cross_pollination.py
+                     smoke_test_research.py, smoke_test_cross_pollination.py,
+                     smoke_test_character_development.py
 ```
 
 The tree follows the build bible's layout. Files it does not name were still
@@ -321,6 +324,166 @@ computation, no network) since several independent things have to align, unlike
 `smoke_test_research.py`'s single-digit event count for triggering research
 alone.
 
+### Memory, interests, and character development
+
+Packet 7's premise: eight agents that are the same on day 7 as day 1 have not
+actually lived through anything. Nothing here stores every event — that would
+be a transcript, not a memory — and nothing lets a model self-report how
+important or how strong something is; both are computed from real database
+state, the same "mechanism, not content" split the wall, rabbit holes, and
+beliefs already draw.
+
+**Five memory types, never collapsed.** EPISODIC (a specific moment —
+reading a post, being challenged), SEMANTIC (a conclusion that outlives the
+moment — a research interpretation, a belief's latest twist), SOCIAL (a read
+on how another agent thinks or collaborates), INTEREST (a note the agent
+itself wrote about its own curiosity, via `WRITE_NOTE`), and PROJECT (a
+running, regenerated summary of one rabbit hole's state — see below).
+
+**Memory selection is a deterministic filter over the event log, not a
+second copy of it.** `app/services/memory.py` hooks in at exactly one point
+— `orchestrator.run_next_event`, right after `execute_decision` — and
+re-queries every event that activation's `correlation_id` produced. A
+handler exists only for event types judged likely to matter later: a
+research session completing with real evidence (or genuine, "major
+uncertainty" conflicting/insufficient evidence — thin, empty results are
+skipped outright), a claim being challenged (both sides get an EPISODIC
+memory; the pattern repeating twice or more additionally reinforces a SOCIAL
+memory — "X tends to challenge my claims"), a belief being revised, a rabbit
+hole being created, joined, contributed to, left, or resolved, a wall post
+being read, and a founder message being delivered (always memory-worthy,
+handled separately since it reaches its recipients before anyone is
+activated). Routine actions — `OBSERVE`, `REST`, ordinary conversation turns
+— never become memories at all.
+
+**Reinforcement strengthens a memory instead of duplicating it.** A second
+challenge from the same agent, a belief's second revision, another touch of
+the same rabbit hole — each is matched against a small recent window of the
+agent's own memories by real typed relation (a shared `rabbit_hole_id`,
+`belief_id`, or other-agent id, never by comparing prose) and bumps
+`reinforcement_count`/`importance` on the existing row rather than creating a
+near-duplicate. A rabbit hole's PROJECT memory in particular is *replaced*,
+not appended to, on every touch — regenerated fresh from the hole's current
+title, description, status, evidence strength, and member count
+(`memory._rabbit_hole_summary`). That is what lets returning to a dormant
+hole recall "why it started, what evidence exists, ... their own previous
+stance" (§13) without replaying its history: the summary already reflects
+everything that happened to it, because it is computed from current state,
+not narrated as a log. Reinforcement never touches `AgentBelief.confidence`
+or any other truth-bearing field — memory strength and evidence stay
+strictly separate (§5, §14).
+
+**Retrieval is a small, scored slice, never the whole table.**
+`memory.retrieve_relevant` combines importance, simulated-day recency,
+reinforcement, and decay into one score, plus a flat bonus for actually
+matching the current topic, the agents present, or the rabbit holes in play.
+A high-importance floor (70+) keeps old-but-important memories eligible
+regardless of age — decay only ever lowers retrieval *priority*
+(`decay_score`, floored, never below a minimum), never deletes a row and
+never happens to a memory at or above that floor. `MEMORY_RECALLED` is
+logged only when a surfaced memory is genuinely stale (not accessed in 2+
+simulated days) — routine re-display of what is already fresh in mind never
+spams the event log.
+
+**Interests move in small, mechanical steps — never one conversation to an
+obsession.** `app/services/interests.py` mirrors `beliefs.py`'s split: the
+qualitative trigger (a rabbit hole joined, a research question answered, a
+wall post read that cites someone else's work) is a fact about what
+happened; `interests.bump` computes the resulting number. Deltas are all a
+few hundredths on a 0.0-1.0 scale (founding interests start at 0.5); a
+brand-new interest starts at essentially nothing and only becomes real
+strength through repeated, independent reinforcement. `INTEREST_CREATED`
+fires once; `INTEREST_INCREASED`/`INTEREST_DECREASED` on every later move;
+`INTEREST_DORMANT`/`INTEREST_REVIVED` are swept once per simulated day
+(`sweep_dormancy`, called from `clock.advance()` on every day rollover) — a
+weak, long-neglected interest goes quiet, and the next real engagement with
+it revives it, exactly the way rabbit holes cool and get pulled back into
+(see below). Cross-agent influence is a first-class origin: joining a rabbit
+hole someone *else* started, or reading a wall post that cites someone
+else's research, both bump the reader's own interest in that topic — this is
+the mechanism behind "an agent's curiosity rubbing off on another," never
+scripted to any one pair.
+
+**A genuine rabbit-hole dormancy bug from Packet 6 is fixed here.**
+`rabbit_holes.recompute()` was overwriting `last_activity_day` to the
+current simulated day *before* computing how stale the hole had been,
+which made `days_stale` always evaluate to zero — `DORMANT`/`COOLING` were
+unreachable through that function. The fix splits the concern in two:
+`recompute()` (only ever called *because* of a real interaction) now judges
+status purely from heat and contributors — never staleness, since being
+called at all means the hole was just touched — while a new
+`rabbit_holes.sweep_dormancy`, run once per simulated day alongside the
+interest sweep, is the only thing that marks a hole `COOLING`/`DORMANT` from
+elapsed time with nobody touching it. A member returning to a hole
+`sweep_dormancy` marked dormant naturally revives it the moment `recompute()`
+runs again — no special-casing needed, it falls straight out of status being
+recomputed fresh from current engagement. The activation scheduler also
+gives members of a currently-dormant hole a small, deterministic pull back
+toward it (`scheduler.DORMANT_RABBIT_HOLE_PULL`), so "an agent returning to a
+dormant rabbit hole" (§13) is more than pure chance without ever forcing the
+choice.
+
+**Social continuity moves slowly, and disagreement never counts against
+it.** `relationships.trust_score` starts at 60/100 — friendship is the
+Village's baseline, not something earned from zero — and only ever moves in
+small, capped steps: an ordinary conversation exchange nudges it up
+slightly, and bringing new research into a shared rabbit hole (useful
+collaboration) nudges the other current members up a little more.
+Challenging a claim never touches trust in either direction — disagreement
+is normal between friends, not a hostility signal (§10). This is a
+documented, deliberate scope limit: nothing here currently models a
+*negative* trust signal (an ignored request, poor collaboration) — trust
+only ever holds steady or rises in this packet.
+
+**A short structured reflection, never chain-of-thought.** `AgentDecision`
+gained an optional `reflection` field (`WHAT_CHANGED`/`WHAT_MATTERS_NOW`/
+`WHAT_I_WANT_TO_REVISIT`, §15) that a model may fill in after something
+significant — the fixture does, about 40% of the time, after `FORM_BELIEF`,
+`REVISE_BELIEF`, `RESOLVE_RABBIT_HOLE`, or `CHALLENGE_CLAIM`. When present,
+it becomes one EPISODIC memory, verbatim — nothing here asks for or stores
+reasoning, only the concise conclusion a model chooses to report.
+
+**Belief and memory stay two concepts, never one table.** `AgentBelief`
+(structured, evidence-linked, §2/§9) is unchanged in shape by Packet 7. A
+memory may *reference* a belief (`Memory.related_belief_ids`, used only to
+find the right memory to reinforce on a belief's next revision) but never
+replaces or duplicates what a belief already tracks — an agent can remember
+"I once believed X" in a SEMANTIC memory while `AgentBelief.statement` now
+reads Y (§14).
+
+**Context stays bounded.** `context_builder.py` renders `IMPORTANT
+MEMORIES`, `RELEVANT SOCIAL MEMORIES` (only about agents actually present),
+`RECENT RABBIT-HOLE EXPERIENCE` (only for holes the agent is currently a
+member of), `EMERGING INTERESTS` (non-founding-origin only), a revision
+count inline on `YOUR BELIEFS` when a belief has been revised more than
+once, and the existing `RECENTLY EXPLORED QUESTIONS` — each capped at a
+handful of rows, never the full memory table.
+
+```bash
+.venv/bin/python scripts/smoke_test_character_development.py
+```
+
+Drives the real loop with a fixed seed until an organic character-development
+chain has happened: a meaningful event creates a memory; a previously-absent
+topic becomes a new emerging interest somewhere in the Village; that interest
+strengthens through independent, repeated engagement (not one event); an
+earlier memory gets recalled again after a genuine multi-day gap; and later
+behavior actually cites the now-stronger interest as its topic — provable
+because the fixture's own topic selection can only ever choose from what
+context actually renders. Nothing is scripted, hand-written, or set
+directly; a fixed seed only makes which choices happen to occur reproducible
+(same discipline as `smoke_test_cross_pollination.py`). Two independent
+checks, not one: the memory half (create, then genuinely recall) and the
+interest half (create, strengthen, then get cited) are allowed to involve
+different agents, since the spec's own example chain treats them as
+separate roles, and requiring one agent to satisfy both would test a
+coincidence rather than the mechanism.
+
+```bash
+.venv/bin/python scripts/inspect_memories.py --agent agent_alien
+.venv/bin/python scripts/inspect_interests.py --emerging-only
+```
+
 ## Design notes
 
 **Foreign keys reference stable business keys.** `agent_id` columns point at
@@ -328,8 +491,10 @@ alone.
 `related_research_id` point at `research_sessions.research_id` — not at the
 surrogate integer primary keys. §17 also stores these ids inside JSON columns
 (`conversations.participant_ids`, `research_sessions.related_research`,
-`agent_beliefs.basis`, `memories.related_ids`), and JSON cannot carry a foreign
-key. Pointing the real foreign keys at the same value space means an `agent_id`
+`agent_beliefs.basis`, `memories.related_research_ids`/`related_agent_ids`/
+`related_rabbit_hole_ids`/`related_belief_ids`), and JSON cannot carry a
+foreign key — a memory may legitimately point at something that has since
+changed shape, and should still be recallable. Pointing the real foreign keys at the same value space means an `agent_id`
 means exactly one thing everywhere in the schema. Surrogate `id` integer primary
 keys still exist on every table.
 

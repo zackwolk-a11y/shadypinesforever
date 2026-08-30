@@ -18,7 +18,7 @@ import enum
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.domain.enums import BeliefBasisRelation, WallPostType
+from app.domain.enums import BeliefBasisRelation, MemoryType, WallPostType
 
 MAX_ACTIONS_PER_DECISION = 3
 
@@ -171,6 +171,30 @@ class AgentAction(BaseModel):
     belief_relation: BeliefBasisRelation | None = Field(
         default=None, description="Required for REVISE_BELIEF: STRENGTHENS, WEAKENS, or REJECTS."
     )
+    #: Packet 7. Only meaningful for WRITE_NOTE — which kind of memory the
+    #: agent means to lay down. Defaults to EPISODIC (app/services/memory.py)
+    #: when omitted, since "I want to remember this" without further
+    #: qualification is most often a specific moment.
+    memory_type: MemoryType | None = Field(
+        default=None, description="Optional for WRITE_NOTE: EPISODIC, SEMANTIC, SOCIAL, INTEREST, or PROJECT."
+    )
+
+
+class Reflection(BaseModel):
+    """A short structured reflection after a significant event (Packet 7,
+    §15). Every field is optional — most decisions warrant no reflection at
+    all — and each one is a concise conclusion, never reasoning: this is not
+    a place for chain-of-thought, and nothing here is stored except exactly
+    what the agent reports.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    what_changed: str | None = Field(default=None, description="What is different now, if anything.")
+    what_matters_now: str | None = Field(default=None, description="What matters most going forward.")
+    what_i_want_to_revisit: str | None = Field(
+        default=None, description="Something worth coming back to later, if anything."
+    )
 
 
 class AgentDecision(BaseModel):
@@ -178,7 +202,8 @@ class AgentDecision(BaseModel):
 
     ``public_dialogue`` is what the agent says aloud in the room, if anything.
     Silence is a legal decision: an empty ``actions`` list with no dialogue is
-    valid and common.
+    valid and common. ``reflection`` (Packet 7) is likewise optional and rare
+    — most turns produce none.
     """
 
     model_config = {"extra": "forbid"}
@@ -190,6 +215,7 @@ class AgentDecision(BaseModel):
     )
     actions: list[AgentAction] = Field(default_factory=list)
     public_dialogue: str | None = None
+    reflection: Reflection | None = None
 
     @field_validator("actions")
     @classmethod

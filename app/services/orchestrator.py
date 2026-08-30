@@ -31,7 +31,7 @@ from app.core.config import Settings, get_settings
 from app.db.base import utcnow
 from app.db.models.agents import Agent
 from app.db.models.conversations import Conversation, Message
-from app.db.models.memory import Memory
+from app.db.models.events import Event
 from app.db.models.rabbit_holes import RabbitHole
 from app.db.models.research import ResearchSession
 from app.db.models.research_provenance import Claim
@@ -61,7 +61,7 @@ from app.schemas.actions import (
 from app.services import beliefs
 from app.services import clock as clock_service
 from app.services import conversations as convo
-from app.services import founder, rabbit_holes as rh, research, scheduler, wall
+from app.services import founder, memory, rabbit_holes as rh, research, scheduler, wall
 from app.services.context_builder import build_agent_context
 from app.services.events import record_event
 from app.services.exposure import expose, has_been_exposed
@@ -349,13 +349,9 @@ def execute_decision(
 
     for action in decision.actions:
         if action.type is ActionType.WRITE_NOTE:
-            session.add(
-                Memory(
-                    agent_id=agent.agent_id,
-                    memory_type=MemoryType.EPISODIC,
-                    content=action.content or "",
-                    related_ids=[],
-                )
+            memory.write_note(
+                session, agent.agent_id, action.content or "", clock, correlation_id,
+                memory_type=action.memory_type or MemoryType.EPISODIC,
             )
         elif action.type is ActionType.SPEAK and conversation is not None:
             convo.record_utterance(
@@ -522,7 +518,9 @@ def run_next_event(
         return EventOutcome(note="Simulation is paused.")
 
     # The Founder's mail reaches people before anyone decides anything.
-    founder.deliver_pending(session, clock)
+    delivered = founder.deliver_pending(session, clock)
+    if delivered:
+        memory.consider_founder_delivery(session, delivered, clock)
 
     conversation = convo.active_conversation(session)
 
@@ -688,6 +686,26 @@ def run_next_event(
         session, agent, outcome.decision, clock, correlation_id, conversation,
         settings, provider,
     )
+
+    # Memory selection (Packet 7): every event this turn's actions produced —
+    # research, wall, rabbit-hole, claim, belief — gets a chance to become a
+    # memory for whoever it concerns. Re-queried by correlation_id rather
+    # than threaded through execute_decision's return value, so none of the
+    # dozen call sites inside wall/rabbit_holes/beliefs/research need to know
+    # memory consolidation exists — see app/services/memory.py.
+    turn_event_ids = list(
+        session.scalars(
+            select(Event.id).where(
+                Event.correlation_id == correlation_id, Event.id != woke.id
+            )
+        )
+    )
+    memory.consider_turn_events(session, turn_event_ids, clock)
+    if outcome.decision.reflection is not None:
+        memory.consider_reflection(
+            session, agent.agent_id, outcome.decision.reflection, clock, correlation_id
+        )
+
     acted = record_event(
         session,
         event_type=EventType.AGENT_ACTED,

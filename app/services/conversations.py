@@ -288,6 +288,13 @@ def start_morning_gathering(
     )
 
 
+#: Packet 7 (§10): friends talking is baseline positive collaboration, so
+#: every exchange nudges trust up a little — small and capped, so it takes
+#: many conversations to move, never one.
+_CONVERSATION_TRUST_DELTA = 0.5
+_MAX_TRUST_SCORE = 100.0
+
+
 def _touch_relationships(session: Session, participants: list[str], speaker: str) -> None:
     """Record that these people were in the room together."""
     now = utcnow()
@@ -304,6 +311,13 @@ def _touch_relationships(session: Session, participants: list[str], speaker: str
             .limit(1)
         ).first()
         if relationship is None:
-            relationship = Relationship(agent_a_id=pair[0], agent_b_id=pair[1])
+            # Explicit values, not just the column defaults: those only apply
+            # once SQLAlchemy flushes this row, but the increments just below
+            # read trust_score/interaction_count back immediately.
+            relationship = Relationship(
+                agent_a_id=pair[0], agent_b_id=pair[1], trust_score=60.0, interaction_count=0,
+            )
             session.add(relationship)
         relationship.last_interaction = now
+        relationship.interaction_count += 1
+        relationship.trust_score = min(_MAX_TRUST_SCORE, relationship.trust_score + _CONVERSATION_TRUST_DELTA)

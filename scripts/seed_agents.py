@@ -56,6 +56,7 @@ from app.db.models import (  # noqa: E402
     SimulationClock,
 )
 from app.db.models.world import CLUBHOUSE_LOCATIONS  # noqa: E402
+from app.domain.enums import InterestOrigin  # noqa: E402
 
 EXPECTED_AGENT_COUNT = 8
 
@@ -109,7 +110,10 @@ class SeedRelationship:
 DEFAULT_INTEREST_STRENGTH = 0.5
 
 #: Recorded as the origin of every interest seeded from the founding roster.
-FOUNDING_INTEREST_ORIGIN = "§3 founding roster"
+#: The value itself lives on InterestOrigin.FOUNDING (app/domain/enums.py) —
+#: Packet 7's interest-evolution code needs to recognize it too, to tell a
+#: founding interest apart from one an agent developed since.
+FOUNDING_INTEREST_ORIGIN = InterestOrigin.FOUNDING.value
 
 
 def founding_interests(*topics: str) -> tuple[SeedInterest, ...]:

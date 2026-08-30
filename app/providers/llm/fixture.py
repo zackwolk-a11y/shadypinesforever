@@ -29,9 +29,15 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from app.domain.enums import BeliefBasisRelation, EvidenceStrength, FindingClassification, WallPostType
+from app.domain.enums import (
+    BeliefBasisRelation,
+    EvidenceStrength,
+    FindingClassification,
+    MemoryType,
+    WallPostType,
+)
 from app.providers.llm.base import LLMResult, LLMSchemaError, LLMUsage
-from app.schemas.actions import ActionType, AgentAction, AgentDecision
+from app.schemas.actions import ActionType, AgentAction, AgentDecision, Reflection
 from app.schemas.research import (
     ResearchSynthesis,
     SynthesizedClaim,
@@ -83,6 +89,17 @@ _EXTRA_WEIGHTED_ACTIONS: dict[ActionType, int] = {
 }
 
 _DIRECTED = {ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE, ActionType.START_CONVERSATION}
+
+#: Packet 7. A reflection (§15) is rare and only follows something actually
+#: significant — forming or moving a belief, resolving a shared
+#: investigation, or challenging someone's claim — never routine actions.
+_REFLECTION_TRIGGERS = {
+    ActionType.FORM_BELIEF,
+    ActionType.REVISE_BELIEF,
+    ActionType.RESOLVE_RABBIT_HOLE,
+    ActionType.CHALLENGE_CLAIM,
+}
+_REFLECTION_PROBABILITY = 0.4
 
 _WALL_POST_TYPES_FOR_FINDING = [WallPostType.FINDING, WallPostType.HYPOTHESIS]
 _WALL_POST_TYPES_STANDALONE = [
@@ -220,6 +237,19 @@ def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
         location=location,
         actions=actions,
         public_dialogue=f"[fixture] {topic}, maybe." if speaks else None,
+        reflection=_maybe_reflect(rng, chosen, topic),
+    )
+
+
+def _maybe_reflect(rng: random.Random, chosen: ActionType, topic: str) -> Reflection | None:
+    if chosen not in _REFLECTION_TRIGGERS or rng.random() >= _REFLECTION_PROBABILITY:
+        return None
+    return Reflection(
+        what_changed=f"[fixture] Something about {topic} shifted a bit for me.",
+        what_matters_now=f"[fixture] {topic} still feels worth tracking.",
+        what_i_want_to_revisit=(
+            f"[fixture] Whether {topic} holds up under more evidence." if rng.random() < 0.5 else None
+        ),
     )
 
 
@@ -255,7 +285,10 @@ def _build_action(
     chosen: ActionType, rng: random.Random, ctx: _Context, topic: str, target: str | None
 ) -> AgentAction | None:
     if chosen is ActionType.WRITE_NOTE:
-        return AgentAction(type=chosen, content=f"[fixture] A note about {topic}.")
+        return AgentAction(
+            type=chosen, content=f"[fixture] A note about {topic}.",
+            memory_type=rng.choice(list(MemoryType)),
+        )
     if chosen is ActionType.ASK_QUESTION:
         return AgentAction(type=chosen, target_agent_id=target, content=f"[fixture] What do you make of {topic}?")
     if chosen is ActionType.SEND_MESSAGE:

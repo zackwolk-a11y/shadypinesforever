@@ -355,12 +355,15 @@ def recompute(session: Session, hole: RabbitHole, clock: SimulationClock) -> Non
         hole.status = RabbitHoleStatus.ABANDONED
         return
 
-    days_stale = clock.current_day - (hole.last_activity_day or clock.current_day)
-    if days_stale >= _DORMANT_AFTER_DAYS:
-        hole.status = RabbitHoleStatus.DORMANT
-    elif days_stale >= _COOLING_AFTER_DAYS:
-        hole.status = RabbitHoleStatus.COOLING
-    elif heat >= _HOT_THRESHOLD:
+    # recompute() is only ever called in response to a real interaction —
+    # someone just joined, contributed, or otherwise touched this hole — so
+    # status here is judged purely from heat/contributors, never staleness:
+    # this *is* the "returning to a dormant hole revives it" mechanic,
+    # falling straight out of a fresh touch recomputing status from current
+    # engagement rather than re-affirming however stale it used to be.
+    # Staleness from time passing with nobody touching the hole at all is a
+    # different question, handled separately by :func:`sweep_dormancy`.
+    if heat >= _HOT_THRESHOLD:
         hole.status = RabbitHoleStatus.HOT
     elif heat > 0 or research_count or len(contributors) > 1:
         hole.status = RabbitHoleStatus.ACTIVE
@@ -387,3 +390,32 @@ def recompute(session: Session, hole: RabbitHole, clock: SimulationClock) -> Non
             EvidenceStrength.STRONG,
         ]
         hole.evidence_strength = max(strengths, key=order.index)
+
+
+def sweep_dormancy(session: Session, clock: SimulationClock) -> int:
+    """Once-per-day-advance maintenance (Packet 7): mark holes COOLING/DORMANT
+    purely from elapsed simulated days since anyone touched them — the
+    complement to :func:`recompute`, which only ever runs *because* of a
+    touch and therefore never itself observes staleness (see its docstring).
+    Never touches heat, membership, or research links; only status. Returns
+    how many holes changed status this sweep.
+    """
+    changed = 0
+    for hole in session.scalars(
+        select(RabbitHole).where(
+            RabbitHole.status.notin_([RabbitHoleStatus.RESOLVED, RabbitHoleStatus.ABANDONED])
+        )
+    ):
+        if not current_members(session, hole.id):
+            continue  # ABANDONED is recompute()'s call, not staleness
+        days_stale = clock.current_day - (hole.last_activity_day or clock.current_day)
+        if days_stale >= _DORMANT_AFTER_DAYS and hole.status is not RabbitHoleStatus.DORMANT:
+            hole.status = RabbitHoleStatus.DORMANT
+            changed += 1
+        elif (
+            _COOLING_AFTER_DAYS <= days_stale < _DORMANT_AFTER_DAYS
+            and hole.status not in (RabbitHoleStatus.COOLING, RabbitHoleStatus.DORMANT)
+        ):
+            hole.status = RabbitHoleStatus.COOLING
+            changed += 1
+    return changed
