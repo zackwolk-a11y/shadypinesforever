@@ -105,7 +105,14 @@
   happen (live Tavily search configured), asserts all twelve live-research
   checkpoints end to end. `--nudge "topic"` optionally strengthens one real
   interest first without forcing the final decision. Refuses to run against
-  `LLM_PROVIDER=fixture`.
+  `LLM_PROVIDER=fixture`. `--force-research` (test-only) bypasses just the
+  initial action-selection call and starts a real, fully-live
+  `START_RESEARCH` cycle directly on the agent's own current top interest —
+  query generation, retrieval, and interpretation all stay genuinely live;
+  the run's `correlation_id` is prefixed `forced_test_` so it's unmistakable
+  in the event log, and an added check confirms no `[fixture]`-marked query,
+  interpretation, finding, or claim text entered it. Requires a live
+  `RESEARCH_PROVIDER` too.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur

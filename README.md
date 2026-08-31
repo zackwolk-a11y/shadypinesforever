@@ -1051,6 +1051,23 @@ verified — an invalid citation is dropped by `research.py` before it is
 ever persisted, so a passing check here means none survived); usage
 telemetry recorded the call; and a failure never fabricates cognition.
 
+`--force-research` (test-only) bypasses *just* the initial action-selection
+call — the "what do you want to do" decision — and starts a `START_RESEARCH`
+cycle directly, on the agent's own real top interest, via the exact same
+`research.start_research()` every real decision calls. Nothing downstream
+of that one bypassed call is touched: query generation, retrieval, and
+interpretation are exactly as live as the non-forced path. The run's
+`correlation_id` is prefixed `forced_test_` (unmistakable in the event log
+and every inspection script), the console output is banner-labelled the
+same way, and an added check scans every query, the session interpretation,
+every finding, and every claim for the `[fixture]` marker — this is on top
+of, not instead of, the twelve Part L checkpoints above.
+
+```bash
+.venv/bin/python scripts/run_live_agent_once.py --agent agent_roxy \
+    --nudge "Portland's DIY arts scene" --force-research
+```
+
 **Usage telemetry** (Part M) extends the existing `llm_runs` table
 (`app.db.models.telemetry.LLMRun`, unchanged since Packet 3) with one new
 `retry_count` column — every other field Part M asks for (provider, model,

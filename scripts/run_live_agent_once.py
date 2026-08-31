@@ -19,6 +19,19 @@ observing or chatting is exactly as valid a live decision as one that
 researches (see app/services/context_builder.py's own system prompt: not
 everything needs a source).
 
+``--force-research`` (test-only) bypasses *just* that one initial
+action-selection call — the "what do you want to do" decision — and starts
+a START_RESEARCH cycle directly for a legitimate current interest of the
+named agent, real or freshly `--nudge`d. Nothing downstream of that point is
+touched: it calls the exact same ``app.services.research.start_research``
+every real START_RESEARCH action calls, with the real configured providers,
+so query generation, retrieval, and interpretation are exactly as live as
+they are in the normal (non-forced) path — this flag only decides *that*
+research happens, never *how*. The resulting session's ``correlation_id``
+is prefixed ``forced_test_`` so it is unmistakable in the event log and
+every inspection script, and the console output is banner-labelled the
+same way.
+
 Usage::
 
     export ANTHROPIC_API_KEY="..."
@@ -32,8 +45,15 @@ Usage::
     # still made freely from there:
     .venv/bin/python scripts/run_live_agent_once.py --agent agent_dex --nudge "trends in independent radio streaming"
 
+    # test-only: skip the decision, go straight to a real, live, labelled
+    # research cycle on the agent's own (optionally nudged) top interest:
+    .venv/bin/python scripts/run_live_agent_once.py --agent agent_roxy \\
+        --nudge "Portland's DIY arts scene" --force-research
+
 Refuses to run against LLM_PROVIDER=fixture (use scripts/run_event.py or
 scripts/run_day.py for ordinary fixture-mode simulation instead).
+``--force-research`` additionally refuses against RESEARCH_PROVIDER=fixture,
+since retrieval must be live for the flag to mean what it says.
 """
 
 from __future__ import annotations
@@ -73,6 +93,13 @@ def main() -> int:
         help="legitimately strengthen one real interest before the turn, via "
              "the normal interests.bump() mechanism — never forces the final action",
     )
+    parser.add_argument(
+        "--force-research", action="store_true",
+        help="test-only: bypass the initial action-selection decision and start a "
+             "real, live START_RESEARCH cycle directly on a legitimate current "
+             "interest of --agent. Everything downstream stays fully live — see "
+             "the module docstring. Requires a live RESEARCH_PROVIDER too.",
+    )
     parser.add_argument("--keep-db", action="store_true")
     args = parser.parse_args()
 
@@ -90,6 +117,13 @@ def main() -> int:
         print(
             "LLM_PROVIDER=anthropic but ANTHROPIC_API_KEY is not set (and this script "
             "does not attempt to resolve an `ant auth login` profile on your behalf)."
+        )
+        return 1
+    if args.force_research and settings.research_provider == "fixture":
+        print(
+            "--force-research requires a live RESEARCH_PROVIDER (tavily/brave) — "
+            "retrieval must actually be live for the flag to mean what it says. "
+            "Set RESEARCH_PROVIDER=tavily and TAVILY_API_KEY."
         )
         return 1
 
@@ -149,6 +183,9 @@ def main() -> int:
 
         llm_provider = get_llm_provider(settings)
 
+        if args.force_research:
+            return _run_forced_research(session, settings, llm_provider, agent, args)
+
         print(f"Activating {agent.agent_id} for one real decision...\n")
         outcome = run_next_event(
             session, settings=settings, provider=llm_provider,
@@ -185,7 +222,7 @@ def main() -> int:
             print(f"  DATABASE_URL={settings.database_url} .venv/bin/python scripts/inspect_llm_usage.py")
             return 0 if all(v for _, v in checks) else 1
 
-        _assert_research_chain(session, settings, outcome, checks)
+        _assert_research_chain(session, settings, outcome.research, outcome.activated_agent_id, checks)
         _print_checks(checks)
 
         ok = all(v for _, v in checks)
@@ -203,12 +240,70 @@ def main() -> int:
             print(f"\nDatabase kept at {DB_PATH}")
 
 
-def _assert_research_chain(session, settings, outcome, checks: list[tuple[str, bool]]) -> None:
-    from app.db.models.research import ResearchQuery, ResearchSession, ResearchSource
+def _run_forced_research(session, settings, llm_provider, agent, args) -> int:
+    """--force-research: bypass only the action-selection decision, then run
+    the exact same app.services.research.start_research every real
+    START_RESEARCH action calls — real query generation, real retrieval,
+    real interpretation, real provenance, real telemetry. Never a parallel
+    or partly-fixtured research path."""
+    from sqlalchemy import select
+
+    from app.db.models.agents import AgentInterest
+    from app.db.models.world import SimulationClock
+    from app.domain.ids import new_correlation_id
+    from app.providers.research import get_research_provider
+    from app.services import research
+
+    top_interest = session.scalars(
+        select(AgentInterest)
+        .where(AgentInterest.agent_id == agent.agent_id)
+        .order_by(AgentInterest.strength.desc(), AgentInterest.id.desc())
+        .limit(1)
+    ).first()
+    if top_interest is None:
+        print(f"{agent.agent_id} has no interests recorded; pass --nudge to give it one.")
+        return 1
+    question = f"What is the current state of {top_interest.interest}?"
+
+    correlation_id = f"forced_test_{new_correlation_id()}"
+    clock = session.scalars(select(SimulationClock).limit(1)).first()
+    research_provider = get_research_provider(settings)
+
+    print("=" * 70)
+    print("FORCED TEST-ONLY RESEARCH RUN — action-selection bypassed")
+    print(f"  agent: {agent.agent_id}")
+    print(f"  question (from real interest {top_interest.interest!r}): {question!r}")
+    print(f"  correlation_id: {correlation_id}")
+    print(f"  LLM provider: {llm_provider.name} (live={not llm_provider.is_fixture})")
+    print(f"  research provider: {research_provider.name} (live={not research_provider.is_fixture})")
+    print("=" * 70 + "\n")
+
+    outcome = research.start_research(
+        session, agent, question, clock, correlation_id, settings, llm_provider, research_provider,
+    )
+    session.commit()
+
+    checks: list[tuple[str, bool]] = [
+        ("run is labelled forced/test-only", correlation_id.startswith("forced_test_")),
+    ]
+    _assert_research_chain(session, settings, outcome, agent.agent_id, checks)
+    _print_checks(checks)
+
+    ok = all(v for _, v in checks)
+    print(f"\n{'PASS' if ok else 'FAIL'}: forced test-only research run for {agent.agent_id}.")
+    print("\nInspect it directly (filter by the forced_test_ correlation_id prefix to isolate this run):")
+    print(f"  DATABASE_URL={settings.database_url} .venv/bin/python scripts/inspect_research.py --agent {agent.agent_id}")
+    print(f"  DATABASE_URL={settings.database_url} .venv/bin/python scripts/inspect_llm_usage.py --agent {agent.agent_id}")
+    print(f"  DATABASE_URL={settings.database_url} .venv/bin/python scripts/inspect_research_usage.py --agent {agent.agent_id}")
+    return 0 if ok else 1
+
+
+def _assert_research_chain(session, settings, research_outcome, agent_id: str, checks: list[tuple[str, bool]]) -> None:
+    from app.db.models.research import ResearchFinding, ResearchQuery, ResearchSession, ResearchSource
     from app.db.models.research_provenance import Claim, ClaimEvidence, ResearchSourcePassage
     from app.db.models.research_usage import ResearchProviderUsage
 
-    research_id = outcome.research.research_id
+    research_id = research_outcome.research_id
     rs = session.query(ResearchSession).filter_by(research_id=research_id).one()
     queries = session.query(ResearchQuery).filter_by(research_session_id=research_id).all()
     sources = session.query(ResearchSource).filter_by(research_session_id=research_id).all()
@@ -228,27 +323,37 @@ def _assert_research_chain(session, settings, outcome, checks: list[tuple[str, b
         any(not s.url.startswith("https://fixture.invalid") for s in sources),
     ))
 
-    if outcome.research.unavailable:
-        print(f"\nResearch was RESEARCH_UNAVAILABLE: {outcome.research.reason}")
+    if research_outcome.unavailable:
+        print(f"\nResearch was RESEARCH_UNAVAILABLE: {research_outcome.reason}")
         checks.append(("real passages were stored", len(passages) > 0))
         checks.append(("real LLM interpretation was stored", False))
-        checks.append(("no fixture interpretation/finding text remains", True))
+        checks.append(("no fixture query/interpretation/finding/claim text remains", True))
         checks.append(("evidence links resolve to actual stored passages", True))
         checks.append(("unsupported source IDs are rejected", True))
-        checks.append(("usage telemetry records LLM usage", _has_live_llm_run(session, outcome)))
-        checks.append(("failure does not fabricate cognition", outcome.research.findings_created == 0))
+        checks.append(("usage telemetry records LLM usage", _has_live_llm_run(session, agent_id)))
+        checks.append(("failure does not fabricate cognition", research_outcome.findings_created == 0))
         return
 
     checks.append(("real passages were stored", len(passages) > 0))
     checks.append(("real LLM interpretation was stored", bool(rs.interpretation) and _FIXTURE_MARKER not in (rs.interpretation or "")))
 
-    from app.db.models.research import ResearchFinding
-
     findings = session.query(ResearchFinding).filter_by(research_session_id=research_id).all()
-    no_fixture_findings = all(_FIXTURE_MARKER not in f.finding_text for f in findings)
-    checks.append(("no fixture interpretation/finding text remains", no_fixture_findings))
-
     claims = session.query(Claim).filter_by(research_session_id=research_id).all()
+    # Part L + the --force-research addendum: no [fixture]-marked text may
+    # have entered a live run anywhere along the chain — query, session
+    # interpretation, finding, or claim. Every fixture-generated string in
+    # this codebase carries that literal marker (see app/providers/llm/
+    # fixture.py and app/providers/research/fixture.py's own module
+    # docstrings), so its absence is a direct, checkable proof, not an
+    # inference.
+    no_fixture_anywhere = (
+        all(_FIXTURE_MARKER not in q.query_text for q in queries)
+        and _FIXTURE_MARKER not in (rs.interpretation or "")
+        and all(_FIXTURE_MARKER not in f.finding_text for f in findings)
+        and all(_FIXTURE_MARKER not in c.claim_text for c in claims)
+    )
+    checks.append(("no fixture query/interpretation/finding/claim text remains", no_fixture_anywhere))
+
     passage_ids = {p.id for p in passages}
     evidence_ok = bool(claims)
     for c in claims:
@@ -261,16 +366,16 @@ def _assert_research_chain(session, settings, outcome, checks: list[tuple[str, b
     # ever persisting it) — checkable here as "every stored link is valid",
     # since an invalid one would never have made it into the database at all.
     checks.append(("unsupported source IDs are rejected", evidence_ok))
-    checks.append(("usage telemetry records LLM usage", _has_live_llm_run(session, outcome)))
+    checks.append(("usage telemetry records LLM usage", _has_live_llm_run(session, agent_id)))
     checks.append(("failure does not fabricate cognition", True))
 
 
-def _has_live_llm_run(session, outcome) -> bool:
+def _has_live_llm_run(session, agent_id: str) -> bool:
     from app.db.models.telemetry import LLMRun
 
     return (
         session.query(LLMRun)
-        .filter(LLMRun.agent_id == outcome.activated_agent_id, LLMRun.is_fixture.is_(False))
+        .filter(LLMRun.agent_id == agent_id, LLMRun.is_fixture.is_(False))
         .count()
         > 0
     )
