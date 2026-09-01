@@ -87,6 +87,14 @@
   session (that agent's own top interest, or `--question`), using the exact
   same `research.start_research()` path a real decision takes. Refuses to
   run against `RESEARCH_PROVIDER=fixture`.
+- `test_anthropic_retry.py` — deterministic unit test (no key, no network,
+  safe in ordinary CI) for `AnthropicLLMProvider`'s truncation/schema-
+  validation retry, using a mocked SDK response sequence: a valid first
+  response needs no retry; a truncated response (`stop_reason=max_tokens`,
+  the exact failure a real forced live research run hit) retries once with
+  a raised token budget and succeeds if the retry is valid; invalid JSON
+  behaves the same way; two failures in a row raise a clean `LLMSchemaError`
+  rather than letting a bare `pydantic.ValidationError` escape uncaught.
 - `inspect_llm_usage.py` — prints LLM call telemetry (Packet 11): one row
   per model call — provider, model, purpose, agent, input/output/cache
   tokens, retries, latency, estimated cost — plus a by-purpose breakdown

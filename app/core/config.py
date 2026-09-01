@@ -171,7 +171,16 @@ def get_settings() -> Settings:
         max_report_belief_changes=_env_int("MAX_REPORT_BELIEF_CHANGES", 6),
         max_tokens_agent_decision=_env_int("MAX_TOKENS_AGENT_DECISION", 1536),
         max_tokens_search_query=_env_int("MAX_TOKENS_SEARCH_QUERY", 512),
-        max_tokens_research_synthesis=_env_int("MAX_TOKENS_RESEARCH_SYNTHESIS", 3072),
+        # Bumped from 3072 (Packet 11's original default) after a live run
+        # truncated mid-JSON: a full ResearchSynthesis (up to 5 findings x 5
+        # claims each, plus interpretation/open_questions/follow_ups) can
+        # legitimately need more room than that, and on models where
+        # thinking is on by default the same budget also has to cover
+        # thinking tokens before any output text is written at all. Still a
+        # real, tunable cap — see app/providers/llm/anthropic.py for the
+        # bounded retry that raises this further, temporarily, only if a
+        # live response is actually truncated.
+        max_tokens_research_synthesis=_env_int("MAX_TOKENS_RESEARCH_SYNTHESIS", 8192),
         max_tokens_reflection=_env_int("MAX_TOKENS_REFLECTION", 1024),
         max_tokens_daily_report=_env_int("MAX_TOKENS_DAILY_REPORT", 4096),
     )
