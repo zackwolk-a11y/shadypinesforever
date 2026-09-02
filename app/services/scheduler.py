@@ -84,6 +84,35 @@ class ActivationCandidate:
         return self.score > 0
 
 
+def activations_today(session: Session, agent_id: str, clock: SimulationClock) -> int:
+    """How many times this agent has already been activated today.
+
+    The single source of truth every activation-granting path must consult
+    before handing out another one — not just this module's own
+    ``score_agents``. Conversation turn-taking
+    (``app.services.conversations.next_speaker``) and joining a conversation
+    (``app.services.dialogue.find_joiner``) each grant a real activation
+    exactly like the scheduler does (the same ``AGENT_ACTED``/
+    ``INVALID_AGENT_DECISION`` event lands either way), so each must respect
+    the same day-wide ``Settings.max_daily_agent_activations`` budget this
+    counts against — a scheduler-only check left conversation rotation free
+    to hand one agent unlimited activations while the rest of the village
+    waited (Packet 12's scheduler/conversation correctness fix).
+    """
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(Event)
+            .where(
+                Event.agent_id == agent_id,
+                Event.sim_day == clock.current_day,
+                Event.event_type.in_(ACTIVATION_EVENTS),
+            )
+        )
+        or 0
+    )
+
+
 def score_agents(
     session: Session,
     clock: SimulationClock,
@@ -120,27 +149,19 @@ def score_agents(
                 Message.read_at.is_(None),
             )
         ) or 0
-        activations_today = session.scalar(
-            select(func.count())
-            .select_from(Event)
-            .where(
-                Event.agent_id == agent.agent_id,
-                Event.sim_day == clock.current_day,
-                Event.event_type.in_(ACTIVATION_EVENTS),
-            )
-        ) or 0
+        agent_activations_today = activations_today(session, agent.agent_id, clock)
 
         rng = random.Random(
             hashlib.sha256(
                 f"{seed}|{agent.agent_id}|{clock.current_day}|{clock.current_period}"
-                f"|{activations_today}".encode()
+                f"|{agent_activations_today}".encode()
             ).hexdigest()[:16]
         )
         components = {
             "unread_message": unread * UNREAD_MESSAGE_POINTS,
             "period": period_score,
             "curiosity": rng.random() * CURIOSITY_MAX,
-            "recent_activation_penalty": -activations_today * RECENT_ACTIVATION_PENALTY,
+            "recent_activation_penalty": -agent_activations_today * RECENT_ACTIVATION_PENALTY,
             "dormant_rabbit_hole_pull": (
                 DORMANT_RABBIT_HOLE_PULL if agent.agent_id in dormant_hole_member_ids else 0.0
             ),
@@ -148,7 +169,7 @@ def score_agents(
         # A hard daily ceiling, so no agent can monopolise a day however it scores.
         score = (
             0.0
-            if activations_today >= settings.max_daily_agent_activations
+            if agent_activations_today >= settings.max_daily_agent_activations
             else sum(components.values())
         )
         candidates.append(
@@ -156,7 +177,7 @@ def score_agents(
                 agent_id=agent.agent_id,
                 score=score,
                 components=components,
-                activations_today=activations_today,
+                activations_today=agent_activations_today,
             )
         )
 

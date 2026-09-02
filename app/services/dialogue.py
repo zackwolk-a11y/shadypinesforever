@@ -296,10 +296,18 @@ def find_joiner(
     already_departed = set(conversation.departed_agent_ids or [])
     subject_words = keywords(conversation.current_subject or "")
 
+    from app.services import scheduler
+
     best: JoinCandidate | None = None
     best_score = 0.0
     for agent_id in session.scalars(select(Agent.agent_id).order_by(Agent.id)):
         if agent_id in in_room or agent_id in already_departed:
+            continue
+        # Joining grants a real activation exactly like being picked by the
+        # scheduler or by next_speaker does — it must respect the same
+        # day-wide budget (Packet 12's scheduler/conversation correctness
+        # fix; see app.services.scheduler.activations_today).
+        if scheduler.activations_today(session, agent_id, clock) >= settings.max_daily_agent_activations:
             continue
         score = 0.0
         reasons: list[str] = []

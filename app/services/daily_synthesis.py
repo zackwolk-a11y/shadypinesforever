@@ -46,7 +46,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db.models.agents import AgentBelief
-from app.db.models.conversations import Conversation
+from app.db.models.conversations import Conversation, ConversationMessage
 from app.db.models.events import Event
 from app.db.models.rabbit_holes import RabbitHole
 from app.db.models.reflection import AgentReflection
@@ -73,6 +73,15 @@ _EVIDENCE_RANK: dict[EvidenceStrength, float] = {
 _BELIEF_RELATION_WEIGHT = {"REJECTS": 30.0, "WEAKENS": 20.0, "STRENGTHENS": 12.0}
 _SALIENT_WALL_TYPES = {"DISAGREEMENT", "CONNECTION", "MYSTERY", "RABBIT_HOLE_SUGGESTION"}
 _HIGH_VALUE_CONVERSATION_TRIGGERS = {"DISAGREEMENT", "RABBIT_HOLE", "MEMORY_PROMPTED"}
+#: Per-turn and whole-fact character budgets for a conversation's excerpt
+#: (Packet 12 daily-synthesis retrieval fix). Real dialogue needs more room
+#: than a one-line label — the old 280-char cap was sized for "who talked
+#: about what, and why it ended", not for any actual turns, because none
+#: were ever queried. Still bounded, never the full transcript: at most
+#: MAX_CONVERSATION_TURNS (8) short turns exist per conversation at all, and
+#: each is itself capped here so one verbose turn can't crowd the rest out.
+_CONVERSATION_TURN_EXCERPT_CHARS = 120
+_CONVERSATION_FACT_CHARS = 500
 
 SYSTEM_PROMPT = """You are writing the Founder's daily field report for a small research
 village of eight autonomous agents. The Founder left them alone for a day and
@@ -375,6 +384,18 @@ def gather_facts(session: Session, day: int, settings: Settings) -> DailyFacts:
     facts.memories = memory_items[: settings.max_report_memory_events]
 
     # --- conversations -----------------------------------------------------
+    # A conversation's real substance is its ConversationMessage turns, not
+    # just its metadata (participants/trigger/current_subject/close reason)
+    # — the report was previously built from metadata alone, so it could
+    # honestly say no more than "unspecified" about a conversation that
+    # actually had real dialogue on record (Packet 12 daily-synthesis
+    # retrieval diagnostic). When real turns exist, they're quoted directly
+    # (bounded, per _CONVERSATION_TURN_EXCERPT_CHARS/_CONVERSATION_FACT_CHARS
+    # above) so the model can honestly describe what was actually said,
+    # instead of being asked to characterize a conversation it was never
+    # shown. When a conversation genuinely produced no spoken turns (every
+    # participant chose not to SPEAK — a legitimate, common outcome, not a
+    # bug), that stays honestly distinguishable from "we didn't retrieve it".
     ended = _events_on_day(session, day, EventType.CONVERSATION_ENDED)
     convo_items = []
     for e in ended:
@@ -383,12 +404,24 @@ def gather_facts(session: Session, day: int, settings: Settings) -> DailyFacts:
             continue
         weight = 20.0 if conversation.trigger_type.value in _HIGH_VALUE_CONVERSATION_TRIGGERS else 8.0
         who = ", ".join(conversation.participant_ids or [])
+        messages = list(
+            session.scalars(
+                select(ConversationMessage)
+                .where(ConversationMessage.conversation_id == conversation.id)
+                .order_by(ConversationMessage.turn_number.asc())
+            )
+        )
+        if messages:
+            substance = " / ".join(
+                f"{m.agent_id}: {m.content[:_CONVERSATION_TURN_EXCERPT_CHARS]}" for m in messages
+            )
+        else:
+            substance = f"\"{conversation.current_subject or 'unspecified'}\" — no one actually spoke"
         convo_items.append(
             FactItem(
                 kind="conversation", ref_id=str(conversation.id),
-                text=f"{who} ({conversation.trigger_type.value}): "
-                     f"\"{conversation.current_subject or 'unspecified'}\" — "
-                     f"{e.payload.get('reason', '')}"[:280],
+                text=f"{who} ({conversation.trigger_type.value}): {substance} "
+                     f"[{e.payload.get('reason', '')}]"[:_CONVERSATION_FACT_CHARS],
                 classification=FindingClassification.SIMULATION_EVENT.value, score=weight,
             )
         )

@@ -651,9 +651,17 @@ def run_next_event(
         correlation_id = new_correlation_id()
         context_conversation = None
     elif conversation is not None:
-        speaker_id = convo.next_speaker(session, conversation)
+        speaker_id = convo.next_speaker(session, conversation, clock, settings)
         if speaker_id is None:
-            convo.close(session, conversation, clock, "no participants left",
+            # Empty room and "everyone present is already out of activations
+            # for today" are both real, distinct reasons next_speaker can
+            # come back empty — see its own docstring.
+            reason = (
+                "no participants left"
+                if not (conversation.participant_ids or [])
+                else "everyone present has reached today's activation limit"
+            )
+            convo.close(session, conversation, clock, reason,
                         correlation_id=conversation.correlation_id)
             _finalize_conversation(session, conversation, clock)
             conversation = None

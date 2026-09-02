@@ -1244,6 +1244,61 @@ time counter and points at the feed/agent cards while a control action is
 running, and states COMPLETED/FAILED with the actual elapsed time once it
 resolves — no change to the polling architecture itself, which needed none.
 
+#### Follow-up: conversation turn-taking bypassed the same daily cap
+
+A second, related bug turned up while diagnosing the first: `activations_today`/
+`Settings.max_daily_agent_activations` was only ever enforced on the
+scheduler's own path (`scheduler.next_agent`). Conversation turn-taking
+(`conversations.next_speaker`) and joining a conversation
+(`dialogue.find_joiner`) each grant a real activation exactly the same way —
+the same `AGENT_ACTED`/`INVALID_AGENT_DECISION` event lands either way — but
+neither consulted the cap before picking who goes next. Reproduced directly:
+one agent reached 9 activations in a single day against a configured cap of
+6, entirely through conversation rotation — an agent who is picked but never
+actually speaks keeps winning `next_speaker`'s "fewest spoken turns"
+tie-break forever, since their spoken count never moves.
+
+Fixed with one shared source of truth: `scheduler.activations_today()`
+(extracted from `score_agents`'s own inline query, which now calls it too),
+consulted by all three activation-granting paths. `next_speaker` now
+excludes any participant already at the cap, and returns `None` — the same
+"nobody left to speak" signal the caller already knew how to close a
+conversation on — once *everyone present* is capped, rather than ever
+picking a capped agent or hanging. `find_joiner` equally refuses an
+already-capped outsider. Neither the hard per-agent cap nor the daily
+activation-budget fix above changed; this only makes the existing cap
+actually apply everywhere it was always meant to.
+
+```bash
+.venv/bin/python scripts/smoke_test_conversation_activation_cap.py
+```
+
+#### Follow-up: the Founder Report couldn't see real conversation content
+
+A third issue, found from a real Day 2 report: it called an extended
+Optimisto/Lucid conversation "unspecified in the record" while the
+Fishbowl's own conversation detail page showed the full real transcript for
+the same conversation. Traced to `daily_synthesis.gather_facts`: its
+conversation facts were built from `Conversation` metadata alone
+(participants, trigger type, `current_subject`, the closing-event reason) —
+it never queried `ConversationMessage` rows at all, so no real dialogue
+ever reached the report-writing prompt, however much was actually said. Not
+a synthesis or prompt problem — the existing system prompt already
+instructs the model never to invent beyond what it's shown; it simply was
+never shown the transcript.
+
+Fixed by having `gather_facts` pull each ended conversation's real messages
+(bounded — at most `MAX_CONVERSATION_TURNS`, 8, exist per conversation
+anyway, each excerpt further capped per-turn so one verbose turn can't
+crowd out the rest) and quote them directly in the fact text. A conversation
+where nobody actually spoke — a legitimate, common outcome, not a bug —
+stays honestly distinguishable ("no one actually spoke") from one whose
+real content just wasn't being retrieved.
+
+```bash
+.venv/bin/python scripts/smoke_test_daily_report_conversation_content.py
+```
+
 ## Design notes
 
 **Foreign keys reference stable business keys.** `agent_id` columns point at

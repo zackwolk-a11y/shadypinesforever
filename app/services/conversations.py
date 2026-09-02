@@ -111,14 +111,41 @@ def turn_count(session: Session, conversation: Conversation) -> int:
     ) or 0
 
 
-def next_speaker(session: Session, conversation: Conversation) -> str | None:
-    """Whoever has spoken least, breaking ties by the participant order.
+def next_speaker(
+    session: Session, conversation: Conversation, clock: SimulationClock, settings: Settings,
+) -> str | None:
+    """Whoever has spoken least, breaking ties by the participant order —
+    among participants who haven't already reached today's activation
+    budget.
 
     Turn-taking is mechanism. What the speaker says — or whether they say
-    anything — is theirs.
+    anything — is theirs. But a pick here grants a real activation exactly
+    like the scheduler does (the same AGENT_ACTED/INVALID_AGENT_DECISION
+    event lands either way — see app.services.scheduler.activations_today),
+    so it must respect the same day-wide
+    ``Settings.max_daily_agent_activations`` the scheduler enforces. Without
+    this, an agent who is picked but never actually speaks keeps winning
+    the "fewest spoken turns" tie-break forever (their spoken count stays 0
+    no matter how many times they're activated) and can be re-picked
+    indefinitely — confirmed reaching 9 activations in a single day against
+    a configured cap of 6 (Packet 12's live-day diagnostic).
+
+    Returns ``None`` when nobody left in the room is eligible for another
+    turn today — the caller closes the conversation exactly as it already
+    does when the room is genuinely empty, never leaving it open with no
+    possible next speaker.
     """
+    from app.services import scheduler
+
     participants: list[str] = list(conversation.participant_ids or [])
     if not participants:
+        return None
+
+    eligible = [
+        a for a in participants
+        if scheduler.activations_today(session, a, clock) < settings.max_daily_agent_activations
+    ]
+    if not eligible:
         return None
 
     spoken = dict(
@@ -136,7 +163,7 @@ def next_speaker(session: Session, conversation: Conversation) -> str | None:
     ).first()
 
     ranked = sorted(
-        (a for a in participants if a != last or len(participants) == 1),
+        (a for a in eligible if a != last or len(eligible) == 1),
         key=lambda a: (spoken.get(a, 0), participants.index(a)),
     )
     return ranked[0] if ranked else None

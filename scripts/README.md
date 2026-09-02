@@ -149,6 +149,38 @@
   genuine random draw. Also asserts passive actions remain part of the
   distribution (the fix changes opportunity, never forces activity) and
   that the day still terminates deterministically. No key, no network.
+- `smoke_test_conversation_activation_cap.py` — deterministic regression
+  check for a second, related correctness bug found while diagnosing the
+  first: conversation turn-taking (`next_speaker`) and joining a
+  conversation (`find_joiner`) each grant a real activation exactly like
+  the scheduler does, but neither consulted
+  `Settings.max_daily_agent_activations` before picking who goes next —
+  only the scheduler path did, letting one agent reach 9 activations in a
+  day against a configured cap of 6 purely through conversation rotation
+  (an agent who's picked but never speaks keeps winning the "fewest spoken
+  turns" tie-break forever). Two layers: a direct contract test against
+  constructed edge-case database state (next_speaker refuses an
+  already-capped participant; returns `None`, not a hang, once everyone
+  present is capped; find_joiner refuses an already-capped outsider even
+  with a strong reason to join), plus an end-to-end multi-day, multi-seed
+  fixture drive asserting the cap is never exceeded by any activation path,
+  conversations still open/run/close normally, passive behavior remains
+  present, and the day still terminates. No key, no network.
+- `smoke_test_daily_report_conversation_content.py` — deterministic
+  regression check for a retrieval bug in `app/services/daily_synthesis.py`:
+  `gather_facts` built its conversation facts from metadata alone
+  (participants/trigger/`current_subject`/closing reason) and never queried
+  `ConversationMessage` rows, so the Founder Report could only ever call a
+  conversation "unspecified" even when the database held a complete real
+  transcript for it (confirmed live: Day 2's report called an extended
+  Optimisto/Lucid conversation "unspecified" while the Fishbowl's own
+  conversation detail page showed the full real dialogue). Drives the real
+  event loop under the fixture provider until a conversation with real
+  spoken turns closes, calls `gather_facts` directly, and asserts the
+  resulting fact actually quotes real content (bounded, not an unbounded
+  transcript dump) rather than falling back to "unspecified" — and that a
+  conversation where nobody actually spoke is still labelled honestly as
+  such, never fabricated. No key, no network.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur
