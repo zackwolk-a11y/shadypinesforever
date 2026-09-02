@@ -52,7 +52,7 @@ from app.domain.moves import (
     MOVE_QUESTION,
 )
 from app.providers.llm.base import LLMResult, LLMSchemaError, LLMUsage
-from app.schemas.actions import ActionType, AgentAction, AgentDecision, Reflection
+from app.schemas.actions import ActionType, AgentAction, AgentDecision, Reflection, TargetKind
 from app.schemas.reflection import QuestionUpdate, ReflectionSynthesis
 from app.schemas.report import FounderReportSynthesis
 from app.schemas.research import (
@@ -358,8 +358,9 @@ class _Context:
         )
 
         # Persistent unresolved curiosity: this agent's own active questions,
-        # shown in its context — target_question_id below is the only way
-        # START_RESEARCH ever links to one, exactly as optional live.
+        # shown in its context — target_int_id/target_kind=QUESTION (read
+        # back as .target_question_id) below is the only way START_RESEARCH
+        # ever links to one, exactly as optional live.
         self.open_question_ids = _extract_bracket_ids(user, "OPEN QUESTIONS")
 
 
@@ -494,7 +495,8 @@ def _build_action(
         )
         return AgentAction(
             type=chosen, content=f"[fixture] What is the current state of {topic}?",
-            target_question_id=target_question_id,
+            target_int_id=target_question_id,
+            target_kind=TargetKind.QUESTION if target_question_id is not None else None,
         )
     if chosen is ActionType.SPEAK:
         return _build_speak(rng, ctx, topic)
@@ -507,22 +509,24 @@ def _build_action(
         if not ctx.wall_headlines:
             return None
         post_id, _, _, _ = rng.choice(ctx.wall_headlines)
-        return AgentAction(type=chosen, target_wall_post_id=post_id)
+        return AgentAction(type=chosen, target_int_id=post_id, target_kind=TargetKind.WALL_POST)
     if chosen is ActionType.CREATE_RABBIT_HOLE:
         research_id = rng.choice(ctx.own_research_ids) if ctx.own_research_ids else None
         wall_post_id = rng.choice([p[0] for p in ctx.wall_read]) if ctx.wall_read else None
+        use_wall_post = research_id is None and wall_post_id is not None
         return AgentAction(
             type=chosen,
             title=f"[fixture] {topic}",
             content=f"[fixture] Is there really something to {topic}?",
             target_research_id=research_id,
-            target_wall_post_id=wall_post_id if research_id is None else None,
+            target_int_id=wall_post_id if use_wall_post else None,
+            target_kind=TargetKind.WALL_POST if use_wall_post else None,
         )
     if chosen is ActionType.JOIN_RABBIT_HOLE:
         candidates = list(set(ctx.open_hole_ids) - set(ctx.member_hole_ids))
         if not candidates:
             return None
-        return AgentAction(type=chosen, target_rabbit_hole_id=rng.choice(candidates))
+        return AgentAction(type=chosen, target_int_id=rng.choice(candidates), target_kind=TargetKind.RABBIT_HOLE)
     if chosen is ActionType.CONTRIBUTE_TO_RABBIT_HOLE:
         if not ctx.member_hole_ids:
             return None
@@ -531,20 +535,24 @@ def _build_action(
         research_id = rng.choice(ctx.own_research_ids) if ctx.own_research_ids and rng.random() < 0.85 else None
         return AgentAction(
             type=chosen,
-            target_rabbit_hole_id=rng.choice(ctx.member_hole_ids),
+            target_int_id=rng.choice(ctx.member_hole_ids),
+            target_kind=TargetKind.RABBIT_HOLE,
             content=f"[fixture] Here's something more on {topic}.",
             target_research_id=research_id,
         )
     if chosen is ActionType.LEAVE_RABBIT_HOLE:
         if not ctx.member_hole_ids:
             return None
-        return AgentAction(type=chosen, target_rabbit_hole_id=rng.choice(ctx.member_hole_ids))
+        return AgentAction(
+            type=chosen, target_int_id=rng.choice(ctx.member_hole_ids), target_kind=TargetKind.RABBIT_HOLE,
+        )
     if chosen is ActionType.RESOLVE_RABBIT_HOLE:
         if not ctx.member_hole_ids:
             return None
         return AgentAction(
             type=chosen,
-            target_rabbit_hole_id=rng.choice(ctx.member_hole_ids),
+            target_int_id=rng.choice(ctx.member_hole_ids),
+            target_kind=TargetKind.RABBIT_HOLE,
             content=f"[fixture] I think this has run its course on {topic}.",
         )
     if chosen is ActionType.CHALLENGE_CLAIM:
@@ -552,7 +560,8 @@ def _build_action(
             return None
         return AgentAction(
             type=chosen,
-            target_claim_id=rng.choice(ctx.others_claim_ids),
+            target_int_id=rng.choice(ctx.others_claim_ids),
+            target_kind=TargetKind.CLAIM,
             content=f"[fixture] I'm not convinced this generalizes about {topic}.",
         )
     if chosen is ActionType.FORM_BELIEF:
@@ -571,7 +580,7 @@ def _build_action(
             relation = BeliefBasisRelation.WEAKENS
             return AgentAction(
                 type=chosen, target_belief_id=belief_id, belief_relation=relation,
-                target_claim_id=int(rng.choice(ctx.challenged_claim_ids)),
+                target_int_id=int(rng.choice(ctx.challenged_claim_ids)), target_kind=TargetKind.CLAIM,
                 content="[fixture] That challenge is a fair point.",
             )
         if ctx.own_research_ids:
@@ -585,7 +594,7 @@ def _build_action(
             relation = rng.choice([BeliefBasisRelation.STRENGTHENS, BeliefBasisRelation.WEAKENS])
             return AgentAction(
                 type=chosen, target_belief_id=belief_id, belief_relation=relation,
-                target_wall_post_id=rng.choice([p[0] for p in ctx.wall_read]),
+                target_int_id=rng.choice([p[0] for p in ctx.wall_read]), target_kind=TargetKind.WALL_POST,
                 content="[fixture] What I read changes this a bit.",
             )
         return None
@@ -676,9 +685,11 @@ def _build_speak(rng: random.Random, ctx: _Context, topic: str) -> AgentAction:
     if move in (MOVE_PROPOSE_RESEARCH, MOVE_EXTEND) and ctx.own_research_ids and rng.random() < 0.4:
         action_kwargs["target_research_id"] = rng.choice(ctx.own_research_ids)
     elif move in (MOVE_CONNECT, MOVE_EXTEND) and ctx.wall_read and rng.random() < 0.3:
-        action_kwargs["target_wall_post_id"] = rng.choice(ctx.wall_read)[0]
+        action_kwargs["target_int_id"] = rng.choice(ctx.wall_read)[0]
+        action_kwargs["target_kind"] = TargetKind.WALL_POST
     elif move == MOVE_CONNECT and ctx.member_hole_ids and rng.random() < 0.3:
-        action_kwargs["target_rabbit_hole_id"] = rng.choice(ctx.member_hole_ids)
+        action_kwargs["target_int_id"] = rng.choice(ctx.member_hole_ids)
+        action_kwargs["target_kind"] = TargetKind.RABBIT_HOLE
 
     return AgentAction(
         type=ActionType.SPEAK, conversational_move=move, content=content, **action_kwargs
@@ -696,7 +707,8 @@ def _build_post_to_wall(rng: random.Random, ctx: _Context, topic: str) -> AgentA
             type=ActionType.POST_TO_WALL,
             wall_post_type=WallPostType.CONNECTION,
             content=f"[fixture] This connects to what I've been thinking about {topic}.",
-            target_wall_post_id=post_id,
+            target_int_id=post_id,
+            target_kind=TargetKind.WALL_POST,
         )
     if ctx.own_research_ids and rng.random() < 0.6:
         return AgentAction(

@@ -132,6 +132,27 @@ NOT_IN_CONVERSATION_ACTIONS = {
     ActionType.JOIN_CONVERSATION,
 }
 
+#: Added when a real, live-tested Anthropic structured-output call started
+#: rejecting the deployed schema outright (400 ``"Schema is too complex."``
+#: — confirmed via ``scripts/diagnose_schema_complexity.py`` against the
+#: real endpoint, not inferred). Five separate ``target_*_id`` fields
+#: consolidate into this one generic (int id, kind) pair wherever that is
+#: lossless — see :class:`AgentAction` for why ``target_belief_id`` stays
+#: its own dedicated field instead of folding in here, and why
+#: ``target_agent_id``/``target_research_id`` (string business keys, not
+#: integer primary keys) are untouched. Kept out of this class's own
+#: docstring deliberately: Pydantic renders a class docstring into the
+#: schema's ``description`` field, which a live model reads — this
+#: explanation is for the next person reading the code, not the model.
+class TargetKind(str, enum.Enum):
+    """What ``target_int_id`` is."""
+
+    WALL_POST = "WALL_POST"
+    RABBIT_HOLE = "RABBIT_HOLE"
+    CLAIM = "CLAIM"
+    QUESTION = "QUESTION"
+
+
 #: One action of each of these kinds per decision — the same reasoning as
 #: START_RESEARCH's cap in Packet 5: a decision is one thing, not a batch job.
 #: Every Packet 6 action qualifies too — each is a substantial act, and
@@ -173,15 +194,20 @@ class AgentAction(BaseModel):
         default=None, description="Required for POST_TO_WALL."
     )
     target_research_id: str | None = None
-    target_wall_post_id: int | None = None
-    target_rabbit_hole_id: int | None = None
-    target_claim_id: int | None = None
-    target_belief_id: int | None = None
-    #: Optional, meaningful only for START_RESEARCH: one of YOUR OPEN
-    #: QUESTIONS this research pursues. Entirely optional — most research
-    #: has no linked question, and omitting this never blocks or penalizes
-    #: START_RESEARCH. See app.services.agent_questions.
-    target_question_id: int | None = None
+    #: Kept as its own dedicated field rather than folded into
+    #: ``target_int_id``/``target_kind``: REVISE_BELIEF needs to reference
+    #: the belief being revised AND a piece of evidence (a claim or wall
+    #: post) on the very same action — one generic slot cannot hold both, so
+    #: the belief keeps its own field and the evidence uses ``target_int_id``.
+    target_belief_id: int | None = Field(default=None, description="Your belief's id (REVISE_BELIEF/RETIRE_BELIEF).")
+    #: The single generic integer-id target this action references, when
+    #: it's one of WALL_POST/RABBIT_HOLE/CLAIM/QUESTION — disambiguated by
+    #: ``target_kind``. Consolidates what were five separate ``target_*_id``
+    #: fields (see :class:`TargetKind`'s docstring for why). Every existing
+    #: read site keeps using the old, self-describing property names below
+    #: (``target_wall_post_id`` etc.) — only construction sites changed.
+    target_int_id: int | None = Field(default=None, description="Real id of the wall post/rabbit hole/claim/question targeted; pair with target_kind.")
+    target_kind: TargetKind | None = Field(default=None, description="What target_int_id is.")
     belief_relation: BeliefBasisRelation | None = Field(
         default=None, description="Required for REVISE_BELIEF: STRENGTHENS, WEAKENS, or REJECTS."
     )
@@ -201,6 +227,32 @@ class AgentAction(BaseModel):
     #: Packet 8. Only meaningful for a MOVE_CHANGE_SUBJECT-tagged SPEAK —
     #: updates the conversation's tracked subject.
     new_subject: str | None = None
+
+    # -- Backward-compatible read accessors for the five fields target_int_id
+    # / target_kind consolidated. Every existing read site (orchestrator.py,
+    # memory.py, events.py, ...) keeps working unchanged. Deliberately
+    # read-only (no setter): a write site still using the old kwarg name
+    # fails loudly and immediately (Pydantic's own ``extra: "forbid"``
+    # rejects an unknown constructor kwarg) rather than silently doing
+    # nothing — every construction site was found and updated instead
+    # (app/providers/llm/fixture.py is the only one that ever built an
+    # AgentAction directly).
+
+    @property
+    def target_wall_post_id(self) -> int | None:
+        return self.target_int_id if self.target_kind is TargetKind.WALL_POST else None
+
+    @property
+    def target_rabbit_hole_id(self) -> int | None:
+        return self.target_int_id if self.target_kind is TargetKind.RABBIT_HOLE else None
+
+    @property
+    def target_claim_id(self) -> int | None:
+        return self.target_int_id if self.target_kind is TargetKind.CLAIM else None
+
+    @property
+    def target_question_id(self) -> int | None:
+        return self.target_int_id if self.target_kind is TargetKind.QUESTION else None
 
 
 class Reflection(BaseModel):

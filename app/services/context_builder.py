@@ -429,8 +429,8 @@ def build_agent_context(
     if open_questions:
         lines.append(
             "OPEN QUESTIONS: things that have stayed unresolved for you. Pursuing one "
-            "(e.g. START_RESEARCH with target_question_id) is a normal option; ignoring "
-            "it is also a normal option."
+            "(e.g. START_RESEARCH with target_int_id set to its id and target_kind=QUESTION) "
+            "is a normal option; ignoring it is also a normal option."
         )
         lines += [f"  [{q.id}] {_clip(q.question, 160)}" for q in open_questions]
     if headlines:
