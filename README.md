@@ -1103,14 +1103,45 @@ regression suite (all five smoke tests) passes unmodified.
 
 The Founder can now watch and operate the Village without a terminal.
 
+**1. Database used** — the Fishbowl reads and writes through the exact same
+`DATABASE_URL` (`app/db/session.py`) every script and the rest of `app/main.py`
+already uses (`sqlite:///./village.db` by default). No separate store, no
+duplicated state: whatever `run_day.py`/`run_event.py` produce is what the
+Fishbowl shows, and a control action taken in the browser is immediately
+visible to those same scripts and vice versa.
+
+**2. How to launch:**
+
 ```bash
 .venv/bin/uvicorn app.main:app --reload
 ```
 
-Open **http://127.0.0.1:8000/fishbowl/** — the dashboard shows every agent's
-current location/activity/conversation/research, a live activity feed, LIVE/
-FIXTURE provider badges, and Founder controls (RUN NEXT EVENT / RUN PERIOD /
-RUN DAY / PAUSE / RESUME, plus sending a Founder message). From there:
+**3. URL to open:** **http://127.0.0.1:8000/fishbowl/**
+
+**4. Fixture/live indicators** — the masthead status strip on every page
+shows `LLM: <provider>` and `Research: <provider>`, each with a `LIVE` (red)
+or `FIXTURE` (grey) badge read straight from `Settings.llm_provider`/
+`research_provider`; the same badges appear on every research session, every
+recent LLM-run row in Telemetry, and the RUN DAY button (which switches to
+its danger/red styling and demands confirmation) whenever either provider is
+live.
+
+**5. How controls work** — five buttons on the dashboard (RUN NEXT EVENT /
+RUN PERIOD / RUN DAY / PAUSE / RESUME) plus a Founder-message box, each
+POSTing to `/fishbowl/api/control/*`; every one calls straight into the
+existing engine (`run_next_event`, `clock.advance`, `daily_synthesis`) —
+nothing here is a second decision pathway. A single in-process lock means
+only one control action can run at a time (a second click gets an immediate
+`409`, not a queued duplicate), and RUN DAY refuses to run against a live
+provider unless the browser's confirm dialog is accepted first.
+
+**6. How to stop the server** — `Ctrl+C` in the terminal running `uvicorn`
+(or `kill` the process). The Fishbowl is only ever a reader/controller of
+`village.db`; stopping it, or never starting it, does not touch simulation
+state (§U) — the database is exactly as `run_day.py` left it either way.
+
+The dashboard shows every agent's current location/activity/conversation/
+research, a live activity feed, and the controls above. From there:
 Conversations, Research (with the full QUESTION → QUERY → SOURCE → PASSAGE →
 CLAIM → FINDING provenance chain), the Research Wall, Rabbit Holes, Founder
 Field Reports, and a Telemetry page (LLM + search-provider cost/usage,
