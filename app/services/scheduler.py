@@ -37,7 +37,27 @@ PERIOD_WEIGHT: dict[str, float] = {
 }
 
 UNREAD_MESSAGE_POINTS = 3.0
-RECENT_ACTIVATION_PENALTY = 2.5
+#: Discourages back-to-back reactivation without silently overriding
+#: ``Settings.max_daily_agent_activations`` (the documented "real" per-agent
+#: daily ceiling — see that field's own comment in app/core/config.py).
+#: The two mechanisms must stay arithmetically consistent: the highest
+#: possible positive score in any period is PERIOD_WEIGHT's max (3.0) plus
+#: CURIOSITY_MAX (2.0) = 5.0, so this penalty must stay well under
+#: 5.0 / (max_daily_agent_activations - 1) or the soft penalty alone
+#: silently zeroes out eligibility long before the configured hard cap is
+#: ever reached. The previous value (2.5) crossed that line: at just 2
+#: prior activations (2.5x2=5.0), a positive score became mathematically
+#: impossible in every period for every agent at once, village-wide,
+#: however many of the configured 6 daily activations (48 across all 8
+#: agents) remained unused — this is what silently emptied RESEARCH/
+#: AFTERNOON/EVENING/NIGHT on the first real live day after only the
+#: morning gathering and a partial first round (Packet 12 live-day
+#: diagnostic; see scripts/smoke_test_daily_activation_budget.py). 0.75
+#: keeps a real, felt bias toward whoever hasn't gone yet (an agent's
+#: first repeat costs -0.75, a meaningful discount against an untouched
+#: agent's typical ~period+1.0) while leaving a real, not just
+#: theoretical, chance of reaching the configured cap across a full day.
+RECENT_ACTIVATION_PENALTY = 0.75
 CURIOSITY_MAX = 2.0
 #: Packet 7: a member of a dormant rabbit hole gets a small, deterministic
 #: pull back toward it — "agents returning to a dormant rabbit hole" (§13)

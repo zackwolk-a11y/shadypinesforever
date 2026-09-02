@@ -1189,6 +1189,61 @@ repeated polling writes zero `llm_runs`/`research_provider_usage` rows, that
 the control endpoints really do move the real event log, and that two
 concurrent control submissions leave exactly one `200` and the rest `409`.
 
+#### First live day diagnostic: the daily activation budget bug
+
+The first real live RUN DAY advanced Day 1 to Day 2 after almost nothing but
+the morning gathering — no research, no wall posts, no rabbit holes. Traced
+to `app/services/scheduler.py`'s `RECENT_ACTIVATION_PENALTY`: the highest
+possible positive activation score in any period is `PERIOD_WEIGHT`'s max
+(3.0) plus `CURIOSITY_MAX` (2.0) = 5.0, and the old penalty (2.5) crossed
+that line at just 2 prior activations (2.5x2=5.0) — from that point on, a
+positive score was mathematically impossible in *every* period for *every*
+agent at once, village-wide, however many of the configured 6 daily
+activations per agent (48 across all 8) remained unused. `RUN DAY`'s
+auto-advance then rubber-stamped every remaining period
+(RESEARCH/AFTERNOON/EVENING/NIGHT) with zero opportunity for anyone.
+Reproduced deterministically under the fixture provider (the scheduler and
+conversation machinery are identical regardless of which LLM provider makes
+the actual decisions) — every seed died at exactly 17 activations, always
+in MORNING alone, before the fix.
+
+Fixed by retuning `RECENT_ACTIVATION_PENALTY` from `2.5` to `0.75` — still a
+real, felt bias toward whoever hasn't gone yet, but no longer one that
+silently overrides the configured daily budget. This changes *how many
+chances* agents get, never *what they choose to do with them*: passive
+actions (`OBSERVE`/`REST`/`DO_NOTHING`/etc.) remain fully legitimate and are
+still common in the post-fix distribution.
+
+```bash
+.venv/bin/python scripts/smoke_test_daily_activation_budget.py
+```
+
+Regression coverage for this exact bug: a fast arithmetic check on the
+constants themselves (so nobody can silently reintroduce the mismatch by
+retuning either value later), plus an end-to-end fixture-day check across
+three seeds asserting real activation volume clears a floor (was exactly 17,
+every seed, before the fix) and real activity reaches more than one period
+across the seeds (was `{'MORNING'}` only, every seed, before the fix) —
+tested across seeds rather than asserting a fixed spread on any one, since
+which period ends up with activity is inherently probabilistic (a genuine
+random curiosity draw), not a scripted guarantee.
+
+**Fishbowl live-update path**: investigated separately and found *not*
+broken — a direct concurrency test (a long-running control request against
+a real running server, polled every ~0.5s throughout) showed the dashboard
+correctly reflects fresh committed state within tens of milliseconds
+throughout a multi-second RUN DAY, proving uvicorn's threadpool dispatch of
+sync routes plus SQLite's WAL mode (`app/db/session.py`) work exactly as
+intended — a long write never blocks a concurrent read. What looked "frozen"
+was the control-log line itself, which showed static `Running run-day...`
+text for the entire request (by construction: that fetch doesn't resolve
+until the whole action completes) while the *rest* of the page was quietly
+updating underneath it. Fixed with a small, additive JS-only change
+(`app/web/static/fishbowl.js`): the control-log now ticks a live elapsed-
+time counter and points at the feed/agent cards while a control action is
+running, and states COMPLETED/FAILED with the actual elapsed time once it
+resolves — no change to the polling architecture itself, which needed none.
+
 ## Design notes
 
 **Foreign keys reference stable business keys.** `agent_id` columns point at

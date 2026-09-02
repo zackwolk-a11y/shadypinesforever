@@ -83,18 +83,36 @@
         controlBusy = true;
         document.querySelectorAll("[data-control]").forEach((b) => (b.disabled = true));
         const log = qs("#control-log");
-        if (log) log.textContent = `Running ${action}...`;
+        // RUN PERIOD/DAY can take real wall-clock time against a live
+        // provider (each activation is a real Anthropic call). The request
+        // itself does not block anything else — the dashboard/feed below
+        // keep polling and updating live throughout — but a control-log
+        // line that never changes can still read as "frozen" on its own,
+        // so tick a visible elapsed-time counter for as long as this
+        // control action is actually running (RUNNING vs COMPLETED vs
+        // FAILED, made visually unambiguous without needing a refresh).
+        const startedAt = Date.now();
+        const tick = () => {
+          if (log) {
+            const secs = ((Date.now() - startedAt) / 1000).toFixed(0);
+            log.textContent = `Running ${action}... (${secs}s elapsed — watch the feed and agent cards below, they're updating live)`;
+          }
+        };
+        tick();
+        const ticker = setInterval(tick, 1000);
         try {
           const res = await fetch(`/fishbowl/api/control/${action}${qsStr}`, { method: "POST" });
           const body = await res.json().catch(() => ({}));
+          const secs = ((Date.now() - startedAt) / 1000).toFixed(1);
           if (log) {
             log.textContent = res.ok
-              ? `[${action}] ${body.message || "done"}`
-              : `[${action}] failed: ${body.detail || res.status}`;
+              ? `[${action}] COMPLETED after ${secs}s — ${body.message || "done"}`
+              : `[${action}] FAILED after ${secs}s — ${body.detail || res.status}`;
           }
         } catch (e) {
-          if (log) log.textContent = `[${action}] error: ${e}`;
+          if (log) log.textContent = `[${action}] FAILED — ${e}`;
         } finally {
+          clearInterval(ticker);
           controlBusy = false;
           document.querySelectorAll("[data-control]").forEach((b) => (b.disabled = false));
           if (global.Fishbowl && global.Fishbowl._refresh) global.Fishbowl._refresh();

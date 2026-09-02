@@ -137,6 +137,18 @@
   log through `run_next_event`, two concurrent control submissions leave
   exactly one `200` and the rest `409`, and RUN DAY in LIVE mode without
   confirmation is refused. No key, no network, safe in ordinary CI.
+- `smoke_test_daily_activation_budget.py` — deterministic regression check
+  for the first-live-day diagnostic bug (`app/services/scheduler.py`'s
+  `RECENT_ACTIVATION_PENALTY` mathematically overriding
+  `Settings.max_daily_agent_activations` long before it was ever reached,
+  silently emptying most of a simulated day). One fast arithmetic check on
+  the constants themselves, plus an end-to-end fixture-day check across
+  three seeds asserting real activation volume clears a floor and real
+  activity reaches more than one period across the seeds — never a fixed
+  spread on any one seed, since which period ends up with activity is a
+  genuine random draw. Also asserts passive actions remain part of the
+  distribution (the fix changes opportunity, never forces activity) and
+  that the day still terminates deterministically. No key, no network.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur
