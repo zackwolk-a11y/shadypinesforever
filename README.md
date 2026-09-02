@@ -1299,6 +1299,118 @@ real content just wasn't being retrieved.
 .venv/bin/python scripts/smoke_test_daily_report_conversation_content.py
 ```
 
+### Persistent unresolved curiosity (AgentQuestion)
+
+Live Days 2-4 showed a real gap the curiosity-principle prompt change alone
+did not close: `START_RESEARCH` stayed at 0 across three real days even after
+the prompt explicitly said pursuing an unresolved curiosity is a legitimate
+choice. A forensic pass (memories, interests, `ResearchSession.open_questions`/
+`follow_ups`, `RabbitHole.open_questions`, `AgentReflection.open_question`,
+Wall QUESTION posts, conversation memories) found real, LLM-synthesized
+"unresolved question" text already existing in two places
+(`ResearchSession.open_questions`/`follow_ups`, `AgentReflection.open_question`)
+— but both were **write-only toward agents**: read by the Founder Report and
+the Fishbowl, never by `context_builder.py`. No existing structure was both
+agent-owned, individually resolvable, salience-bearing, and fed back into an
+agent's own decision context — so a small, dedicated `agent_questions` table
+was added rather than overloading `AgentInterest` (a stable *taste*, never
+individually resolvable) or the write-only fields above.
+
+**A question is not a task.** No scheduler bonus, no activation bonus, no
+research quota, no minimum open-question count, no forced creation or
+resolution, no validation requirement, no penalty for ignoring one. An agent
+with an open question remains completely free to do anything else, including
+nothing.
+
+**Schema** (`app/db/models/agent_questions.py`) — five lifecycle states only
+(`app.domain.enums.AgentQuestionStatus`): `OPEN`, `RESEARCHING`, `RESOLVED`,
+`DORMANT`, `ABANDONED`. `salience` (0-100, the same scale `Memory.importance`
+already uses) is simple by design in this first version — no
+embeddings/semantic-similarity, no automatic reinforcement from merely being
+displayed. It moves in exactly three ways: created at a moderate default
+(45.0, matching `memory.write_note`'s own default), an explicit engagement
+(a revisit, a research link, a reflection's own judgment) bumps it by a fixed
+amount, and daily non-engagement decays it until it falls below a floor and
+is swept to `DORMANT` — never deleted, always revivable by a later genuine
+engagement. Provenance is preserved via nullable `origin_memory_id` /
+`origin_reflection_id` / `origin_conversation_id` / `origin_research_session_id`
+columns, set once at creation and never overwritten.
+
+**Creation is organic, never manufactured.** Two existing LLM-synthesis
+outputs are wired in at the exact point they were previously thrown away:
+`AgentReflection.open_question` (`app/services/reflection.py`) and a
+completed `ResearchSession`'s own `open_questions`/`follow_up_questions`
+(`app/services/research.py`, capped at `agent_questions.MAX_QUESTIONS_PER_RESEARCH_SESSION`
+= 2 new questions per session). A live-duplicate check
+(`agent_questions._find_live_duplicate`) makes creation a no-op against text
+the agent already has open, so neither path can flood an agent. No question
+is ever manufactured from a plain interest.
+
+**Resolution reflects the real intellectual outcome, never merely that
+research happened.** Research completing never itself moves a linked
+question to `RESOLVED` — only a later reflection's own judgment does
+(`ReflectionSynthesis.question_updates`, a small optional list the fixture
+provider populates about half the time it has a real question to judge,
+never every reflection). The same mechanism can instead reformulate a
+question into a sharper one (`agent_questions.reformulate`): the old row is
+marked `RESOLVED` and points forward (`reformulated_into_id`); the new row
+carries the old one's provenance and current salience forward and points
+back (`reformulated_from_id`) — lineage preserved, never silently
+overwritten.
+
+**The only way `START_RESEARCH` links to a question** is a new optional
+`target_question_id` field on `AgentAction` (`app/schemas/actions.py`) —
+entirely optional, omitting it never blocks or penalizes `START_RESEARCH`.
+When present, `orchestrator.validate_decision` checks it names a real
+question this agent owns before execution links it
+(`agent_questions.link_to_research`: status -> `RESEARCHING`, a forward
+`research_session_id` link, one engagement bump) — never inferred from a
+research question's wording happening to match.
+
+**Context rendering** (`app/services/context_builder.py`) — a new, small,
+optional `OPEN QUESTIONS` section, budgeted the same way `IMPORTANT MEMORIES`/
+`RECENT REFLECTIONS` already are (`Settings.max_context_questions`, default
+3, top-N by salience only — no recency/keyword scoring trickery):
+
+```
+OPEN QUESTIONS: things that have stayed unresolved for you. Pursuing one
+(e.g. START_RESEARCH with target_question_id) is a normal option; ignoring
+it is also a normal option.
+  [12] Does the current spread on X undercount Y?
+```
+
+**Rabbit Holes remain the only collaborative structure.** A question may
+carry a `rabbit_hole_id` once it graduates into one, but this module never
+reimplements membership or multi-agent contribution — collaboration is
+always delegated, never duplicated.
+
+**Fishbowl visibility** — the agent detail page (`app/web/templates/agent_detail.html`)
+gained one more read-only panel, "Open Questions", listing each question's
+status, salience, origin, last-engaged day, and any linked research session/
+rabbit hole/reformulation — the same server-rendered-once pattern Reflections
+already uses, wired through `reads.get_agent_detail` and a new `QuestionItem`
+read model (`app/web/schemas.py`). No new JS, no dynamic live-refresh beyond
+what Reflections already gets.
+
+```bash
+.venv/bin/python scripts/smoke_test_agent_questions.py
+```
+
+Deterministic regression: direct contract tests against every
+`agent_questions.py` function (creation + live-duplicate dedup, explicit
+revisit/pursuit as the only thing that raises salience, decay lowering it
+and sweeping to `DORMANT` only once both stale and below the floor, an
+explicit later engagement reviving a `DORMANT` question, `link_to_research`
+never auto-resolving, all four model-settable statuses, `DORMANT` rejected
+as a model-settable status, reformulation lineage in both directions,
+`retrieve_relevant` only ever returning active statuses ordered by salience
+and respecting its limit, a zero-question agent producing an empty list) —
+plus a real drive of the event loop confirming both organic creation paths,
+a real `target_question_id` link, that research completion never silently
+auto-resolves a linked question, that `OPEN QUESTIONS` actually reaches a
+real rendered context once a question exists, and that a zero-question
+agent's context is unaffected.
+
 ## Design notes
 
 **Foreign keys reference stable business keys.** `agent_id` columns point at

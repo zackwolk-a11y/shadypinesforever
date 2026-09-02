@@ -93,16 +93,18 @@ def advance(session: Session, clock: SimulationClock) -> ClockAdvance:
 def _daily_maintenance(session: Session, clock: SimulationClock) -> None:
     """Packet 7 upkeep that only makes sense once per simulated day: rabbit
     holes and interests going stale from time passing (as opposed to from a
-    real interaction, which recompute()/bump() already handle), and memory
-    decay. Imported locally to avoid a module-level cycle — clock.py is a
-    low-level service other modules import early, and none of these three
-    need to import clock.py back."""
-    from app.services import interests, memory
+    real interaction, which recompute()/bump() already handle), memory
+    decay, and the same staleness-based decay for persistent unresolved
+    curiosity (agent_questions.sweep_decay). Imported locally to avoid a
+    module-level cycle — clock.py is a low-level service other modules
+    import early, and none of these four need to import clock.py back."""
+    from app.services import agent_questions, interests, memory
     from app.services import rabbit_holes as rh
 
     rh.sweep_dormancy(session, clock)
     interests.sweep_dormancy(session, clock)
     memory.apply_daily_decay(session, clock)
+    agent_questions.sweep_decay(session, clock)
 
 
 def _now():

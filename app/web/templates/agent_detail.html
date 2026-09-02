@@ -70,6 +70,24 @@
       {% endfor %}
       {% else %}<div class="empty">No reflections yet.</div>{% endif %}
     </div>
+
+    <div class="panel">
+      <div class="panel__title">Open Questions ({{ agent.questions|length }})</div>
+      {% if agent.questions %}
+      {% for q in agent.questions %}
+      <div class="provenance-block finding">
+        <div><strong>[{{ q.id }}] {{ q.status }}</strong> <span class="muted">salience {{ "%.0f"|format(q.salience) }} · from {{ q.origin }}{% if q.last_engaged_sim_day is not none %} · last engaged day {{ q.last_engaged_sim_day }}{% endif %}</span></div>
+        <div>{{ q.question }}</div>
+        <div class="dim">
+          {% if q.research_session_id %}pursuing research {{ q.research_session_id }}{% endif %}
+          {% if q.rabbit_hole_id %}{% if q.research_session_id %} · {% endif %}rabbit hole <a href="/fishbowl/rabbit-holes/{{ q.rabbit_hole_id }}">#{{ q.rabbit_hole_id }}</a>{% endif %}
+          {% if q.reformulated_into_id %}{% if q.research_session_id or q.rabbit_hole_id %} · {% endif %}reformulated into [{{ q.reformulated_into_id }}]{% endif %}
+          {% if q.reformulated_from_id %}{% if q.research_session_id or q.rabbit_hole_id or q.reformulated_into_id %} · {% endif %}reformulated from [{{ q.reformulated_from_id }}]{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}<div class="empty">No open questions yet.</div>{% endif %}
+    </div>
   </div>
 
   <div>

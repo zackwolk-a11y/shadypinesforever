@@ -177,6 +177,11 @@ class AgentAction(BaseModel):
     target_rabbit_hole_id: int | None = None
     target_claim_id: int | None = None
     target_belief_id: int | None = None
+    #: Optional, meaningful only for START_RESEARCH: one of YOUR OPEN
+    #: QUESTIONS this research pursues. Entirely optional — most research
+    #: has no linked question, and omitting this never blocks or penalizes
+    #: START_RESEARCH. See app.services.agent_questions.
+    target_question_id: int | None = None
     belief_relation: BeliefBasisRelation | None = Field(
         default=None, description="Required for REVISE_BELIEF: STRENGTHENS, WEAKENS, or REJECTS."
     )

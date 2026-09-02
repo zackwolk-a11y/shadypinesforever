@@ -92,6 +92,10 @@ class Settings:
     reflection_significance_threshold: float
     max_context_reflections: int
 
+    # Persistent unresolved curiosity (AgentQuestion). Small on purpose —
+    # OPEN QUESTIONS is one more optional context slot, never a backlog.
+    max_context_questions: int
+
     # Daily Founder report token/context budgets (§ "especially important for
     # future operating cost") — bounded inputs into daily_synthesis, the same
     # discipline max_context_* already applies to a single agent's turn.
@@ -162,6 +166,7 @@ def get_settings() -> Settings:
             _env("REFLECTION_SIGNIFICANCE_THRESHOLD", "100.0")
         ),
         max_context_reflections=_env_int("MAX_CONTEXT_REFLECTIONS", 3),
+        max_context_questions=_env_int("MAX_CONTEXT_QUESTIONS", 3),
         max_report_findings=_env_int("MAX_REPORT_FINDINGS", 8),
         max_report_wall_posts=_env_int("MAX_REPORT_WALL_POSTS", 6),
         max_report_rabbit_holes=_env_int("MAX_REPORT_RABBIT_HOLES", 6),

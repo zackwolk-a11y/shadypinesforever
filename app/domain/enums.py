@@ -221,6 +221,31 @@ class ReflectionStatus(str, enum.Enum):
     SUPERSEDED = "SUPERSEDED"
 
 
+class AgentQuestionStatus(str, enum.Enum):
+    """Lifecycle of one agent's persistent, personal unresolved curiosity.
+
+    Deliberately the same five states across the whole feature, never more:
+    OPEN is where every question starts and where explicit abandonment or
+    revival lands it back. RESEARCHING marks it as the current target of a
+    START_RESEARCH action — set only when an agent explicitly links a
+    question to research it starts (never inferred from a research
+    question's wording matching). Completing that research does NOT by
+    itself move a question to RESOLVED: only a later reflection judging the
+    actual intellectual outcome does that, or the question simply returns to
+    OPEN/stays RESEARCHING/gets reformulated — see app.services.agent_questions.
+    DORMANT is set only by time-based decay (never chosen by a model) and is
+    always revivable by a genuine later engagement, never deleted. ABANDONED
+    is the one status a model may set directly with no further evidence
+    required — the agent simply said it is done with this question.
+    """
+
+    OPEN = "OPEN"
+    RESEARCHING = "RESEARCHING"
+    RESOLVED = "RESOLVED"
+    DORMANT = "DORMANT"
+    ABANDONED = "ABANDONED"
+
+
 class ExposureType(str, enum.Enum):
     """How an agent came to know about something.
 
@@ -302,3 +327,14 @@ class EventType(str, enum.Enum):
     # only logged for a genuine gap, the same discipline as MEMORY_RECALLED.
     REFLECTION_CREATED = "REFLECTION_CREATED"
     REFLECTION_RECALLED = "REFLECTION_RECALLED"
+    # Persistent unresolved curiosity (AgentQuestion): a personal, decaying,
+    # agent-owned question, distinct from a Rabbit Hole (shared/collaborative)
+    # and from ResearchSession.open_questions/follow_ups (which this feature
+    # reads from, at creation time, rather than duplicating). See
+    # app.services.agent_questions.
+    QUESTION_CREATED = "QUESTION_CREATED"
+    QUESTION_REVISITED = "QUESTION_REVISITED"
+    QUESTION_LINKED_TO_RESEARCH = "QUESTION_LINKED_TO_RESEARCH"
+    QUESTION_STATUS_CHANGED = "QUESTION_STATUS_CHANGED"
+    QUESTION_DORMANT = "QUESTION_DORMANT"
+    QUESTION_REFORMULATED = "QUESTION_REFORMULATED"

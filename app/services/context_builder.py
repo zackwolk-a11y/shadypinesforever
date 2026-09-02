@@ -33,7 +33,7 @@ from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
 from app.domain import characters
 from app.domain.enums import EventType, InterestOrigin, MemoryType, RabbitHoleStatus
-from app.services import dialogue, founder, memory, reflection, wall
+from app.services import agent_questions, dialogue, founder, memory, reflection, wall
 from app.services.exposure import exposed_entity_ids
 
 SYSTEM_PROMPT = """You are one inhabitant of a small research clubhouse shared with seven friends.
@@ -298,6 +298,10 @@ def build_agent_context(
         keywords=topic_keywords,
     )
 
+    open_questions = agent_questions.retrieve_relevant(
+        session, agent.agent_id, limit=settings.max_context_questions,
+    )
+
     emerging_interests = session.scalars(
         select(AgentInterest)
         .where(
@@ -422,6 +426,13 @@ def build_agent_context(
             f"  - {i.interest} (strength={i.strength:.2f}, from {i.origin})"
             for i in emerging_interests
         ]
+    if open_questions:
+        lines.append(
+            "OPEN QUESTIONS: things that have stayed unresolved for you. Pursuing one "
+            "(e.g. START_RESEARCH with target_question_id) is a normal option; ignoring "
+            "it is also a normal option."
+        )
+        lines += [f"  [{q.id}] {_clip(q.question, 160)}" for q in open_questions]
     if headlines:
         lines.append("RESEARCH WALL HEADLINES (you have not read these in full):")
         lines += [

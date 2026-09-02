@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.db.base import utcnow
+from app.db.models.agent_questions import AgentQuestion
 from app.db.models.agents import Agent
 from app.db.models.conversations import Conversation, Message
 from app.db.models.events import Event
@@ -57,7 +58,7 @@ from app.schemas.actions import (
     ActionType,
     AgentDecision,
 )
-from app.services import beliefs
+from app.services import agent_questions, beliefs
 from app.services import clock as clock_service
 from app.services import conversations as convo
 from app.services import daily_synthesis
@@ -174,6 +175,16 @@ def validate_decision(
                 reason = research.check_research_budget(session, agent, clock, settings)
                 if reason:
                     raise DecisionRejected(reason)
+            if action.target_question_id is not None and session is not None:
+                target_question = session.get(AgentQuestion, action.target_question_id)
+                if target_question is None or target_question.agent_id != agent.agent_id:
+                    raise DecisionRejected(
+                        f"unknown target_question_id {action.target_question_id!r}"
+                    )
+        elif action.target_question_id is not None:
+            raise DecisionRejected(
+                f"target_question_id is only meaningful for START_RESEARCH, not {action.type.value}"
+            )
 
         if action.target_agent_id is not None:
             if action.target_agent_id == agent.agent_id:
@@ -494,6 +505,13 @@ def execute_decision(
                     llm_provider,
                     research_provider,
                 )
+            if action.target_question_id is not None and research_outcome is not None and research_outcome.research_id:
+                target_question = session.get(AgentQuestion, action.target_question_id)
+                if target_question is not None and target_question.agent_id == agent.agent_id:
+                    agent_questions.link_to_research(
+                        session, target_question, research_outcome.research_id, clock,
+                        correlation_id=correlation_id,
+                    )
         elif action.type in (ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE):
             message = Message(
                 sender_agent_id=agent.agent_id,

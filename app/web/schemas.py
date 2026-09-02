@@ -187,6 +187,23 @@ class ReflectionItem(BaseModel):
     source_counts: dict[str, int] = {}
 
 
+class QuestionItem(BaseModel):
+    id: int
+    question: str
+    status: str
+    salience: float
+    last_engaged_sim_day: int | None = None
+    origin: str
+    origin_reflection_id: int | None = None
+    origin_research_session_id: str | None = None
+    origin_memory_id: int | None = None
+    origin_conversation_id: int | None = None
+    research_session_id: str | None = None
+    rabbit_hole_id: int | None = None
+    reformulated_from_id: int | None = None
+    reformulated_into_id: int | None = None
+
+
 class AgentResearchSummary(BaseModel):
     research_id: str
     question: str
@@ -217,6 +234,7 @@ class AgentDetail(BaseModel):
     beliefs: list[BeliefItem]
     relationships: list[RelationshipItem]
     reflections: list[ReflectionItem]
+    questions: list[QuestionItem]
     research_sessions: list[AgentResearchSummary]
 
 

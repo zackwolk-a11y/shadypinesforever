@@ -53,7 +53,7 @@ from app.domain.moves import (
 )
 from app.providers.llm.base import LLMResult, LLMSchemaError, LLMUsage
 from app.schemas.actions import ActionType, AgentAction, AgentDecision, Reflection
-from app.schemas.reflection import ReflectionSynthesis
+from app.schemas.reflection import QuestionUpdate, ReflectionSynthesis
 from app.schemas.report import FounderReportSynthesis
 from app.schemas.research import (
     ResearchSynthesis,
@@ -357,6 +357,11 @@ class _Context:
             user, "RECENT REFLECTIONS (your own patterns, noticed across several things):"
         )
 
+        # Persistent unresolved curiosity: this agent's own active questions,
+        # shown in its context — target_question_id below is the only way
+        # START_RESEARCH ever links to one, exactly as optional live.
+        self.open_question_ids = _extract_bracket_ids(user, "OPEN QUESTIONS")
+
 
 def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
     ctx = _Context(user)
@@ -484,7 +489,13 @@ def _build_action(
             content=_open_line(rng, ctx.profile, topic),
         )
     if chosen is ActionType.START_RESEARCH:
-        return AgentAction(type=chosen, content=f"[fixture] What is the current state of {topic}?")
+        target_question_id = (
+            rng.choice(ctx.open_question_ids) if ctx.open_question_ids and rng.random() < 0.5 else None
+        )
+        return AgentAction(
+            type=chosen, content=f"[fixture] What is the current state of {topic}?",
+            target_question_id=target_question_id,
+        )
     if chosen is ActionType.SPEAK:
         return _build_speak(rng, ctx, topic)
     if chosen is ActionType.JOIN_CONVERSATION:
@@ -800,6 +811,31 @@ def _generate_reflection_synthesis(rng: random.Random, user: str) -> ReflectionS
     topic_word = kw[0] if kw else "something"
     supersedes = source_reflection_ids[0] if source_reflection_ids and rng.random() < 0.3 else None
 
+    # Persistent unresolved curiosity: independent of the "pattern across two
+    # things" logic above — a reflection may separately judge (at most) one
+    # of the agent's own existing open questions, exactly as optional as
+    # open_question/suggested_follow_up already are.
+    question_pool = _extract_labeled_items(user, "YOUR OPEN QUESTIONS")
+    question_updates: list[QuestionUpdate] = []
+    if question_pool and rng.random() < 0.5:
+        q_id, q_text = rng.choice(question_pool)
+        if rng.random() < 0.25:
+            question_updates.append(
+                QuestionUpdate(
+                    question_id=int(q_id),
+                    status="RESOLVED",
+                    reformulated_question=f"[fixture] A sharper version of: {q_text.strip()[:100]}",
+                )
+            )
+        else:
+            question_updates.append(
+                QuestionUpdate(
+                    question_id=int(q_id),
+                    status=rng.choice(["OPEN", "RESEARCHING", "RESOLVED", "ABANDONED"]),
+                    note="[fixture] judged during this reflection." if rng.random() < 0.5 else None,
+                )
+            )
+
     return ReflectionSynthesis(
         topic=f"[fixture] A pattern around {topic_word}",
         summary=(
@@ -821,6 +857,7 @@ def _generate_reflection_synthesis(rng: random.Random, user: str) -> ReflectionS
         source_rabbit_hole_ids=source_rabbit_hole_ids,
         source_wall_post_ids=source_wall_post_ids,
         source_reflection_ids=source_reflection_ids,
+        question_updates=question_updates,
     )
 
 

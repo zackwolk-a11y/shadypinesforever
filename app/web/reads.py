@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.db.models.agent_questions import AgentQuestion
 from app.db.models.agents import Agent, AgentBelief, AgentInterest, Relationship
 from app.db.models.belief import BeliefBasis
 from app.db.models.conversations import Conversation, ConversationMessage
@@ -65,6 +66,7 @@ from app.web.schemas import (
     LLMRunItem,
     MemoryItem,
     ProviderStatus,
+    QuestionItem,
     RabbitHoleDetail,
     RabbitHoleListPage,
     RabbitHoleMemberItem,
@@ -522,6 +524,33 @@ def get_agent_detail(session: Session, agent_id: str) -> AgentDetail | None:
         )
     ]
 
+    questions = [
+        QuestionItem(
+            id=q.id, question=q.question,
+            status=q.status.value if hasattr(q.status, "value") else str(q.status),
+            salience=q.salience, last_engaged_sim_day=q.last_engaged_sim_day,
+            origin=(
+                "reflection" if q.origin_reflection_id is not None
+                else "research" if q.origin_research_session_id is not None
+                else "memory" if q.origin_memory_id is not None
+                else "conversation" if q.origin_conversation_id is not None
+                else "unspecified"
+            ),
+            origin_reflection_id=q.origin_reflection_id,
+            origin_research_session_id=q.origin_research_session_id,
+            origin_memory_id=q.origin_memory_id,
+            origin_conversation_id=q.origin_conversation_id,
+            research_session_id=q.research_session_id,
+            rabbit_hole_id=q.rabbit_hole_id,
+            reformulated_from_id=q.reformulated_from_id,
+            reformulated_into_id=q.reformulated_into_id,
+        )
+        for q in session.scalars(
+            select(AgentQuestion).where(AgentQuestion.agent_id == agent_id)
+            .order_by(AgentQuestion.salience.desc(), AgentQuestion.id.desc())
+        )
+    ]
+
     research_sessions: list[AgentResearchSummary] = []
     for rs in session.scalars(
         select(ResearchSession).where(ResearchSession.agent_id == agent_id)
@@ -555,6 +584,7 @@ def get_agent_detail(session: Session, agent_id: str) -> AgentDetail | None:
         reflection_pressure=agent.reflection_pressure,
         interests=interests, memories=memories, beliefs=beliefs,
         relationships=relationships, reflections=reflections,
+        questions=questions,
         research_sessions=research_sessions,
     )
 

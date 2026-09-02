@@ -47,9 +47,16 @@ from app.db.models.reflection import AgentReflection
 from app.db.models.research import ResearchSession
 from app.db.models.wall import ResearchWallPost
 from app.db.models.world import SimulationClock
-from app.domain.enums import ConversationStatus, EventType, ReflectionStatus, ResearchStatus
+from app.domain.enums import (
+    AgentQuestionStatus,
+    ConversationStatus,
+    EventType,
+    ReflectionStatus,
+    ResearchStatus,
+)
 from app.providers.llm import LLMError, LLMProvider
 from app.schemas.reflection import ReflectionSynthesis
+from app.services import agent_questions
 from app.services.events import record_event
 from app.services.exposure import exposed_entity_ids
 from app.services.telemetry import record_llm_run
@@ -90,6 +97,10 @@ _RECALL_LOG_GAP_DAYS = 2
 #: the agent's whole history.
 _CANDIDATE_LIMIT = 6
 _REFLECTION_CANDIDATE_LIMIT = 4
+#: How many of the agent's own active questions it can manage in one
+#: reflection — small on purpose, this is judgment about a couple of
+#: existing questions, never a full backlog review.
+_QUESTION_CANDIDATE_LIMIT = 6
 
 SYSTEM_PROMPT = """You are forming a reflection: a short, higher-level pattern you are
 noticing across several of your own real experiences below — not a summary of
@@ -223,6 +234,8 @@ def _gather_candidates(
         .limit(min(_REFLECTION_CANDIDATE_LIMIT, settings.max_context_reflections + 2))
     ).all()
 
+    questions = agent_questions.retrieve_relevant(session, agent_id, limit=_QUESTION_CANDIDATE_LIMIT)
+
     return {
         "memories": memories,
         "research": research,
@@ -231,6 +244,7 @@ def _gather_candidates(
         "rabbit_holes": rabbit_holes,
         "wall_posts": wall_posts,
         "reflections": prior_reflections,
+        "questions": questions,
     }
 
 
@@ -285,6 +299,15 @@ def _render_prompt(agent: Agent, clock: SimulationClock, candidates: dict[str, l
         lines.append("YOUR EARLIER REFLECTIONS:")
         lines += [f"  [{r.id}] {r.topic}: {_clip(r.summary, 140)}" for r in prior]
 
+    questions = candidates["questions"]
+    if questions:
+        lines.append(
+            "YOUR OPEN QUESTIONS (things you have not resolved yet — if this pattern "
+            "actually bears on one, you may judge its status in question_updates; most "
+            "reflections touch none):"
+        )
+        lines += [f"  [{q.id}] ({q.status.value}) {_clip(q.question, 160)}" for q in questions]
+
     lines.append(
         "\nForm one reflection: a pattern across two or more of the above, not a "
         "restatement of just one item. Cite only real ids shown above."
@@ -326,6 +349,8 @@ def _generate(
     valid_hole_ids = {h.id for h in candidates["rabbit_holes"]}
     valid_wall_ids = {p.id for p in candidates["wall_posts"]}
     valid_reflection_ids = {r.id for r in candidates["reflections"]}
+    valid_question_ids = {q.id for q in candidates["questions"]}
+    questions_by_id = {q.id: q for q in candidates["questions"]}
 
     source_memory_ids = [i for i in synthesis.source_memory_ids if i in valid_memory_ids]
     source_research_ids = [i for i in synthesis.source_research_ids if i in valid_research_ids]
@@ -403,6 +428,33 @@ def _generate(
         correlation_id=correlation_id,
         clock=clock,
     )
+
+    # -- persistent unresolved curiosity: organic creation + the agent's own
+    # judgment about questions it already had (never forced, both optional) --
+    if synthesis.open_question:
+        agent_questions.create(
+            session,
+            agent.agent_id,
+            synthesis.open_question,
+            clock,
+            origin_reflection_id=reflection.id,
+            origin_conversation_id=source_conversation_ids[0] if source_conversation_ids else None,
+            correlation_id=correlation_id,
+        )
+    for update in synthesis.question_updates:
+        target = questions_by_id.get(update.question_id)
+        if target is None or update.question_id not in valid_question_ids:
+            continue  # not one of the real ids shown this turn — never trusted blindly
+        if update.reformulated_question:
+            agent_questions.reformulate(
+                session, target, update.reformulated_question, clock, correlation_id=correlation_id,
+            )
+        else:
+            agent_questions.apply_status_update(
+                session, target, AgentQuestionStatus(update.status), clock,
+                note=update.note, correlation_id=correlation_id,
+            )
+
     return reflection
 
 

@@ -42,7 +42,7 @@ from app.domain.ids import new_research_id
 from app.providers.llm.base import LLMError, LLMProvider
 from app.providers.research.base import ResearchProvider, ResearchProviderError
 from app.schemas.research import ResearchSynthesis, SearchQueryPlan, SourceCandidate
-from app.services import source_quality
+from app.services import agent_questions, source_quality
 from app.services.events import record_event
 from app.services.exposure import expose
 from app.services.telemetry import record_llm_run
@@ -492,6 +492,24 @@ def start_research(
     research_session.open_questions = list(synthesis.open_questions)
     research_session.follow_ups = list(synthesis.follow_up_questions)
     research_session.updated_at = utcnow()
+
+    # Organic creation of persistent unresolved curiosity from what this
+    # research itself said was still open — the same real, LLM-synthesized
+    # text as above, just also offered back to the agent instead of only to
+    # the Founder Report/Fishbowl. Capped and deduplicated (agent_questions
+    # .create is a no-op against a live duplicate) so one session's list can
+    # never flood an agent with a dozen new questions at once.
+    seeded = 0
+    for text in (*synthesis.follow_up_questions, *synthesis.open_questions):
+        if seeded >= agent_questions.MAX_QUESTIONS_PER_RESEARCH_SESSION:
+            break
+        created = agent_questions.create(
+            session, agent.agent_id, text, clock,
+            origin_research_session_id=research_session.research_id,
+            correlation_id=correlation_id,
+        )
+        if created is not None:
+            seeded += 1
 
     completed = record_event(
         session,

@@ -205,6 +205,26 @@
   obligation (checked against a banned-phrase list — no quota, minimum
   frequency, or "should"), and that the AVAILABLE ACTIONS fix from the same
   diagnosis is still intact. No key, no network.
+- `smoke_test_agent_questions.py` — deterministic regression test for
+  persistent unresolved curiosity (`app/services/agent_questions.py`,
+  `app/db/models/agent_questions.py`), added after real Day 2-4 telemetry
+  showed START_RESEARCH stayed at 0 even after the curiosity-principle
+  prompt change: agents had a static founding-interest topic phrase to
+  return to, never a specific, resolvable, salience-bearing question. Tests
+  the mechanism only, never an outcome — nothing here asserts an agent must
+  research more or must have an open question. Part A: direct contract
+  checks against every `agent_questions.py` function (creation +
+  live-duplicate dedup, explicit revisit as the only thing that raises
+  salience, decay + DORMANT sweep, DORMANT revival, `link_to_research`
+  never auto-resolving, all four model-settable statuses with DORMANT
+  rejected, reformulation lineage both directions, `retrieve_relevant`
+  ordering/bounds/active-only, a zero-question agent). Part B: drives the
+  real event loop until both organic creation paths (a reflection's
+  `open_question`, a completed research session's own `open_questions`/
+  `follow_ups`) and a real `target_question_id` link have actually fired,
+  then confirms research completion never silently resolves a linked
+  question and that OPEN QUESTIONS reaches a real rendered context only
+  once a question exists. No key, no network.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur
