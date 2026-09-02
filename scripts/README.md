@@ -181,6 +181,17 @@
   transcript dump) rather than falling back to "unspecified" — and that a
   conversation where nobody actually spoke is still labelled honestly as
   such, never fabricated. No key, no network.
+- `smoke_test_available_actions_prompt.py` — deterministic regression check
+  for a prompt/validation mismatch confirmed against real live Day 1-3 data:
+  the rendered AVAILABLE ACTIONS line listed every action type — including
+  START_RESEARCH, POST_TO_WALL, CREATE_RABBIT_HOLE — even while an agent sat
+  inside a conversation, where `validate_decision` rejects every one of
+  those outright (`NOT_IN_CONVERSATION_ACTIONS`). Fixed with
+  `orchestrator._available_actions_for`. Checks the filter directly against
+  validation's own rule sets, then drives a real morning gathering under the
+  fixture provider and inspects the actual rendered prompt text handed to a
+  real in-conversation agent, asserting it never lists an action that turn
+  can't actually take. No key, no network.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur

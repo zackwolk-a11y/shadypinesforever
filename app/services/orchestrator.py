@@ -73,6 +73,26 @@ PROMPT_VERSION = "agent_decision.v1"
 ALLOWED_ACTIONS: tuple[ActionType, ...] = tuple(ActionType)
 
 
+def _available_actions_for(in_conversation: bool) -> tuple[str, ...]:
+    """The AVAILABLE ACTIONS list shown to an agent this turn, filtered to
+    match exactly what ``validate_decision`` will actually permit given
+    ``in_conversation`` — the same flag threaded into that call below.
+
+    Before this, the prompt always listed the full, unfiltered action set
+    (including START_RESEARCH, POST_TO_WALL, CREATE_RABBIT_HOLE, and
+    friends) even while an agent sat inside a conversation, where every one
+    of those is rejected outright by NOT_IN_CONVERSATION_ACTIONS. Diagnosed
+    from a real live day: an agent invited to attempt an action the prompt
+    called "available" but validation always refuses spends an activation
+    (and a conversation silence-tick) on a decision that could never
+    succeed — never a large share of a day's activity by itself, but a real,
+    fully avoidable mismatch between what the agent was told and what was
+    actually true.
+    """
+    excluded = NOT_IN_CONVERSATION_ACTIONS if in_conversation else IN_CONVERSATION_ACTIONS
+    return tuple(a.value for a in ALLOWED_ACTIONS if a not in excluded)
+
+
 class DecisionRejected(Exception):
     """A decision failed semantic validation."""
 
@@ -709,7 +729,7 @@ def run_next_event(
         agent,
         clock,
         settings,
-        available_actions=tuple(a.value for a in ALLOWED_ACTIONS),
+        available_actions=_available_actions_for(context_conversation is not None),
         conversation=context_conversation,
         nearby_conversation=conversation if context_conversation is None else None,
     )
