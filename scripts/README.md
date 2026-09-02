@@ -192,6 +192,19 @@
   fixture provider and inspects the actual rendered prompt text handed to a
   real in-conversation agent, asserting it never lists an action that turn
   can't actually take. No key, no network.
+- `smoke_test_curiosity_principle_prompt.py` — deterministic regression
+  check for the curiosity-as-legitimate-reason-to-act system prompt
+  addition (Packet 12, live-day behavioral diagnosis: confirmed against
+  real Day 1-3 telemetry that START_RESEARCH was mechanically available for
+  the large majority of ~97 non-conversation activations across two days
+  and essentially none were chosen — the prompt had a repeated affirmative
+  reason to stay silent and no equivalent affirmative reason to pursue an
+  open interest). Asserts both the pre-existing silence-is-legitimate
+  language and the new curiosity-is-legitimate language reach a real
+  rendered agent context together, that neither is written as an
+  obligation (checked against a banned-phrase list — no quota, minimum
+  frequency, or "should"), and that the AVAILABLE ACTIONS fix from the same
+  diagnosis is still intact. No key, no network.
 
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur
