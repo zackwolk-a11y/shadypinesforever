@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="two-col">
+  <div>
+    <div class="panel">
+      <div class="panel__title">The Room ({{ agents|length }} residents)</div>
+      <div class="grid" id="agent-grid">
+        {% for a in agents %}
+        <div class="agent-card" onclick="location.href='/fishbowl/agents/{{ a.agent_id }}'">
+          <div class="agent-card__name">{{ a.name }} <span class="agent-card__status">{{ a.status }}</span></div>
+          <div class="agent-card__role">{{ a.role }}</div>
+          <dl>
+            <dt>Location</dt><dd>{{ a.current_location or "—" }}</dd>
+            <dt>Activity</dt><dd>{{ a.current_activity or "—" }}</dd>
+            {% if a.conversation_partners %}
+            <dt>With</dt><dd>{{ a.conversation_partners | map(attribute="name") | join(", ") }}</dd>
+            {% endif %}
+            {% if a.current_research_question %}
+            <dt>Researching</dt><dd>{{ a.current_research_question }}</dd>
+            {% endif %}
+            {% if a.recent_memory %}
+            <dt>Recent memory</dt><dd>{{ a.recent_memory[:140] }}</dd>
+            {% endif %}
+            {% if a.last_action_summary %}
+            <dt>Last action</dt><dd>{{ a.last_action_summary[:140] }}</dd>
+            {% endif %}
+          </dl>
+          {% if a.top_interests %}
+          <div style="margin-top:6px">
+            {% for i in a.top_interests %}<span class="chip">{{ i }}</span>{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__title">Live Activity Feed</div>
+      <div class="feed-filters">
+        <select id="feed-agent">
+          <option value="">all agents</option>
+          {% for a in agents %}<option value="{{ a.agent_id }}">{{ a.name }}</option>{% endfor %}
+        </select>
+        <select id="feed-category">
+          <option value="">all categories</option>
+          {% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+        </select>
+        <input id="feed-day" type="number" placeholder="day" style="width:70px">
+      </div>
+      <ul class="feed" id="feed-list">
+        {% for e in events %}
+        <li><time>{{ e.created_at.strftime("%H:%M:%S") }}</time><span class="cat">{{ e.category }}</span><span>{{ e.headline }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="panel__title">Founder Controls</div>
+      <div class="controls">
+        <button class="ctl" data-control="next-event">Run Next Event</button>
+        <button class="ctl" data-control="run-period">Run Period</button>
+        <button class="ctl ctl--danger" data-control="run-day" data-live="{{ 'true' if (providers.llm_is_live or providers.research_is_live) else 'false' }}">Run Day</button>
+        <button class="ctl" data-control="pause">Pause</button>
+        <button class="ctl" data-control="resume">Resume</button>
+      </div>
+      <div id="control-log"></div>
+      <h3>Send a Founder Message</h3>
+      <form id="founder-message-form">
+        <select id="founder-message-target" style="margin-bottom:6px">
+          <option value="">broadcast to everyone</option>
+          {% for a in agents %}<option value="{{ a.agent_id }}">{{ a.name }}</option>{% endfor %}
+        </select>
+        <textarea id="founder-message-content" rows="3" placeholder="A note from the Founder..."></textarea>
+        <button class="ctl" type="submit" style="margin-top:6px">Send</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel__title">System</div>
+      <dl style="font-size:12.5px">
+        <dt class="dim">Agent model</dt><dd>{{ providers.agent_model }}</dd>
+        <dt class="dim">Research model</dt><dd>{{ providers.research_model }}</dd>
+        <dt class="dim">Report model</dt><dd>{{ providers.report_model }}</dd>
+      </dl>
+      <p class="muted">Full cost and provenance telemetry: <a href="/fishbowl/telemetry">Telemetry</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>Fishbowl.initDashboard();</script>
+{% endblock %}

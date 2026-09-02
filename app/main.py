@@ -7,7 +7,10 @@ module exists so the app boots against the schema.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app import __version__
@@ -18,12 +21,25 @@ from app.providers.llm import get_llm_provider
 from app.services import clock as clock_service
 from app.services import daily_synthesis
 from app.services.orchestrator import run_next_event
+from app.web.api import router as fishbowl_api_router
+from app.web.control import router as fishbowl_control_router
+from app.web.pages import router as fishbowl_pages_router
 
 app = FastAPI(
     title="The Internal Village",
     description="Phase 1 — The Research Clubhouse.",
     version=__version__,
 )
+
+# The Fishbowl (Packet 12) — a read-only observer UI plus five explicit
+# Founder control actions, all layered on the existing FastAPI app. See
+# app/web/__init__.py for why opening it can never itself mutate the Village.
+app.mount(
+    "/fishbowl/static", StaticFiles(directory=str(Path(__file__).parent / "web" / "static")), name="fishbowl-static",
+)
+app.include_router(fishbowl_pages_router)
+app.include_router(fishbowl_api_router)
+app.include_router(fishbowl_control_router)
 
 
 @app.get("/health")

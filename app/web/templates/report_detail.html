@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Day {{ report.day_number }} Report{% endblock %}
+{% block content %}
+<p><a href="/fishbowl/reports">&larr; all reports</a></p>
+<h1>Day {{ report.day_number }} — {{ report.title }}</h1>
+<p class="muted">{{ report.created_at.strftime("%Y-%m-%d %H:%M") }}{% if report.is_fixture %} · <span class="badge badge--fixture">FIXTURE</span>{% endif %}</p>
+<div class="panel">
+  <pre style="white-space:pre-wrap; font-family:var(--sans); font-size:14px; margin:0">{{ report.summary_text }}</pre>
+</div>
+{% if report.links %}
+<div class="panel">
+  <div class="panel__title">Linked back to the Village</div>
+  <div class="pill-list">
+    {% for l in report.links %}
+      {% if l.url %}<a href="{{ l.url }}">{{ l.kind }}: {{ l.text[:40] }}</a>{% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

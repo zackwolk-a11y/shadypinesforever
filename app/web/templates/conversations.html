@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Conversations{% endblock %}
+{% block content %}
+<h1>Conversations</h1>
+<div id="conversation-list">
+  {% if conversations %}
+    {% for c in conversations %}
+    <div class="panel" style="cursor:pointer" onclick="location.href='/fishbowl/conversations/{{ c.id }}'">
+      <div><strong>{{ c.participants | map(attribute="name") | join(", ") }}</strong>
+        <span class="badge {{ 'badge--good' if c.status == 'ACTIVE' else 'badge--fixture' }}">{{ c.status }}</span></div>
+      <div class="dim">{{ c.current_subject or c.initiating_reason or "" }}</div>
+      <div class="muted">{{ c.location or "" }} · {{ c.message_count }} turn(s) · started {{ c.started_at.strftime("%Y-%m-%d %H:%M") }}</div>
+    </div>
+    {% endfor %}
+  {% else %}<div class="empty">No conversations yet.</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>Fishbowl.initConversationList();</script>
+{% endblock %}

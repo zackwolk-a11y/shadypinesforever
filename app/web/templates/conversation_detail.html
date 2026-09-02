@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Conversation #{{ conversation.id }}{% endblock %}
+{% block content %}
+<p><a href="/fishbowl/conversations">&larr; all conversations</a></p>
+<h1>Conversation #{{ conversation.id }} <span class="badge {{ 'badge--good' if conversation.status == 'ACTIVE' else 'badge--fixture' }}" id="conversation-status">{{ conversation.status }}</span></h1>
+
+<div class="two-col">
+  <div class="panel">
+    <div class="panel__title">Transcript</div>
+    <div id="conversation-messages">
+      {% if conversation.messages %}
+        {% for m in conversation.messages %}
+        <div class="turn">
+          <span class="turn__who">{{ m.agent_name }}</span><span class="turn__meta">turn {{ m.turn_number }} · {{ m.created_at.strftime("%H:%M:%S") }}</span>
+          <div>{{ m.content }}</div>
+        </div>
+        {% endfor %}
+      {% else %}<div class="empty">No turns yet.</div>{% endif %}
+    </div>
+  </div>
+  <div>
+    <div class="panel">
+      <div class="panel__title">Details</div>
+      <dl>
+        <dt>Participants</dt><dd>{{ conversation.participants | map(attribute="name") | join(", ") }}</dd>
+        {% if conversation.departed_agent_ids %}<dt>Departed</dt><dd>{{ conversation.departed_agent_ids | map("title") | join(", ") }}</dd>{% endif %}
+        <dt>Location</dt><dd>{{ conversation.location or "—" }}</dd>
+        <dt>Trigger</dt><dd>{{ conversation.trigger_type }}</dd>
+        <dt>Why it started</dt><dd>{{ conversation.initiating_reason or "—" }}</dd>
+        {% if conversation.ending_reason %}<dt>Why it ended</dt><dd>{{ conversation.ending_reason }}</dd>{% endif %}
+        <dt>Subject</dt><dd>{{ conversation.current_subject or "—" }}</dd>
+        <dt>Started</dt><dd>{{ conversation.started_at.strftime("%Y-%m-%d %H:%M:%S") }}{% if conversation.started_sim_day %} (day {{ conversation.started_sim_day }} {{ conversation.started_sim_period }}){% endif %}</dd>
+        {% if conversation.ended_at %}<dt>Ended</dt><dd>{{ conversation.ended_at.strftime("%Y-%m-%d %H:%M:%S") }}</dd>{% endif %}
+      </dl>
+    </div>
+    <div class="panel">
+      <div class="panel__title">Connected to</div>
+      {% if conversation.related_research_ids %}<p><strong>Research:</strong> {% for r in conversation.related_research_ids %}<a href="/fishbowl/research/{{ r }}">{{ r }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+      {% if conversation.related_wall_post_ids %}<p><strong>Wall posts:</strong> {% for w in conversation.related_wall_post_ids %}<a href="/fishbowl/wall#post-{{ w }}">#{{ w }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+      {% if conversation.related_rabbit_hole_ids %}<p><strong>Rabbit holes:</strong> {% for h in conversation.related_rabbit_hole_ids %}<a href="/fishbowl/rabbit-holes/{{ h }}">#{{ h }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+      {% if not (conversation.related_research_ids or conversation.related_wall_post_ids or conversation.related_rabbit_hole_ids) %}<div class="empty">Nothing linked yet.</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>Fishbowl.initConversationDetail({{ conversation.id }});</script>
+{% endblock %}

@@ -104,6 +104,8 @@ app/
     research.py, wall.py, rabbit_holes.py, beliefs.py,
     memory.py, interests.py, dialogue.py,
     orchestrator.py, exposure.py, telemetry.py, founder.py, events.py
+  web/               The Fishbowl (Packet 12) — reads.py, schemas.py, api.py,
+                     control.py, pages.py, templates/, static/
 alembic/             migration environment
 scripts/             inspect_schema.py, inspect_research.py, inspect_wall.py,
                      inspect_memories.py, inspect_interests.py,
@@ -111,7 +113,7 @@ scripts/             inspect_schema.py, inspect_research.py, inspect_wall.py,
                      seed_agents.py, run_event.py, run_day.py,
                      smoke_test_research.py, smoke_test_cross_pollination.py,
                      smoke_test_character_development.py,
-                     smoke_test_dialogue.py
+                     smoke_test_dialogue.py, test_fishbowl.py
 ```
 
 The tree follows the build bible's layout. Files it does not name were still
@@ -1096,6 +1098,65 @@ Packet 11 deliberately does **not** run a live cost benchmark or connect a
 key in this environment — see Weaknesses in the delivery report for why,
 and the commands above for running one locally. Packets 5-10's fixture
 regression suite (all five smoke tests) passes unmodified.
+
+### The Fishbowl — a browser window into the Village (Packet 12)
+
+The Founder can now watch and operate the Village without a terminal.
+
+```bash
+.venv/bin/uvicorn app.main:app --reload
+```
+
+Open **http://127.0.0.1:8000/fishbowl/** — the dashboard shows every agent's
+current location/activity/conversation/research, a live activity feed, LIVE/
+FIXTURE provider badges, and Founder controls (RUN NEXT EVENT / RUN PERIOD /
+RUN DAY / PAUSE / RESUME, plus sending a Founder message). From there:
+Conversations, Research (with the full QUESTION → QUERY → SOURCE → PASSAGE →
+CLAIM → FINDING provenance chain), the Research Wall, Rabbit Holes, Founder
+Field Reports, and a Telemetry page (LLM + search-provider cost/usage,
+never an API key).
+
+**Architecture** (Part B): server-rendered Jinja2 pages (`app/web/templates/`)
+plus a small hand-written vanilla-JS file (`app/web/static/fishbowl.js`) that
+polls a JSON read API every few seconds — no React/Vite/Node build step, the
+lightest thing that fits the existing FastAPI app. Every route lives under
+`app/web/`:
+
+```
+app/web/
+  reads.py      read-only queries -> typed read models — never writes,
+                never imports app.providers.llm or app.providers.research
+  schemas.py    the read models themselves (Part Q — never a raw ORM row
+                reaches the browser)
+  api.py        GET /fishbowl/api/* — JSON, used by both the browser and
+                scripts/test_fishbowl.py
+  control.py    POST /fishbowl/api/control/* — the only five things that
+                mutate: next-event, run-period, run-day, pause, resume (plus
+                a Founder message), each calling straight into
+                run_next_event / clock.advance / daily_synthesis, guarded by
+                one in-process lock against double-submission
+  pages.py      the HTML routes (Jinja2Templates)
+  templates/, static/
+```
+
+**The Fishbowl is a window, not the Village** (Part U): opening it never
+runs an event, calls an LLM, or calls a research provider — reading is
+structurally incapable of it (`reads.py`/`api.py`/`pages.py` never import a
+provider module at all), and closing the browser changes nothing. Only the
+five explicit control actions mutate, and RUN DAY refuses to run against a
+live provider without an explicit `confirmed=true` (the browser shows a
+confirm dialog first).
+
+```bash
+.venv/bin/python scripts/test_fishbowl.py
+```
+
+Deterministic Level 1 check: seeds and drives several fixture days for real
+data, then drives the actual FastAPI app through Starlette's `TestClient` —
+every page and API route, the provenance chain, fixture/live badges, that
+repeated polling writes zero `llm_runs`/`research_provider_usage` rows, that
+the control endpoints really do move the real event log, and that two
+concurrent control submissions leave exactly one `200` and the rest `409`.
 
 ## Design notes
 

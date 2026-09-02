@@ -122,6 +122,22 @@
   interpretation, finding, or claim text entered it. Requires a live
   `RESEARCH_PROVIDER` too.
 
+- `test_fishbowl.py` — deterministic Packet 12 check: seeds and drives
+  several real fixture days for data (research, conversations, wall posts,
+  a rabbit hole, a Founder report, LLM/research telemetry), then drives the
+  actual FastAPI app (Starlette's `TestClient`, real HTTP-shaped requests
+  against `app.main.app`) through every Fishbowl page and API route —
+  asserting the dashboard shows all eight real agents, the event feed and
+  agent detail read back real rows, the research provenance chain and
+  Research Wall/Rabbit Holes/Founder Report/telemetry all render from real
+  records, fixture/live badges are correct, repeated read-only polling
+  writes zero `llm_runs`/`research_provider_usage` rows (and that
+  `app/web/reads.py`/`api.py`/`pages.py` structurally never import a
+  provider module), the control endpoints actually advance the real event
+  log through `run_next_event`, two concurrent control submissions leave
+  exactly one `200` and the rest `409`, and RUN DAY in LIVE mode without
+  confirmation is refused. No key, no network, safe in ordinary CI.
+
 Nothing in any smoke test scripts an agent's choice or inserts a finished
 record directly; a fixed seed only makes which choices happen to occur
 reproducible.

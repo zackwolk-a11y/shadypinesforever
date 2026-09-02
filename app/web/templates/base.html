@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-fishbowl>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}The Fishbowl{% endblock %} — The Internal Village</title>
+  <link rel="stylesheet" href="/fishbowl/static/fishbowl.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead__title">The Internal Village</div>
+    <div class="masthead__name"><span class="accent">THE</span> FISHBOWL</div>
+    <div class="status-strip" id="dash-status">
+      {% if clock %}
+      <span><span class="light {{ 'light--amber' if clock.is_paused else 'light--green' }}"></span>DAY {{ clock.day }} — {{ clock.period }}{% if clock.is_paused %} (PAUSED){% endif %}</span>
+      <span class="sep">|</span>
+      <span>LLM: {{ providers.llm_provider }} <span class="badge {{ 'badge--live' if providers.llm_is_live else 'badge--fixture' }}">{{ 'LIVE' if providers.llm_is_live else 'FIXTURE' }}</span></span>
+      <span class="sep">|</span>
+      <span>Research: {{ providers.research_provider }} <span class="badge {{ 'badge--live' if providers.research_is_live else 'badge--fixture' }}">{{ 'LIVE' if providers.research_is_live else 'FIXTURE' }}</span></span>
+      {% else %}
+      <span class="muted">No simulation clock — run scripts/seed_agents.py first.</span>
+      {% endif %}
+    </div>
+  </header>
+  <nav class="nav">
+    <a href="/fishbowl/" class="{{ 'active' if active_nav == 'dashboard' else '' }}">Dashboard</a>
+    <a href="/fishbowl/conversations" class="{{ 'active' if active_nav == 'conversations' else '' }}">Conversations</a>
+    <a href="/fishbowl/research" class="{{ 'active' if active_nav == 'research' else '' }}">Research</a>
+    <a href="/fishbowl/wall" class="{{ 'active' if active_nav == 'wall' else '' }}">Research Wall</a>
+    <a href="/fishbowl/rabbit-holes" class="{{ 'active' if active_nav == 'rabbit_holes' else '' }}">Rabbit Holes</a>
+    <a href="/fishbowl/reports" class="{{ 'active' if active_nav == 'reports' else '' }}">Founder Reports</a>
+    <a href="/fishbowl/telemetry" class="{{ 'active' if active_nav == 'telemetry' else '' }}">Telemetry</a>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/fishbowl/static/fishbowl.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

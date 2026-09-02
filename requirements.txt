@@ -13,3 +13,8 @@ httpx>=0.27
 # LLM_PROVIDER=fixture, but installed unconditionally like httpx above.
 # >=1.2 for native structured outputs (client.messages.parse / output_format).
 anthropic>=1.2
+
+# Packet 12: The Fishbowl's server-rendered pages (app/web/pages.py). The
+# lightest templating option that fits the existing FastAPI app — chosen
+# over a React/Vite toolchain per Packet 12's own "prefer simplicity".
+jinja2>=3.1
