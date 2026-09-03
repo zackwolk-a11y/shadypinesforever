@@ -16,6 +16,7 @@ Usage::
 
     export TAVILY_API_KEY="..."
     export RESEARCH_PROVIDER=tavily
+    export APP_ENV=live   # or pass --database-url explicitly for a non-live target
     .venv/bin/python scripts/run_live_research_once.py --agent agent_roxy
 
     # a specific question instead of the agent's own top interest:
@@ -26,6 +27,11 @@ Refuses to run against RESEARCH_PROVIDER=fixture (use scripts/run_event.py
 or scripts/run_day.py for ordinary fixture-mode simulation instead) — this
 script exists specifically to spend a small, deliberate amount of real
 provider budget on one agent, not to simulate.
+
+Also refuses to run at all without an explicit database target (APP_ENV=live
+or --database-url) — this used to default silently to ./village.db when
+DATABASE_URL wasn't set, exactly the failure mode a real incident traced a
+data loss back to (see app.core.db_safety's module docstring).
 """
 
 from __future__ import annotations
@@ -36,7 +42,6 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = REPO_ROOT / "village.db"
 
 os.environ.setdefault("MAX_SEARCH_QUERIES_PER_SESSION", "2")
 os.environ.setdefault("MAX_SOURCES_PER_QUERY", "3")
@@ -51,11 +56,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--agent", required=True, help="agent_id, e.g. agent_roxy")
     parser.add_argument("--question", default=None, help="override: skip the agent's own top interest")
-    parser.add_argument("--database-url", default=None, help="defaults to the village's normal DATABASE_URL / village.db")
+    parser.add_argument(
+        "--database-url", default=None,
+        help="explicit DATABASE_URL override (advanced — prefer APP_ENV=live for the "
+             "canonical live database, which gets its own fail-closed safety checks)",
+    )
     args = parser.parse_args()
 
     if args.database_url:
         os.environ["DATABASE_URL"] = args.database_url
+    elif os.environ.get("APP_ENV") != "live":
+        print(
+            "Refusing to run without an explicit database target: this script spends "
+            "real research provider budget and must never guess which database it's "
+            "hitting (a real incident traced back to exactly this kind of silent "
+            "fallback). Either set APP_ENV=live (the canonical live database, "
+            "data/live/internal_village.db, with its own integrity checks) or pass "
+            "--database-url explicitly for a deliberate non-live target."
+        )
+        return 1
 
     from app.core.config import get_settings
 

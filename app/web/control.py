@@ -146,6 +146,10 @@ def run_day(confirmed: bool = False, session: Session = Depends(get_session)) ->
                     "usage. Resubmit with confirmed=true to proceed."
                 ),
             )
+        if settings.app_env == "live":
+            from app.core.db_safety import create_backup
+
+            create_backup("pre_run_day")
         provider = get_llm_provider(settings)
         clock = _get_clock(session)
         if clock.is_paused:
@@ -171,6 +175,13 @@ def run_day(confirmed: bool = False, session: Session = Depends(get_session)) ->
                 message=f"Hit the {_MAX_EVENTS_PER_DAY}-event ceiling before day {start_day} ended.",
                 events_run=ran, day=clock.current_day, period=clock.current_period, is_paused=clock.is_paused,
             )
+        # Only on the actual day-completed path above (not the ceiling-hit
+        # partial result, not the paused early return) — an interrupted run
+        # skips this on purpose, same reasoning as scripts/run_day.py.
+        if settings.app_env == "live":
+            from app.core.db_safety import create_backup
+
+            create_backup("post_run_day")
         return ControlResult(
             action="run-day", ok=True,
             message=f"Day {start_day} complete — {ran} action(s). Now day {clock.current_day} {clock.current_period}.",

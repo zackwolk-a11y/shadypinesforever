@@ -1104,17 +1104,40 @@ regression suite (all five smoke tests) passes unmodified.
 The Founder can now watch and operate the Village without a terminal.
 
 **1. Database used** — the Fishbowl reads and writes through the exact same
-`DATABASE_URL` (`app/db/session.py`) every script and the rest of `app/main.py`
-already uses (`sqlite:///./village.db` by default). No separate store, no
+resolved database (`app/db/session.py`, via `app.core.config.get_database_url`)
+every script and the rest of `app/main.py` already uses. No separate store, no
 duplicated state: whatever `run_day.py`/`run_event.py` produce is what the
 Fishbowl shows, and a control action taken in the browser is immediately
 visible to those same scripts and vice versa.
 
+**Which database, exactly, depends on `APP_ENV`** (added after a real
+data-loss incident — see `app/core/db_safety.py`'s module docstring):
+
+- **Not set, or anything other than `live`** (the default): development
+  mode, `DATABASE_URL` honored, defaulting to `sqlite:///./village.db` — the
+  same as always, safe to run repeatedly against fixture data.
+- **`APP_ENV=live`**: resolves *only* to the canonical live database
+  (`data/live/internal_village.db`) — `DATABASE_URL` is never consulted in
+  this mode, so a missing or stale environment variable can no longer
+  silently substitute a different file. Fails closed (refuses to start) if
+  that database is missing, too small, has no tables, or fails
+  `PRAGMA integrity_check` — run `scripts/init_live_database.py --confirm`
+  once, deliberately, to create it. RUN DAY and every migration back it up
+  automatically first (`data/live/backups/`).
+
 **2. How to launch:**
 
 ```bash
+# development / fixture data (safe, repeatable):
 .venv/bin/uvicorn app.main:app --reload
+
+# the real live Village:
+APP_ENV=live .venv/bin/uvicorn app.main:app --reload
 ```
+
+The terminal prints a startup banner with the resolved absolute database
+path and provider mode the instant the server boots — check it before
+assuming which database you're looking at.
 
 **3. URL to open:** **http://127.0.0.1:8000/fishbowl/**
 
@@ -1137,8 +1160,9 @@ provider unless the browser's confirm dialog is accepted first.
 
 **6. How to stop the server** — `Ctrl+C` in the terminal running `uvicorn`
 (or `kill` the process). The Fishbowl is only ever a reader/controller of
-`village.db`; stopping it, or never starting it, does not touch simulation
-state (§U) — the database is exactly as `run_day.py` left it either way.
+whichever database it resolved at startup (see §1); stopping it, or never
+starting it, does not touch simulation state (§U) — the database is exactly
+as `run_day.py` left it either way.
 
 The dashboard shows every agent's current location/activity/conversation/
 research, a live activity feed, and the controls above. From there:
@@ -1410,6 +1434,70 @@ a real `target_question_id` link, that research completion never silently
 auto-resolves a linked question, that `OPEN QUESTIONS` actually reaches a
 real rendered context once a question exists, and that a zero-question
 agent's context is unaffected.
+
+### Live database safety (`app/core/db_safety.py`)
+
+A real data-loss incident: `DATABASE_URL` was never durably bound to the
+live Village — no `.env` auto-loading exists anywhere in this codebase (not
+even a dependency), so every process depended on it being freshly exported
+in that exact shell, every time. Whenever it wasn't, `app.core.config`'s
+`DEFAULT_DATABASE_URL = "sqlite:///./village.db"` silently took over — and
+because SQLite manufactures a brand-new, empty, schema-less file the instant
+anything connects to a path that doesn't exist yet (rather than erroring),
+that substitution was completely invisible. The live database ended up
+replaced by an empty file with no warning anywhere in the chain.
+
+**`APP_ENV=live` now resolves to the canonical live database
+(`data/live/internal_village.db`) unconditionally — `DATABASE_URL` is never
+consulted in this mode**, so no missing or stale environment variable can
+substitute a different file again. It fails closed: refuses to start (a
+loud `LiveDatabaseError`, not a silent fallback) if that database is
+missing, under 8 KB, has zero tables, or fails `PRAGMA integrity_check` —
+exactly the forensic signature the incident produced. Every other
+`APP_ENV` value (the `development` default, or a script's own
+self-isolating throwaway path) is completely unchanged.
+
+**The only way a live database is ever created from nothing:**
+```bash
+.venv/bin/python scripts/init_live_database.py --confirm [--seed]
+```
+Refuses to run over an existing file, healthy or not — overwriting is
+always a human decision, never automatic.
+
+**Automatic backups**, checkpointed (`PRAGMA wal_checkpoint(TRUNCATE)`) and
+self-verified (`PRAGMA integrity_check` against the copy, not just the
+source) before being trusted, retained 20 deep per category, pruning
+oldest first:
+- pre-RUN-DAY and post-successful-RUN-DAY (`scripts/run_day.py`, and the
+  Fishbowl's RUN DAY control endpoint) — "successful" means the day
+  actually completed; an interrupted or crashed run skips the post-backup
+  on purpose.
+- pre-migration, whenever `alembic upgrade`/`downgrade` is about to touch
+  the real live path specifically (`alembic/env.py`) — never for a
+  disposable dev/test URL.
+
+**Recovery:**
+```bash
+.venv/bin/python scripts/restore_live_backup.py --list
+.venv/bin/python scripts/restore_live_backup.py --restore <path> --confirm
+```
+Verifies the backup's own integrity before restoring, and backs up
+whatever is currently at the live path first (reason `pre_restore`) — a
+restore is never a one-way door.
+
+**`scripts/run_live_research_once.py`** (the one live-spend script with no
+self-isolation of its own) now refuses to run at all without an explicit
+target — `APP_ENV=live` or `--database-url` — rather than silently
+inheriting whatever `DATABASE_URL` happened to be set.
+
+**Startup banner**: every `uvicorn` boot prints the resolved absolute
+database path and provider mode to the terminal before anything else runs.
+
+```bash
+.venv/bin/python tests/test_db_safety.py
+```
+Every check runs against disposable temp paths only — this suite never
+touches `data/live/internal_village.db`.
 
 ## Design notes
 

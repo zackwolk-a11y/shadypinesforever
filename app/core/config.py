@@ -132,7 +132,7 @@ def get_settings() -> Settings:
     """Build a Settings snapshot from the current environment."""
     return Settings(
         app_env=_env("APP_ENV", "development"),
-        database_url=_env("DATABASE_URL", DEFAULT_DATABASE_URL),
+        database_url=resolve_database_url(),
         llm_provider=_env("LLM_PROVIDER", "fixture").strip().lower(),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY") or None,
         agent_model=_env("VILLAGE_AGENT_MODEL", "claude-haiku-4-5"),
@@ -191,6 +191,44 @@ def get_settings() -> Settings:
     )
 
 
+def resolve_database_url() -> str:
+    """The one place DATABASE_URL is actually resolved — both
+    ``get_settings()`` and ``get_database_url()`` call this so they can
+    never diverge.
+
+    APP_ENV=live NEVER consults DATABASE_URL: it resolves only to the
+    canonical live database (app.core.db_safety.CANONICAL_LIVE_DB_PATH),
+    fails closed if that database is missing or unhealthy, and is the
+    single place a live-capable process can end up pointed at a real
+    database at all. Built after a real incident: a missing DATABASE_URL
+    export silently fell back to ./village.db with no warning, and SQLite
+    itself silently manufactures an empty database for any path that
+    doesn't exist yet rather than erroring — see app.core.db_safety's
+    module docstring for the full forensic signature.
+
+    ``ALLOW_FRESH_LIVE_INIT=1`` is the one deliberate escape hatch, and it
+    is narrow on purpose: it only ever matters when the canonical live
+    database is genuinely missing (an existing file, healthy or not, is
+    never touched regardless of this flag — see
+    ``resolve_live_database_url``). Only ``scripts/init_live_database.py``
+    ever sets it, and only for the lifetime of its own process — never
+    something to export in a shell profile. This is what lets
+    ``alembic/env.py`` (which re-resolves the URL itself, the same as every
+    other caller) create the schema during a deliberate fresh init without
+    a second, redundant resolution path.
+
+    Every other APP_ENV value (the "development" default, or a script's own
+    "test"-style self-isolation) is unchanged from before: DATABASE_URL
+    honored, defaulting to ./village.db.
+    """
+    if _env("APP_ENV", "development") == "live":
+        from app.core.db_safety import resolve_live_database_url
+
+        allow_fresh_init = _env("ALLOW_FRESH_LIVE_INIT", "") == "1"
+        return resolve_live_database_url(allow_fresh_init=allow_fresh_init)
+    return _env("DATABASE_URL", DEFAULT_DATABASE_URL)
+
+
 def get_database_url() -> str:
     """Shortcut for the one setting nearly everything needs."""
-    return _env("DATABASE_URL", DEFAULT_DATABASE_URL)
+    return resolve_database_url()

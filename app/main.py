@@ -42,6 +42,20 @@ app.include_router(fishbowl_api_router)
 app.include_router(fishbowl_control_router)
 
 
+@app.on_event("startup")
+def _print_startup_banner() -> None:
+    """Absolute DB path and provider mode, printed the instant the server
+    boots — not just on a /health request. Built after a real incident
+    where a Fishbowl server silently ran against the wrong database with
+    nothing in the terminal to reveal it."""
+    settings = get_settings()
+    print("=" * 70)
+    print(f"The Internal Village — APP_ENV={settings.app_env}")
+    print(f"Database: {get_database_url()}")
+    print(f"LLM provider: {settings.llm_provider}  Research provider: {settings.research_provider}")
+    print("=" * 70)
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Liveness probe. Returns 200 as long as the app is up."""

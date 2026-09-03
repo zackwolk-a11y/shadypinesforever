@@ -52,6 +52,13 @@ def main() -> int:
         + ("  [FIXTURE — not a live model]" if provider.is_fixture else "")
     )
 
+    is_live = settings.app_env == "live"
+    if is_live:
+        from app.core.db_safety import create_backup
+
+        backup_path = create_backup("pre_run_day")
+        print(f"Pre-RUN-DAY backup: {backup_path}")
+
     session = SessionLocal()
     try:
         for _ in range(args.days):
@@ -100,6 +107,16 @@ def main() -> int:
             print(f"  day {start_day}: {acted} actions, {spoken} utterances, {advances} period changes")
     finally:
         session.close()
+
+    # Only after every requested day actually completed without raising —
+    # an interrupted or crashed run skips this, on purpose (a "successful
+    # day" backup of a run that didn't finish would be misleading).
+    if is_live:
+        from app.core.db_safety import create_backup
+
+        backup_path = create_backup("post_run_day")
+        print(f"Post-RUN-DAY backup: {backup_path}")
+
     return 0
 
 
