@@ -89,49 +89,6 @@ class ActionType(str, enum.Enum):
     RETIRE_BELIEF = "RETIRE_BELIEF"
 
 
-#: A short, neutral, plain-language gloss for each action, shown next to its
-#: name in the AVAILABLE ACTIONS line of the agent's prompt. Deliberately a
-#: plain module-level dict, not a Pydantic Field(description=...) or part of
-#: ActionType itself: the enum's own per-member ``#:`` comments above are
-#: pure source-code documentation that Python doesn't expose at runtime, so
-#: none of that explanatory intent — why CHALLENGE_CLAIM needs a real reason,
-#: why an unresolved curiosity justifies START_RESEARCH — ever reached a real
-#: model call; it only ever saw the bare enum value names. This dict restores
-#: that (already-written, already-intended) context in the one place a model
-#: actually reads it, without adding it to the JSON tool schema itself — kept
-#: out of AgentAction/ActionType so it can never re-inflate schema
-#: complexity (see app/services/context_builder.py for the one call site).
-#: Every entry is a short factual gloss of what the action does, not a
-#: pitch for why to choose it — passive and substantive actions are
-#: described with the same plainness and the same brevity on purpose, so
-#: this never functions as a nudge toward or away from any one of them.
-ACTION_DESCRIPTIONS: dict[str, str] = {
-    ActionType.DO_NOTHING.value: "nothing at all",
-    ActionType.REST.value: "rest, no other action",
-    ActionType.OBSERVE.value: "watch and take in the moment, unspoken",
-    ActionType.LISTEN_TO_MUSIC.value: "listen to music",
-    ActionType.DRINK_COFFEE.value: "get coffee",
-    ActionType.WRITE_NOTE.value: "privately note something worth remembering",
-    ActionType.ASK_QUESTION.value: "ask someone something directly",
-    ActionType.SEND_MESSAGE.value: "send someone a private message",
-    ActionType.START_CONVERSATION.value: "start a conversation with one other person",
-    ActionType.SPEAK.value: "say something in the conversation you're in",
-    ActionType.LEAVE_CONVERSATION.value: "step out of the conversation",
-    ActionType.JOIN_CONVERSATION.value: "join a conversation happening nearby",
-    ActionType.START_RESEARCH.value: "pursue a real, verifiable question you actually have",
-    ActionType.POST_TO_WALL.value: "pin a finding, question, or hypothesis for others to discover",
-    ActionType.READ_WALL_POST.value: "read a wall post in full",
-    ActionType.CREATE_RABBIT_HOLE.value: "open a shared investigation into something",
-    ActionType.JOIN_RABBIT_HOLE.value: "join an existing shared investigation",
-    ActionType.CONTRIBUTE_TO_RABBIT_HOLE.value: "add to a rabbit hole you're already in",
-    ActionType.LEAVE_RABBIT_HOLE.value: "step back from a rabbit hole",
-    ActionType.RESOLVE_RABBIT_HOLE.value: "mark a rabbit hole as settled",
-    ActionType.CHALLENGE_CLAIM.value: "push back on a specific claim you have real doubt about",
-    ActionType.FORM_BELIEF.value: "form a belief from your own completed research",
-    ActionType.REVISE_BELIEF.value: "revise a belief given new evidence",
-    ActionType.RETIRE_BELIEF.value: "let go of a belief you no longer hold",
-}
-
 #: Actions that address another agent. ASK_QUESTION always needs a recipient;
 #: SEND_MESSAGE may broadcast with a null target.
 DIRECTED_ACTIONS = {ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE}

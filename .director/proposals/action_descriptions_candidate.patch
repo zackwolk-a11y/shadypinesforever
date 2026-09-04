@@ -1,0 +1,104 @@
+diff --git a/app/schemas/actions.py b/app/schemas/actions.py
+index ba10b64..0a47fd2 100644
+--- a/app/schemas/actions.py
++++ b/app/schemas/actions.py
+@@ -89,6 +89,49 @@ class ActionType(str, enum.Enum):
+     RETIRE_BELIEF = "RETIRE_BELIEF"
+ 
+ 
++#: A short, neutral, plain-language gloss for each action, shown next to its
++#: name in the AVAILABLE ACTIONS line of the agent's prompt. Deliberately a
++#: plain module-level dict, not a Pydantic Field(description=...) or part of
++#: ActionType itself: the enum's own per-member ``#:`` comments above are
++#: pure source-code documentation that Python doesn't expose at runtime, so
++#: none of that explanatory intent — why CHALLENGE_CLAIM needs a real reason,
++#: why an unresolved curiosity justifies START_RESEARCH — ever reached a real
++#: model call; it only ever saw the bare enum value names. This dict restores
++#: that (already-written, already-intended) context in the one place a model
++#: actually reads it, without adding it to the JSON tool schema itself — kept
++#: out of AgentAction/ActionType so it can never re-inflate schema
++#: complexity (see app/services/context_builder.py for the one call site).
++#: Every entry is a short factual gloss of what the action does, not a
++#: pitch for why to choose it — passive and substantive actions are
++#: described with the same plainness and the same brevity on purpose, so
++#: this never functions as a nudge toward or away from any one of them.
++ACTION_DESCRIPTIONS: dict[str, str] = {
++    ActionType.DO_NOTHING.value: "nothing at all",
++    ActionType.REST.value: "rest, no other action",
++    ActionType.OBSERVE.value: "watch and take in the moment, unspoken",
++    ActionType.LISTEN_TO_MUSIC.value: "listen to music",
++    ActionType.DRINK_COFFEE.value: "get coffee",
++    ActionType.WRITE_NOTE.value: "privately note something worth remembering",
++    ActionType.ASK_QUESTION.value: "ask someone something directly",
++    ActionType.SEND_MESSAGE.value: "send someone a private message",
++    ActionType.START_CONVERSATION.value: "start a conversation with one other person",
++    ActionType.SPEAK.value: "say something in the conversation you're in",
++    ActionType.LEAVE_CONVERSATION.value: "step out of the conversation",
++    ActionType.JOIN_CONVERSATION.value: "join a conversation happening nearby",
++    ActionType.START_RESEARCH.value: "pursue a real, verifiable question you actually have",
++    ActionType.POST_TO_WALL.value: "pin a finding, question, or hypothesis for others to discover",
++    ActionType.READ_WALL_POST.value: "read a wall post in full",
++    ActionType.CREATE_RABBIT_HOLE.value: "open a shared investigation into something",
++    ActionType.JOIN_RABBIT_HOLE.value: "join an existing shared investigation",
++    ActionType.CONTRIBUTE_TO_RABBIT_HOLE.value: "add to a rabbit hole you're already in",
++    ActionType.LEAVE_RABBIT_HOLE.value: "step back from a rabbit hole",
++    ActionType.RESOLVE_RABBIT_HOLE.value: "mark a rabbit hole as settled",
++    ActionType.CHALLENGE_CLAIM.value: "push back on a specific claim you have real doubt about",
++    ActionType.FORM_BELIEF.value: "form a belief from your own completed research",
++    ActionType.REVISE_BELIEF.value: "revise a belief given new evidence",
++    ActionType.RETIRE_BELIEF.value: "let go of a belief you no longer hold",
++}
++
+ #: Actions that address another agent. ASK_QUESTION always needs a recipient;
+ #: SEND_MESSAGE may broadcast with a null target.
+ DIRECTED_ACTIONS = {ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE}
+diff --git a/app/services/context_builder.py b/app/services/context_builder.py
+index 4eddb12..4a7a40d 100644
+--- a/app/services/context_builder.py
++++ b/app/services/context_builder.py
+@@ -33,6 +33,7 @@ from app.db.models.wall import ResearchWallPost
+ from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
+ from app.domain import characters
+ from app.domain.enums import EventType, InterestOrigin, MemoryType, RabbitHoleStatus
++from app.schemas.actions import ACTION_DESCRIPTIONS
+ from app.services import agent_questions, dialogue, founder, memory, reflection, wall
+ from app.services.exposure import exposed_entity_ids
+ 
+@@ -351,6 +352,7 @@ def build_agent_context(
+         f"LOCATIONS: {', '.join(CLUBHOUSE_LOCATIONS)}",
+         f"AVAILABLE ACTIONS: {', '.join(available_actions)}",
+     ]
++    lines += _action_notes(available_actions)
+ 
+     voice_block = characters.render_voice_block(agent.agent_id)
+     if voice_block:
+@@ -520,3 +522,29 @@ def build_agent_context(
+ def _clip(text: str, limit: int) -> str:
+     text = " ".join(text.split())
+     return text if len(text) <= limit else text[: limit - 1] + "…"
++
++
++def _action_notes(available_actions: tuple[str, ...]) -> list[str]:
++    """One short, neutral line per available action, restoring the
++    explanatory intent already written as source comments on ActionType
++    (app/schemas/actions.py) that never otherwise reaches a real model call
++    — Python doesn't expose enum-member comments at runtime, so previously
++    the model saw only bare action names and had to guess what each one
++    meant and why it might matter.
++
++    Deliberately a separate block, not inline on the AVAILABLE ACTIONS
++    line itself: several descriptions contain their own commas (e.g.
++    START_RESEARCH's), and a scripts/smoke_test_available_actions_prompt.py
++    parses that exact line by splitting on commas — inlining would silently
++    corrupt that regression check's detection power instead of failing it
++    outright. Keeping AVAILABLE ACTIONS itself byte-for-byte as before
++    keeps that check fully intact while still surfacing every description.
++
++    Every action gets a line, worded with the same brevity and the same
++    plain, factual tone regardless of whether it's passive or substantive
++    — this is meant to inform the choice, never to tilt it."""
++    if not available_actions:
++        return []
++    return ["ACTION NOTES:"] + [
++        f"  {a}: {ACTION_DESCRIPTIONS[a]}" for a in available_actions if a in ACTION_DESCRIPTIONS
++    ]
