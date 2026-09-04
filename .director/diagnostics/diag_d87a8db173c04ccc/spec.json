@@ -1,0 +1,79 @@
+{
+  "diagnostic_id": "diag_d87a8db173c04ccc",
+  "diagnostic_type": "conversation_scheduler_policy_probe",
+  "originating_round_id": "round_ad7712571ef44d42",
+  "originating_snapshot_id": "snap_093a0ee6933e4d59",
+  "originating_recommendation": "OpenAI SYNTHESIS (round_ad7712571ef44d42) recommended_next_step: cite the current should_close/next_speaker implementation and any tests/specification establishing intended MORNING_GATHERING close behavior; trace whether ACTIVATION_EVENTS affects eligibility or only ordering; use scripted outputs where agents 1-2 are silent and agent 3 would speak, temporarily bypassing closure only in the test harness to observe rotation; run an all-silent control. Do not run or advance the live Village, modify production code, or change prompts.",
+  "evidence_refs": [
+    "round_ad7712571ef44d42_final.json strategic_synthesis.recommended_next_step",
+    "README.md Conversations section: stated turn-taking/silence/close policy",
+    "scripts/smoke_test_conversation_turn_rotation.py: existing regression test for the same-agent-repeat fix (Finding 1, Baseline Run 2 diagnosis)",
+    "diag_1bd854dba4ff49cf evidence.json: current code reproduces 2-agent alternation, not the real conversation 1s 1-agent repeat pattern"
+  ],
+  "allowed_operations": {
+    "read_repo_files": [
+      "README.md",
+      "scripts/smoke_test_conversation_turn_rotation.py",
+      "app/services/conversations.py"
+    ],
+    "capabilities": [
+      "create_isolated_test_db"
+    ],
+    "call_service_functions": [
+      "app.services.conversations.next_speaker",
+      "app.services.conversations.should_close"
+    ]
+  },
+  "forbidden_operations": [
+    "live_database_write",
+    "live_database_schema_change",
+    "code_modification",
+    "simulation_advancement",
+    "village_event_execution",
+    "database_migration",
+    "database_restore",
+    "agent_seeding",
+    "config_change",
+    "shell_command_execution",
+    "network_request",
+    "recommendation_implementation"
+  ],
+  "scope": {
+    "synthetic_participant_count": 8,
+    "max_turns_to_probe": 6,
+    "counterfactual_speak_at_participant_index": 2,
+    "order_variants": [
+      [
+        "agent_1",
+        "agent_2",
+        "agent_3",
+        "agent_4",
+        "agent_5",
+        "agent_6",
+        "agent_7",
+        "agent_8"
+      ],
+      [
+        "agent_8",
+        "agent_7",
+        "agent_6",
+        "agent_5",
+        "agent_4",
+        "agent_3",
+        "agent_2",
+        "agent_1"
+      ]
+    ]
+  },
+  "success_criteria": "Produces, clearly separated: (1) quoted README/regression-test text establishing intended MORNING_GATHERING closure policy; (2) quoted next_speaker/should_close source demonstrating whether ACTIVATION_EVENTS is a hard eligibility filter or only an ordering key; (3) a turn-by-turn control trace (all-silent, extended past natural closure) showing exactly when should_close fires and whether a 3rd distinct participant is ever naturally reached; (4) a counterfactual trace where a 3rd participant is explicitly given the floor and speaks, showing whether/how that reopens the conversation; (5) a comparison of two participant orderings showing whether the SAME positions (not the same agent identities) are always offered first.",
+  "failure_criteria": "Isolated DB creation fails, an allowlisted function raises, a declared repo file cannot be read, or the timeout is exceeded.",
+  "timeout_seconds": 60,
+  "output_evidence_dir": "diag_d87a8db173c04ccc",
+  "state": "DIAGNOSTIC_COMPLETE",
+  "created_at": "2026-09-03T18:54:46.446112+00:00",
+  "approved_at": "2026-09-03T18:59:01.054457+00:00",
+  "approved_by": "Founder",
+  "completed_at": "2026-09-03T18:59:01.296712+00:00",
+  "run_status": "SUCCESS",
+  "run_error": null
+}

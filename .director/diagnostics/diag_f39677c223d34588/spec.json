@@ -1,0 +1,54 @@
+{
+  "diagnostic_id": "diag_f39677c223d34588",
+  "diagnostic_type": "morning_gathering_construction_and_invalid_decision_trace",
+  "originating_round_id": "round_f559dfa577394bef",
+  "originating_snapshot_id": "snap_cfdb8bea1f174096",
+  "originating_recommendation": "OpenAI SYNTHESIS (round_f559dfa577394bef) recommended_next_step: identify the exact code path constructing participant_ids for MORNING_GATHERING and determine whether order is static, rotated, or variable; trace the three INVALID_AGENT_DECISION cases to distinguish schema-generation/validation defects from expected post-closure timing.",
+  "evidence_refs": [
+    "round_f559dfa577394bef_final.json strategic_synthesis.recommended_next_step",
+    "diag_9ceb05dd4760426f: confirmed speaker-selection floor-allocation defect (context, not re-tested here)"
+  ],
+  "allowed_operations": {
+    "read_repo_files": [
+      "app/services/conversations.py",
+      "app/services/orchestrator.py"
+    ],
+    "read_live_db_tables": [
+      "conversations",
+      "events",
+      "agents"
+    ]
+  },
+  "forbidden_operations": [
+    "live_database_write",
+    "live_database_schema_change",
+    "code_modification",
+    "simulation_advancement",
+    "village_event_execution",
+    "database_migration",
+    "database_restore",
+    "agent_seeding",
+    "config_change",
+    "shell_command_execution",
+    "network_request",
+    "recommendation_implementation"
+  ],
+  "scope": {
+    "invalid_decision_event_ids": [
+      131,
+      187,
+      220
+    ]
+  },
+  "success_criteria": "Quoted start_morning_gathering/morning_gathering_held_today source plus the live agents table order and all observed conversations participant_ids orders, showing whether they match; quoted validate_decision source plus, for each of the 3 named events, its classification and timing relative to the nearest same-day conversation close.",
+  "failure_criteria": "A declared repo file cannot be read, a query fails, or the timeout is exceeded.",
+  "timeout_seconds": 30,
+  "output_evidence_dir": "diag_f39677c223d34588",
+  "state": "DIAGNOSTIC_COMPLETE",
+  "created_at": "2026-09-03T22:27:32.224428+00:00",
+  "approved_at": "2026-09-03T22:27:32.225776+00:00",
+  "approved_by": "Founder",
+  "completed_at": "2026-09-03T22:27:38.750880+00:00",
+  "run_status": "SUCCESS",
+  "run_error": "live database at /Users/zacharywolk/shadypinesforever/data/live/internal_village.db not healthy: does not exist"
+}

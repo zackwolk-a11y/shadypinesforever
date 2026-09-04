@@ -1,0 +1,23 @@
+[
+  {
+    "reviewer_id": "director-primary",
+    "role": "PRIMARY",
+    "provider": "openrouter",
+    "model": "google/gemini-2.5-flash",
+    "enabled": true
+  },
+  {
+    "reviewer_id": "hermes",
+    "role": "CRITIQUE",
+    "provider": "hermes_cli",
+    "model": null,
+    "enabled": false
+  },
+  {
+    "reviewer_id": "openai-synthesis",
+    "role": "SYNTHESIS",
+    "provider": "openai",
+    "model": "gpt-5.6-sol",
+    "enabled": false
+  }
+]

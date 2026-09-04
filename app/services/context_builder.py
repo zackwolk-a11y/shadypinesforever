@@ -33,6 +33,7 @@ from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
 from app.domain import characters
 from app.domain.enums import EventType, InterestOrigin, MemoryType, RabbitHoleStatus
+from app.schemas.actions import ACTION_DESCRIPTIONS
 from app.services import agent_questions, dialogue, founder, memory, reflection, wall
 from app.services.exposure import exposed_entity_ids
 
@@ -351,6 +352,7 @@ def build_agent_context(
         f"LOCATIONS: {', '.join(CLUBHOUSE_LOCATIONS)}",
         f"AVAILABLE ACTIONS: {', '.join(available_actions)}",
     ]
+    lines += _action_notes(available_actions)
 
     voice_block = characters.render_voice_block(agent.agent_id)
     if voice_block:
@@ -520,3 +522,29 @@ def build_agent_context(
 def _clip(text: str, limit: int) -> str:
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _action_notes(available_actions: tuple[str, ...]) -> list[str]:
+    """One short, neutral line per available action, restoring the
+    explanatory intent already written as source comments on ActionType
+    (app/schemas/actions.py) that never otherwise reaches a real model call
+    — Python doesn't expose enum-member comments at runtime, so previously
+    the model saw only bare action names and had to guess what each one
+    meant and why it might matter.
+
+    Deliberately a separate block, not inline on the AVAILABLE ACTIONS
+    line itself: several descriptions contain their own commas (e.g.
+    START_RESEARCH's), and a scripts/smoke_test_available_actions_prompt.py
+    parses that exact line by splitting on commas — inlining would silently
+    corrupt that regression check's detection power instead of failing it
+    outright. Keeping AVAILABLE ACTIONS itself byte-for-byte as before
+    keeps that check fully intact while still surfacing every description.
+
+    Every action gets a line, worded with the same brevity and the same
+    plain, factual tone regardless of whether it's passive or substantive
+    — this is meant to inform the choice, never to tilt it."""
+    if not available_actions:
+        return []
+    return ["ACTION NOTES:"] + [
+        f"  {a}: {ACTION_DESCRIPTIONS[a]}" for a in available_actions if a in ACTION_DESCRIPTIONS
+    ]
