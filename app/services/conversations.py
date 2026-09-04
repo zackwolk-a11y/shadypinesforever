@@ -116,7 +116,7 @@ def next_speaker(
 ) -> str | None:
     """Whoever has spoken least, breaking ties by the participant order —
     among participants who haven't already reached today's activation
-    budget.
+    budget, and never the same agent who was just given the floor.
 
     Turn-taking is mechanism. What the speaker says — or whether they say
     anything — is theirs. But a pick here grants a real activation exactly
@@ -129,6 +129,19 @@ def next_speaker(
     no matter how many times they're activated) and can be re-picked
     indefinitely — confirmed reaching 9 activations in a single day against
     a configured cap of 6 (Packet 12's live-day diagnostic).
+
+    The "don't repeat the immediately-previous pick" exclusion is keyed on
+    who was last *offered* the floor (the most recent AGENT_WOKE event for
+    this conversation), not who last *spoke* — spoken counts stay 0 for
+    everyone until somebody actually speaks, so a version of this keyed on
+    the last speaker never engages for exactly the case it exists to
+    prevent: a conversation's first-listed participant can be picked, decline
+    to speak, and still be tied for "fewest spoken" with everyone else next
+    time, winning the participant-order tie-break again and again — starving
+    every other participant for the conversation's whole life. Confirmed on
+    a real live day: an 8-participant MORNING_GATHERING gave all three of
+    its turns to the same first-listed agent and closed from their own
+    silence, without a second participant ever being offered the floor.
 
     Returns ``None`` when nobody left in the room is eligible for another
     turn today — the caller closes the conversation exactly as it already
@@ -155,15 +168,18 @@ def next_speaker(
             .group_by(ConversationMessage.agent_id)
         ).all()
     )
-    last = session.scalars(
-        select(ConversationMessage.agent_id)
-        .where(ConversationMessage.conversation_id == conversation.id)
-        .order_by(desc(ConversationMessage.turn_number))
+    last_offered = session.scalars(
+        select(Event.agent_id)
+        .where(
+            Event.event_type == EventType.AGENT_WOKE,
+            Event.payload["conversation_id"].as_integer() == conversation.id,
+        )
+        .order_by(desc(Event.id))
         .limit(1)
     ).first()
 
     ranked = sorted(
-        (a for a in eligible if a != last or len(eligible) == 1),
+        (a for a in eligible if a != last_offered or len(eligible) == 1),
         key=lambda a: (spoken.get(a, 0), participants.index(a)),
     )
     return ranked[0] if ranked else None
