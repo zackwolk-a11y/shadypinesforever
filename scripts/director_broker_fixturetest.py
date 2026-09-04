@@ -353,6 +353,67 @@ def test_positive_disposable_experiment(_: Path) -> None:
     record("RUN_APPROVED_DISPOSABLE_EXPERIMENT rejects an unlisted agent_id", disallowed_agent.status == "REJECTED", disallowed_agent.failure_reason or "")
 
 
+def test_positive_and_adversarial_research_sharing_experiment(_: Path) -> None:
+    """Backlog #2-4's newly registered experiment_id
+    (research_sharing_priming_counterfactual): valid invocation, malformed
+    parameters, wrong agent_id, and live-DB-unchanged all covered here,
+    per the Founder's Step 4 adversarial-testing requirement for any newly
+    registered experiment."""
+    import os
+    os.environ.pop("LLM_PROVIDER", None)
+    before_hash = hashlib.sha256(REAL_LIVE_DB_PATH.read_bytes()).hexdigest() if REAL_LIVE_DB_PATH.exists() else None
+
+    result = broker.execute(
+        "RUN_APPROVED_DISPOSABLE_EXPERIMENT",
+        {
+            "experiment_id": "research_sharing_priming_counterfactual",
+            "agent_id": "agent_roxy",
+            "memory_content": "I finished real research on Portland's DIY scene but never posted it anywhere or told the others what I found.",
+            "memory_type": "EPISODIC",
+            "n_pairs": 1,
+        },
+    )
+    record("research_sharing_priming_counterfactual succeeds for agent_roxy against the fixture provider", result.status == "SUCCESS", result.failure_reason or "")
+    if result.status == "SUCCESS":
+        trials = result.result.get("trials", [])
+        record("research_sharing_priming_counterfactual used the fixture provider, zero real spend", all(t["is_fixture"] for t in trials), "")
+        record("research_sharing_priming_counterfactual seeded a real research_id", bool(result.result.get("research_id")), "")
+
+    wrong_agent = broker.execute(
+        "RUN_APPROVED_DISPOSABLE_EXPERIMENT",
+        {
+            "experiment_id": "research_sharing_priming_counterfactual",
+            "agent_id": "agent_lucid",
+            "memory_content": "x", "memory_type": "EPISODIC", "n_pairs": 1,
+        },
+    )
+    record(
+        "research_sharing_priming_counterfactual rejects any agent_id other than agent_roxy",
+        wrong_agent.status == "REJECTED", wrong_agent.failure_reason or "",
+    )
+
+    malformed = broker.execute(
+        "RUN_APPROVED_DISPOSABLE_EXPERIMENT",
+        {"experiment_id": "research_sharing_priming_counterfactual", "agent_id": "agent_roxy", "memory_content": "x", "memory_type": "NOT_A_REAL_TYPE", "n_pairs": 1},
+    )
+    record("research_sharing_priming_counterfactual rejects an invalid memory_type (schema level)", malformed.status == "REJECTED", malformed.failure_reason or "")
+
+    extra_field = broker.execute(
+        "RUN_APPROVED_DISPOSABLE_EXPERIMENT",
+        {"experiment_id": "research_sharing_priming_counterfactual", "agent_id": "agent_roxy", "memory_content": "x", "memory_type": "EPISODIC", "n_pairs": 1, "python_path": "/tmp/evil.py"},
+    )
+    record("research_sharing_priming_counterfactual rejects an unknown 'python_path'-style field outright", extra_field.status == "REJECTED", extra_field.failure_reason or "")
+
+    too_many_pairs = broker.execute(
+        "RUN_APPROVED_DISPOSABLE_EXPERIMENT",
+        {"experiment_id": "research_sharing_priming_counterfactual", "agent_id": "agent_roxy", "memory_content": "x", "memory_type": "EPISODIC", "n_pairs": 999},
+    )
+    record("research_sharing_priming_counterfactual rejects n_pairs above the schema ceiling (8)", too_many_pairs.status == "REJECTED", too_many_pairs.failure_reason or "")
+
+    after_hash = hashlib.sha256(REAL_LIVE_DB_PATH.read_bytes()).hexdigest() if REAL_LIVE_DB_PATH.exists() else None
+    record("live DB hash unchanged after the new experiment's full adversarial+positive scenario set", before_hash == after_hash, "")
+
+
 def test_positive_provider_and_level2a(_: Path) -> None:
     import os
     os.environ.pop("LLM_PROVIDER", None)
@@ -431,6 +492,7 @@ def main() -> int:
     test_positive_git(Path("."))
     test_positive_disposable_lifecycle(Path("."))
     test_positive_disposable_experiment(Path("."))
+    test_positive_and_adversarial_research_sharing_experiment(Path("."))
     test_positive_provider_and_level2a(Path("."))
     test_audit_log_written(Path("."))
     test_fail_closed_on_malformed_requests(Path("."))

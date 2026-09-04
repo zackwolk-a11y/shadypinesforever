@@ -834,8 +834,135 @@ def _quiet_agent_thread_counterfactual(
         safe_rmtree(tmp_dir)
 
 
+#: Real content, copied verbatim via LIVE_DB_READ from the live Village's
+#: own real research_sessions/research_findings rows (research_id
+#: res_20706beb9b68, agent_roxy's real first research session) --
+#: hardcoded inside this trusted implementation, not caller-supplied, so
+#: the one deliberately-variable input a caller controls for this
+#: experiment is the "unshared" framing memory text (via the existing
+#: memory_content/memory_type/n_pairs fields), never the research content
+#: itself. Matches this project's standing "prefer real content, never an
+#: invented dramatic topic" discipline (see [MFC]/[TGB]).
+_ROXY_REAL_RESEARCH_QUESTION = (
+    "What underground music venues, DIY events, or community organizing is actually "
+    "happening in Portland this week? Specific venues, dates, organizers if possible"
+    "—I want to know what's real and happening now."
+)
+_ROXY_REAL_RESEARCH_FINDING = (
+    "Portland's mainstream/community show-tracking tools (PDX.ROCKS, PromotePDX) exist "
+    "and are recommended by locals for finding venue shows, but a community source "
+    "explicitly notes they don't capture house shows — suggesting genuinely "
+    "underground/DIY events remain largely invisible to standard aggregators."
+)
+
+
+def _research_sharing_priming_counterfactual(
+    params: RunApprovedDisposableExperimentParams, provider_call_counter: dict[str, int]
+) -> dict[str, Any]:
+    """Backlog #2-4 (master evidence index, Part 8): does explicitly
+    framing a real, already-completed piece of research as *unshared*
+    (mirroring the same unresolved-framing lever [MFC]/[MFR]/[TGB] already
+    validated, applied here to the sharing gap rather than the reply gap)
+    change whether the model chooses POST_TO_WALL / CREATE_RABBIT_HOLE /
+    FORM_BELIEF at its very next decision?
+
+    Restricted to agent_roxy only -- she is the one agent in this Village
+    with real completed research to draw from; giving any other agent a
+    fabricated research history would cross into inventing content this
+    project has consistently avoided. Both CONTROL and TREATMENT seed the
+    identical real ResearchSession/ResearchFinding pair (COMPLETED,
+    real question/finding text) so that "has completed research at all" is
+    held constant -- the sole manipulated variable is whether an
+    additional memory naming that research as still-unshared is present,
+    exactly mirroring quiet_agent_thread_counterfactual's own CONTROL/
+    TREATMENT shape.
+    """
+    import uuid as _uuid
+
+    import app.db.models  # noqa: F401
+    from app.core.config import get_settings
+    from app.domain.enums import EvidenceStrength, FindingClassification, MemoryType, ResearchStatus
+    from app.domain.ids import new_correlation_id
+    from app.providers.llm import get_llm_provider
+    from app.schemas.actions import AgentDecision
+    from app.services import memory as memory_service
+    from app.services.context_builder import build_agent_context
+    from app.services.orchestrator import _available_actions_for
+    from sqlalchemy import select
+
+    if params.agent_id != "agent_roxy":
+        raise BrokerError(
+            "research_sharing_priming_counterfactual is restricted to agent_roxy "
+            "(the only agent with real completed research to draw from)"
+        )
+
+    tmp_dir, session = _diag.create_guarded_isolated_sqlite_session(prefix="director_broker_exp_")
+    try:
+        import seed_agents
+        from app.db.models.agents import Agent
+        from app.db.models.memory import Memory
+        from app.db.models.research import ResearchFinding, ResearchSession
+        from app.db.models.world import SimulationClock
+
+        seed_agents.run(session)
+        session.commit()
+
+        settings = get_settings()
+        provider = get_llm_provider(settings)
+        agent = session.scalars(select(Agent).where(Agent.agent_id == "agent_roxy")).one()
+        clock = session.scalars(select(SimulationClock).limit(1)).first()
+        available_actions = _available_actions_for(in_conversation=False)
+
+        research_id = f"res_{_uuid.uuid4().hex[:12]}"
+        session.add(ResearchSession(
+            research_id=research_id, agent_id="agent_roxy", question=_ROXY_REAL_RESEARCH_QUESTION,
+            status=ResearchStatus.COMPLETED, evidence_strength=EvidenceStrength.WEAK, confidence=25.0,
+        ))
+        session.flush()  # guarantee the FK target exists before the finding references it
+        session.add(ResearchFinding(
+            research_session_id=research_id, finding_text=_ROXY_REAL_RESEARCH_FINDING,
+            classification=FindingClassification.RESEARCH_FINDING,
+        ))
+        session.commit()
+
+        trials = []
+        for pair in range(params.n_pairs):
+            for condition in ("CONTROL", "TREATMENT"):
+                session.query(Memory).filter(Memory.agent_id == "agent_roxy").delete()
+                session.commit()
+                if condition == "TREATMENT":
+                    memory_service.write_note(
+                        session, "agent_roxy", params.memory_content, clock, new_correlation_id(),
+                        memory_type=MemoryType(params.memory_type),
+                    )
+                    session.commit()
+                context = build_agent_context(
+                    session, agent, clock, settings, available_actions=available_actions,
+                )
+                result_llm = provider.complete(
+                    system=context.system, user=context.user, model=settings.agent_model,
+                    purpose="agent_decision", output_type=AgentDecision,
+                    max_tokens=settings.max_tokens_agent_decision,
+                )
+                provider_call_counter["n"] += 1
+                decision = result_llm.output
+                trials.append({
+                    "pair": pair, "condition": condition, "is_fixture": result_llm.is_fixture,
+                    "summary": decision.summary,
+                    "action_types": [a.type.value for a in decision.actions],
+                    "wall_post_type": [
+                        a.wall_post_type.value if a.wall_post_type else None for a in decision.actions
+                    ],
+                })
+        return {"agent_id": "agent_roxy", "research_id": research_id, "trials": trials}
+    finally:
+        session.close()
+        safe_rmtree(tmp_dir)
+
+
 _EXPERIMENT_CATALOG: dict[str, Callable[..., dict[str, Any]]] = {
     "quiet_agent_thread_counterfactual": _quiet_agent_thread_counterfactual,
+    "research_sharing_priming_counterfactual": _research_sharing_priming_counterfactual,
 }
 
 
