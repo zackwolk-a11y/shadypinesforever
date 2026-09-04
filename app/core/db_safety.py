@@ -24,15 +24,30 @@ app/web/control.py) gets the real path for free by not overriding it.
 
 from __future__ import annotations
 
+import os
 import shutil
 import sqlite3
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-CANONICAL_LIVE_DB_PATH = REPO_ROOT / "data" / "live" / "internal_village.db"
-LIVE_BACKUP_DIR = REPO_ROOT / "data" / "live" / "backups"
+
+#: Root directory for all live-Village persistent state — the database, its
+#: backups, and quarantined archives. Defaults to REPO_ROOT/data (unchanged
+#: behavior when unset). Set VILLAGE_DATA_ROOT to relocate all three
+#: together outside the repository, e.g. so a `git clean` or a careless
+#: `rm -rf` of a checkout can never reach live data. Read once at import
+#: time, exactly like every other path constant here — see this module's
+#: docstring for why tests monkeypatch the derived constants directly
+#: rather than this env var.
+_env_data_root = os.environ.get("VILLAGE_DATA_ROOT", "").strip()
+VILLAGE_DATA_ROOT = Path(_env_data_root) if _env_data_root else REPO_ROOT / "data"
+
+CANONICAL_LIVE_DB_PATH = VILLAGE_DATA_ROOT / "live" / "internal_village.db"
+LIVE_BACKUP_DIR = VILLAGE_DATA_ROOT / "live" / "backups"
+QUARANTINE_DIR = VILLAGE_DATA_ROOT / "live" / "quarantine"
 
 #: A schema-less/near-empty file is exactly the corruption signature the
 #: real incident produced (SQLite's default page size is 4096 bytes; an
@@ -214,3 +229,51 @@ def list_backups(backup_dir: Path | None = None) -> list[Path]:
     if not backup_dir.exists():
         return []
     return sorted(backup_dir.glob("internal_village_*.db"))
+
+
+def safe_rmtree(path: Path) -> None:
+    """Recursively delete a disposable directory tree — but only if it is
+    unambiguously disposable. Refuses (raises ``LiveDatabaseError``, deletes
+    nothing) unless BOTH hold:
+
+    1. ``path`` resolves to somewhere inside the OS temp directory
+       (``tempfile.gettempdir()``) — the same directory ``tempfile.mkdtemp()``
+       itself always creates under. A path outside it was never something a
+       disposable-lifecycle script actually created for itself.
+    2. ``path`` does not equal, contain, or sit inside either live-data root
+       — the current ``VILLAGE_DATA_ROOT`` (wherever it's configured right
+       now) or the legacy in-repo ``REPO_ROOT/data``. Checked both
+       directions: deleting the root itself, deleting something *above* it
+       that would take it down too, and deleting something *inside* it are
+       all refused.
+
+    Built after ``scripts/_e2e_db_safety_lifecycle.py`` was flagged for
+    calling ``shutil.rmtree(tmp_root, ignore_errors=True)`` with no such
+    guard. Audited (see the accompanying investigation) and found this
+    could not actually have caused a real ``data/live`` disappearance —
+    ``tempfile.mkdtemp()`` is an OS-level guarantee of a fresh, unique path
+    that cannot coincide with a real one, and the script never reads any
+    environment variable that could redirect it. But nothing previously
+    stopped a *future* edit (a copy-paste, an "optimization" to reuse an
+    existing directory, a wrong variable) from making that true, and a
+    script whose whole purpose is exercising real destructive-adjacent
+    lifecycle logic against disposable data is exactly the place a defense
+    like this belongs even when the current code doesn't need it yet.
+    """
+    resolved = path.resolve()
+    tmp_dir = Path(tempfile.gettempdir()).resolve()
+    if resolved != tmp_dir and tmp_dir not in resolved.parents:
+        raise LiveDatabaseError(
+            f"safe_rmtree refuses to delete {resolved}: it is not inside the "
+            f"OS temp directory ({tmp_dir}). Only paths a disposable-lifecycle "
+            "script created for itself via tempfile.mkdtemp() may be removed "
+            "this way."
+        )
+    live_roots = {VILLAGE_DATA_ROOT.resolve(), (REPO_ROOT / "data").resolve()}
+    for root in live_roots:
+        if resolved == root or root in resolved.parents or resolved in root.parents:
+            raise LiveDatabaseError(
+                f"safe_rmtree refuses to delete {resolved}: it equals, contains, "
+                f"or sits inside the live-data root {root}."
+            )
+    shutil.rmtree(resolved, ignore_errors=True)

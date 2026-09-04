@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import sqlite3
 import subprocess
 import sys
@@ -41,7 +40,14 @@ sys.path.insert(0, str(REPO_ROOT))
 
 _VILLAGE_DB_PATH = REPO_ROOT / "village.db"
 _VILLAGE_DB_MTIME_AT_START = _VILLAGE_DB_PATH.stat().st_mtime if _VILLAGE_DB_PATH.exists() else None
-_REAL_LIVE_DB_PATH = REPO_ROOT / "data" / "live" / "internal_village.db"
+
+# Imported, not reconstructed as a literal: once VILLAGE_DATA_ROOT can
+# relocate the real canonical path outside the repo, a hardcoded
+# REPO_ROOT/data/live/internal_village.db would silently stop being "the
+# real live db" and this safety net would guard the wrong file. Importing
+# the live constant keeps this sentinel correct under either configuration.
+from app.core.db_safety import CANONICAL_LIVE_DB_PATH as _REAL_LIVE_DB_PATH
+from app.core.db_safety import LiveDatabaseError, safe_rmtree
 
 
 def _dedicated_engine(path: Path):
@@ -64,14 +70,22 @@ def _make_healthy_db(path: Path) -> None:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     old_url = os.environ.get("DATABASE_URL")
+    old_app_env = os.environ.get("APP_ENV")
     os.environ["DATABASE_URL"] = f"sqlite:///{path}"
+    os.environ.pop("APP_ENV", None)
     try:
-        command.upgrade(Config(str(REPO_ROOT / "alembic.ini")), "head")
+        from alembic.config import Config as _AlembicConfig
+        from alembic import command as _alembic_command
+        _alembic_command.upgrade(_AlembicConfig(str(REPO_ROOT / "alembic.ini")), "head")
     finally:
         if old_url is None:
             os.environ.pop("DATABASE_URL", None)
         else:
             os.environ["DATABASE_URL"] = old_url
+        if old_app_env is None:
+            os.environ.pop("APP_ENV", None)
+        else:
+            os.environ["APP_ENV"] = old_app_env
 
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     import seed_agents
@@ -112,6 +126,8 @@ def main() -> int:
         checks += _test_resolve_live_database_url(tmp_root)
         checks += _test_backup_and_restore(tmp_root)
         checks += _test_migration_and_seed(tmp_root)
+        checks += _test_village_data_root_env_var(tmp_root)
+        checks += _test_safe_rmtree_guard(tmp_root)
         checks += _test_fresh_live_init_subprocess(tmp_root)
         checks += _test_run_day_lifecycle_backups_subprocess(tmp_root)
         checks += _test_run_live_research_once_refuses_silently()
@@ -119,7 +135,7 @@ def main() -> int:
         if args.keep_db:
             print(f"\nKept: {tmp_root}")
         else:
-            shutil.rmtree(tmp_root, ignore_errors=True)
+            safe_rmtree(tmp_root)
 
     print("\nChecks:")
     all_ok = True
@@ -328,6 +344,202 @@ def _test_migration_and_seed(tmp_root: Path) -> list[tuple[str, bool]]:
 
 
 # ---------------------------------------------------------------------------
+# VILLAGE_DATA_ROOT: relocating the live db/backups/quarantine outside the
+# repo. Every case runs in a fresh subprocess (VILLAGE_DATA_ROOT is read
+# once, at db_safety.py's import time — a monkeypatch on an already-loaded
+# module wouldn't exercise the actual env-var code path) with the env var
+# pointed at a disposable tmp_root subdirectory, never the real repo or the
+# real external root a human might configure in their own .env.
+# ---------------------------------------------------------------------------
+
+
+def _parse_markers(stdout: str) -> dict[str, str]:
+    return dict(
+        line.split(":", 2)[1:3] for line in stdout.splitlines() if line.startswith("MARKER:")
+    ) if stdout else {}
+
+
+def _test_village_data_root_env_var(tmp_root: Path) -> list[tuple[str, bool]]:
+    checks: list[tuple[str, bool]] = []
+
+    # 1. Unset -> unchanged default behavior (REPO_ROOT/data).
+    result = _run_isolated(f"""
+        import sys, os
+        os.environ.pop("VILLAGE_DATA_ROOT", None)
+        sys.path.insert(0, {str(REPO_ROOT)!r})
+        import app.core.db_safety as db_safety
+        expected_root = {str(REPO_ROOT / "data")!r}
+        print(f"MARKER:default_root:{{str(db_safety.VILLAGE_DATA_ROOT) == expected_root}}")
+        print(f"MARKER:default_live_path:{{db_safety.CANONICAL_LIVE_DB_PATH == db_safety.VILLAGE_DATA_ROOT / 'live' / 'internal_village.db'}}")
+    """, tmp_root)
+    markers = _parse_markers(result.stdout)
+    checks.append(("VILLAGE_DATA_ROOT unset: VILLAGE_DATA_ROOT defaults to REPO_ROOT/data (unchanged behavior)",
+                    markers.get("default_root") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT unset: CANONICAL_LIVE_DB_PATH still derives from it correctly",
+                    markers.get("default_live_path") == "True"))
+
+    # 2. Set to a disposable external root -> all three constants relocate
+    #    together, and none of them resolve inside the repo.
+    external_root = tmp_root / "external_data_root"
+    result = _run_isolated(f"""
+        import sys, os
+        os.environ["VILLAGE_DATA_ROOT"] = {str(external_root)!r}
+        sys.path.insert(0, {str(REPO_ROOT)!r})
+        import app.core.db_safety as db_safety
+        repo_root = {str(REPO_ROOT)!r}
+        ext = {str(external_root)!r}
+        print(f"MARKER:root_matches:{{str(db_safety.VILLAGE_DATA_ROOT) == ext}}")
+        print(f"MARKER:live_path_external:{{str(db_safety.CANONICAL_LIVE_DB_PATH).startswith(ext)}}")
+        print(f"MARKER:backup_dir_external:{{str(db_safety.LIVE_BACKUP_DIR).startswith(ext)}}")
+        print(f"MARKER:quarantine_dir_external:{{str(db_safety.QUARANTINE_DIR).startswith(ext)}}")
+        print(f"MARKER:live_path_not_in_repo:{{not str(db_safety.CANONICAL_LIVE_DB_PATH).startswith(repo_root)}}")
+        print(f"MARKER:backup_dir_not_in_repo:{{not str(db_safety.LIVE_BACKUP_DIR).startswith(repo_root)}}")
+        print(f"MARKER:quarantine_dir_not_in_repo:{{not str(db_safety.QUARANTINE_DIR).startswith(repo_root)}}")
+    """, tmp_root)
+    markers = _parse_markers(result.stdout)
+    checks.append(("VILLAGE_DATA_ROOT set: VILLAGE_DATA_ROOT reflects the configured external path",
+                    markers.get("root_matches") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT set: CANONICAL_LIVE_DB_PATH is under the external root",
+                    markers.get("live_path_external") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT set: LIVE_BACKUP_DIR is under the external root",
+                    markers.get("backup_dir_external") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT set: QUARANTINE_DIR is under the external root",
+                    markers.get("quarantine_dir_external") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT set: CANONICAL_LIVE_DB_PATH is NOT inside the repo",
+                    markers.get("live_path_not_in_repo") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT set: LIVE_BACKUP_DIR is NOT inside the repo",
+                    markers.get("backup_dir_not_in_repo") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT set: QUARANTINE_DIR is NOT inside the repo",
+                    markers.get("quarantine_dir_not_in_repo") == "True"))
+
+    # 3. Functional round-trip: init + seed + backup actually work end-to-end
+    #    when VILLAGE_DATA_ROOT (not a direct constant monkeypatch) is what
+    #    drives resolution — proves the env var itself is live, production
+    #    code, not just a constant the tests happen to also be able to set.
+    external_root2 = tmp_root / "external_data_root_functional"
+    result = _run_isolated(f"""
+        import sys, os
+        os.environ["VILLAGE_DATA_ROOT"] = {str(external_root2)!r}
+        os.environ["APP_ENV"] = "live"
+        os.environ["ALLOW_FRESH_LIVE_INIT"] = "1"
+        sys.path.insert(0, {str(REPO_ROOT)!r})
+        sys.path.insert(0, {str(REPO_ROOT / "scripts")!r})
+
+        import app.core.config as config
+        import app.core.db_safety as db_safety
+
+        db_safety.CANONICAL_LIVE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        from alembic import command
+        from alembic.config import Config as AlembicConfig
+        command.upgrade(AlembicConfig(str({str(REPO_ROOT / "alembic.ini")!r})), "head")
+        os.environ.pop("ALLOW_FRESH_LIVE_INIT", None)
+
+        import seed_agents
+        from app.db.session import SessionLocal
+        session = SessionLocal()
+        report = seed_agents.run(session)
+        session.commit()
+        session.close()
+        print(f"MARKER:seeded:{{len(report.created) > 0}}")
+
+        backup_path = db_safety.create_backup("post_init")
+        print(f"MARKER:backup_healthy:{{db_safety.verify_backup(backup_path).healthy}}")
+        print(f"MARKER:backup_under_external_root:{{str(backup_path).startswith({str(external_root2)!r})}}")
+
+        url = config.resolve_database_url()
+        print(f"MARKER:resolves_to_external:{{{str(external_root2)!r} in url}}")
+    """, tmp_root)
+    markers = _parse_markers(result.stdout)
+    checks.append(("VILLAGE_DATA_ROOT functional: subprocess (real config/alembic/seed_agents chain) exited cleanly",
+                    result.returncode == 0))
+    if result.returncode != 0:
+        print(f"  (subprocess stderr tail: {result.stderr[-500:]})")
+    checks.append(("VILLAGE_DATA_ROOT functional: seed_agents runs against the externally-rooted db",
+                    markers.get("seeded") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT functional: post-init backup created and verified healthy",
+                    markers.get("backup_healthy") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT functional: backup lands under the external root, not the repo",
+                    markers.get("backup_under_external_root") == "True"))
+    checks.append(("VILLAGE_DATA_ROOT functional: config.resolve_database_url() resolves to the external root",
+                    markers.get("resolves_to_external") == "True"))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
+# safe_rmtree: the guard added after scripts/_e2e_db_safety_lifecycle.py was
+# flagged for calling shutil.rmtree(tmp_root, ignore_errors=True) with no
+# check at all. In-process (safe_rmtree reads VILLAGE_DATA_ROOT at call
+# time via a plain module-attribute lookup, so monkeypatching
+# db_safety.VILLAGE_DATA_ROOT directly is sufficient here — no subprocess
+# needed the way the env-var-at-import-time tests above required one).
+# Every negative case below must leave its target untouched: a bug in the
+# guard here would have deleted this test's own tmp_root mid-run.
+# ---------------------------------------------------------------------------
+
+
+def _test_safe_rmtree_guard(tmp_root: Path) -> list[tuple[str, bool]]:
+    import app.core.db_safety as db_safety
+
+    checks: list[tuple[str, bool]] = []
+
+    # 1. Positive case: a genuine disposable dir under an OS temp directory
+    #    is deleted normally — the guard must not break real cleanup.
+    disposable = Path(tempfile.mkdtemp(dir=str(tmp_root)))
+    (disposable / "marker.txt").write_text("x")
+    safe_rmtree(disposable)
+    checks.append(("safe_rmtree: deletes a genuine disposable temp-dir path", not disposable.exists()))
+
+    # 2. Refuses a path that isn't under any OS temp directory at all — a
+    #    real, non-temp location (the repo root itself). Must raise before
+    #    ever calling shutil.rmtree, so REPO_ROOT must survive untouched.
+    try:
+        safe_rmtree(REPO_ROOT)
+        checks.append(("safe_rmtree: refuses a path outside the OS temp directory", False))
+    except LiveDatabaseError:
+        checks.append(("safe_rmtree: refuses a path outside the OS temp directory", True))
+    checks.append(("safe_rmtree: refusing 'outside temp dir' left the repo root untouched", REPO_ROOT.exists()))
+
+    # 3-5. Refuses equals / inside / contains relative to the live-data root
+    #    — using a disposable stand-in root under tmp_root, monkeypatched in
+    #    as VILLAGE_DATA_ROOT, never the real repo or external data root.
+    fake_root = tmp_root / "fake_village_data_root"
+    fake_live_subdir = fake_root / "live" / "backups"
+    fake_live_subdir.mkdir(parents=True, exist_ok=True)
+
+    original_root = db_safety.VILLAGE_DATA_ROOT
+    db_safety.VILLAGE_DATA_ROOT = fake_root
+    try:
+        try:
+            safe_rmtree(fake_root)
+            checks.append(("safe_rmtree: refuses a path that equals the live-data root", False))
+        except LiveDatabaseError:
+            checks.append(("safe_rmtree: refuses a path that equals the live-data root", True))
+        checks.append(("safe_rmtree: refusing 'equals' left the fake root untouched", fake_root.exists()))
+
+        try:
+            safe_rmtree(fake_live_subdir)
+            checks.append(("safe_rmtree: refuses a path inside the live-data root", False))
+        except LiveDatabaseError:
+            checks.append(("safe_rmtree: refuses a path inside the live-data root", True))
+        checks.append(("safe_rmtree: refusing 'inside' left the fake subdir untouched", fake_live_subdir.exists()))
+
+        try:
+            safe_rmtree(tmp_root)
+            checks.append(("safe_rmtree: refuses a path that would take the live-data root down with it", False))
+        except LiveDatabaseError:
+            checks.append(("safe_rmtree: refuses a path that would take the live-data root down with it", True))
+        checks.append((
+            "safe_rmtree: refusing 'contains' left tmp_root (this test's own disposable root) untouched",
+            tmp_root.exists() and fake_root.exists(),
+        ))
+    finally:
+        db_safety.VILLAGE_DATA_ROOT = original_root
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # fresh-live init, in an isolated subprocess (fresh interpreter, no
 # module-caching pitfalls) with db_safety's path constants monkeypatched
 # to a disposable directory before anything else imports them.
@@ -437,12 +649,12 @@ def _test_fresh_live_init_subprocess(tmp_root: Path) -> list[tuple[str, bool]]:
 def _test_run_day_lifecycle_backups_subprocess(tmp_root: Path) -> list[tuple[str, bool]]:
     fake_live_dir = tmp_root / "run_day_live"
     fake_live_path = fake_live_dir / "internal_village.db"
-    fake_backup_dir = fake_live_dir / "backups"
+    fake_backup_dir = tmp_root / "run_day_backups"
     _make_healthy_db(fake_live_path)
     checks: list[tuple[str, bool]] = []
 
     result = _run_isolated(f"""
-        import sys, os, pathlib
+        import sys, os, pathlib, sqlite3
         sys.path.insert(0, {str(REPO_ROOT)!r})
         sys.path.insert(0, {str(REPO_ROOT / "scripts")!r})
 
@@ -471,6 +683,47 @@ def _test_run_day_lifecycle_backups_subprocess(tmp_root: Path) -> list[tuple[str
     markers = dict(
         line.split(":", 2)[1:3] for line in result.stdout.splitlines() if line.startswith("MARKER:")
     ) if result.stdout else {}
+
+    # --- stale-file / leak invariants (checked in the PARENT process against
+    #     the monkeypatched paths, never the real canonical dirs) ---
+
+    # Source DB directory: after run_day completes, must contain nothing but
+    # the database file and its WAL/SHM siblings — no backup files, no temp
+    # files, no other leakage.
+    source_contents = sorted(p for p in fake_live_dir.iterdir())
+    allowed_in_source = {
+        fake_live_path.name,
+        fake_live_path.name + "-wal",
+        fake_live_path.name + "-shm",
+    }
+    leaked = [p for p in source_contents if p.name not in allowed_in_source]
+    checks.append(("RUN DAY lifecycle: no stale/leaked files in the source DB directory (gc invariant)",
+                    bool(source_contents) and len(leaked) == 0))
+    if leaked:
+        print(f"  LEAKED FILES: {[p.name for p in leaked]}")
+
+    # Backup destination: every .db file must pass integrity_check.
+    # A failed backup candidate must not be left behind as a valid-looking file.
+    backup_contents = sorted(p for p in fake_backup_dir.iterdir() if p.suffix == ".db")
+    bad_backups = []
+    for bk in backup_contents:
+        try:
+            conn = sqlite3.connect(f"file:{bk}?mode=ro", uri=True)
+            try:
+                integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+                table_count = conn.execute(
+                    "SELECT count(*) FROM sqlite_master WHERE type='table'"
+                ).fetchone()[0]
+            finally:
+                conn.close()
+            if integrity != "ok" or table_count == 0:
+                bad_backups.append((bk, integrity, table_count))
+        except Exception as exc:
+            bad_backups.append((bk, f"could not open: {exc}", -1))
+    checks.append(("RUN DAY lifecycle: every file in backup destination passes integrity_check (no failed candidates leaked)",
+                    bool(backup_contents) and len(bad_backups) == 0))
+    for bk, integrity, tc in bad_backups:
+        print(f"  BAD BACKUP: {bk} integrity={integrity} tables={tc}")
 
     checks.append(("RUN DAY lifecycle: subprocess (scripts/run_day.py, APP_ENV=live) exited cleanly",
                     result.returncode == 0 and markers.get("exit_code") == "0"))
