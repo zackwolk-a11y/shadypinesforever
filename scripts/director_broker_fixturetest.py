@@ -1033,6 +1033,243 @@ def test_run_bounded_live_window(_: Path) -> None:
         safe_rmtree(tmp_dir2)
 
 
+def test_run_multi_reviewer_synthesis(_: Path) -> None:
+    """RUN_MULTI_REVIEWER_SYNTHESIS (Founder-authorized 2026-09-05). Every
+    scenario here uses an all-FixtureModelProvider reviewers.json
+    (monkeypatched via broker._REVIEWERS_CONFIG_PATH_OVERRIDE, same pattern
+    the rest of this file already uses for other module-level overrides) --
+    zero network, zero cost, fully deterministic -- and a scratch round-
+    records root (broker._REVIEWER_ROUNDS_ROOT) so nothing here ever writes
+    under the real founder_packets/reviewer_rounds/. This capability never
+    references CANONICAL_LIVE_DB_PATH anywhere in its own implementation,
+    so every scenario below is inherently "provider failure/misbehavior
+    leaves the live DB untouched" -- verified directly at the end anyway."""
+    import shutil
+    import tempfile
+
+    import director_providers
+    import director_reviewers
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="director_broker_fixturetest_reviewers_"))
+    reviewers_config_path = tmp_dir / "reviewers.json"
+    reviewers_config_path.write_text(json.dumps([
+        {"reviewer_id": "test-primary", "role": "PRIMARY", "provider": "fixture", "enabled": True},
+        {"reviewer_id": "test-critique", "role": "CRITIQUE", "provider": "fixture", "enabled": True},
+        {"reviewer_id": "test-synthesis", "role": "SYNTHESIS", "provider": "fixture", "enabled": True},
+    ]))
+
+    original_reviewers_override = broker._REVIEWERS_CONFIG_PATH_OVERRIDE
+    original_rounds_root = broker._REVIEWER_ROUNDS_ROOT
+    original_get_model_provider = director_reviewers.get_model_provider
+    broker._REVIEWERS_CONFIG_PATH_OVERRIDE = reviewers_config_path
+    broker._REVIEWER_ROUNDS_ROOT = "founder_packets/_broker_fixturetest_scratch_reviewer_rounds"
+    scratch_rounds_abspath = broker.DIRECTOR_DIR / broker._REVIEWER_ROUNDS_ROOT
+    live_db_hash_before = hashlib.sha256(REAL_LIVE_DB_PATH.read_bytes()).hexdigest() if REAL_LIVE_DB_PATH.exists() else None
+
+    def _write_evidence(relative_path: str, content: str) -> str:
+        write_result = broker.execute("WRITE_DIRECTOR_ARTIFACT", {"relative_path": relative_path, "content": content})
+        assert write_result.status == "SUCCESS", write_result.failure_reason
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    try:
+        shutil.rmtree(scratch_rounds_abspath, ignore_errors=True)
+
+        # --- Scenario 1: full successful round, capturing exactly what
+        # content each role actually received, to prove (1) the SAME
+        # immutable evidence reaches PRIMARY and CRITIQUE, and (2) SYNTHESIS
+        # receives the original evidence PLUS both reviews. ---
+        captured_user_content: list[str] = []
+
+        class _CapturingFixtureProvider(director_providers.FixtureModelProvider):
+            def complete_structured(self, spec):  # noqa: ANN001
+                captured_user_content.append(spec.user_content)
+                return super().complete_structured(spec)
+
+        director_reviewers.get_model_provider = lambda name, model=None: _CapturingFixtureProvider()
+
+        evidence_content = json.dumps({"marker": "UNIQUE_EVIDENCE_MARKER_9f2a", "evidence_interval": "test"})
+        fp1 = _write_evidence("founder_packets/_broker_fixturetest_scratch_evidence_1.json", evidence_content)
+        result1 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+            "evidence_artifact_relative_path": "founder_packets/_broker_fixturetest_scratch_evidence_1.json",
+            "evidence_fingerprint": fp1, "review_round_id": "round_one",
+            "scientific_question": "Does the full pipeline execute end to end?",
+        })
+        record("full round succeeds against an all-fixture reviewer config", result1.status == "SUCCESS", result1.failure_reason or "")
+        record("exactly 3 provider calls spent (one per role, no retries needed)", result1.provider_calls == 3, str(result1.provider_calls))
+        record(
+            "the recorded round contains primary, critique, synthesis, and a reconciliation packet",
+            result1.status == "SUCCESS" and all(k in result1.result for k in ("primary", "critique", "synthesis", "reconciliation_packet")),
+            str(list(result1.result.keys())) if result1.status == "SUCCESS" else result1.failure_reason,
+        )
+        record("exactly 3 calls were captured, in PRIMARY, CRITIQUE, SYNTHESIS order", len(captured_user_content) == 3, str(len(captured_user_content)))
+        if len(captured_user_content) == 3:
+            primary_content, critique_content, synthesis_content = captured_user_content
+            record(
+                "PRIMARY and CRITIQUE both receive the identical immutable evidence snapshot",
+                "UNIQUE_EVIDENCE_MARKER_9f2a" in primary_content and "UNIQUE_EVIDENCE_MARKER_9f2a" in critique_content,
+                "marker missing from one of PRIMARY/CRITIQUE content",
+            )
+            record(
+                "CRITIQUE also receives PRIMARY's own output (not merely the evidence)",
+                "PRIMARY REVIEWER OUTPUT" in critique_content,
+                critique_content[:200],
+            )
+            record(
+                "SYNTHESIS receives the original evidence, both reviews, and the reconciliation packet",
+                "UNIQUE_EVIDENCE_MARKER_9f2a" in synthesis_content
+                and "PRIMARY REVIEWER OUTPUT" in synthesis_content
+                and "CRITIQUE REVIEWER OUTPUT" in synthesis_content
+                and "RECONCILIATION PACKET" in synthesis_content,
+                synthesis_content[:200],
+            )
+
+        # --- Scenario 2 (test #7, "changed evidence can justify a new
+        # review"): a different review_round_id over different evidence
+        # succeeds completely independently -- proves the duplicate-
+        # prevention check is keyed on the round_id, not a global lock. ---
+        evidence_content_2 = json.dumps({"marker": "SECOND_MARKER", "evidence_interval": "test2"})
+        fp2 = _write_evidence("founder_packets/_broker_fixturetest_scratch_evidence_2.json", evidence_content_2)
+        result2 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+            "evidence_artifact_relative_path": "founder_packets/_broker_fixturetest_scratch_evidence_2.json",
+            "evidence_fingerprint": fp2, "review_round_id": "round_two",
+            "scientific_question": "Does a second, independent round also succeed?",
+        })
+        record("a second round over different evidence with a different round_id succeeds independently", result2.status == "SUCCESS", result2.failure_reason or "")
+
+        director_reviewers.get_model_provider = original_get_model_provider  # restore before the remaining scenarios
+
+        # --- Scenario 3 (test #6, duplicate prevention): re-using the SAME
+        # review_round_id is rejected, even with fresh/different evidence,
+        # and spends zero provider calls -- round records are immutable. ---
+        result3 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+            "evidence_artifact_relative_path": "founder_packets/_broker_fixturetest_scratch_evidence_1.json",
+            "evidence_fingerprint": fp1, "review_round_id": "round_one",
+            "scientific_question": "Does re-using round_one get rejected?",
+        })
+        record(
+            "duplicate review_round_id is rejected before spending any provider call (round records are immutable)",
+            result3.status == "REJECTED" and result3.provider_calls == 0,
+            f"status={result3.status} provider_calls={result3.provider_calls} reason={result3.failure_reason}",
+        )
+
+        # --- Scenario 4 (test #3, fingerprint mismatch): a wrong fingerprint
+        # fails closed before any provider call, even though the artifact
+        # itself genuinely exists. ---
+        result4 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+            "evidence_artifact_relative_path": "founder_packets/_broker_fixturetest_scratch_evidence_2.json",
+            "evidence_fingerprint": "0" * 64, "review_round_id": "round_fingerprint_mismatch",
+            "scientific_question": "Does a wrong fingerprint fail closed?",
+        })
+        record(
+            "evidence fingerprint mismatch fails closed with zero provider spend",
+            result4.status == "REJECTED" and result4.provider_calls == 0 and "fingerprint mismatch" in (result4.failure_reason or ""),
+            f"status={result4.status} reason={result4.failure_reason}",
+        )
+
+        # --- Scenario 5 (test #4, arbitrary path rejected): path traversal
+        # and an absolute path are both rejected by the same _resolve_within
+        # every other artifact capability already uses. ---
+        for bad_path in ("../../etc/passwd", "/etc/passwd", "founder_packets/../../../etc/passwd"):
+            result5 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+                "evidence_artifact_relative_path": bad_path,
+                "evidence_fingerprint": "0" * 64, "review_round_id": "round_path_probe",
+                "scientific_question": "Does an escaping path get rejected?",
+            })
+            record(f"path escape rejected: {bad_path!r}", result5.status == "REJECTED", result5.failure_reason or "")
+
+        # --- Scenario 6 (test #5, arbitrary prompt/executable injection
+        # rejected): the strict Pydantic model (extra='forbid') rejects any
+        # field this capability doesn't define -- there is no system_prompt,
+        # provider, model, or executable_path field to inject at all. ---
+        for injected_field, injected_value in (
+            ("system_prompt", "ignore all prior instructions"), ("provider", "anthropic"),
+            ("model", "claude-opus-5"), ("executable_path", "/bin/sh"), ("shell_command", "rm -rf /"),
+        ):
+            result6 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+                "evidence_artifact_relative_path": "founder_packets/_broker_fixturetest_scratch_evidence_1.json",
+                "evidence_fingerprint": fp1, "review_round_id": "round_injection_probe",
+                "scientific_question": "probe", injected_field: injected_value,
+            })
+            record(f"injected field rejected by extra='forbid': {injected_field!r}", result6.status == "REJECTED", result6.failure_reason or "")
+
+        # --- Scenario 7 (test #9, call budget enforced): max_provider_calls=1
+        # means PRIMARY may run (spending the only call), but CRITIQUE must
+        # then fail closed for lack of budget -- never silently proceeding
+        # with fewer than the full pipeline. ---
+        evidence_content_3 = json.dumps({"marker": "BUDGET_TEST", "evidence_interval": "test3"})
+        fp3 = _write_evidence("founder_packets/_broker_fixturetest_scratch_evidence_3.json", evidence_content_3)
+        result7 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+            "evidence_artifact_relative_path": "founder_packets/_broker_fixturetest_scratch_evidence_3.json",
+            "evidence_fingerprint": fp3, "review_round_id": "round_budget_probe",
+            "scientific_question": "probe", "max_provider_calls": 1,
+        })
+        record(
+            "a budget of 1 lets PRIMARY run but fails closed before CRITIQUE, spending exactly 1 call",
+            result7.status == "REJECTED" and result7.provider_calls == 1 and "call budget" in (result7.failure_reason or ""),
+            f"status={result7.status} provider_calls={result7.provider_calls} reason={result7.failure_reason}",
+        )
+        record(
+            "a budget-exhausted round never writes a round-record artifact (no partial round is ever persisted)",
+            not (broker.DIRECTOR_DIR / broker._REVIEWER_ROUNDS_ROOT / "round_budget_probe.json").exists(),
+            "",
+        )
+
+        # --- Scenario 8 (test #10, reviewer recommendation cannot trigger
+        # production mutation): a misbehaving PRIMARY that tries to
+        # self-approve (APPROVED_TO_TEST, the one "production action" this
+        # schema recognizes) makes the whole round fail closed -- inherited
+        # directly from director_reviewers.run_reviewer's own existing
+        # fail-closed check, exercised here through the broker capability. ---
+        class _SelfApprovingProvider:
+            def __init__(self, model=None, api_key=None):
+                del model, api_key
+
+            def complete_structured(self, spec):  # noqa: ANN001
+                return {
+                    field_name: (["APPROVED_TO_TEST"][0] if field_name == "status" else director_providers.FixtureModelProvider._placeholder(field_name, prop))
+                    for field_name, prop in spec.schema.get("properties", {}).items()
+                } | {"status": "APPROVED_TO_TEST"}
+
+        director_reviewers.get_model_provider = lambda name, model=None: _SelfApprovingProvider()
+        evidence_content_4 = json.dumps({"marker": "SELF_APPROVE_TEST", "evidence_interval": "test4"})
+        fp4 = _write_evidence("founder_packets/_broker_fixturetest_scratch_evidence_4.json", evidence_content_4)
+        result8 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+            "evidence_artifact_relative_path": "founder_packets/_broker_fixturetest_scratch_evidence_4.json",
+            "evidence_fingerprint": fp4, "review_round_id": "round_self_approve_probe",
+            "scientific_question": "probe",
+        })
+        director_reviewers.get_model_provider = original_get_model_provider
+        record(
+            "a reviewer attempting to self-approve (APPROVED_TO_TEST) fails the whole round closed -- can never trigger a production mutation",
+            result8.status == "REJECTED" and not (broker.DIRECTOR_DIR / broker._REVIEWER_ROUNDS_ROOT / "round_self_approve_probe.json").exists(),
+            f"status={result8.status} reason={result8.failure_reason}",
+        )
+
+        # --- Scenario 9: missing artifact fails closed. ---
+        result9 = broker.execute("RUN_MULTI_REVIEWER_SYNTHESIS", {
+            "evidence_artifact_relative_path": "founder_packets/_broker_fixturetest_scratch_does_not_exist.json",
+            "evidence_fingerprint": "0" * 64, "review_round_id": "round_missing_probe",
+            "scientific_question": "probe",
+        })
+        record("missing evidence artifact fails closed", result9.status == "REJECTED" and "not found" in (result9.failure_reason or ""), result9.failure_reason or "")
+
+        live_db_hash_after = hashlib.sha256(REAL_LIVE_DB_PATH.read_bytes()).hexdigest() if REAL_LIVE_DB_PATH.exists() else None
+        record(
+            "REAL live DB hash unchanged across every scenario in this test, including provider failures/misbehavior "
+            "(this capability never references CANONICAL_LIVE_DB_PATH at all)",
+            live_db_hash_before == live_db_hash_after,
+            f"before={live_db_hash_before} after={live_db_hash_after}",
+        )
+    finally:
+        director_reviewers.get_model_provider = original_get_model_provider
+        broker._REVIEWERS_CONFIG_PATH_OVERRIDE = original_reviewers_override
+        broker._REVIEWER_ROUNDS_ROOT = original_rounds_root
+        safe_rmtree(tmp_dir)
+        shutil.rmtree(scratch_rounds_abspath, ignore_errors=True)
+        for name in ("_1", "_2", "_3", "_4", "_does_not_exist"):
+            (broker.DIRECTOR_DIR / "founder_packets" / f"_broker_fixturetest_scratch_evidence{name}.json").unlink(missing_ok=True)
+
+
 def test_fail_closed_on_malformed_requests(_: Path) -> None:
     result = broker.execute("LIVE_DB_READ", {"sql": 12345})
     record("malformed params (wrong type) fail closed as REJECTED, not a crash", result.status == "REJECTED", result.failure_reason or "")
@@ -1070,6 +1307,7 @@ def main() -> int:
     test_positive_provider_and_level2a(Path("."))
     test_audit_log_written(Path("."))
     test_run_bounded_live_window(Path("."))
+    test_run_multi_reviewer_synthesis(Path("."))
     test_fail_closed_on_malformed_requests(Path("."))
 
     after_hash = hashlib.sha256(REAL_LIVE_DB_PATH.read_bytes()).hexdigest() if REAL_LIVE_DB_PATH.exists() else None

@@ -30,6 +30,7 @@ experiment_id or diagnostic_type invented at runtime.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -81,6 +82,15 @@ ROLLING_PACKET_PATH = FOUNDER_PACKETS_DIR / "unattended_director_shift_2026-09-0
 MASTER_INDEX_RELATIVE_PATH = os.environ.get(
     "DIRECTOR_UNATTENDED_MASTER_INDEX_PATH",
     "founder_packets/master_evidence_roadmap_index_2026-09-04.md",
+)
+
+#: Same reasoning as MASTER_INDEX_RELATIVE_PATH above, for the evidence
+#: packages _maybe_generate_multi_reviewer_task writes via
+#: WRITE_DIRECTOR_ARTIFACT (also resolved against the broker's real
+#: .director/, not this runner's STATE_ROOT) -- lets a test redirect to a
+#: harmless scratch subtree instead of the real one.
+EVIDENCE_PACKAGES_ROOT = os.environ.get(
+    "DIRECTOR_UNATTENDED_EVIDENCE_PACKAGES_ROOT", "founder_packets/evidence_packages"
 )
 
 MAX_TOTAL_PROVIDER_CALLS = 96
@@ -213,6 +223,18 @@ def _new_shift_state(starting_live_event: int) -> dict[str, Any]:
         "completed_tasks_this_shift": 0,
         "live_windows_this_shift": 0,
         "consecutive_no_material_task_passes": 0,
+        #: Founder-authorized 2026-09-05 fix for a real observed incident
+        #: (attempt_live_window_12 through 16 minted back-to-back, each
+        #: COMPLETED with events_added=0, stopped_reason="no_eligible_agent",
+        #: only stopped once the shift's live-window cap itself was
+        #: exhausted): once ANY live-window attempt this shift completes
+        #: with zero events added, nothing about calling the capability
+        #: again changes eligibility (auto_advance=False, no simulated time
+        #: advances from an evidence-mining-only shift) -- this remembers
+        #: that structural condition so the planner stops attempting
+        #: further live windows THIS SHIFT immediately, without weakening
+        #: the live-window cap itself (which remains the ultimate bound).
+        "live_window_blocked_reason": None,
         "stop_reason": None,
     }
 
@@ -1544,43 +1566,124 @@ def _run_roadmap_update(status: dict[str, Any], through_event: int) -> TaskResul
     return TaskResult(status="COMPLETED", summary=summary, detail={"through_event": through_event, "claims": claims, "addendum_chars": len(addendum)})
 
 
-def _maybe_generate_multi_reviewer_candidate(status: dict[str, Any], through_event: int) -> Task | None:
-    """Task class L (Founder authorization, 2026-09-05): SELECTION LOGIC
-    ONLY. Once a roadmap update (class M) exists for this exact evidence
-    point, records that a multi-reviewer PRIMARY -> CRITIQUE -> SYNTHESIS
-    pass (scripts/director_reviewers.py) is warranted -- but does not
-    invoke it. That pipeline is not currently exposed as a broker
-    capability, and adding one is a broker-catalog decision requiring
-    separate, explicit Founder authorization (the same category of gap
-    this file's own `_KNOWN_BLOCKED_DIAGNOSTIC_TYPES` already documents
-    for comparable cases). Recorded once per evidence point, never
-    repeated on identical evidence."""
+def _build_evidence_package(status: dict[str, Any], through_event: int) -> dict[str, Any]:
+    """The immutable evidence snapshot handed to every reviewer in a
+    multi-reviewer round (Founder authorization, 2026-09-05) -- built
+    entirely from already-collected results_store entries for this exact
+    evidence point. RUN_MULTI_REVIEWER_SYNTHESIS itself never touches the
+    live DB at all; this is the only place "the evidence" is assembled."""
+    store = status.get("results_store", {})
+    return {
+        "evidence_interval": f"through_event_{through_event}",
+        "through_event": through_event,
+        "generated_at": _now(),
+        "roadmap_update": store.get(f"roadmap_update_through_{through_event}"),
+        "cross_agent_transmission_trace": store.get(f"cross_agent_transmission_trace_through_{through_event}"),
+        "longitudinal_agent_update": store.get(f"longitudinal_agent_update_through_{through_event}"),
+        "reflection_memory_pressure_update": store.get(f"reflection_memory_pressure_update_through_{through_event}"),
+        "research_continuity_trace": store.get(f"research_continuity_trace_through_{through_event}"),
+        "relationship_culture_update": store.get(f"relationship_culture_update_through_{through_event}"),
+        "wall_rabbit_belief_readiness": store.get(f"wall_rabbit_belief_readiness_through_{through_event}"),
+    }
+
+
+def _maybe_generate_multi_reviewer_task(status: dict[str, Any], shift: dict[str, Any]) -> Task | None:
+    """Task class L (Founder authorization, 2026-09-05; enabled for real
+    execution 2026-09-05 via RUN_MULTI_REVIEWER_SYNTHESIS): builds an
+    immutable JSON evidence package from this evidence point's B/C/F/G/H/I/M
+    results, writes it as a Director artifact, and invokes the broker's
+    multi-reviewer capability against it -- only once ALL FIVE Founder
+    conditions hold: (1) a roadmap update exists for this evidence point;
+    (2)/(4) this exact evidence point has not already been reviewed (task_id
+    dedup, same mechanism as every other class here); (3) the roadmap
+    update found something to react to (at least one claim other than
+    unchanged/still_insufficient -- otherwise a real, paid multi-model
+    round would spend real cost reviewing a trivial result); (5) the
+    runner's own global provider-call ceiling has enough headroom left for
+    a full worst-case round (6 calls, see RunMultiReviewerSynthesisParams).
+    A real launch's .director/reviewers.json currently has CRITIQUE/SYNTHESIS
+    disabled -- the broker capability itself fails this closed with ZERO
+    provider spend, and this task records that outcome as COMPLETED
+    (correctly identified, currently blocked on a separate Founder config
+    decision), never as a retry-worthy failure."""
+    through_event = shift["current_live_event"]
     roadmap_task_id = f"roadmap_update_through_{through_event}"
     if roadmap_task_id not in status["completed_task_ids"]:
-        return None  # roadmap update hasn't run yet for this evidence point
-    candidate_task_id = f"multi_reviewer_synthesis_candidate_{through_event}"
-    if candidate_task_id in status["completed_task_ids"] or candidate_task_id in status["failed_task_ids"]:
+        return None
+    review_task_id = f"multi_reviewer_synthesis_{through_event}"
+    if review_task_id in status["completed_task_ids"] or review_task_id in status["failed_task_ids"]:
         return None
 
+    roadmap_result = status["results_store"].get(roadmap_task_id) or {}
+    claims = roadmap_result.get("claims", [])
+    # "individual continuity" is excluded from this check: it reads
+    # "strengthened" the moment ANY agent shows ANY activity beyond the
+    # pre-live baseline in ANY window, which is true after nearly every
+    # live window ever -- a near-degenerate signal that would make this
+    # gate pass almost unconditionally. The other, more decision-relevant
+    # claims (transmission, culture, Wall/Rabbit-Hole/belief readiness,
+    # relationships, reflection maturity, research continuity) are what a
+    # real, paid multi-model round should actually be justified by.
+    has_information_value = any(
+        c.get("claim") != "individual continuity" and c.get("classification") not in ("unchanged", "still_insufficient")
+        for c in claims
+    )
+    if not has_information_value:
+        return None
+
+    if status["provider_calls_used"] + 6 > MAX_TOTAL_PROVIDER_CALLS:
+        return None  # not enough global budget headroom left for a full worst-case round
+
     def _run() -> TaskResult:
-        return TaskResult(
-            status="COMPLETED",
-            summary=(
-                f"multi-reviewer synthesis (PRIMARY -> CRITIQUE -> SYNTHESIS) is warranted given the roadmap "
-                f"update through event {through_event}, but is NOT invoked here -- scripts/director_reviewers.py "
-                "is not currently exposed as a broker capability. Recorded as a blocked candidate."
-            ),
-            detail={
-                "based_on_roadmap_task_id": roadmap_task_id, "reviewer_module": "scripts/director_reviewers.py",
-                "blocked_on": "no broker capability exposes the reviewer pipeline yet -- requires separate Founder authorization",
+        evidence_package = _build_evidence_package(status, through_event)
+        content = json.dumps(evidence_package, indent=2, sort_keys=True, default=str)
+        artifact_relative_path = f"{EVIDENCE_PACKAGES_ROOT}/evidence_package_through_{through_event}.json"
+        write_result = broker.execute("WRITE_DIRECTOR_ARTIFACT", {"relative_path": artifact_relative_path, "content": content})
+        if write_result.status != "SUCCESS":
+            return TaskResult(status="FAILED", summary=write_result.failure_reason or "could not write evidence package", detail=write_result.to_dict())
+
+        fingerprint = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        review_result = broker.execute(
+            "RUN_MULTI_REVIEWER_SYNTHESIS",
+            {
+                "evidence_artifact_relative_path": artifact_relative_path,
+                "evidence_fingerprint": fingerprint,
+                "review_round_id": f"review_{through_event}",
+                "scientific_question": (
+                    f"Given the roadmap evidence update through event {through_event} -- classifying individual "
+                    "continuity, cross-agent transmission, shared culture, Wall/Rabbit-Hole/belief readiness, "
+                    "relationship-mediated culture, reflection maturity, and research continuity -- do these "
+                    "classifications hold up under independent critique, and what disagreement or missing "
+                    "evidence remains?"
+                ),
             },
+        )
+        if review_result.status != "SUCCESS":
+            reason = review_result.failure_reason or ""
+            if "no ENABLED reviewer spec" in reason:
+                # Correctly identified as warranted, but CRITIQUE/SYNTHESIS
+                # remain disabled in .director/reviewers.json -- a
+                # deliberate, separate Founder decision this task never
+                # makes on its own behalf. Recorded once, never retried on
+                # the same evidence point.
+                return TaskResult(
+                    status="COMPLETED",
+                    summary=f"multi-reviewer synthesis is warranted for evidence through event {through_event}, but blocked: {reason}",
+                    detail={"blocked_on": reason, "evidence_package_path": artifact_relative_path},
+                )
+            return TaskResult(status="FAILED", summary=reason or "RUN_MULTI_REVIEWER_SYNTHESIS call failed", detail=review_result.to_dict())
+
+        return TaskResult(
+            status="COMPLETED", provider_calls=review_result.provider_calls,
+            summary=f"multi-reviewer synthesis completed for evidence through event {through_event}: {review_result.provider_calls} provider call(s)",
+            detail=review_result.result,
         )
 
     return Task(
-        candidate_task_id,
-        f"Record multi-reviewer-synthesis candidacy based on {roadmap_task_id}",
+        review_task_id,
+        f"Multi-reviewer synthesis (PRIMARY->CRITIQUE->SYNTHESIS) of evidence through event {through_event}",
         [1, 2, 3, 4, 6, 7, 8, 9, 10, 11],
-        "R",
+        "D",
         _run,
     )
 
@@ -1675,10 +1778,13 @@ def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, An
            real live baseline, checked in priority order -- independent
            of whether THIS shift added any new live events, since they
            mine ALL historical evidence, not just this shift's own.
-       (c) a multi-reviewer-synthesis candidacy recommendation, once a
-           roadmap update exists for this evidence point (class L,
-           selection logic only -- never actually invokes the reviewer
-           pipeline, which is not yet a broker capability).
+       (c) a real multi-reviewer PRIMARY->CRITIQUE->SYNTHESIS round (class
+           L, Founder-authorized 2026-09-05 via RUN_MULTI_REVIEWER_SYNTHESIS),
+           once a roadmap update exists for this evidence point, it found
+           something with real information value, and global provider-call
+           budget allows -- fails closed (zero spend, recorded once, never
+           retried) if CRITIQUE/SYNTHESIS remain disabled in
+           .director/reviewers.json.
        (d) an evidence-justified replication of an ALREADY-APPROVED
            disposable experiment, if this shift's own synthesis surfaced
            a qualifying condition (task class K).
@@ -1700,7 +1806,7 @@ def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, An
             (lambda s=start, e=end: _run_analyze_live_window(s, e)),
         )
 
-    live_window_permitted = shift["live_windows_this_shift"] < MAX_LIVE_WINDOWS
+    live_window_permitted = shift["live_windows_this_shift"] < MAX_LIVE_WINDOWS and not shift.get("live_window_blocked_reason")
     if live_window_permitted:
         remaining = _remaining_overnight_live_budget()
         live_window_permitted = remaining is not None and remaining >= _worst_case_activation_burst()
@@ -1754,7 +1860,7 @@ def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, An
                 (lambda fn=fn, te=through_event: fn(status, te)),
             )
 
-        multi_reviewer_task = _maybe_generate_multi_reviewer_candidate(status, through_event)
+        multi_reviewer_task = _maybe_generate_multi_reviewer_task(status, shift)
         if multi_reviewer_task is not None:
             return multi_reviewer_task
 
@@ -2063,6 +2169,21 @@ def main() -> int:
                     events_added = result.detail.get("events_added", 0)
                     status["live_events_added_total"] += events_added
                     shift["live_events_added_this_shift"] += events_added
+                    if events_added == 0 and not shift.get("live_window_blocked_reason"):
+                        # Founder-reported incident, 2026-09-05: a live
+                        # window that mechanically succeeds (status
+                        # COMPLETED) but adds zero events (e.g.
+                        # stopped_reason="no_eligible_agent") will produce
+                        # the IDENTICAL zero-progress result on every
+                        # subsequent attempt this shift -- nothing about
+                        # calling the capability again changes simulation
+                        # eligibility (auto_advance=False; no other task
+                        # this shift advances simulated time). Remember
+                        # this so the planner stops minting further
+                        # attempt_live_window_N ids immediately, instead of
+                        # burning through the rest of the shift's
+                        # live-window cap on identical no-op attempts.
+                        shift["live_window_blocked_reason"] = result.detail.get("stopped_reason") or "zero events added"
                     new_baseline = result.detail.get("end_max_event_id")
                     if new_baseline is not None:
                         shift["current_live_event"] = new_baseline

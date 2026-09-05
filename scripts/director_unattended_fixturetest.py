@@ -127,6 +127,40 @@ def _build_fake_village_data_root() -> Path:
     return root
 
 
+#: CRITICAL, 2026-09-05: the REAL .director/reviewers.json has an ENABLED
+#: PRIMARY reviewer on a real, paid provider (OpenRouter/Gemini). Now that
+#: the continuous planner can autonomously reach RUN_MULTI_REVIEWER_SYNTHESIS
+#: once enough evidence accumulates, EVERY isolated test run below must be
+#: structurally prevented from ever resolving to that real config -- the
+#: same category of incident this whole file exists to prevent for the
+#: live Village DB, just for a different real resource (paid API calls)
+#: this time. This disposable, all-FixtureModelProvider reviewers.json
+#: (no network, no cost, fully deterministic) is written once and its path
+#: passed via DIRECTOR_BROKER_REVIEWERS_CONFIG_PATH on every single
+#: run_once() call below, with no opt-out -- there is no legitimate reason
+#: for any test in this file to ever exercise a real reviewer provider.
+_FIXTURE_REVIEWERS_CONFIG_PATH = Path(tempfile.mkdtemp(prefix="director_unattended_fixturetest_reviewers_")) / "reviewers.json"
+_FIXTURE_REVIEWERS_CONFIG_PATH.write_text(json.dumps([
+    {"reviewer_id": "test-primary", "role": "PRIMARY", "provider": "fixture", "enabled": True},
+    {"reviewer_id": "test-critique", "role": "CRITIQUE", "provider": "fixture", "enabled": True},
+    {"reviewer_id": "test-synthesis", "role": "SYNTHESIS", "provider": "fixture", "enabled": True},
+]))
+
+#: Both RUN_MULTI_REVIEWER_SYNTHESIS's own round-record write and
+#: _maybe_generate_multi_reviewer_task's evidence-package write go through
+#: WRITE_DIRECTOR_ARTIFACT / the broker's own direct write, which always
+#: resolves under the REAL .director/ tree (there is no isolated-root
+#: concept at the broker layer) -- same reasoning as
+#: DIRECTOR_UNATTENDED_MASTER_INDEX_PATH above, redirected to clearly
+#: scratch-named subtrees, cleaned up at the end of this file's own run.
+_SCRATCH_REVIEWER_ROUNDS_ROOT = "founder_packets/_fixturetest_scratch_reviewer_rounds"
+_SCRATCH_EVIDENCE_PACKAGES_ROOT = "founder_packets/_fixturetest_scratch_evidence_packages"
+_SCRATCH_REVIEWER_ROUNDS_ABSPATH = REAL_DIRECTOR_DIR / _SCRATCH_REVIEWER_ROUNDS_ROOT
+_SCRATCH_EVIDENCE_PACKAGES_ABSPATH = REAL_DIRECTOR_DIR / _SCRATCH_EVIDENCE_PACKAGES_ROOT
+shutil.rmtree(_SCRATCH_REVIEWER_ROUNDS_ABSPATH, ignore_errors=True)  # clear any stale leftover before this run
+shutil.rmtree(_SCRATCH_EVIDENCE_PACKAGES_ABSPATH, ignore_errors=True)
+
+
 def run_once(
     state_root: Path, master_index_scratch: str, fake_village_root: Path,
     extra_env: dict[str, str] | None = None, timeout: int = 60,
@@ -151,6 +185,12 @@ def run_once(
     env["DIRECTOR_UNATTENDED_MAX_LIVE_WINDOWS"] = "1"
     if extra_env:
         env.update(extra_env)
+    # See _FIXTURE_REVIEWERS_CONFIG_PATH's own comment above -- applied
+    # LAST, after extra_env, so no test (present or future) can ever
+    # accidentally override it back to the real provider config.
+    env["DIRECTOR_BROKER_REVIEWERS_CONFIG_PATH"] = str(_FIXTURE_REVIEWERS_CONFIG_PATH)
+    env["DIRECTOR_BROKER_REVIEWER_ROUNDS_ROOT"] = _SCRATCH_REVIEWER_ROUNDS_ROOT
+    env["DIRECTOR_UNATTENDED_EVIDENCE_PACKAGES_ROOT"] = _SCRATCH_EVIDENCE_PACKAGES_ROOT
     return subprocess.run(
         [sys.executable, str(RUNNER)], cwd=REPO_ROOT, env=env,
         capture_output=True, text=True, timeout=timeout,
@@ -520,11 +560,11 @@ def main() -> int:
         shutil.rmtree(fake_village_root, ignore_errors=True)
         fake_village_root = _build_fake_village_data_root()
 
-        NEW_CLASS_PREFIXES = (
+        UNCONDITIONAL_CLASS_PREFIXES = (
             "cross_agent_transmission_trace_through_", "longitudinal_agent_update_through_",
             "reflection_memory_pressure_update_through_", "research_continuity_trace_through_",
             "relationship_culture_update_through_", "wall_rabbit_belief_readiness_through_",
-            "roadmap_update_through_", "multi_reviewer_synthesis_candidate_",
+            "roadmap_update_through_",
         )
 
         proc10 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
@@ -532,12 +572,12 @@ def main() -> int:
         status_d = status_at(tmp_root)
         shift_d = status_d["current_shift"]
         through_d = shift_d["current_live_event"]
-        new_class_tasks_d = [t for t in status_d["completed_task_ids"] if t.endswith(f"_{through_d}") and any(t.startswith(p) for p in NEW_CLASS_PREFIXES)]
+        new_class_tasks_d = [t for t in status_d["completed_task_ids"] if t.endswith(f"_{through_d}") and any(t.startswith(p) for p in UNCONDITIONAL_CLASS_PREFIXES)]
         record(
-            "a completed cross-window synthesis alone is NOT sufficient to declare exhaustion -- all 8 new "
-            "evidence-mining task classes (B, C, F, G, H, I, M, L) fire automatically for the same evidence point",
-            len(new_class_tasks_d) == len(NEW_CLASS_PREFIXES),
-            f"expected {len(NEW_CLASS_PREFIXES)}, got {new_class_tasks_d}",
+            "a completed cross-window synthesis alone is NOT sufficient to declare exhaustion -- all 7 "
+            "unconditional evidence-mining task classes (B, C, F, G, H, I, M) fire automatically for the same evidence point",
+            len(new_class_tasks_d) == len(UNCONDITIONAL_CLASS_PREFIXES),
+            f"expected {len(UNCONDITIONAL_CLASS_PREFIXES)}, got {new_class_tasks_d}",
         )
         record(
             "the live-window cap is never bypassed by the expanded repertoire (still exactly 1 live window this shift)",
@@ -554,20 +594,104 @@ def main() -> int:
             and all(c["classification"] in valid_classifications for c in roadmap_result_d["claims"]),
             str(roadmap_result_d["claims"]),
         )
-        multi_reviewer_result_d = status_d["results_store"][f"multi_reviewer_synthesis_candidate_{through_d}"]
+        review_task_id_d = f"multi_reviewer_synthesis_{through_d}"
+        # NOTE, 2026-09-05: whether the NATURAL fixture-village roadmap
+        # happens to already show real information value (e.g. an organic
+        # cross-agent transmission hit) is not deterministic run to run, so
+        # the negative and positive cases below are BOTH forced explicitly
+        # via priming rather than relying on whatever this run happened to
+        # produce -- a robust, deterministic test of the actual gate logic.
+
+        # --- Forced NEGATIVE case: overwrite every claim (except
+        # "individual continuity", which the gate already always ignores)
+        # to a non-triggering classification, and clear any multi-reviewer
+        # task that may already exist (organically -- this fixture village's
+        # own randomness can occasionally produce real information value on
+        # its own -- or from a prior run of this test) for this evidence
+        # point, before checking the gate. Clears the underlying round-record
+        # / evidence-package FILES too, not just the status.json bookkeeping:
+        # RUN_MULTI_REVIEWER_SYNTHESIS correctly refuses to ever overwrite an
+        # existing round-record artifact (immutability, by design), so a
+        # stale file left over from an earlier organic completion would
+        # otherwise make the deliberately-forced positive case below fail
+        # closed on "already has a recorded round" instead of exercising a
+        # genuine fresh round. ---
+        primed_negative = status_at(tmp_root)
+        primed_negative["state"] = "running"
+        primed_negative["current_shift"]["consecutive_no_material_task_passes"] = 0
+        for c in primed_negative["results_store"][f"roadmap_update_through_{through_d}"]["claims"]:
+            if c["claim"] != "individual continuity":
+                c["classification"] = "unchanged"
+        (_SCRATCH_REVIEWER_ROUNDS_ABSPATH / f"review_{through_d}.json").unlink(missing_ok=True)
+        (_SCRATCH_EVIDENCE_PACKAGES_ABSPATH / f"evidence_package_through_{through_d}.json").unlink(missing_ok=True)
+        primed_negative["completed_task_ids"] = [t for t in primed_negative["completed_task_ids"] if t != review_task_id_d]
+        primed_negative["failed_task_ids"] = [t for t in primed_negative["failed_task_ids"] if t != review_task_id_d]
+        primed_negative["results_store"].pop(review_task_id_d, None)
+        calls_before_negative = primed_negative["provider_calls_used"]
+        (tmp_root / "unattended_status.json").write_text(json.dumps(primed_negative, indent=2))
+
+        proc_negative = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("Test 7 forced-no-information-value run exits 0", proc_negative.returncode == 0, proc_negative.stdout[-300:])
+        status_negative = status_at(tmp_root)
         record(
-            "multi-reviewer synthesis is only selected (as a recorded candidate) once a roadmap update exists for "
-            "the same evidence point, and never actually invokes the (not-yet-broker-exposed) reviewer pipeline",
-            multi_reviewer_result_d["based_on_roadmap_task_id"] == f"roadmap_update_through_{through_d}"
-            and "director_reviewers" in multi_reviewer_result_d["reviewer_module"],
-            str(multi_reviewer_result_d),
+            "multi-reviewer synthesis is NOT selected when every (non-degenerate) roadmap claim is "
+            "unchanged/still_insufficient -- never spent on a trivial result",
+            review_task_id_d not in status_negative["completed_task_ids"]
+            and review_task_id_d not in status_negative["failed_task_ids"]
+            and status_negative["provider_calls_used"] == calls_before_negative,
+            f"completed={review_task_id_d in status_negative['completed_task_ids']}, calls unchanged={status_negative['provider_calls_used'] == calls_before_negative}",
+        )
+
+        # --- Forced POSITIVE case: from that same still-active shift, prime
+        # exactly one non-degenerate claim to a triggering classification
+        # and confirm the REAL multi-reviewer round now executes end-to-end
+        # against the all-fixture-provider config this whole suite forces. ---
+        primed_d = status_at(tmp_root)
+        primed_d["state"] = "running"
+        primed_d["current_shift"]["consecutive_no_material_task_passes"] = 0
+        for c in primed_d["results_store"][f"roadmap_update_through_{through_d}"]["claims"]:
+            if c["claim"] == "cross-agent transmission":
+                c["classification"] = "weakened"
+                break
+        calls_before_review = primed_d["provider_calls_used"]
+        (tmp_root / "unattended_status.json").write_text(json.dumps(primed_d, indent=2))
+
+        proc_review = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("Test 7 primed-information-value run exits 0", proc_review.returncode == 0, proc_review.stdout[-400:])
+        status_review = status_at(tmp_root)
+        record(
+            "once the roadmap shows real information value, multi-reviewer synthesis actually executes "
+            "(PRIMARY, CRITIQUE, and SYNTHESIS all present in the recorded result)",
+            review_task_id_d in status_review["completed_task_ids"]
+            and all(k in status_review["results_store"][review_task_id_d] for k in ("primary", "critique", "synthesis", "reconciliation_packet")),
+            f"completed={review_task_id_d in status_review['completed_task_ids']}, "
+            f"keys={list(status_review['results_store'].get(review_task_id_d, {}).keys())}",
+        )
+        record(
+            "the full round spent exactly 3 real provider calls (one PRIMARY + one CRITIQUE + one SYNTHESIS, "
+            "all fixture, no retries needed) -- honest budget accounting",
+            status_review["provider_calls_used"] - calls_before_review == 3,
+            f"before={calls_before_review} after={status_review['provider_calls_used']}",
+        )
+        evidence_package_path = _SCRATCH_EVIDENCE_PACKAGES_ABSPATH / f"evidence_package_through_{through_d}.json"
+        round_record_path = _SCRATCH_REVIEWER_ROUNDS_ABSPATH / f"review_{through_d}.json"
+        record(
+            "an immutable evidence-package artifact and a full round-record audit artifact were both written",
+            evidence_package_path.exists() and round_record_path.exists(),
+            f"evidence={evidence_package_path} (exists={evidence_package_path.exists()}), "
+            f"round={round_record_path} (exists={round_record_path.exists()})",
+        )
+        record(
+            "re-running against the now-completed review does not re-run or duplicate it",
+            status_review["completed_task_ids"].count(review_task_id_d) == 1,
+            str(status_review["completed_task_ids"].count(review_task_id_d)),
         )
 
         # A further intentional run: new shift, real margin remains, so it
         # legitimately runs another live window -> new synthesis -> a NEW
-        # round of the same 8 evidence-mining classes keyed to the new,
-        # later evidence point -- while the FIRST round's results (keyed to
-        # through_d) are preserved untouched, never duplicated or overwritten.
+        # round of the same 7 unconditional evidence-mining classes keyed to
+        # the new, later evidence point -- while the FIRST round's results
+        # (keyed to through_d) are preserved untouched, never duplicated.
         proc11 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
         record("Test 7 next-shift run exits 0", proc11.returncode == 0, proc11.stdout[-300:])
         status_e = status_at(tmp_root)
@@ -575,13 +699,13 @@ def main() -> int:
         through_e = shift_e["current_live_event"]
         record(
             "identical evidence (through_d) never produces a duplicate task on a later run",
-            all(status_e["completed_task_ids"].count(t) == 1 for t in new_class_tasks_d),
-            {t: status_e["completed_task_ids"].count(t) for t in new_class_tasks_d},
+            all(status_e["completed_task_ids"].count(t) == 1 for t in new_class_tasks_d + [review_task_id_d]),
+            {t: status_e["completed_task_ids"].count(t) for t in new_class_tasks_d + [review_task_id_d]},
         )
-        new_class_tasks_e = [t for t in status_e["completed_task_ids"] if t.endswith(f"_{through_e}") and any(t.startswith(p) for p in NEW_CLASS_PREFIXES)]
+        new_class_tasks_e = [t for t in status_e["completed_task_ids"] if t.endswith(f"_{through_e}") and any(t.startswith(p) for p in UNCONDITIONAL_CLASS_PREFIXES)]
         record(
             "new evidence (a later live baseline) legitimately produces a fresh round of the same task classes",
-            through_e != through_d and len(new_class_tasks_e) == len(NEW_CLASS_PREFIXES),
+            through_e != through_d and len(new_class_tasks_e) == len(UNCONDITIONAL_CLASS_PREFIXES),
             f"through_d={through_d} through_e={through_e} new_class_tasks_e={new_class_tasks_e}",
         )
 
@@ -594,9 +718,12 @@ def main() -> int:
             "_fetch_bucketed_event_activity", "_run_longitudinal_agent_update", "_run_cross_agent_transmission_trace",
             "_run_reflection_memory_pressure_update", "_run_research_continuity_trace",
             "_run_relationship_culture_update", "_run_wall_rabbit_belief_readiness", "_run_roadmap_update",
-            "_maybe_generate_multi_reviewer_candidate",
+            "_maybe_generate_multi_reviewer_task",
         ]
-        allowed_capabilities = {"GET_EVENT_RANGE", "LIVE_DB_READ", "READ_DIRECTOR_ARTIFACT", "WRITE_DIRECTOR_ARTIFACT"}
+        allowed_capabilities = {
+            "GET_EVENT_RANGE", "LIVE_DB_READ", "READ_DIRECTOR_ARTIFACT", "WRITE_DIRECTOR_ARTIFACT",
+            "RUN_MULTI_REVIEWER_SYNTHESIS",
+        }
         all_ok = True
         detail_lines = []
         for fn_name in new_fn_names:
@@ -613,10 +740,46 @@ def main() -> int:
             "; ".join(detail_lines),
         )
 
+        # --- Test 8: churn-prevention gate (Founder-reported incident,
+        # 2026-09-05: attempt_live_window_12 through 16 minted back-to-back,
+        # each COMPLETED with events_added=0, stopped_reason=
+        # "no_eligible_agent", only stopped once the shift's live-window cap
+        # itself was exhausted). Proves the remembered blocking condition
+        # actually gates future attempts THIS SHIFT, even while the cap and
+        # margin would otherwise still allow one -- via direct priming,
+        # since reliably reproducing a real zero-progress window from this
+        # small fixture village is not deterministic. The flag being SET
+        # correctly (main()'s own bookkeeping, right where events_added is
+        # computed) is a one-line change reviewed by inspection alongside
+        # this test, not separately re-exercised here. ---
+        primed_churn = status_at(tmp_root)
+        primed_churn["state"] = "running"
+        # Ample cap/margin headroom still available -- the ONLY thing that
+        # should prevent a new live-window attempt is the remembered block.
+        primed_churn["current_shift"]["live_windows_this_shift"] = 0
+        primed_churn["current_shift"]["live_window_blocked_reason"] = "no_eligible_agent"
+        primed_churn["current_shift"]["consecutive_no_material_task_passes"] = 0
+        live_window_ids_before_churn_test = {t for t in primed_churn["completed_task_ids"] if t.startswith("attempt_live_window_")}
+        (tmp_root / "unattended_status.json").write_text(json.dumps(primed_churn, indent=2))
+
+        proc_churn = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("Test 8 churn-prevention run exits 0", proc_churn.returncode == 0, proc_churn.stdout[-300:])
+        status_churn = status_at(tmp_root)
+        live_window_ids_after_churn_test = {t for t in status_churn["completed_task_ids"] if t.startswith("attempt_live_window_")}
+        record(
+            "a remembered live_window_blocked_reason prevents any further attempt_live_window_N this shift, "
+            "even with cap and margin headroom still available -- no repeated identical-outcome churn",
+            live_window_ids_after_churn_test == live_window_ids_before_churn_test,
+            f"before={live_window_ids_before_churn_test} after={live_window_ids_after_churn_test}",
+        )
+
     finally:
         shutil.rmtree(tmp_root, ignore_errors=True)
         shutil.rmtree(fake_village_root, ignore_errors=True)
         master_index_scratch_abspath.unlink(missing_ok=True)  # the test's own scratch file, never the real index
+        shutil.rmtree(_FIXTURE_REVIEWERS_CONFIG_PATH.parent, ignore_errors=True)
+        shutil.rmtree(_SCRATCH_REVIEWER_ROUNDS_ABSPATH, ignore_errors=True)
+        shutil.rmtree(_SCRATCH_EVIDENCE_PACKAGES_ABSPATH, ignore_errors=True)
 
     # --- Final, most important check: every real path -- INCLUDING the
     # real live Village DB itself -- is byte-identical, and its max event
@@ -644,6 +807,12 @@ def main() -> int:
         "REAL live Village max event id unchanged across the whole test run (the exact incident this fix prevents)",
         real_live_max_event_before == real_live_max_event_after,
         f"before={real_live_max_event_before} after={real_live_max_event_after}",
+    )
+    record(
+        "no test ever fell back to writing the REAL (non-scratch) reviewer_rounds/ or evidence_packages/ directories",
+        not (REAL_DIRECTOR_DIR / "founder_packets" / "reviewer_rounds").exists()
+        and not (REAL_DIRECTOR_DIR / "founder_packets" / "evidence_packages").exists(),
+        "",
     )
 
     print()

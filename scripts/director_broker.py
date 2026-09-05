@@ -48,6 +48,7 @@ from __future__ import annotations
 import enum
 import hashlib
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -147,6 +148,7 @@ class Capability(str, enum.Enum):
     PROVIDER_CONFIGURATION_STATUS = "PROVIDER_CONFIGURATION_STATUS"
     CALL_AUTHORIZED_DIRECTOR_PROVIDER = "CALL_AUTHORIZED_DIRECTOR_PROVIDER"
     CREATE_SAFE_DB_BACKUP = "CREATE_SAFE_DB_BACKUP"
+    RUN_MULTI_REVIEWER_SYNTHESIS = "RUN_MULTI_REVIEWER_SYNTHESIS"
 
 
 #: Capability names the task explicitly forbids. Not consulted by any
@@ -500,6 +502,69 @@ class RunBoundedLiveWindowParams(_StrictModel):
     competing_hypothesis: str = Field(min_length=1, max_length=2000)
 
 
+# ---------------------------------------------------------------------------
+# RUN_MULTI_REVIEWER_SYNTHESIS -- Founder-authorized 2026-09-05.
+#
+# Wraps the EXISTING PRIMARY -> CRITIQUE -> SYNTHESIS pipeline
+# (director_reviewers.run_reviewer, director_synthesis.build_generic_
+# reconciliation_packet) as one narrow, closed capability. No caller-
+# supplied prompt, provider, model, credential, or path outside .director/
+# is ever accepted -- the three reviewer specs (which provider/model/
+# system-prompt each role uses) always come from
+# director_reviewers.load_reviewer_specs(), never from params. A caller
+# supplies only WHICH already-written, immutable evidence artifact to
+# review and a content fingerprint that must match it exactly.
+#
+# Test-only override (same pattern as VILLAGE_DATA_ROOT /
+# DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT elsewhere in this project): lets
+# an isolated test point at a disposable reviewers.json with three
+# no-cost, no-network FixtureModelProvider specs instead of the real
+# .director/reviewers.json (which, as of this writing, has a real,
+# enabled OpenRouter/Gemini PRIMARY and disabled Hermes/OpenAI CRITIQUE/
+# SYNTHESIS -- see _impl_run_multi_reviewer_synthesis's own enablement
+# check below for why that means a real launch fails closed with zero
+# spend until the Founder deliberately flips those two `enabled` flags).
+_reviewers_config_override = os.environ.get("DIRECTOR_BROKER_REVIEWERS_CONFIG_PATH", "").strip()
+_REVIEWERS_CONFIG_PATH_OVERRIDE = Path(_reviewers_config_override) if _reviewers_config_override else None
+
+#: WRITE_DIRECTOR_ARTIFACT (and this capability's own round-record write)
+#: always resolve under DIRECTOR_DIR, the REAL .director/ tree -- there is
+#: no isolated-test-root concept at the broker layer the way
+#: director_unattended.py has DIRECTOR_UNATTENDED_STATE_ROOT. Test-only
+#: override (same pattern as the master-index path override in
+#: director_unattended.py) so an isolated test's review rounds land in a
+#: clearly-scratch-named subtree of the real .director/founder_packets/
+#: instead of the real "reviewer_rounds/" one a genuine round would use.
+_reviewer_rounds_root_override = os.environ.get("DIRECTOR_BROKER_REVIEWER_ROUNDS_ROOT", "").strip()
+_REVIEWER_ROUNDS_ROOT = _reviewer_rounds_root_override or "founder_packets/reviewer_rounds"
+
+
+class RunMultiReviewerSynthesisParams(_StrictModel):
+    #: Read-only; validated the same way READ_DIRECTOR_ARTIFACT validates
+    #: its own relative_path (_resolve_within(DIRECTOR_DIR, ...)) -- any
+    #: existing artifact under .director/ may be reviewed, not only
+    #: founder_packets/, since evidence packages may reasonably live under
+    #: diagnostics/ or experiments/ too.
+    evidence_artifact_relative_path: str = Field(min_length=1, max_length=300)
+    #: The caller's own sha256 of the evidence artifact's exact bytes at
+    #: the moment it constructed the review request. The implementation
+    #: independently re-hashes the artifact as actually read and fails
+    #: closed on any mismatch -- the caller cannot review evidence it
+    #: hasn't itself just verified the content of.
+    evidence_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    #: Also used to name this round's own audit artifact
+    #: (founder_packets/reviewer_rounds/{review_round_id}.json) -- the
+    #: caller never supplies that path directly.
+    review_round_id: str = Field(pattern=r"^[a-z0-9_]{1,80}$")
+    scientific_question: str = Field(min_length=1, max_length=2000)
+    #: Worst-case real provider spend per role is 2 (director_reviewers.
+    #: run_reviewer's own bounded one-retry-on-transient-failure), so the
+    #: mechanical worst case for one full PRIMARY+CRITIQUE+SYNTHESIS round
+    #: is 6. A caller may request fewer to force "no retry headroom"
+    #: semantics; never more than the proven worst case.
+    max_provider_calls: int = Field(default=6, ge=1, le=6)
+
+
 _PARAM_MODELS: dict[Capability, type[BaseModel]] = {
     Capability.LIVE_DB_READ: LiveDbReadParams,
     Capability.CHECK_LIVE_DB_INTEGRITY: NoParams,
@@ -521,6 +586,7 @@ _PARAM_MODELS: dict[Capability, type[BaseModel]] = {
     Capability.CALL_AUTHORIZED_DIRECTOR_PROVIDER: CallAuthorizedDirectorProviderParams,
     Capability.CREATE_SAFE_DB_BACKUP: CreateSafeDbBackupParams,
     Capability.RUN_BOUNDED_LIVE_WINDOW: RunBoundedLiveWindowParams,
+    Capability.RUN_MULTI_REVIEWER_SYNTHESIS: RunMultiReviewerSynthesisParams,
 }
 
 
@@ -1418,6 +1484,165 @@ def _impl_run_bounded_live_window(params: RunBoundedLiveWindowParams, result: Br
     }
 
 
+def _impl_run_multi_reviewer_synthesis(
+    params: RunMultiReviewerSynthesisParams, result: BrokerResult
+) -> dict[str, Any]:
+    """Founder-authorized 2026-09-05: invokes the EXISTING PRIMARY ->
+    CRITIQUE -> SYNTHESIS reviewer pipeline against an already-created,
+    immutable evidence artifact under .director/ -- never a fresh live-DB
+    snapshot (this never touches CANONICAL_LIVE_DB_PATH at all), never a
+    caller-supplied prompt/provider/model. Fails closed, with zero
+    provider spend, before calling anything, if: the artifact is missing,
+    the fingerprint doesn't match its actual current bytes, the artifact
+    isn't valid JSON, or any of the three required roles lacks an ENABLED
+    spec in director_reviewers.load_reviewer_specs() -- as of this
+    writing that means a real (non-test-override) call fails closed on
+    the disabled CRITIQUE/SYNTHESIS specs, by design: enabling them is a
+    deliberate .director/reviewers.json edit, not something this
+    capability does on the config's behalf. A failure at any of the three
+    role calls also fails the whole round closed (no partial-round
+    artifact is ever written) but still reports how many real provider
+    calls were actually spent before the failure, for honest budget
+    accounting."""
+    import director_providers
+    import director_reviewers
+    import director_synthesis
+
+    artifact_path = _resolve_within(DIRECTOR_DIR, params.evidence_artifact_relative_path)
+    if not artifact_path.is_file():
+        raise BrokerError(f"evidence artifact not found: {params.evidence_artifact_relative_path}")
+    raw_bytes = artifact_path.read_bytes()
+    actual_fingerprint = hashlib.sha256(raw_bytes).hexdigest()
+    if actual_fingerprint != params.evidence_fingerprint:
+        raise BrokerError(
+            f"evidence fingerprint mismatch: caller supplied {params.evidence_fingerprint}, artifact "
+            f"currently hashes to {actual_fingerprint} -- refusing to review possibly-stale or "
+            "mutated evidence"
+        )
+    try:
+        snapshot = json.loads(raw_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise BrokerError(f"evidence artifact is not valid JSON: {exc}") from exc
+    if not isinstance(snapshot, dict):
+        raise BrokerError("evidence artifact must be a JSON object, not a bare array/scalar")
+    result.paths_read.append(str(artifact_path.relative_to(REPO_ROOT)))
+
+    round_artifact_relative = f"{_REVIEWER_ROUNDS_ROOT}/{params.review_round_id}.json"
+    round_artifact_path = _resolve_within(DIRECTOR_DIR, round_artifact_relative)
+    if round_artifact_path.exists():
+        raise BrokerError(
+            f"review_round_id {params.review_round_id!r} already has a recorded round at "
+            f"{round_artifact_relative} -- review rounds are never overwritten; use a new review_round_id"
+        )
+
+    Role = director_reviewers.ReviewerRole
+    specs_by_role = {
+        s.role: s for s in director_reviewers.load_reviewer_specs(_REVIEWERS_CONFIG_PATH_OVERRIDE) if s.enabled
+    }
+    for role in (Role.PRIMARY, Role.CRITIQUE, Role.SYNTHESIS):
+        if role not in specs_by_role:
+            raise BrokerError(
+                f"no ENABLED reviewer spec configured for role {role.value} in "
+                f"{_REVIEWERS_CONFIG_PATH_OVERRIDE or director_reviewers.REVIEWERS_CONFIG_PATH} -- "
+                "a full multi-reviewer round requires all three roles enabled; refusing before spending "
+                "any provider call"
+            )
+    primary_spec, critique_spec, synthesis_spec = specs_by_role[Role.PRIMARY], specs_by_role[Role.CRITIQUE], specs_by_role[Role.SYNTHESIS]
+
+    attempts: list[dict[str, Any]] = []
+
+    def _require_budget(role_name: str) -> None:
+        if params.max_provider_calls - len(attempts) < 1:
+            result.provider_calls = len(attempts)
+            raise BrokerError(
+                f"call budget ({params.max_provider_calls}) exhausted before {role_name} could run "
+                f"({len(attempts)} call(s) already spent)"
+            )
+
+    started_at = datetime.now(timezone.utc).isoformat()
+
+    _require_budget("PRIMARY")
+    try:
+        primary_obs, primary_model = director_reviewers.run_reviewer(
+            primary_spec, snapshot=snapshot, attempts_sink=attempts,
+        )
+    except director_providers.ModelProviderError as exc:
+        result.provider_calls = len(attempts)
+        raise BrokerError(f"PRIMARY reviewer ({primary_spec.reviewer_id}) failed: {exc}") from exc
+
+    _require_budget("CRITIQUE")
+    try:
+        critique_obs, critique_model = director_reviewers.run_reviewer(
+            critique_spec, snapshot=snapshot,
+            primary_observation=primary_obs.model_dump(mode="json"), attempts_sink=attempts,
+        )
+    except director_providers.ModelProviderError as exc:
+        result.provider_calls = len(attempts)
+        raise BrokerError(
+            f"CRITIQUE reviewer ({critique_spec.reviewer_id}) failed after PRIMARY succeeded "
+            f"({len(attempts)} call(s) spent): {exc}"
+        ) from exc
+
+    reconciliation_packet = director_synthesis.build_generic_reconciliation_packet(
+        params.review_round_id,
+        {
+            "primary": {"reviewer_id": primary_spec.reviewer_id, "output": primary_obs.model_dump(mode="json")},
+            "critiques": [{"reviewer_id": critique_spec.reviewer_id, "output": critique_obs.model_dump(mode="json")}],
+        },
+    )
+
+    _require_budget("SYNTHESIS")
+    try:
+        synthesis_obs, synthesis_model = director_reviewers.run_reviewer(
+            synthesis_spec, snapshot=snapshot,
+            primary_observation=primary_obs.model_dump(mode="json"),
+            critique_observations=[critique_obs.model_dump(mode="json")],
+            reconciliation_packet=reconciliation_packet, attempts_sink=attempts,
+        )
+    except director_providers.ModelProviderError as exc:
+        result.provider_calls = len(attempts)
+        raise BrokerError(
+            f"SYNTHESIS reviewer ({synthesis_spec.reviewer_id}) failed after PRIMARY+CRITIQUE succeeded "
+            f"({len(attempts)} call(s) spent): {exc}"
+        ) from exc
+
+    completed_at = datetime.now(timezone.utc).isoformat()
+    round_record = {
+        "review_round_id": params.review_round_id,
+        "evidence_artifact_relative_path": params.evidence_artifact_relative_path,
+        "evidence_fingerprint": actual_fingerprint,
+        "evidence_interval": snapshot.get("evidence_interval"),
+        "scientific_question": params.scientific_question,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "primary": {
+            "reviewer_id": primary_spec.reviewer_id, "provider": primary_spec.provider,
+            "model": primary_model, "output": primary_obs.model_dump(mode="json"),
+        },
+        "critique": {
+            "reviewer_id": critique_spec.reviewer_id, "provider": critique_spec.provider,
+            "model": critique_model, "output": critique_obs.model_dump(mode="json"),
+        },
+        "synthesis": {
+            "reviewer_id": synthesis_spec.reviewer_id, "provider": synthesis_spec.provider,
+            "model": synthesis_model, "output": synthesis_obs.model_dump(mode="json"),
+        },
+        "reconciliation_packet": reconciliation_packet,
+        "attempts": attempts,
+        "provider_calls_used": len(attempts),
+    }
+
+    round_artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    round_artifact_path.write_text(json.dumps(round_record, indent=2, default=str))
+    result.paths_written.append(str(round_artifact_path.relative_to(REPO_ROOT)))
+    result.provider_calls = len(attempts)
+    result.safety_checks.append(
+        "evidence fingerprint verified before any reviewer call; all three reviewer specs required ENABLED "
+        "before any call; never touched CANONICAL_LIVE_DB_PATH"
+    )
+    return round_record
+
+
 _IMPLEMENTATIONS: dict[Capability, Callable[[Any, BrokerResult], dict[str, Any]]] = {
     Capability.LIVE_DB_READ: _impl_live_db_read,
     Capability.CHECK_LIVE_DB_INTEGRITY: _impl_check_live_db_integrity,
@@ -1439,6 +1664,7 @@ _IMPLEMENTATIONS: dict[Capability, Callable[[Any, BrokerResult], dict[str, Any]]
     Capability.CALL_AUTHORIZED_DIRECTOR_PROVIDER: _impl_call_authorized_director_provider,
     Capability.CREATE_SAFE_DB_BACKUP: _impl_create_safe_db_backup,
     Capability.RUN_BOUNDED_LIVE_WINDOW: _impl_run_bounded_live_window,
+    Capability.RUN_MULTI_REVIEWER_SYNTHESIS: _impl_run_multi_reviewer_synthesis,
 }
 
 
