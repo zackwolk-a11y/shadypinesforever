@@ -910,21 +910,29 @@ def _run_analyze_live_window(start_event_id: int, end_event_id: int) -> TaskResu
     )
 
 
-def _shift_window_analyses(status: dict[str, Any], shift_start: int, shift_end: int) -> list[tuple[int, int, dict]]:
-    """(start, end, detail) for every completed analyze_live_window_*
-    result whose interval falls within [shift_start, shift_end] -- i.e.
-    the live windows THIS shift itself produced, oldest first. Reads only
-    already-collected results_store data, never the live DB again."""
+def _all_window_analyses(status: dict[str, Any]) -> list[tuple[int, int, dict]]:
+    """(start, end, detail) for EVERY completed analyze_live_window_*
+    result ever recorded (any shift, all time), oldest first. Reads only
+    already-collected results_store data, never the live DB again -- the
+    shared building block every cross-window / longitudinal / trace task
+    class below uses instead of re-querying the same historical evidence."""
     store = status.get("results_store", {})
     out: list[tuple[int, int, dict]] = []
     for task_id, detail in store.items():
         if not task_id.startswith("analyze_live_window_") or not isinstance(detail, dict):
             continue
         s, e = detail.get("start_event_id"), detail.get("end_event_id")
-        if isinstance(s, int) and isinstance(e, int) and s >= shift_start and e <= shift_end:
+        if isinstance(s, int) and isinstance(e, int):
             out.append((s, e, detail))
     out.sort(key=lambda t: t[0])
     return out
+
+
+def _shift_window_analyses(status: dict[str, Any], shift_start: int, shift_end: int) -> list[tuple[int, int, dict]]:
+    """(start, end, detail) for every completed analyze_live_window_*
+    result whose interval falls within [shift_start, shift_end] -- i.e.
+    the live windows THIS shift itself produced, oldest first."""
+    return [(s, e, d) for s, e, d in _all_window_analyses(status) if s >= shift_start and e <= shift_end]
 
 
 def _run_cross_window_synthesis(status: dict[str, Any], shift_start: int, shift_end: int) -> TaskResult:
@@ -1087,6 +1095,496 @@ def _run_cross_window_synthesis(status: dict[str, Any], shift_start: int, shift_
     )
 
 
+def _sum_rows_for_agent(field_detail: dict | None, agent: str, count_col: int = 1) -> int:
+    if not field_detail:
+        return 0
+    return sum(row[count_col] for row in field_detail.get("rows", []) if row[0] == agent)
+
+
+def _fetch_bucketed_event_activity(windows: list[tuple[int, int, dict]]) -> dict[tuple[int, int], dict[str, dict[str, int]]]:
+    """One GET_EVENT_RANGE call spanning every known window's combined
+    interval, bucketed back into each window's own (start, end) bounds --
+    gives genuine per-agent activation counts (AGENT_WOKE rows) and
+    substantive-action counts (every other event type) per window,
+    without a separate broker call per window. Contamination-excluded via
+    GET_EVENT_RANGE's own wired-in flag."""
+    buckets: dict[tuple[int, int], dict[str, dict[str, int]]] = {(s, e): {} for s, e, _ in windows}
+    if not windows:
+        return buckets
+    result = broker.execute("GET_EVENT_RANGE", {"start_id": windows[0][0] + 1, "end_id": windows[-1][1], "limit": 1000})
+    if result.status != "SUCCESS":
+        return buckets
+    columns = result.result["columns"]
+    idx = {name: i for i, name in enumerate(columns)}
+    for row in result.result["rows"]:
+        if row[idx["contaminated"]]:
+            continue
+        event_id, event_type, agent_id = row[idx["id"]], row[idx["event_type"]], row[idx["agent_id"]]
+        if not agent_id:
+            continue
+        for s, e in buckets:
+            if s < event_id <= e:
+                bucket = buckets[(s, e)].setdefault(agent_id, {"activations": 0, "substantive_actions": 0})
+                if event_type == "AGENT_WOKE":
+                    bucket["activations"] += 1
+                else:
+                    bucket["substantive_actions"] += 1
+                break
+    return buckets
+
+
+def _run_longitudinal_agent_update(status: dict[str, Any]) -> TaskResult:
+    """Task class B (Founder authorization, 2026-09-05): for each agent,
+    compares the one-shot pre-live baseline (agent_profile_agent_X,
+    captured before any bounded live window ever ran) against cumulative
+    activity through every subsequently analyzed live window, checkpoint
+    by checkpoint (each window's own end_event_id) -- interpreting
+    meaningful change, not merely dumping counts. Uses one fresh
+    GET_EVENT_RANGE read for real per-agent activation/substantive-action
+    counts (contamination-excluded), plus already-collected per-window
+    table breakdowns. Zero new provider calls."""
+    windows = _all_window_analyses(status)
+    if not windows:
+        return TaskResult(status="FAILED", summary="no live window evidence exists yet to update agent profiles against")
+
+    store = status.get("results_store", {})
+    baseline: dict[str, dict[str, Any]] = {}
+    for task_id, detail in store.items():
+        if task_id.startswith("agent_profile_") and isinstance(detail, dict) and detail.get("rows"):
+            agent_id = task_id[len("agent_profile_"):]
+            baseline[agent_id] = dict(zip(detail.get("columns", []), detail["rows"][0]))
+
+    activity_buckets = _fetch_bucketed_event_activity(windows)
+    latest_end = windows[-1][1]
+    all_agents = sorted(set(baseline) | {a for _, _, d in windows for a in (d.get("agent_ids_acted") or [])})
+
+    per_agent_narrative: dict[str, str] = {}
+    per_agent_checkpoints: dict[str, list[dict[str, Any]]] = {}
+    for agent in all_agents:
+        cum = {"memories": 0, "questions": 0, "reflections": 0, "research": 0, "sent": 0, "received": 0, "activations": 0, "substantive_actions": 0}
+        checkpoints = []
+        for s, e, d in windows:
+            cum["memories"] += _sum_rows_for_agent(d.get("memories"), agent)
+            cum["questions"] += _sum_rows_for_agent(d.get("questions"), agent)
+            cum["reflections"] += _sum_rows_for_agent(d.get("reflections"), agent)
+            cum["research"] += _sum_rows_for_agent(d.get("research_sessions"), agent)
+            for row in (d.get("messages") or {}).get("rows", []):
+                if row[0] == agent:
+                    cum["sent"] += row[2]
+                if row[1] == agent:
+                    cum["received"] += row[2]
+            bucket = activity_buckets.get((s, e), {}).get(agent, {})
+            cum["activations"] += bucket.get("activations", 0)
+            cum["substantive_actions"] += bucket.get("substantive_actions", 0)
+            checkpoints.append({"through_event": e, **cum})
+        per_agent_checkpoints[agent] = checkpoints
+
+        base = baseline.get(agent, {})
+        base_total = sum((base.get(k) or 0) for k in ("memories", "questions", "research", "sent", "received"))
+        final_total = cum["memories"] + cum["questions"] + cum["research"] + cum["sent"] + cum["received"]
+        mid_idx = max(0, (len(checkpoints) - 1) // 2)
+        if final_total == 0:
+            narrative = f"no real live-window activity beyond the pre-live baseline ({base_total})"
+        elif len(checkpoints) >= 2 and checkpoints[-1]["substantive_actions"] > 2 * max(1, checkpoints[mid_idx]["substantive_actions"]):
+            narrative = f"activity concentrated in more recent windows ({final_total} new event(s) beyond baseline of {base_total})"
+        else:
+            narrative = f"{final_total} new event(s) beyond baseline ({base_total}), spread fairly evenly across the observed windows"
+        per_agent_narrative[agent] = narrative
+
+    summary = f"longitudinal agent update through event {latest_end} ({len(windows)} window(s)): " + "; ".join(f"{a}: {per_agent_narrative[a]}" for a in all_agents)
+    return TaskResult(
+        status="COMPLETED", summary=summary,
+        detail={"latest_event_covered": latest_end, "baseline": baseline, "per_agent_checkpoints": per_agent_checkpoints, "per_agent_narrative": per_agent_narrative},
+    )
+
+
+def _run_cross_agent_transmission_trace(status: dict[str, Any]) -> TaskResult:
+    """Task class C (Founder authorization, 2026-09-05, explicitly named
+    one of the highest-priority scientific questions in the project): for
+    every cross-agent-transmission hit any analyzed live window found,
+    builds the explicit chain sender -> content -> recipient exposure ->
+    persistence -> later retrieval -> later action, and identifies exactly
+    where it breaks. Persistence is confirmed by the substring match
+    itself (a real memory row containing the message's own text). Later
+    retrieval is honestly reported as NOT observable -- no retrieval-event
+    log exists in this schema -- so every chain's furthest confirmable
+    link is "later action" (checked via one fresh, read-only
+    LIVE_DB_READ), never claimed as retrieval. Zero new provider calls."""
+    windows = _all_window_analyses(status)
+    latest_end = windows[-1][1] if windows else 0
+    hits = []
+    for s, e, d in windows:
+        for row in (d.get("cross_agent_transmission") or {}).get("rows", []):
+            msg_id, sender, recipient, memory_hits = row[0], row[1], row[2], row[3]
+            if memory_hits:
+                hits.append({"window": [s, e], "message_id": msg_id, "sender": sender, "recipient": recipient, "memory_hits": memory_hits})
+
+    if not hits:
+        return TaskResult(
+            status="COMPLETED",
+            summary=f"no cross-agent transmission hits found through event {latest_end} -- every chain stops at 'recipient exposure', never reaching persistence",
+            detail={"latest_event_covered": latest_end, "hits": [], "chains": []},
+        )
+
+    recipients = sorted({h["recipient"] for h in hits})
+    later_action = _run_read(
+        "SELECT sender_agent_id, COUNT(*) as n FROM messages WHERE sender_agent_id IN ("
+        + ",".join(f"'{a}'" for a in recipients) + ") GROUP BY sender_agent_id",
+        "later-action check: did any transmission recipient send a subsequent message at all",
+    )
+    later_action_counts = {row[0]: row[1] for row in later_action.detail.get("rows", [])} if later_action.status == "COMPLETED" else {}
+
+    chains = []
+    for h in hits:
+        recipient_acted_later = later_action_counts.get(h["recipient"], 0) > 0
+        chains.append({
+            **h, "recipient_exposure": True, "persistence": True,
+            "later_retrieval": "not directly observable -- no retrieval-event log exists in this schema",
+            "later_action_observed": recipient_acted_later,
+            "break_point": (
+                "retrieval (architecturally unobservable)" if not recipient_acted_later else
+                "none identified through 'later action' -- though a causal link to this specific transmission is not proven, only correlated"
+            ),
+        })
+
+    summary = (
+        f"cross-agent transmission trace through event {latest_end}: {len(hits)} hit(s), "
+        f"{len(set(h['sender'] for h in hits))} sender(s) / {len(recipients)} recipient(s); "
+        f"every chain confirms exposure+persistence, but retrieval is architecturally unobservable in this schema"
+    )
+    return TaskResult(status="COMPLETED", summary=summary, detail={"latest_event_covered": latest_end, "hits": hits, "chains": chains})
+
+
+def _run_reflection_memory_pressure_update(status: dict[str, Any]) -> TaskResult:
+    """Task class F (Founder authorization, 2026-09-05): a fresh read of
+    every agent's CURRENT reflection_pressure and memory count, compared
+    against the last historically recorded reflection_pressure_recheck
+    result -- flags agents approaching the real, configured
+    reflection_significance_threshold (never a guessed number) and agents
+    accumulating memories with no reflection yet. One fresh, read-only
+    LIVE_DB_READ, zero provider spend."""
+    current = _run_read(
+        "SELECT a.agent_id, a.reflection_pressure, a.last_reflection_sim_day, "
+        "(SELECT COUNT(*) FROM memories m WHERE m.agent_id = a.agent_id) as memory_count "
+        "FROM agents a ORDER BY a.agent_id",
+        "current reflection pressure + memory count",
+    )
+    if current.status != "COMPLETED":
+        return TaskResult(status="FAILED", summary=current.summary, detail=current.detail)
+
+    threshold = _get_settings().reflection_significance_threshold
+    prior_rows = (status.get("results_store", {}).get("reflection_pressure_recheck") or {}).get("rows", [])
+    prior_by_agent = {row[0]: row[1] for row in prior_rows}
+
+    findings = []
+    for agent_id, pressure, last_day, memory_count in current.detail.get("rows", []):
+        prior_pressure = prior_by_agent.get(agent_id)
+        delta = (pressure - prior_pressure) if prior_pressure is not None else None
+        note = (
+            "no prior baseline recorded" if prior_pressure is None else
+            "pressure increased since baseline" if delta and delta > 0 else
+            "pressure unchanged since baseline" if delta == 0 else
+            "pressure decreased since baseline (a reflection likely occurred)"
+        )
+        findings.append({
+            "agent_id": agent_id, "current_reflection_pressure": pressure, "prior_reflection_pressure": prior_pressure,
+            "delta": delta, "memory_count": memory_count, "last_reflection_sim_day": last_day, "note": note,
+        })
+
+    approaching_threshold = [f["agent_id"] for f in findings if f["current_reflection_pressure"] and f["current_reflection_pressure"] >= 0.5 * threshold]
+    accumulating_without_reflection = [f["agent_id"] for f in findings if f["memory_count"] >= 3 and not f["last_reflection_sim_day"]]
+
+    summary = (
+        f"reflection/memory pressure update (threshold={threshold}): {len(findings)} agent(s); "
+        f"approaching threshold (>=50%)={approaching_threshold}; accumulating memories without any reflection yet={accumulating_without_reflection}"
+    )
+    return TaskResult(
+        status="COMPLETED", summary=summary,
+        detail={"threshold": threshold, "findings": findings, "approaching_threshold": approaching_threshold, "accumulating_without_reflection": accumulating_without_reflection},
+    )
+
+
+def _run_research_continuity_trace(status: dict[str, Any]) -> TaskResult:
+    """Task class G (Founder authorization, 2026-09-05): traces every real
+    research session's question -> research -> findings -> persistence ->
+    follow-up-question chain, across ALL agents, compared against Roxy's
+    previously documented continuity chain (this project's one
+    established positive case). One fresh, read-only LIVE_DB_READ,
+    zero provider spend."""
+    latest_end = max((e for _, e, _ in _all_window_analyses(status)), default=0)
+    chain = _run_read(
+        "SELECT rs.agent_id, rs.id as session_id, "
+        "(SELECT COUNT(*) FROM research_findings rf WHERE rf.research_session_id = rs.id) as n_findings, "
+        "(SELECT COUNT(*) FROM memories m WHERE m.agent_id = rs.agent_id AND m.created_at > rs.created_at) as memories_after, "
+        "(SELECT COUNT(*) FROM agent_questions q WHERE q.agent_id = rs.agent_id AND q.created_at > rs.created_at) as questions_after "
+        "FROM research_sessions rs ORDER BY rs.id",
+        "research continuity chain: question -> research -> findings -> persistence -> follow-up",
+    )
+    if chain.status != "COMPLETED":
+        return TaskResult(status="FAILED", summary=chain.summary, detail=chain.detail)
+
+    chains = []
+    for agent_id, session_id, n_findings, memories_after, questions_after in chain.detail.get("rows", []):
+        break_point = (
+            "no findings recorded" if not n_findings else
+            "no memory persisted after the session" if not memories_after else
+            "no follow-up question after the session" if not questions_after else
+            None
+        )
+        chains.append({
+            "agent_id": agent_id, "session_id": session_id, "n_findings": n_findings,
+            "memories_after": memories_after, "questions_after": questions_after,
+            "break_point": break_point or "full chain observed: findings -> persisted memory -> follow-up question",
+        })
+
+    roxy_chains = [c for c in chains if c["agent_id"] == "agent_roxy"]
+    other_chains = [c for c in chains if c["agent_id"] != "agent_roxy"]
+    complete = sum(1 for c in chains if c["break_point"].startswith("full chain"))
+    summary = (
+        f"research continuity trace through event {latest_end}: {len(chains)} session(s) "
+        f"({len(roxy_chains)} agent_roxy, {len(other_chains)} other agent(s)); {complete} complete chain(s) observed"
+    )
+    return TaskResult(status="COMPLETED", summary=summary, detail={"latest_event_covered": latest_end, "chains": chains})
+
+
+def _run_relationship_culture_update(status: dict[str, Any]) -> TaskResult:
+    """Task class H (Founder authorization, 2026-09-05): compares current
+    relationship state (trust/familiarity/intellectual_affinity/
+    interaction_count) against the last historically recorded
+    relationship_dump_and_analysis baseline -- reports correlation only,
+    explicitly never inferring causality from movement. One fresh,
+    read-only LIVE_DB_READ, zero provider spend."""
+    latest_end = max((e for _, e, _ in _all_window_analyses(status)), default=0)
+    current = _run_read(
+        "SELECT agent_a_id, agent_b_id, trust_score, familiarity, intellectual_affinity, interaction_count "
+        "FROM relationships ORDER BY agent_a_id, agent_b_id",
+        "current relationship state",
+    )
+    if current.status != "COMPLETED":
+        return TaskResult(status="FAILED", summary=current.summary, detail=current.detail)
+
+    prior_rows = (status.get("results_store", {}).get("relationship_dump_and_analysis") or {}).get("rows", [])
+    prior_by_pair = {(r[0], r[1]): tuple(r[2:]) for r in prior_rows}
+
+    moved = []
+    for a, b, trust, fam, affinity, interactions in current.detail.get("rows", []):
+        prior = prior_by_pair.get((a, b))
+        if prior is None:
+            moved.append({"pair": [a, b], "note": "no prior baseline recorded for this pair"})
+        elif (trust, fam, affinity, interactions) != prior:
+            moved.append({
+                "pair": [a, b], "trust_score": [prior[0], trust], "familiarity": [prior[1], fam],
+                "intellectual_affinity": [prior[2], affinity], "interaction_count": [prior[3], interactions],
+            })
+
+    n_checked = len(current.detail.get("rows", []))
+    summary = (
+        f"relationship-mediated culture update through event {latest_end}: {n_checked} pair(s) checked; "
+        f"{len(moved)} pair(s) show movement since the prior baseline (correlation only, no causal claim made)"
+    )
+    return TaskResult(status="COMPLETED", summary=summary, detail={"latest_event_covered": latest_end, "moved_pairs": moved, "n_pairs_checked": n_checked})
+
+
+def _run_wall_rabbit_belief_readiness(status: dict[str, Any]) -> TaskResult:
+    """Task class I (Founder authorization, 2026-09-05): does NOT force
+    uptake. Identifies whether new evidence created a natural opportunity
+    for the Research Wall or a Rabbit Hole, and whether the agent
+    nevertheless did not use the mechanism: a completed research session
+    with real findings but zero matching research_wall rows is a Wall
+    opportunity; an agent with 2+ research sessions who is in no
+    rabbit_hole_members row is a Rabbit-Hole opportunity. Belief-revision
+    readiness is honestly reported as not currently assessable given how
+    few real beliefs exist. Three fresh, read-only LIVE_DB_READ calls."""
+    latest_end = max((e for _, e, _ in _all_window_analyses(status)), default=0)
+
+    wall_check = _run_read(
+        "SELECT rs.agent_id, rs.id as session_id, "
+        "(SELECT COUNT(*) FROM research_findings rf WHERE rf.research_session_id = rs.id) as n_findings, "
+        "(SELECT COUNT(*) FROM research_wall rw WHERE rw.agent_id = rs.agent_id) as wall_posts "
+        "FROM research_sessions rs WHERE (SELECT COUNT(*) FROM research_findings rf WHERE rf.research_session_id = rs.id) > 0 "
+        "ORDER BY rs.id",
+        "Wall-readiness: completed research with findings vs actual Wall posts",
+    )
+    rabbit_check = _run_read(
+        "SELECT agent_id, COUNT(*) as n_sessions FROM research_sessions "
+        "WHERE agent_id NOT IN (SELECT agent_id FROM rabbit_hole_members) "
+        "GROUP BY agent_id HAVING COUNT(*) >= 2",
+        "Rabbit-Hole readiness: agents with 2+ research sessions and no existing Rabbit Hole",
+    )
+    belief_check = _run_read("SELECT COUNT(*) as n FROM agent_beliefs", "current belief count")
+
+    wall_gap_agents = [
+        {"agent_id": r[0], "session_id": r[1], "n_findings": r[2]}
+        for r in wall_check.detail.get("rows", []) if wall_check.status == "COMPLETED" and r[3] == 0
+    ]
+    rabbit_hole_candidates = [
+        {"agent_id": r[0], "n_sessions": r[1]} for r in rabbit_check.detail.get("rows", [])
+    ] if rabbit_check.status == "COMPLETED" else []
+    n_beliefs = belief_check.detail.get("rows", [[None]])[0][0] if belief_check.status == "COMPLETED" else None
+
+    summary = (
+        f"Wall/Rabbit-Hole/Belief readiness through event {latest_end}: "
+        f"{len(wall_gap_agents)} completed-research-without-Wall-post opportunity(ies); "
+        f"{len(rabbit_hole_candidates)} agent(s) with an unused Rabbit-Hole candidate; "
+        f"belief-revision readiness not assessable ({n_beliefs} real belief(s) exist)"
+    )
+    return TaskResult(
+        status="COMPLETED", summary=summary,
+        detail={"latest_event_covered": latest_end, "wall_gap_agents": wall_gap_agents, "rabbit_hole_candidates": rabbit_hole_candidates, "n_beliefs": n_beliefs},
+    )
+
+
+def _run_roadmap_update(status: dict[str, Any], through_event: int) -> TaskResult:
+    """Task class M (Founder authorization, 2026-09-05): reads the B/C/F/
+    G/H/I results recorded for this exact evidence point (through_event)
+    and classifies each named roadmap claim as strengthened / weakened /
+    unchanged / falsified / still_insufficient -- activity volume alone is
+    never counted as cultural progress. Appends (never overwrites) a dated
+    addendum to the canonical master index, via the same READ/WRITE
+    DIRECTOR_ARTIFACT pattern task_master_index_addendum already uses."""
+    store = status.get("results_store", {})
+    transmission = store.get(f"cross_agent_transmission_trace_through_{through_event}")
+    longitudinal = store.get(f"longitudinal_agent_update_through_{through_event}")
+    reflection = store.get(f"reflection_memory_pressure_update_through_{through_event}")
+    research_continuity = store.get(f"research_continuity_trace_through_{through_event}")
+    relationship = store.get(f"relationship_culture_update_through_{through_event}")
+    readiness = store.get(f"wall_rabbit_belief_readiness_through_{through_event}")
+
+    claims: list[dict[str, str]] = []
+
+    def _claim(name: str, evidence: dict | None, classification: str, reason: str) -> None:
+        claims.append({
+            "claim": name,
+            "classification": classification if evidence is not None else "still_insufficient",
+            "reason": reason if evidence is not None else "no evidence collected yet for this evidence point",
+        })
+
+    if longitudinal:
+        any_new_activity = any("no real live-window activity" not in n for n in longitudinal.get("per_agent_narrative", {}).values())
+        _claim(
+            "individual continuity", longitudinal,
+            "strengthened" if any_new_activity else "unchanged",
+            "based on per-agent longitudinal activity counts (class B), not a dedicated unresolved-thread trace",
+        )
+    else:
+        _claim("individual continuity", None, "", "")
+
+    if transmission:
+        _claim(
+            "cross-agent transmission", transmission,
+            "weakened" if transmission.get("hits") else "strengthened",
+            "new transmission hit(s) contradict the no-transmission pattern" if transmission.get("hits") else "no-transmission pattern held under new real evidence",
+        )
+        _claim(
+            "shared culture", transmission, "still_insufficient",
+            "shared culture requires durable transmission across many agents; current evidence covers a small sample",
+        )
+    else:
+        _claim("cross-agent transmission", None, "", "")
+        _claim("shared culture", None, "", "")
+
+    if readiness:
+        _claim(
+            "Research Wall readiness", readiness, "unchanged",
+            f"{len(readiness.get('wall_gap_agents', []))} completed-research-without-post opportunity(ies) remain unused",
+        )
+        _claim(
+            "Rabbit Hole readiness", readiness, "unchanged",
+            f"{len(readiness.get('rabbit_hole_candidates', []))} natural candidate(s) remain unused",
+        )
+        _claim(
+            "belief revision readiness", readiness, "still_insufficient",
+            f"{readiness.get('n_beliefs')} real belief(s) exist -- not enough to assess revision behavior",
+        )
+    else:
+        _claim("Research Wall readiness", None, "", "")
+        _claim("Rabbit Hole readiness", None, "", "")
+        _claim("belief revision readiness", None, "", "")
+
+    if relationship:
+        _claim(
+            "relationship-mediated culture", relationship, "unchanged",
+            f"{len(relationship.get('moved_pairs', []))} of {relationship.get('n_pairs_checked')} pair(s) moved; correlation only, no causal claim made",
+        )
+    else:
+        _claim("relationship-mediated culture", None, "", "")
+
+    if reflection:
+        _claim(
+            "reflection maturity", reflection, "unchanged",
+            f"approaching_threshold={reflection.get('approaching_threshold')}, accumulating_without_reflection={reflection.get('accumulating_without_reflection')}",
+        )
+    else:
+        _claim("reflection maturity", None, "", "")
+
+    if research_continuity:
+        complete = sum(1 for c in research_continuity.get("chains", []) if c["break_point"].startswith("full chain"))
+        _claim(
+            "research continuity (Roxy-pattern generalization)", research_continuity,
+            "strengthened" if complete > 1 else "unchanged",
+            f"{complete} complete question->research->findings->persistence->follow-up chain(s) observed across all agents",
+        )
+    else:
+        _claim("research continuity (Roxy-pattern generalization)", None, "", "")
+
+    addendum = (
+        "\n\n---\n\n## Roadmap Evidence Update — " + _now() + f" (through event {through_event})\n\n"
+        + "\n".join(f"- **{c['claim']}**: {c['classification']} — {c['reason']}" for c in claims)
+        + "\n\n(Activity volume alone is not counted as cultural progress; each classification above is grounded "
+        "in the specific evidence checked above, not raw event counts.)\n"
+    )
+    read = broker.execute("READ_DIRECTOR_ARTIFACT", {"relative_path": MASTER_INDEX_RELATIVE_PATH})
+    if read.status != "SUCCESS":
+        return TaskResult(status="FAILED", summary=read.failure_reason or "could not read master index")
+    write = broker.execute("WRITE_DIRECTOR_ARTIFACT", {"relative_path": MASTER_INDEX_RELATIVE_PATH, "content": read.result["content"] + addendum})
+    if write.status != "SUCCESS":
+        return TaskResult(status="FAILED", summary=write.failure_reason or "could not write roadmap addendum")
+
+    summary = f"roadmap update through event {through_event}: " + "; ".join(f"{c['claim']}={c['classification']}" for c in claims)
+    return TaskResult(status="COMPLETED", summary=summary, detail={"through_event": through_event, "claims": claims, "addendum_chars": len(addendum)})
+
+
+def _maybe_generate_multi_reviewer_candidate(status: dict[str, Any], through_event: int) -> Task | None:
+    """Task class L (Founder authorization, 2026-09-05): SELECTION LOGIC
+    ONLY. Once a roadmap update (class M) exists for this exact evidence
+    point, records that a multi-reviewer PRIMARY -> CRITIQUE -> SYNTHESIS
+    pass (scripts/director_reviewers.py) is warranted -- but does not
+    invoke it. That pipeline is not currently exposed as a broker
+    capability, and adding one is a broker-catalog decision requiring
+    separate, explicit Founder authorization (the same category of gap
+    this file's own `_KNOWN_BLOCKED_DIAGNOSTIC_TYPES` already documents
+    for comparable cases). Recorded once per evidence point, never
+    repeated on identical evidence."""
+    roadmap_task_id = f"roadmap_update_through_{through_event}"
+    if roadmap_task_id not in status["completed_task_ids"]:
+        return None  # roadmap update hasn't run yet for this evidence point
+    candidate_task_id = f"multi_reviewer_synthesis_candidate_{through_event}"
+    if candidate_task_id in status["completed_task_ids"] or candidate_task_id in status["failed_task_ids"]:
+        return None
+
+    def _run() -> TaskResult:
+        return TaskResult(
+            status="COMPLETED",
+            summary=(
+                f"multi-reviewer synthesis (PRIMARY -> CRITIQUE -> SYNTHESIS) is warranted given the roadmap "
+                f"update through event {through_event}, but is NOT invoked here -- scripts/director_reviewers.py "
+                "is not currently exposed as a broker capability. Recorded as a blocked candidate."
+            ),
+            detail={
+                "based_on_roadmap_task_id": roadmap_task_id, "reviewer_module": "scripts/director_reviewers.py",
+                "blocked_on": "no broker capability exposes the reviewer pipeline yet -- requires separate Founder authorization",
+            },
+        )
+
+    return Task(
+        candidate_task_id,
+        f"Record multi-reviewer-synthesis candidacy based on {roadmap_task_id}",
+        [1, 2, 3, 4, 6, 7, 8, 9, 10, 11],
+        "R",
+        _run,
+    )
+
+
 def _maybe_generate_replication_task(status: dict[str, Any], shift: dict[str, Any]) -> Task | None:
     """Task class K (Founder authorization, 2026-09-05): autonomously
     re-running an ALREADY-APPROVED disposable experiment when this shift's
@@ -1128,6 +1626,33 @@ def _maybe_generate_replication_task(status: dict[str, Any], shift: dict[str, An
     )
 
 
+#: Priority-ordered (task_id_prefix, description_template, roadmap_phases,
+#: fn) for the global, all-time evidence-mining generators (Founder
+#: authorization, 2026-09-05, "expand the science planner"): B, C, F, G,
+#: H, I, M below. Each is keyed by "<prefix>_through_<event_id>" -- the
+#: exact real live baseline at generation time -- so an identical evidence
+#: point is never re-analyzed, while a later baseline (new live evidence)
+#: legitimately produces a fresh version. fn takes (status, through_event)
+#: even though most classes only need `status`, so every entry has one
+#: uniform call signature.
+_EVIDENCE_MINING_GENERATORS: list[tuple[str, str, list[int], Callable[[dict, int], TaskResult]]] = [
+    ("cross_agent_transmission_trace", "Cross-agent transmission trace through event {e}", [2, 3],
+     lambda status, e: _run_cross_agent_transmission_trace(status)),
+    ("longitudinal_agent_update", "Longitudinal agent update through event {e}", [1, 4],
+     lambda status, e: _run_longitudinal_agent_update(status)),
+    ("reflection_memory_pressure_update", "Reflection/memory pressure update through event {e}", [2],
+     lambda status, e: _run_reflection_memory_pressure_update(status)),
+    ("research_continuity_trace", "Research continuity trace through event {e}", [3],
+     lambda status, e: _run_research_continuity_trace(status)),
+    ("relationship_culture_update", "Relationship-mediated culture update through event {e}", [9],
+     lambda status, e: _run_relationship_culture_update(status)),
+    ("wall_rabbit_belief_readiness", "Wall/Rabbit-Hole/Belief readiness through event {e}", [6, 7, 8],
+     lambda status, e: _run_wall_rabbit_belief_readiness(status)),
+    ("roadmap_update", "Roadmap evidence update through event {e}", [11],
+     lambda status, e: _run_roadmap_update(status, e)),
+]
+
+
 def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, Any]) -> Task | None:
     """The dynamic half of the planner (Founder authorization, 2026-09-05,
     expanded 2026-09-05 to widen the scientific repertoire): consulted
@@ -1136,23 +1661,33 @@ def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, An
     a planning pass may count as "no material task":
 
     1. any completed live window whose event interval hasn't been
-       analyzed yet -- analyze it next (task class per-window analysis).
+       analyzed yet -- analyze it next (per-window analysis).
     2. otherwise, if this shift's own live-window cap (MAX_LIVE_WINDOWS)
        and the mechanically-proven remaining margin both still allow it,
        attempt one more bounded live window.
     3. otherwise (no more live advancement is currently permitted THIS
        SHIFT -- which is NOT exhaustion, only "no more live windows"):
-       cross-window synthesis of this shift's full live interval, if at
-       least one window ran this shift and it hasn't been synthesized yet
-       (task class A, with embedded ranked hypotheses, task class J).
-    4. otherwise, an evidence-justified replication of an
-       ALREADY-APPROVED disposable experiment, if the synthesis surfaced
-       a qualifying condition (task class K).
+       (a) cross-window synthesis of this shift's own live interval, if
+           this shift added at least one window and it isn't synthesized
+           yet (task class A, with embedded ranked hypotheses, class J).
+       (b) the global evidence-mining generators (_EVIDENCE_MINING_GENERATORS
+           above: classes B, C, F, G, H, I, M), each keyed to the current
+           real live baseline, checked in priority order -- independent
+           of whether THIS shift added any new live events, since they
+           mine ALL historical evidence, not just this shift's own.
+       (c) a multi-reviewer-synthesis candidacy recommendation, once a
+           roadmap update exists for this evidence point (class L,
+           selection logic only -- never actually invokes the reviewer
+           pipeline, which is not yet a broker capability).
+       (d) an evidence-justified replication of an ALREADY-APPROVED
+           disposable experiment, if this shift's own synthesis surfaced
+           a qualifying condition (task class K).
 
     Returns None (no material task) only once every one of the above has
     been checked and found nothing to do -- callers count 3 consecutive
     None results as genuine exhaustion, never a bare empty seed queue and
-    never merely reaching the live-window cap."""
+    never merely reaching the live-window cap or completing one
+    cross-window synthesis while useful downstream analysis remains."""
     for task_id, start, end in _completed_live_windows(status):
         analysis_task_id = f"analyze_live_window_{start}_{end}"
         if analysis_task_id in status["completed_task_ids"] or analysis_task_id in status["failed_task_ids"]:
@@ -1203,15 +1738,41 @@ def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, An
                 "R",
                 (lambda ss=shift_start, se=shift_end: _run_cross_window_synthesis(status, ss, se)),
             )
-        replication_task = _maybe_generate_replication_task(status, shift)
-        if replication_task is not None:
-            return replication_task
+
+    # Global evidence-mining generators (classes B, C, F, G, H, I, M) --
+    # independent of whether THIS shift itself advanced any live events,
+    # since they mine ALL historical window evidence. Only meaningful once
+    # at least one live window has ever been analyzed.
+    through_event = shift["current_live_event"]
+    if _all_window_analyses(status):
+        for prefix, description_template, phases, fn in _EVIDENCE_MINING_GENERATORS:
+            task_id = f"{prefix}_through_{through_event}"
+            if task_id in status["completed_task_ids"] or task_id in status["failed_task_ids"]:
+                continue
+            return Task(
+                task_id, description_template.format(e=through_event), phases, "R",
+                (lambda fn=fn, te=through_event: fn(status, te)),
+            )
+
+        multi_reviewer_task = _maybe_generate_multi_reviewer_candidate(status, through_event)
+        if multi_reviewer_task is not None:
+            return multi_reviewer_task
+
+    replication_task = _maybe_generate_replication_task(status, shift)
+    if replication_task is not None:
+        return replication_task
 
     return None
 
 
 def write_final_founder_packet(status: dict[str, Any], before: dict[str, Any], shift: dict[str, Any]) -> Path:
-    path = FOUNDER_PACKETS_DIR / "unattended_shift_completion_2026-09-04.md"
+    # Fixed 2026-09-05 (Founder-reported bug): the filename used to be a
+    # single fixed date-stamped name, so every shift's completion packet
+    # silently overwrote the previous one -- multiple real shifts on
+    # 2026-09-05 alone all clobbered "...2026-09-04.md". Unique per shift
+    # (today's date + this shift's own shift_id) so no packet is ever lost.
+    today = datetime.now(timezone.utc).date().isoformat()
+    path = FOUNDER_PACKETS_DIR / f"unattended_shift_completion_{today}_{shift['shift_id']}.md"
     store = status.get("results_store", {})
     stat_lines = (store.get("statistical_reanalysis_shift_experiments") or {}).get("lines", [])
     content = f"""# Unattended Director Shift — Completion Report

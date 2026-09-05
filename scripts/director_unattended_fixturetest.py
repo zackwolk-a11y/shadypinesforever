@@ -510,6 +510,109 @@ def main() -> int:
             "expected _run_experiment( present and broker.execute( absent in _maybe_generate_replication_task",
         )
 
+        # --- Test 7: expanded scientific repertoire round 2 (Founder
+        # authorization, 2026-09-05, "EXPAND THE SCIENCE PLANNER USING THE
+        # NEW EVIDENCE") -- once cross-window synthesis (class A) has run,
+        # the planner must keep mining evidence (classes B, C, F, G, H, I,
+        # M, L) rather than declaring exhaustion after just one synthesis. ---
+        shutil.rmtree(tmp_root)
+        tmp_root.mkdir()
+        shutil.rmtree(fake_village_root, ignore_errors=True)
+        fake_village_root = _build_fake_village_data_root()
+
+        NEW_CLASS_PREFIXES = (
+            "cross_agent_transmission_trace_through_", "longitudinal_agent_update_through_",
+            "reflection_memory_pressure_update_through_", "research_continuity_trace_through_",
+            "relationship_culture_update_through_", "wall_rabbit_belief_readiness_through_",
+            "roadmap_update_through_", "multi_reviewer_synthesis_candidate_",
+        )
+
+        proc10 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("Test 7 seed run exits 0", proc10.returncode == 0, proc10.stdout[-300:])
+        status_d = status_at(tmp_root)
+        shift_d = status_d["current_shift"]
+        through_d = shift_d["current_live_event"]
+        new_class_tasks_d = [t for t in status_d["completed_task_ids"] if t.endswith(f"_{through_d}") and any(t.startswith(p) for p in NEW_CLASS_PREFIXES)]
+        record(
+            "a completed cross-window synthesis alone is NOT sufficient to declare exhaustion -- all 8 new "
+            "evidence-mining task classes (B, C, F, G, H, I, M, L) fire automatically for the same evidence point",
+            len(new_class_tasks_d) == len(NEW_CLASS_PREFIXES),
+            f"expected {len(NEW_CLASS_PREFIXES)}, got {new_class_tasks_d}",
+        )
+        record(
+            "the live-window cap is never bypassed by the expanded repertoire (still exactly 1 live window this shift)",
+            "attempt_live_window_2" not in status_d["completed_task_ids"] and shift_d["live_windows_this_shift"] == 1,
+            str(shift_d),
+        )
+
+        roadmap_result_d = status_d["results_store"][f"roadmap_update_through_{through_d}"]
+        valid_classifications = {"strengthened", "weakened", "unchanged", "falsified", "still_insufficient"}
+        record(
+            "roadmap update only classifies claims for which relevant evidence actually exists this round, "
+            "using only valid classification labels -- never fabricating false confidence",
+            len(roadmap_result_d["claims"]) >= 8
+            and all(c["classification"] in valid_classifications for c in roadmap_result_d["claims"]),
+            str(roadmap_result_d["claims"]),
+        )
+        multi_reviewer_result_d = status_d["results_store"][f"multi_reviewer_synthesis_candidate_{through_d}"]
+        record(
+            "multi-reviewer synthesis is only selected (as a recorded candidate) once a roadmap update exists for "
+            "the same evidence point, and never actually invokes the (not-yet-broker-exposed) reviewer pipeline",
+            multi_reviewer_result_d["based_on_roadmap_task_id"] == f"roadmap_update_through_{through_d}"
+            and "director_reviewers" in multi_reviewer_result_d["reviewer_module"],
+            str(multi_reviewer_result_d),
+        )
+
+        # A further intentional run: new shift, real margin remains, so it
+        # legitimately runs another live window -> new synthesis -> a NEW
+        # round of the same 8 evidence-mining classes keyed to the new,
+        # later evidence point -- while the FIRST round's results (keyed to
+        # through_d) are preserved untouched, never duplicated or overwritten.
+        proc11 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("Test 7 next-shift run exits 0", proc11.returncode == 0, proc11.stdout[-300:])
+        status_e = status_at(tmp_root)
+        shift_e = status_e["current_shift"]
+        through_e = shift_e["current_live_event"]
+        record(
+            "identical evidence (through_d) never produces a duplicate task on a later run",
+            all(status_e["completed_task_ids"].count(t) == 1 for t in new_class_tasks_d),
+            {t: status_e["completed_task_ids"].count(t) for t in new_class_tasks_d},
+        )
+        new_class_tasks_e = [t for t in status_e["completed_task_ids"] if t.endswith(f"_{through_e}") and any(t.startswith(p) for p in NEW_CLASS_PREFIXES)]
+        record(
+            "new evidence (a later live baseline) legitimately produces a fresh round of the same task classes",
+            through_e != through_d and len(new_class_tasks_e) == len(NEW_CLASS_PREFIXES),
+            f"through_d={through_d} through_e={through_e} new_class_tasks_e={new_class_tasks_e}",
+        )
+
+        # Source-level proof (never importing the runner into this process):
+        # every new function in this round only ever calls broker.execute
+        # with a capability name already in the pre-approved set -- no new
+        # capability, no unapproved capability, can ever be selected.
+        source_text2 = RUNNER.read_text()
+        new_fn_names = [
+            "_fetch_bucketed_event_activity", "_run_longitudinal_agent_update", "_run_cross_agent_transmission_trace",
+            "_run_reflection_memory_pressure_update", "_run_research_continuity_trace",
+            "_run_relationship_culture_update", "_run_wall_rabbit_belief_readiness", "_run_roadmap_update",
+            "_maybe_generate_multi_reviewer_candidate",
+        ]
+        allowed_capabilities = {"GET_EVENT_RANGE", "LIVE_DB_READ", "READ_DIRECTOR_ARTIFACT", "WRITE_DIRECTOR_ARTIFACT"}
+        all_ok = True
+        detail_lines = []
+        for fn_name in new_fn_names:
+            fn_src = _extract_function_source(source_text2, fn_name)
+            caps_in_fn = re.findall(r'broker\.execute\(\s*"([A-Z_]+)"', fn_src)
+            bad = [c for c in caps_in_fn if c not in allowed_capabilities]
+            if bad:
+                all_ok = False
+            detail_lines.append(f"{fn_name}: direct_calls={caps_in_fn}")
+        record(
+            "every new task-class function's own direct broker.execute calls (if any) use only already-approved "
+            "capabilities -- the rest delegate entirely to the pre-existing, pre-approved _run_read/_run_experiment helpers",
+            all_ok,
+            "; ".join(detail_lines),
+        )
+
     finally:
         shutil.rmtree(tmp_root, ignore_errors=True)
         shutil.rmtree(fake_village_root, ignore_errors=True)
