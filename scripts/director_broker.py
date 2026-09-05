@@ -1137,40 +1137,70 @@ def _impl_create_safe_db_backup(params: CreateSafeDbBackupParams, result: Broker
 # ---------------------------------------------------------------------------
 
 
+#: CORRECTION, 2026-09-05: the original version of this function checked
+#: ResearchSynthesis's fields for Pydantic-native `Field(max_length=...)`
+#: metadata and found none, concluding no bound existed at all. That was
+#: the wrong signal: app/schemas/research.py already enforces real caps on
+#: every list field via custom `@field_validator` functions (`_cap_findings`
+#: raises past MAX_FINDINGS_PER_SYNTHESIS=5; `_cap_open_questions`/
+#: `_cap_follow_ups` silently truncate past MAX_OPEN_QUESTIONS=5/
+#: MAX_FOLLOW_UP_QUESTIONS=3) -- these never appear in `.metadata` because
+#: they are not expressed as Field constraints. Verified live, not assumed:
+#: constructing a ResearchSynthesis with 6 findings raises ValidationError;
+#: with 8 open_questions or 6 follow_ups, the extra items are silently
+#: dropped to the real cap. No production schema change was needed or
+#: made; this correction is entirely within this Director-infrastructure
+#: function, now importing the real constants directly instead of
+#: introspecting for a metadata shape that was never how these fields are
+#: actually bounded.
+#:
+#: This correction also fixes a second, independent gap: the original
+#: formula only accounted for research-completion event contributions. But
+#: app.services.reflection.maybe_reflect() runs unconditionally after
+#: EVERY activation (including a research-completing one, in the very
+#: same commit) once daily reflection_pressure crosses its threshold, and
+#: app.services.memory.consider_reflection() (a separate, lighter
+#: per-decision mechanism) can also fire on any activation. Both are now
+#: included below, using the real, already-existing caps on
+#: ReflectionSynthesis.question_updates (MAX_QUESTION_UPDATES=3, also a
+#: custom-validator cap, same pattern) rather than assuming they don't
+#: co-occur with research completion.
 def _derive_worst_case_activation_burst(settings: Any) -> int | None:
     """Returns the exact, code-derived maximum number of Event rows one
-    atomic run_next_event() call could ever emit, or None if no such small
-    bound can currently be proven (in which case RUN_BOUNDED_LIVE_WINDOW
-    must refuse to advance the live Village at all -- see module docstring
-    above)."""
-    from app.schemas.research import ResearchSynthesis
+    atomic run_next_event() call could ever emit, or None if some
+    contributing constant cannot be imported (fail closed on a codebase
+    change that removes a cap this formula depends on, rather than
+    silently using a stale number)."""
+    try:
+        from app.schemas.research import (
+            MAX_FINDINGS_PER_SYNTHESIS,
+            MAX_FOLLOW_UP_QUESTIONS,
+        )
+        from app.schemas.reflection import MAX_QUESTION_UPDATES
+        from app.services.agent_questions import MAX_QUESTIONS_PER_RESEARCH_SESSION
+    except ImportError:
+        return None  # a depended-on constant no longer exists -- fail closed, don't guess
 
-    unbounded_fields = [
-        name for name in ("findings", "follow_up_questions", "open_questions")
-        if not any(getattr(m, "max_length", None) is not None for m in ResearchSynthesis.model_fields[name].metadata)
-    ]
-    if unbounded_fields:
-        return None  # cannot compute a bound: proven, not assumed
-
-    # Unreachable under the current schema (unbounded_fields is always
-    # non-empty today) -- kept correct and ready for the day the schema
-    # gains real caps, so this function need not change then.
-    max_findings = next(
-        m.max_length for m in ResearchSynthesis.model_fields["findings"].metadata if getattr(m, "max_length", None) is not None
-    )
-    max_follow_ups = next(
-        m.max_length for m in ResearchSynthesis.model_fields["follow_up_questions"].metadata if getattr(m, "max_length", None) is not None
-    )
     max_queries = settings.max_search_queries_per_session
     max_sources_per_query = settings.max_sources_per_query
-    max_questions_seeded = 2  # app.services.agent_questions.MAX_QUESTIONS_PER_RESEARCH_SESSION, a real hardcoded constant
-    # AGENT_WOKE + AGENT_ACTED + AGENT_RESEARCH_STARTED + per-query(SEARCH_EXECUTED + sources)
-    # + RESEARCH_COMPLETED + findings + follow_ups + questions_seeded + MEMORY_CREATED + INTEREST_CREATED
+
     return (
-        1 + 1 + 1
-        + max_queries * (1 + max_sources_per_query)
-        + 1 + max_findings + max_follow_ups + max_questions_seeded
-        + 1 + 1
+        1  # AGENT_WOKE
+        + 1  # AGENT_ACTED
+        + 1  # AGENT_RESEARCH_STARTED
+        + max_queries * (1 + max_sources_per_query)  # SEARCH_EXECUTED + SOURCE_DISCOVERED, per query
+        + 1  # RESEARCH_COMPLETED
+        + MAX_FINDINGS_PER_SYNTHESIS  # FINDING_CREATED, one per finding
+        + MAX_FOLLOW_UP_QUESTIONS  # FOLLOWUP_QUESTION_CREATED, one per follow-up
+        + MAX_QUESTIONS_PER_RESEARCH_SESSION  # QUESTION_CREATED, research's own seeding loop
+        + 1  # MEMORY_CREATED, from _handle_research_completed's _upsert (exactly one call)
+        + 1  # INTEREST_CREATED or INTEREST_REVIVED, from interests.bump (exactly one call, never both)
+        + 1  # MEMORY_CREATED, from memory.consider_reflection (the lightweight per-decision Reflection field; can co-occur with research completion)
+        + 1  # REFLECTION_CREATED, from reflection.maybe_reflect (the AgentReflection engine; can co-occur if pressure crosses threshold on this same activation)
+        + 1  # QUESTION_CREATED, from a fired reflection's own synthesis.open_question (0 or 1)
+        + MAX_QUESTION_UPDATES  # QUESTION_STATUS_CHANGED or QUESTION_REFORMULATED, one per question_updates entry
+        + 1  # MEMORY_RECALLED, batched (0 or 1 regardless of how many memories were recalled) during context building
+        + 1  # REFLECTION_RECALLED, batched (0 or 1) during context building
     )
 
 
@@ -1226,6 +1256,21 @@ def _advance_bounded(
 
 
 def _impl_run_bounded_live_window(params: RunBoundedLiveWindowParams, result: BrokerResult) -> dict[str, Any]:
+    """CORRECTION, 2026-09-05: this implementation must NEVER pass
+    ``auto_advance=True`` to ``run_next_event()``. Doing so would let a
+    single call also cross a day/period boundary, which additionally
+    triggers ``app.services.agent_questions.sweep_decay()`` (a
+    population-wide scan emitting one QUESTION_DORMANT event per newly-
+    stale question, with no small fixed cap -- it grows with however many
+    questions the Village has accumulated) and
+    ``app.services.daily_synthesis.generate_report()`` (its own real
+    LLM-backed synthesis with its own uninspected event/token cost). Both
+    are structurally harder to bound than anything accounted for below,
+    so this capability deliberately keeps ``auto_advance`` at its default
+    ``False`` -- meaning "no eligible agent this period" is a real,
+    expected outcome, not an error (see ``_run_one``'s
+    ``activated_agent_id is None`` check just below, which stops the
+    advancement loop cleanly rather than spinning on it)."""
     from app.core.config import get_settings
 
     settings = get_settings()
@@ -1303,6 +1348,18 @@ def _impl_run_bounded_live_window(params: RunBoundedLiveWindowParams, result: Br
         def _run_one() -> Any:
             outcome = run_next_event(session, settings=settings, provider=provider)
             session.commit()
+            # CORRECTION, 2026-09-05: with auto_advance left at its default
+            # False (deliberate -- see the module note below), run_next_event
+            # returns a real EventOutcome object, never a literal None, even
+            # when no agent was eligible to act (e.g. everyone present has
+            # exhausted today's activation budget). That case emits no new
+            # Event rows at all, so get_max_event_id() would never advance
+            # and _advance_bounded's margin check would never shrink --
+            # without this check, a "no eligible agent" period would spin
+            # this loop forever rather than stopping. activated_agent_id is
+            # the real, already-existing signal for "nothing happened."
+            if outcome.activated_agent_id is None:
+                return None
             return outcome
 
         outcome = _advance_bounded(

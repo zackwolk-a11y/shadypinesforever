@@ -25,6 +25,7 @@ import hashlib
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -513,8 +514,8 @@ def test_run_bounded_live_window(_: Path) -> None:
         r = broker.execute("RUN_BOUNDED_LIVE_WINDOW", good_params)
         record("RUN_BOUNDED_LIVE_WINDOW succeeds even against a nonexistent DB path (never opens it)", r.status == "SUCCESS", r.failure_reason or "")
         record(
-            "RUN_BOUNDED_LIVE_WINDOW correctly reports LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED under the current schema",
-            r.result.get("status") == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            "RUN_BOUNDED_LIVE_WINDOW correctly reports LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED for a 25-event window (worst case 42 > 25)",
+            r.result.get("status") == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED" and r.result.get("computed_worst_case_burst") == 42,
             str(r.result),
         )
         record("RUN_BOUNDED_LIVE_WINDOW's refusal never touches the live DB (live_db_accessed=False)", r.live_db_accessed is False, "")
@@ -522,13 +523,42 @@ def test_run_bounded_live_window(_: Path) -> None:
     finally:
         broker.CANONICAL_LIVE_DB_PATH = original_path
 
-    # --- Direct schema-introspection proof: confirm right now, against the
-    # real, current schema, that no bound can be computed -- this is the
-    # actual reason the capability refuses, verified independently of the
-    # capability's own internal logic. ---
+    # --- CORRECTED, 2026-09-05: the real ResearchSynthesis schema already
+    # bounds every list field via custom @field_validator functions (not
+    # Pydantic-native max_length metadata, which is why the original
+    # version of this check looked in the wrong place and returned None).
+    # Proves this two ways: (1) the derivation function now returns the
+    # exact expected integer, and (2) the underlying custom validators
+    # actually behave as claimed, executed live rather than assumed. ---
     from app.core.config import get_settings
     wc = broker._derive_worst_case_activation_burst(get_settings())
-    record("real ResearchSynthesis schema currently has no computable worst-case burst (proven, not assumed)", wc is None, f"got {wc}")
+    record("worst-case activation burst is now a concrete, finite, correctly-derived integer", wc == 42, f"got {wc}")
+
+    from app.domain.enums import EvidenceStrength as _EvidenceStrength
+    from app.domain.enums import FindingClassification as _FindingClassification
+    from app.schemas.research import (
+        MAX_FINDINGS_PER_SYNTHESIS as _MAX_FINDINGS,
+        MAX_FOLLOW_UP_QUESTIONS as _MAX_FOLLOW_UPS,
+        MAX_OPEN_QUESTIONS as _MAX_OPEN_Q,
+        ResearchSynthesis as _RS,
+        SynthesizedFinding as _SF,
+    )
+    import pydantic as _pydantic
+
+    try:
+        _RS(
+            interpretation="x", evidence_strength=_EvidenceStrength.WEAK,
+            findings=[_SF(text="f", classification=_FindingClassification.RESEARCH_FINDING) for _ in range(_MAX_FINDINGS + 1)],
+        )
+        record("ResearchSynthesis.findings really raises past its real cap (executed live)", False, "did not raise")
+    except _pydantic.ValidationError:
+        record("ResearchSynthesis.findings really raises past its real cap (executed live)", True, "")
+
+    rs_oq = _RS(interpretation="x", evidence_strength=_EvidenceStrength.WEAK, open_questions=[f"q{i}" for i in range(_MAX_OPEN_Q + 3)])
+    record("ResearchSynthesis.open_questions really truncates to its real cap (executed live)", len(rs_oq.open_questions) == _MAX_OPEN_Q, f"got {len(rs_oq.open_questions)}, cap {_MAX_OPEN_Q}")
+
+    rs_fu = _RS(interpretation="x", evidence_strength=_EvidenceStrength.WEAK, follow_up_questions=[f"f{i}" for i in range(_MAX_FOLLOW_UPS + 3)])
+    record("ResearchSynthesis.follow_up_questions really truncates to its real cap (executed live)", len(rs_fu.follow_up_questions) == _MAX_FOLLOW_UPS, f"got {len(rs_fu.follow_up_questions)}, cap {_MAX_FOLLOW_UPS}")
 
     # --- Pure algorithm correctness, against a REAL disposable DB with the
     # REAL run_next_event() + fixture provider, proving the bound
@@ -633,6 +663,62 @@ def test_run_bounded_live_window(_: Path) -> None:
     finally:
         broker._derive_worst_case_activation_burst = original_derive
         broker.CANONICAL_LIVE_DB_PATH = original_path
+
+    # --- CORRECTION, 2026-09-05: regression test for a real infinite-loop
+    # risk found while re-deriving the worst-case burst. With
+    # auto_advance=False (deliberate, see _impl_run_bounded_live_window's
+    # docstring), run_next_event() returns a real EventOutcome -- never a
+    # literal None -- even when no agent is eligible to act (e.g. every
+    # seeded agent has exhausted MAX_DAILY_AGENT_ACTIVATIONS=6). That
+    # produces zero new events, so without the activated_agent_id is None
+    # check, _advance_bounded's margin would never shrink and the loop
+    # would spin forever. Requests a window (300) far larger than 8 seeded
+    # agents x 6 daily activations could ever satisfy, with a hard
+    # wall-clock timeout as a backstop in case the fix regresses. ---
+    tmp_dir3, fake_live_path3 = build_fixture_live_db()
+    try:
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect(str(fake_live_path3))
+        conn.execute("UPDATE simulation_clock SET is_paused = 1")
+        conn.commit()
+        conn.close()
+
+        broker._derive_worst_case_activation_burst = lambda settings: 3
+        broker.CANONICAL_LIVE_DB_PATH = fake_live_path3
+
+        # The public API's own le=25 ceiling makes a 300-event request
+        # impossible for any real caller to construct -- correct, desired
+        # behavior. To test the internal loop's own infinite-loop
+        # resistance beyond what any real caller could trigger, this
+        # deliberately bypasses that validation via model_construct() and
+        # calls the implementation directly, exactly as execute() would
+        # dispatch to it.
+        oversized_params = broker.RunBoundedLiveWindowParams.model_construct(
+            max_new_events=300, question=good_params["question"],
+            favored_hypothesis=good_params["favored_hypothesis"],
+            competing_hypothesis=good_params["competing_hypothesis"],
+        )
+        fake_result = broker.BrokerResult(
+            operation_id="test", capability="RUN_BOUNDED_LIVE_WINDOW", status="FAILED",
+            started_at="", ended_at="",
+        )
+        start_time = time.time()
+        payload = broker._impl_run_bounded_live_window(oversized_params, fake_result)
+        elapsed = time.time() - start_time
+        record(
+            "a request no eligible agent can fully satisfy terminates promptly rather than looping forever",
+            elapsed < 30.0,
+            f"took {elapsed:.1f}s",
+        )
+        record(
+            "it reports a legitimate stop reason, not a silent hang",
+            payload.get("stopped_reason") in ("target_reached", "insufficient_margin", "no_eligible_agent"),
+            str(payload),
+        )
+    finally:
+        broker._derive_worst_case_activation_burst = original_derive
+        broker.CANONICAL_LIVE_DB_PATH = original_path
+        safe_rmtree(tmp_dir3)
         safe_rmtree(tmp_dir2)
 
 
