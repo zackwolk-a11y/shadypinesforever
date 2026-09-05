@@ -720,9 +720,15 @@ def test_run_bounded_live_window(_: Path) -> None:
     # --- #7, #8, #9: absolute overnight ceiling arithmetic (this is
     # director_unattended.py's policy layer, not director_broker.py's
     # capability -- the capability only ever knows about max_new_events,
-    # never the 873 absolute ceiling). Tested directly against
-    # director_unattended's own remaining-budget function. ---
+    # never the absolute ceiling). Tested directly against
+    # director_unattended's own remaining-budget function, derived from
+    # du.ABSOLUTE_EVENT_CEILING rather than hardcoded so this test never
+    # goes stale again if BASELINE_MAX_EVENT is ever moved forward (as it
+    # was, 623 -> 633, in the 2026-09-05 contamination-interval
+    # remediation). ---
     import director_unattended as du
+
+    ceiling = du.ABSOLUTE_EVENT_CEILING
 
     original_execute = broker.execute
     def _fake_fingerprint_execute(capability, params, **kwargs):
@@ -732,43 +738,43 @@ def test_run_bounded_live_window(_: Path) -> None:
             return fake_result
         return original_execute(capability, params, **kwargs)
 
-    _fake_current_event = {"value": 623}
+    _fake_current_event = {"value": du.BASELINE_MAX_EVENT}
     broker.execute = _fake_fingerprint_execute
     try:
-        # #7 / #8: current event 850, ceiling 873 -> remaining=23. Window
+        # #7 / #8: current event (ceiling - 23) -> remaining=23. Window
         # requested (up to 50) must be clamped to 23 by
         # task_attempt_live_window_1's own min(MAX_SINGLE_LIVE_WINDOW, remaining)
         # logic, and since 23 < worst_case(42), the resulting call must
         # correctly refuse rather than ever touch the live DB.
-        _fake_current_event["value"] = 850
+        _fake_current_event["value"] = ceiling - 23
         remaining_at_850 = du._remaining_overnight_live_budget()
-        record("mechanical-guarantee test 7/8: remaining budget at event 850 is exactly 23 (873-850)", remaining_at_850 == 23, f"got {remaining_at_850}")
+        record(f"mechanical-guarantee test 7/8: remaining budget at event {ceiling - 23} is exactly 23 (ceiling-23)", remaining_at_850 == 23, f"got {remaining_at_850}")
 
         result_at_850 = du.task_attempt_live_window_1()
         record(
-            "mechanical-guarantee test 8: current=850, requested up to 50 -> correctly refuses (clamped window 23 < worst case 42)",
+            "mechanical-guarantee test 8: current=ceiling-23, requested up to 50 -> correctly refuses (clamped window 23 < worst case 42)",
             result_at_850.status == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
             result_at_850.summary,
         )
 
-        # #9: current event 872 -> remaining=1, no activation allowed at all.
-        _fake_current_event["value"] = 872
+        # #9: current event (ceiling - 1) -> remaining=1, no activation allowed at all.
+        _fake_current_event["value"] = ceiling - 1
         remaining_at_872 = du._remaining_overnight_live_budget()
-        record("mechanical-guarantee test 9: remaining budget at event 872 is exactly 1", remaining_at_872 == 1, f"got {remaining_at_872}")
+        record(f"mechanical-guarantee test 9: remaining budget at event {ceiling - 1} is exactly 1", remaining_at_872 == 1, f"got {remaining_at_872}")
         result_at_872 = du.task_attempt_live_window_1()
         record(
-            "mechanical-guarantee test 9: current=872 -> no activation allowed",
+            "mechanical-guarantee test 9: current=ceiling-1 -> no activation allowed",
             result_at_872.status == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
             result_at_872.summary,
         )
 
         # Ceiling-exhausted case: current == absolute ceiling -> remaining <= 0,
         # refused without even calling RUN_BOUNDED_LIVE_WINDOW.
-        _fake_current_event["value"] = 873
+        _fake_current_event["value"] = ceiling
         remaining_at_ceiling = du._remaining_overnight_live_budget()
         result_at_ceiling = du.task_attempt_live_window_1()
         record(
-            "absolute event ceiling 873 cannot be crossed: at the ceiling, remaining budget is 0 and the task refuses immediately",
+            f"absolute event ceiling {ceiling} cannot be crossed: at the ceiling, remaining budget is 0 and the task refuses immediately",
             remaining_at_ceiling == 0 and result_at_ceiling.status == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
             f"remaining={remaining_at_ceiling} status={result_at_ceiling.status}",
         )

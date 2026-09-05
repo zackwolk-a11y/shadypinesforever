@@ -725,7 +725,19 @@ def _impl_get_event_range(params: GetEventRangeParams, result: BrokerResult) -> 
         )
     finally:
         conn.close()
-    return {"columns": columns, "rows": rows}
+    # Every event-range read gets an explicit contamination flag appended
+    # (id is always column 0 here) so a caller can never silently treat a
+    # known-invalid interval as scientific evidence. See
+    # director_contamination_registry.py -- Director/evidence
+    # infrastructure only, never a Village behavior change.
+    from director_contamination_registry import contamination_label, is_contaminated
+
+    id_index = columns.index("id")
+    annotated_rows = [
+        [*row, is_contaminated(row[id_index]), contamination_label(row[id_index])]
+        for row in rows
+    ]
+    return {"columns": [*columns, "contaminated", "contamination_label"], "rows": annotated_rows}
 
 
 def _impl_read_repo_file(params: ReadRepoFileParams, result: BrokerResult) -> dict[str, Any]:

@@ -82,23 +82,26 @@ MASTER_INDEX_RELATIVE_PATH = os.environ.get(
 
 MAX_TOTAL_PROVIDER_CALLS = 96
 #: CORRECTION, 2026-09-05, following a real incident: a fixture-provider
-#: test run of this file advanced the REAL live Village by 10 events,
-#: because RUN_BOUNDED_LIVE_WINDOW is now genuinely enabled (the 42-event
-#: worst case fits inside the new 50-event window) and the test's own
-#: isolation only redirected this runner's bookkeeping paths, never the
-#: live DB itself. DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT lets a test
-#: point this constant at a disposable database's own true starting count
-#: (typically 0, immediately after seed_agents.run(), which never emits
-#: Event rows) instead of the real Village's 623 -- used together with
-#: VILLAGE_DATA_ROOT (an app.core.db_safety-native override) to make an
-#: isolated test's entire live-data root disposable, not just this
-#: runner's own status/packet files.
+#: test run of this file advanced the REAL live Village by 10 events
+#: (623 -> 633), because RUN_BOUNDED_LIVE_WINDOW is now genuinely enabled
+#: (the 42-event worst case fits inside the new 50-event window) and the
+#: test's own isolation only redirected this runner's bookkeeping paths,
+#: never the live DB itself. Founder decision 2026-09-05: do not restore
+#: or rewrite; classify events 624-633 as CONTAMINATED_FIXTURE_TEST_INTERVAL
+#: (see director_contamination_registry.py) and move the operating
+#: baseline forward to 633. DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT lets a
+#: test point this constant at a disposable database's own true starting
+#: count (typically 0, immediately after seed_agents.run(), which never
+#: emits Event rows) instead of the real Village's baseline -- used
+#: together with VILLAGE_DATA_ROOT (an app.core.db_safety-native override)
+#: to make an isolated test's entire live-data root disposable, not just
+#: this runner's own status/packet files.
 _baseline_override = os.environ.get("DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT", "").strip()
-BASELINE_MAX_EVENT = int(_baseline_override) if _baseline_override else 623
+BASELINE_MAX_EVENT = int(_baseline_override) if _baseline_override else 633
 
 # Founder-authorized overnight live-science budget, 2026-09-05.
 MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT = 250
-ABSOLUTE_EVENT_CEILING = BASELINE_MAX_EVENT + MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT  # 873
+ABSOLUTE_EVENT_CEILING = BASELINE_MAX_EVENT + MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT  # 883
 #: Raised 25 -> 50, 2026-09-05, per explicit Founder authorization, to
 #: match the proven worst-case single-activation burst (42, see
 #: director_broker.py's _derive_worst_case_activation_burst -- computed
