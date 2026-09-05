@@ -142,6 +142,7 @@ class Capability(str, enum.Enum):
     CREATE_DISPOSABLE_DB = "CREATE_DISPOSABLE_DB"
     DELETE_DISPOSABLE_RESOURCE = "DELETE_DISPOSABLE_RESOURCE"
     RUN_APPROVED_DISPOSABLE_EXPERIMENT = "RUN_APPROVED_DISPOSABLE_EXPERIMENT"
+    RUN_BOUNDED_LIVE_WINDOW = "RUN_BOUNDED_LIVE_WINDOW"
     RUN_APPROVED_LEVEL_2A_DIAGNOSTIC = "RUN_APPROVED_LEVEL_2A_DIAGNOSTIC"
     PROVIDER_CONFIGURATION_STATUS = "PROVIDER_CONFIGURATION_STATUS"
     CALL_AUTHORIZED_DIRECTOR_PROVIDER = "CALL_AUTHORIZED_DIRECTOR_PROVIDER"
@@ -478,6 +479,17 @@ class CallAuthorizedDirectorProviderParams(_StrictModel):
     max_tokens: int = Field(default=1536, ge=1, le=8000)
 
 
+#: Founder-authorized capability, added 2026-09-05 for the overnight
+#: live-science shift. The preregistration fields (question/hypotheses)
+#: are required, not optional -- an empty or missing justification fails
+#: schema validation before any live-DB check ever runs.
+class RunBoundedLiveWindowParams(_StrictModel):
+    max_new_events: int = Field(ge=1, le=25)
+    question: str = Field(min_length=1, max_length=2000)
+    favored_hypothesis: str = Field(min_length=1, max_length=2000)
+    competing_hypothesis: str = Field(min_length=1, max_length=2000)
+
+
 _PARAM_MODELS: dict[Capability, type[BaseModel]] = {
     Capability.LIVE_DB_READ: LiveDbReadParams,
     Capability.CHECK_LIVE_DB_INTEGRITY: NoParams,
@@ -498,6 +510,7 @@ _PARAM_MODELS: dict[Capability, type[BaseModel]] = {
     Capability.PROVIDER_CONFIGURATION_STATUS: NoParams,
     Capability.CALL_AUTHORIZED_DIRECTOR_PROVIDER: CallAuthorizedDirectorProviderParams,
     Capability.CREATE_SAFE_DB_BACKUP: CreateSafeDbBackupParams,
+    Capability.RUN_BOUNDED_LIVE_WINDOW: RunBoundedLiveWindowParams,
 }
 
 
@@ -1095,6 +1108,232 @@ def _impl_create_safe_db_backup(params: CreateSafeDbBackupParams, result: Broker
     return {"backup_path": str(dest)}
 
 
+# ---------------------------------------------------------------------------
+# RUN_BOUNDED_LIVE_WINDOW -- Founder-authorized 2026-09-05.
+#
+# The central engineering question this capability exists to answer
+# honestly rather than approximate: can a single call to
+# app.services.orchestrator.run_next_event() be mechanically GUARANTEED
+# never to push the live event log past a small, requested target? The
+# answer depends entirely on whether every event-emitting branch inside
+# one atomic activation has a hard, code-enforced count ceiling.
+#
+# _derive_worst_case_activation_burst() answers this by RUNTIME SCHEMA
+# INTROSPECTION, not by a hardcoded assumption -- it inspects
+# app.schemas.research.ResearchSynthesis's own Pydantic field metadata for
+# a length constraint on `findings` / `follow_up_questions` /
+# `open_questions`. As of this writing, none of the three carries one
+# (confirmed via `ResearchSynthesis.model_fields[name].metadata == []` for
+# all three, i.e. no `annotated_types.MaxLen` present) -- the only real
+# ceiling on how many FINDING_CREATED / FOLLOWUP_QUESTION_CREATED events
+# one RESEARCH_COMPLETED activation can emit is the loose, large
+# `MAX_TOKENS_RESEARCH_SYNTHESIS` (8192) output-token budget, which is not
+# a small integer and not something this capability treats as a
+# substitute for a real cap. Because this check re-runs the actual
+# introspection every call (not a cached boolean), it will correctly start
+# succeeding the moment a future, separately-authorized production change
+# adds real `max_length` constraints to those fields -- this code does not
+# need to change for that to happen.
+# ---------------------------------------------------------------------------
+
+
+def _derive_worst_case_activation_burst(settings: Any) -> int | None:
+    """Returns the exact, code-derived maximum number of Event rows one
+    atomic run_next_event() call could ever emit, or None if no such small
+    bound can currently be proven (in which case RUN_BOUNDED_LIVE_WINDOW
+    must refuse to advance the live Village at all -- see module docstring
+    above)."""
+    from app.schemas.research import ResearchSynthesis
+
+    unbounded_fields = [
+        name for name in ("findings", "follow_up_questions", "open_questions")
+        if not any(getattr(m, "max_length", None) is not None for m in ResearchSynthesis.model_fields[name].metadata)
+    ]
+    if unbounded_fields:
+        return None  # cannot compute a bound: proven, not assumed
+
+    # Unreachable under the current schema (unbounded_fields is always
+    # non-empty today) -- kept correct and ready for the day the schema
+    # gains real caps, so this function need not change then.
+    max_findings = next(
+        m.max_length for m in ResearchSynthesis.model_fields["findings"].metadata if getattr(m, "max_length", None) is not None
+    )
+    max_follow_ups = next(
+        m.max_length for m in ResearchSynthesis.model_fields["follow_up_questions"].metadata if getattr(m, "max_length", None) is not None
+    )
+    max_queries = settings.max_search_queries_per_session
+    max_sources_per_query = settings.max_sources_per_query
+    max_questions_seeded = 2  # app.services.agent_questions.MAX_QUESTIONS_PER_RESEARCH_SESSION, a real hardcoded constant
+    # AGENT_WOKE + AGENT_ACTED + AGENT_RESEARCH_STARTED + per-query(SEARCH_EXECUTED + sources)
+    # + RESEARCH_COMPLETED + findings + follow_ups + questions_seeded + MEMORY_CREATED + INTEREST_CREATED
+    return (
+        1 + 1 + 1
+        + max_queries * (1 + max_sources_per_query)
+        + 1 + max_findings + max_follow_ups + max_questions_seeded
+        + 1 + 1
+    )
+
+
+@dataclass
+class BoundedAdvanceOutcome:
+    start_max_event_id: int
+    end_max_event_id: int
+    target_max_event_id: int
+    activations_run: int
+    stopped_reason: str  # "target_reached" | "insufficient_margin" | "no_eligible_agent"
+
+
+def _advance_bounded(
+    session: Any, get_max_event_id: Callable[[], int], run_one_activation: Callable[[], Any],
+    *, target_max_event_id: int, worst_case_burst: int,
+) -> BoundedAdvanceOutcome:
+    """The pure, disposable-DB-testable advancement algorithm. Never
+    starts another activation unless the remaining headroom to
+    ``target_max_event_id`` is at least ``worst_case_burst`` -- this is
+    what makes ``final_max_event_id <= target_max_event_id`` a
+    mathematical guarantee (given a TRUE worst_case_burst) rather than a
+    hope, independent of what any single activation's decision turns out
+    to be. Takes ``get_max_event_id``/``run_one_activation`` as injected
+    callables specifically so a fixture test can exercise this exact
+    algorithm against a disposable DB with a small, injected
+    ``worst_case_burst`` without needing the real (currently unprovable)
+    research-schema bound."""
+    start = get_max_event_id()
+    activations_run = 0
+    stopped_reason = "target_reached"
+    while True:
+        current = get_max_event_id()
+        if current >= target_max_event_id:
+            stopped_reason = "target_reached"
+            break
+        remaining = target_max_event_id - current
+        if remaining < worst_case_burst:
+            stopped_reason = "insufficient_margin"
+            break
+        outcome = run_one_activation()
+        activations_run += 1
+        if outcome is None:
+            stopped_reason = "no_eligible_agent"
+            break
+    end = get_max_event_id()
+    if end > target_max_event_id:
+        raise BrokerError(
+            f"INTERNAL SAFETY VIOLATION: bounded advance produced end={end} > target={target_max_event_id} "
+            f"despite the margin guard -- worst_case_burst ({worst_case_burst}) was not actually a true upper "
+            "bound. This must never happen; treat as a critical bug, not a warning."
+        )
+    return BoundedAdvanceOutcome(start, end, target_max_event_id, activations_run, stopped_reason)
+
+
+def _impl_run_bounded_live_window(params: RunBoundedLiveWindowParams, result: BrokerResult) -> dict[str, Any]:
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    worst_case_burst = _derive_worst_case_activation_burst(settings)
+    result.safety_checks.append(
+        "checked ResearchSynthesis.findings/follow_up_questions/open_questions for a real max_length "
+        "constraint via live Pydantic field-metadata introspection (not a hardcoded assumption)"
+    )
+
+    if worst_case_burst is None:
+        result.live_db_accessed = False
+        return {
+            "status": "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            "reason": (
+                "app.schemas.research.ResearchSynthesis.findings, .follow_up_questions, and .open_questions "
+                "carry no max_length constraint (confirmed via runtime field-metadata introspection, not "
+                "assumed) -- a single RESEARCH_COMPLETED activation's event count is bounded only by the "
+                "loose MAX_TOKENS_RESEARCH_SYNTHESIS (8192) output-token budget, not by a small provable "
+                "integer. RUN_BOUNDED_LIVE_WINDOW refuses to advance the live Village rather than approximate "
+                "a safety margin against an unbounded worst case."
+            ),
+            "requested_max_new_events": params.max_new_events,
+            "question": params.question,
+            "favored_hypothesis": params.favored_hypothesis,
+            "competing_hypothesis": params.competing_hypothesis,
+        }
+
+    if worst_case_burst > params.max_new_events:
+        result.live_db_accessed = False
+        return {
+            "status": "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            "reason": (
+                f"a real worst-case single-activation burst of {worst_case_burst} events was computed, but "
+                f"exceeds the requested window of {params.max_new_events} events -- no activation could ever "
+                "safely start within this window without risking overshoot. Request a window of at least "
+                f"{worst_case_burst} events, or continue other safe work."
+            ),
+            "computed_worst_case_burst": worst_case_burst,
+            "requested_max_new_events": params.max_new_events,
+        }
+
+    # Unreachable under the schema as it exists today (the first branch
+    # above always returns first) -- see module docstring. Kept fully
+    # implemented and real-session-shaped so it activates automatically,
+    # with no code change here, the day a separately-authorized schema fix
+    # adds the missing max_length constraints.
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import sessionmaker
+
+    from app.db.models.events import Event
+    from app.db.models.world import SimulationClock
+    from app.providers.llm import get_llm_provider
+    from app.services.orchestrator import run_next_event
+
+    check = check_live_db(CANONICAL_LIVE_DB_PATH)
+    if not check.healthy:
+        raise BrokerError(f"live DB failed its safety check, refusing to advance: {check.problem}")
+
+    engine = create_engine(f"sqlite:///{CANONICAL_LIVE_DB_PATH}")
+    session = sessionmaker(bind=engine)()
+    try:
+        clock = session.scalars(select(SimulationClock).limit(1)).first()
+        if clock is None or clock.is_paused is False:
+            raise BrokerError("live Village is not in the expected paused state -- refusing to advance")
+        clock.is_paused = False
+        session.commit()
+
+        provider = get_llm_provider(settings)
+        start_max = session.scalar(select(Event.id).order_by(Event.id.desc()).limit(1)) or 0
+        target = start_max + params.max_new_events
+
+        def _get_max() -> int:
+            return session.scalar(select(Event.id).order_by(Event.id.desc()).limit(1)) or 0
+
+        def _run_one() -> Any:
+            outcome = run_next_event(session, settings=settings, provider=provider)
+            session.commit()
+            return outcome
+
+        outcome = _advance_bounded(
+            session, _get_max, _run_one, target_max_event_id=target, worst_case_burst=worst_case_burst,
+        )
+    finally:
+        fresh_clock = session.scalars(select(SimulationClock).limit(1)).first()
+        if fresh_clock is not None:
+            fresh_clock.is_paused = True
+            session.commit()
+        session.close()
+        engine.dispose()
+
+    post_check = check_live_db(CANONICAL_LIVE_DB_PATH)
+    result.live_db_accessed = True
+    result.live_db_mutated = outcome.end_max_event_id != outcome.start_max_event_id
+    return {
+        "status": "COMPLETED",
+        "start_max_event_id": outcome.start_max_event_id,
+        "end_max_event_id": outcome.end_max_event_id,
+        "target_max_event_id": outcome.target_max_event_id,
+        "events_added": outcome.end_max_event_id - outcome.start_max_event_id,
+        "activations_run": outcome.activations_run,
+        "stopped_reason": outcome.stopped_reason,
+        "integrity_ok": post_check.integrity_ok,
+        "question": params.question,
+        "favored_hypothesis": params.favored_hypothesis,
+        "competing_hypothesis": params.competing_hypothesis,
+    }
+
+
 _IMPLEMENTATIONS: dict[Capability, Callable[[Any, BrokerResult], dict[str, Any]]] = {
     Capability.LIVE_DB_READ: _impl_live_db_read,
     Capability.CHECK_LIVE_DB_INTEGRITY: _impl_check_live_db_integrity,
@@ -1115,6 +1354,7 @@ _IMPLEMENTATIONS: dict[Capability, Callable[[Any, BrokerResult], dict[str, Any]]
     Capability.PROVIDER_CONFIGURATION_STATUS: _impl_provider_configuration_status,
     Capability.CALL_AUTHORIZED_DIRECTOR_PROVIDER: _impl_call_authorized_director_provider,
     Capability.CREATE_SAFE_DB_BACKUP: _impl_create_safe_db_backup,
+    Capability.RUN_BOUNDED_LIVE_WINDOW: _impl_run_bounded_live_window,
 }
 
 

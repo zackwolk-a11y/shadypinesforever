@@ -109,6 +109,22 @@ def main() -> int:
         record("dynamically_generated_task_count > 0 (per-agent generator fired)", status["dynamically_generated_task_count"] > 0, str(status["dynamically_generated_task_count"]))
         record("stop_reason is a genuine exhaustion, not a fixed count", status["stop_reason"] == "genuinely_exhausted", status["stop_reason"])
         record("live_db_mutated is false", status["live_db_mutated"] is False, "")
+        record(
+            "attempt_live_window_1 correctly returns LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED, not COMPLETED",
+            "attempt_live_window_1" in status.get("live_bound_not_guaranteed_task_ids", [])
+            and "attempt_live_window_1" not in status["completed_task_ids"],
+            str(status.get("live_bound_not_guaranteed_task_ids")),
+        )
+        record(
+            "live_events_added_total is zero (no live advancement occurred)",
+            status.get("live_events_added_total", -1) == 0,
+            str(status.get("live_events_added_total")),
+        )
+        record(
+            "max_live_event_baseline is unchanged from the real 623 baseline",
+            status["max_live_event_baseline"] == 623,
+            str(status["max_live_event_baseline"]),
+        )
 
         # --- Test 2: resume does not duplicate / re-spend completed work ---
         calls_after_first = status["provider_calls_used"]
@@ -118,6 +134,11 @@ def main() -> int:
         status2 = status_at(tmp_root)
         record("resume does not re-run completed tasks", status2["completed_task_count"] == completed_after_first, f"{status2['completed_task_count']} vs {completed_after_first}")
         record("resume does not re-spend provider calls", status2["provider_calls_used"] == calls_after_first, f"{status2['provider_calls_used']} vs {calls_after_first}")
+        record(
+            "resume does not re-attempt a live window already marked LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            status2.get("live_bound_not_guaranteed_task_ids") == status.get("live_bound_not_guaranteed_task_ids"),
+            f"{status2.get('live_bound_not_guaranteed_task_ids')} vs {status.get('live_bound_not_guaranteed_task_ids')}",
+        )
 
         # --- Test 3: stop-flag mid-shift + resume-after-stop, fresh state ---
         shutil.rmtree(tmp_root)

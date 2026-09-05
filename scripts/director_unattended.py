@@ -83,6 +83,12 @@ MASTER_INDEX_RELATIVE_PATH = os.environ.get(
 MAX_TOTAL_PROVIDER_CALLS = 96
 BASELINE_MAX_EVENT = 623
 
+# Founder-authorized overnight live-science budget, 2026-09-05.
+MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT = 250
+ABSOLUTE_EVENT_CEILING = BASELINE_MAX_EVENT + MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT  # 873
+MAX_SINGLE_LIVE_WINDOW = 25
+MAX_LIVE_WINDOWS = 10
+
 _NETWORK_ERROR_HINTS = (
     "connection", "timeout", "timed out", "network", "dns", "refused",
     "unreachable", "temporarily unavailable", "apiconnectionerror",
@@ -110,9 +116,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def load_status() -> dict[str, Any]:
-    if STATUS_PATH.exists():
-        return json.loads(STATUS_PATH.read_text())
+def _default_status() -> dict[str, Any]:
     return {
         "state": "starting",
         "pid": os.getpid(),
@@ -124,10 +128,12 @@ def load_status() -> dict[str, Any]:
         "completed_task_ids": [],
         "deferred_network_task_ids": [],
         "failed_task_ids": [],
+        "live_bound_not_guaranteed_task_ids": [],
         "completed_task_count": 0,
         "dynamically_generated_task_count": 0,
         "deferred_network_count": 0,
         "provider_calls_used": 0,
+        "live_events_added_total": 0,
         "results_store": {},
         "blocked_tasks": [],
         "live_db_mutated": False,
@@ -135,6 +141,19 @@ def load_status() -> dict[str, Any]:
         "stop_reason": None,
         "continuing_because": None,
     }
+
+
+def load_status() -> dict[str, Any]:
+    """Merges onto a fresh default so a status file written by an older
+    version of this script (missing a field added later, e.g. by tonight's
+    RUN_BOUNDED_LIVE_WINDOW integration) still round-trips correctly --
+    never silently drops or resets real recorded history."""
+    defaults = _default_status()
+    if STATUS_PATH.exists():
+        on_disk = json.loads(STATUS_PATH.read_text())
+        defaults.update(on_disk)
+        return defaults
+    return defaults
 
 
 def save_status(status: dict[str, Any]) -> None:
@@ -164,7 +183,7 @@ def append_rolling_packet(section_title: str, body: str) -> None:
 
 @dataclass
 class TaskResult:
-    status: str  # COMPLETED | DEFERRED_NETWORK | FAILED | NEW_EXPERIMENT_APPROVAL_REQUIRED
+    status: str  # COMPLETED | DEFERRED_NETWORK | FAILED | NEW_EXPERIMENT_APPROVAL_REQUIRED | LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED
     provider_calls: int = 0
     summary: str = ""
     detail: dict[str, Any] = field(default_factory=dict)
@@ -343,6 +362,74 @@ _KNOWN_BLOCKED_DIAGNOSTIC_TYPES = {
 }
 
 
+#: Founder-authorized 2026-09-05: exactly one preregistered attempt to open
+#: a live-science window. Not retried on a loop -- RUN_BOUNDED_LIVE_WINDOW's
+#: refusal reason (an unbounded ResearchSynthesis schema) is invariant
+#: across calls with the same settings, so asking again would be pure
+#: busywork, explicitly forbidden by the standing instructions. If a
+#: future, separately-authorized schema fix ever makes the bound
+#: computable, a fresh planning cycle run after that fix would need a new
+#: task_id to re-attempt (this one, once completed/recorded, is never
+#: re-run by the resume logic either way).
+def _remaining_overnight_live_budget() -> int | None:
+    """Reads the REAL current live max event id via the broker (read-only)
+    and returns how much of the 250-event overnight ceiling remains, or
+    None if the fingerprint call itself failed (treated as
+    non-mechanically-guaranteed, never as "assume budget available")."""
+    fp = broker.execute("LIVE_DB_FINGERPRINT", {})
+    if fp.status != "SUCCESS":
+        return None
+    current_max = fp.result.get("max_event_id")
+    if current_max is None:
+        return None
+    return ABSOLUTE_EVENT_CEILING - current_max
+
+
+def task_attempt_live_window_1() -> TaskResult:
+    remaining = _remaining_overnight_live_budget()
+    if remaining is None:
+        return TaskResult(status="LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED", summary="could not read the real live max event id -- refusing to attempt a live window")
+    if remaining <= 0:
+        return TaskResult(status="LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED", summary=f"overnight live-event budget already exhausted (ceiling {ABSOLUTE_EVENT_CEILING})")
+    window_size = min(MAX_SINGLE_LIVE_WINDOW, remaining)
+
+    result = broker.execute(
+        "RUN_BOUNDED_LIVE_WINDOW",
+        {
+            "max_new_events": window_size,
+            "question": (
+                "Does a fresh, mechanically-bounded live window surface new evidence of durable "
+                "cross-agent transmission, private intellectual continuity, or Research Wall/Rabbit "
+                "Hole/Belief uptake beyond what the frozen event-623 snapshot already shows?"
+            ),
+            "favored_hypothesis": (
+                "Real, unforced Village activity beyond event 623 would show at least one new "
+                "instance of a real cross-agent reference, a new research thread, or a new "
+                "reflection -- consistent with the same rates this project has already documented."
+            ),
+            "competing_hypothesis": (
+                "No qualitatively new pattern would appear; the same small set of agents (chiefly "
+                "Roxy) would continue to dominate activity, and Wall/Rabbit-Hole/Belief uptake would "
+                "remain at zero, exactly as every prior phase has found."
+            ),
+        },
+    )
+    if result.status != "SUCCESS":
+        return TaskResult(status="FAILED", summary=result.failure_reason or "RUN_BOUNDED_LIVE_WINDOW call itself failed", detail=result.to_dict())
+    payload = result.result
+    if payload.get("status") == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED":
+        return TaskResult(
+            status="LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            summary=payload.get("reason", "no reason given"),
+            detail=payload,
+        )
+    return TaskResult(
+        status="COMPLETED",
+        summary=f"live window advanced {payload.get('events_added')} events ({payload.get('activations_run')} activations), stopped: {payload.get('stopped_reason')}",
+        detail=payload,
+    )
+
+
 def task_blocked_candidates_survey() -> TaskResult:
     """R-class, always safe: records the known-blocked diagnostic
     candidates so the planner keeps working other safe tasks instead of
@@ -476,6 +563,17 @@ def task_master_index_addendum(status: dict[str, Any]) -> TaskResult:
     return TaskResult(status="COMPLETED", summary="master index addendum appended", detail={"addendum_chars": len(addendum)})
 
 
+#: Exactly one entry -- the Founder's overnight live-science authorization
+#: (2026-09-05) permits attempting a bounded live window, but the
+#: mechanical-bound proof (see director_broker.py's
+#: _derive_worst_case_activation_burst) means the outcome is invariant
+#: across repeated attempts under the current schema. Ordered first so any
+#: resume checks live-window feasibility before spending cycles on
+#: anything else, per the mandate's own stated priority.
+LIVE_SCIENCE_TASKS: list[Task] = [
+    Task("attempt_live_window_1", "Founder-authorized: attempt one bounded live-science window", [1, 2, 4, 5, 6, 7, 8, 9, 10], "L", task_attempt_live_window_1),
+]
+
 MORE_STATIC_TASKS: list[Task] = [
     Task("blocked_candidates_survey", "Survey and record diagnostic types blocked on broker-catalog registration", [3, 12], "R", task_blocked_candidates_survey),
     Task("llm_run_cost_by_day", "Cost/call efficiency: real-call breakdown by calendar day", [18], "R", task_llm_run_cost_by_day),
@@ -539,7 +637,7 @@ def get_task_queue(status: dict[str, Any]) -> list[Task]:
     fresh each cycle rather than cached once, so a generator that depends
     on mutable status (like the meta-analysis tasks reading results_store)
     always sees the latest state."""
-    queue = list(STATIC_TASKS) + list(MORE_STATIC_TASKS)
+    queue = list(LIVE_SCIENCE_TASKS) + list(STATIC_TASKS) + list(MORE_STATIC_TASKS)
     for task_id, desc, phases, method, fn in MORE_STATIC_TASKS_NEEDING_STATUS:
         queue.append(Task(task_id, desc, phases, method, (lambda fn=fn: fn(status))))
     queue.extend(generate_dynamic_tasks(status))
@@ -548,7 +646,11 @@ def get_task_queue(status: dict[str, Any]) -> list[Task]:
 
 def next_unfinished_task(status: dict[str, Any]) -> Task | None:
     for task in get_task_queue(status):
-        if task.task_id in status["completed_task_ids"] or task.task_id in status["failed_task_ids"]:
+        if (
+            task.task_id in status["completed_task_ids"]
+            or task.task_id in status["failed_task_ids"]
+            or task.task_id in status.get("live_bound_not_guaranteed_task_ids", [])
+        ):
             continue
         return task
     return None
@@ -603,8 +705,8 @@ shift.
 
 ## 6. Safety state at completion
 
-- Live DB hash: {before['sha256']} (unchanged throughout -- re-verified after every single task)
-- Max event id: {before['max_event_id']} (baseline {BASELINE_MAX_EVENT})
+- Live DB hash: {before['sha256']} (matches the safety snapshot taken immediately after the last completed task; re-verified after every single task)
+- Max event id: {before['max_event_id']} (starting baseline {BASELINE_MAX_EVENT}; expected baseline at completion {status['max_live_event_baseline']}; live events added this shift: {status['live_events_added_total']})
 - Day/period/paused: {before['current_day']} / {before['current_period']} / {before['is_paused']}
 - Live DB mutated: {status['live_db_mutated']}
 - No live advancement, no production/prompt/schema change, no Level 2B, no new broker capability added during execution.
@@ -669,22 +771,30 @@ def main() -> int:
         return 1
 
     try:
+        # Load status FIRST: an earlier launch of this same script may
+        # already have legitimately advanced max_live_event_baseline via a
+        # real RUN_BOUNDED_LIVE_WINDOW call, in which case the correct
+        # expected value on this fresh launch is that persisted baseline,
+        # not the module's original BASELINE_MAX_EVENT constant.
+        status = load_status()
+        expected_max_event = status["max_live_event_baseline"]
+
         before = safety_snapshot()
-        if before["max_event_id"] != BASELINE_MAX_EVENT or not before["is_paused"]:
-            print(f"REFUSING TO START: live baseline changed unexpectedly: {before}")
+        if before["max_event_id"] != expected_max_event or not before["is_paused"]:
+            print(f"REFUSING TO START: live baseline changed unexpectedly (expected max_event_id={expected_max_event}): {before}")
             return 1
         if not before["integrity_ok"]:
             print(f"REFUSING TO START: live DB integrity check failed: {before}")
             return 1
 
-        status = load_status()
         status["state"] = "running"
         status["stop_reason"] = None
         save_status(status)
         append_rolling_packet(
             "Session start" if status["completed_task_count"] == 0 else "Session resumed",
             f"Baseline: {before}\nAlready completed: {status['completed_task_ids']}\n"
-            f"Provider calls used so far this shift: {status['provider_calls_used']}",
+            f"Provider calls used so far this shift: {status['provider_calls_used']}\n"
+            f"Live events added so far this shift: {status['live_events_added_total']}",
         )
 
         while True:
@@ -747,6 +857,27 @@ def main() -> int:
                 status["completed_task_count"] += 1
                 status["last_completed_task"] = task.task_id
                 status["results_store"][task.task_id] = result.detail
+                if task.method == "L":
+                    # A real, authorized live-window advance -- move the
+                    # expected baseline forward BEFORE the safety check
+                    # below runs, so an intentional, bounded advance is
+                    # recognized as legitimate rather than flagged as a
+                    # violation. Currently unreachable (RUN_BOUNDED_LIVE_
+                    # WINDOW always refuses under today's schema), kept
+                    # correct for when it becomes reachable.
+                    events_added = result.detail.get("events_added", 0)
+                    status["live_events_added_total"] += events_added
+                    new_baseline = result.detail.get("end_max_event_id")
+                    if new_baseline is not None:
+                        if new_baseline > ABSOLUTE_EVENT_CEILING:
+                            status["state"] = "stopped"
+                            status["stop_reason"] = "SAFETY_VIOLATION_live_event_ceiling_exceeded"
+                            status["live_db_mutated"] = True
+                            save_status(status)
+                            append_rolling_packet("SAFETY STOP", f"Live window pushed max_event_id to {new_baseline}, exceeding the absolute ceiling {ABSOLUTE_EVENT_CEILING}. Halting immediately.")
+                            print("SAFETY VIOLATION: absolute live event ceiling exceeded. Halting immediately.")
+                            return 2
+                        status["max_live_event_baseline"] = new_baseline
                 append_rolling_packet(f"Task completed: {task.task_id}", f"Method: {task.method}\nRoadmap phases: {task.roadmap_phases}\nResult: {result.summary}\n\n```json\n{json.dumps(result.detail, indent=2, default=str)[:8000]}\n```")
             elif result.status == "DEFERRED_NETWORK":
                 if task.task_id not in status["deferred_network_task_ids"]:
@@ -754,6 +885,15 @@ def main() -> int:
                 status["deferred_network_count"] += 1
                 append_rolling_packet(f"DEFERRED_NETWORK: {task.task_id}", f"Reason: {result.summary}\nWill retry on next resume.")
                 print(f"  DEFERRED_NETWORK: {result.summary}")
+            elif result.status == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED":
+                # Recorded and never retried -- the refusal reason is
+                # invariant under the current schema (see director_broker
+                # .py's _derive_worst_case_activation_burst), so repeating
+                # this call would be pure busywork.
+                if task.task_id not in status["live_bound_not_guaranteed_task_ids"]:
+                    status["live_bound_not_guaranteed_task_ids"].append(task.task_id)
+                append_rolling_packet(f"LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED: {task.task_id}", f"Reason: {result.summary}\nContinuing with other authorized R/D/N work instead.")
+                print(f"  LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED: {result.summary}")
             else:  # FAILED or NEW_EXPERIMENT_APPROVAL_REQUIRED
                 status["failed_task_ids"].append(task.task_id)
                 if result.status == "NEW_EXPERIMENT_APPROVAL_REQUIRED":
@@ -764,14 +904,15 @@ def main() -> int:
             save_status(status)
 
             after = safety_snapshot()
-            if after["sha256"] != before["sha256"] or after["max_event_id"] != BASELINE_MAX_EVENT:
+            if after["sha256"] != before["sha256"] or after["max_event_id"] != status["max_live_event_baseline"]:
                 status["state"] = "stopped"
                 status["stop_reason"] = "SAFETY_VIOLATION_live_db_changed"
                 status["live_db_mutated"] = True
                 save_status(status)
-                append_rolling_packet("SAFETY STOP", f"Live DB changed unexpectedly after {task.task_id}. Before={before}, After={after}. Halting immediately.")
+                append_rolling_packet("SAFETY STOP", f"Live DB changed unexpectedly after {task.task_id}. Before={before}, After={after}, expected baseline={status['max_live_event_baseline']}. Halting immediately.")
                 print("SAFETY VIOLATION: live DB changed. Halting immediately.")
                 return 2
+            before = after  # the new legitimate baseline for the next iteration's comparison
     finally:
         release_lock()
 

@@ -459,6 +459,183 @@ def test_audit_log_written(_: Path) -> None:
     record("audit entry has every required field", required_fields.issubset(last_entry.keys()), str(set(last_entry.keys())))
 
 
+def test_run_bounded_live_window(_: Path) -> None:
+    """RUN_BOUNDED_LIVE_WINDOW -- Founder-authorized 2026-09-05. Proves,
+    without ever touching the real live DB in write mode, that the
+    capability correctly refuses to advance under the current
+    (unbounded-findings) research schema, and separately proves the pure
+    advancement algorithm's mathematical bound guarantee against a real
+    disposable DB using the real run_next_event() + fixture provider."""
+    import os
+    os.environ.pop("LLM_PROVIDER", None)
+
+    good_params = {
+        "max_new_events": 25,
+        "question": "Does a real live window surface fresh cross-agent transmission evidence?",
+        "favored_hypothesis": "Some real cross-agent influence will appear.",
+        "competing_hypothesis": "No new cross-agent influence appears in a small window.",
+    }
+
+    # --- Malformed / adversarial parameter rejection ---
+    for bad_field, bad_value, label in [
+        ("max_new_events", 0, "max_new_events below minimum (1)"),
+        ("max_new_events", 26, "max_new_events above the Founder-mandated ceiling (25)"),
+        ("question", "", "empty question (preregistration required)"),
+        ("favored_hypothesis", "", "empty favored_hypothesis"),
+        ("competing_hypothesis", "", "empty competing_hypothesis"),
+    ]:
+        bad_params = dict(good_params)
+        bad_params[bad_field] = bad_value
+        r = broker.execute("RUN_BOUNDED_LIVE_WINDOW", bad_params)
+        record(f"RUN_BOUNDED_LIVE_WINDOW rejects {label}", r.status == "REJECTED", r.failure_reason or "")
+
+    extra_field_params = dict(good_params)
+    extra_field_params["event_ceiling_override"] = 999999
+    r = broker.execute("RUN_BOUNDED_LIVE_WINDOW", extra_field_params)
+    record("RUN_BOUNDED_LIVE_WINDOW rejects an unknown field (no override surface exists)", r.status == "REJECTED", r.failure_reason or "")
+
+    # Confirm the schema itself has no path-shaped or code-shaped field --
+    # structurally, there is nothing for a caller to point at an
+    # alternate/live DB path, a python file, or a shell command.
+    fields = set(broker.RunBoundedLiveWindowParams.model_fields.keys())
+    record(
+        "RunBoundedLiveWindowParams has no path/code/command-shaped field",
+        fields == {"max_new_events", "question", "favored_hypothesis", "competing_hypothesis"},
+        str(fields),
+    )
+
+    # --- Proves the capability never opens a database at all when the
+    # bound cannot be mechanically guaranteed -- even a nonexistent path
+    # still returns a clean, correct refusal. ---
+    original_path = broker.CANONICAL_LIVE_DB_PATH
+    broker.CANONICAL_LIVE_DB_PATH = Path("/tmp/rbtw_fixturetest_definitely_does_not_exist.db")
+    try:
+        r = broker.execute("RUN_BOUNDED_LIVE_WINDOW", good_params)
+        record("RUN_BOUNDED_LIVE_WINDOW succeeds even against a nonexistent DB path (never opens it)", r.status == "SUCCESS", r.failure_reason or "")
+        record(
+            "RUN_BOUNDED_LIVE_WINDOW correctly reports LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED under the current schema",
+            r.result.get("status") == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            str(r.result),
+        )
+        record("RUN_BOUNDED_LIVE_WINDOW's refusal never touches the live DB (live_db_accessed=False)", r.live_db_accessed is False, "")
+        record("RUN_BOUNDED_LIVE_WINDOW's refusal never mutates anything (live_db_mutated=False)", r.live_db_mutated is False, "")
+    finally:
+        broker.CANONICAL_LIVE_DB_PATH = original_path
+
+    # --- Direct schema-introspection proof: confirm right now, against the
+    # real, current schema, that no bound can be computed -- this is the
+    # actual reason the capability refuses, verified independently of the
+    # capability's own internal logic. ---
+    from app.core.config import get_settings
+    wc = broker._derive_worst_case_activation_burst(get_settings())
+    record("real ResearchSynthesis schema currently has no computable worst-case burst (proven, not assumed)", wc is None, f"got {wc}")
+
+    # --- Pure algorithm correctness, against a REAL disposable DB with the
+    # REAL run_next_event() + fixture provider, proving the bound
+    # guarantee holds mechanically when given a true worst-case burst. ---
+    import director_diagnostics as dd
+    from app.core.db_safety import safe_rmtree
+    from sqlalchemy import select
+    import seed_agents
+    from app.providers.llm import get_llm_provider
+    from app.services.orchestrator import run_next_event
+    from app.db.models.events import Event
+
+    tmp_dir, session = dd.create_guarded_isolated_sqlite_session(prefix="director_broker_fixturetest_rbtw_")
+    try:
+        seed_agents.run(session)
+        session.commit()
+        settings = get_settings()
+        provider = get_llm_provider(settings)
+
+        def _get_max() -> int:
+            return session.scalar(select(Event.id).order_by(Event.id.desc()).limit(1)) or 0
+
+        def _run_one():
+            outcome = run_next_event(session, settings=settings, provider=provider)
+            session.commit()
+            return outcome
+
+        start = _get_max()
+        outcome = broker._advance_bounded(session, _get_max, _run_one, target_max_event_id=start + 10, worst_case_burst=3)
+        record(
+            "pure _advance_bounded algorithm never exceeds its target against a real disposable DB",
+            outcome.end_max_event_id <= outcome.target_max_event_id,
+            f"start={outcome.start_max_event_id} end={outcome.end_max_event_id} target={outcome.target_max_event_id}",
+        )
+        record("pure _advance_bounded algorithm ran at least one real activation", outcome.activations_run > 0, str(outcome.activations_run))
+        record(
+            "pure _advance_bounded algorithm stops for a legitimate reason",
+            outcome.stopped_reason in ("target_reached", "insufficient_margin", "no_eligible_agent"),
+            outcome.stopped_reason,
+        )
+
+        # Adversarial: an intentionally WRONG (too-small) worst_case_burst
+        # must trip the internal safety-violation check rather than
+        # silently overshoot -- proves the guard is load-bearing, not
+        # decorative. Uses a fake run_one that always reports a burst
+        # larger than the deliberately-wrong margin allows.
+        from app.domain.enums import EventType as _EventType
+
+        def _run_one_big_burst():
+            # Simulate a single call emitting far more events than the
+            # (deliberately wrong) worst_case_burst below would allow --
+            # bypasses run_next_event entirely to make the "one atomic
+            # call emitted N rows" scenario deterministic and instant.
+            for _ in range(20):
+                session.add(Event(event_type=_EventType.AGENT_WOKE, agent_id="agent_dex", payload={}, sim_day=1, sim_period="MORNING"))
+            session.commit()
+            return object()
+
+        try:
+            broker._advance_bounded(session, _get_max, _run_one_big_burst, target_max_event_id=_get_max() + 5, worst_case_burst=3)
+            record("wrong worst_case_burst is caught by the internal safety check", False, "no exception raised -- silent overshoot!")
+        except broker.BrokerError as exc:
+            record("wrong worst_case_burst is caught by the internal safety check", "SAFETY VIOLATION" in str(exc), str(exc))
+    finally:
+        session.close()
+        safe_rmtree(tmp_dir)
+
+    # --- Full end-to-end exercise of the (currently unreachable in
+    # production) live-execution branch: monkeypatch both
+    # _derive_worst_case_activation_burst (to simulate a future schema fix
+    # making the bound computable) AND CANONICAL_LIVE_DB_PATH (to a
+    # disposable "fake live" DB, never the real one) to prove the full
+    # pause -> advance -> re-pause -> integrity-check code path is
+    # correct, not just the pure algorithm in isolation. ---
+    tmp_dir2, fake_live_path = build_fixture_live_db()
+    original_derive = broker._derive_worst_case_activation_burst
+    original_path = broker.CANONICAL_LIVE_DB_PATH
+    try:
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect(str(fake_live_path))
+        conn.execute("UPDATE simulation_clock SET is_paused = 1")
+        conn.commit()
+        conn.close()
+
+        broker._derive_worst_case_activation_burst = lambda settings: 3
+        broker.CANONICAL_LIVE_DB_PATH = fake_live_path
+
+        r = broker.execute("RUN_BOUNDED_LIVE_WINDOW", {**good_params, "max_new_events": 10})
+        record("full live-execution branch succeeds against a disposable fake-live DB", r.status == "SUCCESS", r.failure_reason or "")
+        if r.status == "SUCCESS":
+            record("live-execution branch reports status COMPLETED", r.result.get("status") == "COMPLETED", str(r.result))
+            record("live-execution branch never exceeds the requested window", r.result.get("events_added", 999) <= 10, str(r.result))
+            record("live-execution branch ran at least one activation", r.result.get("activations_run", 0) > 0, str(r.result))
+
+        conn = _sqlite3.connect(str(fake_live_path))
+        is_paused_after = conn.execute("SELECT is_paused FROM simulation_clock LIMIT 1").fetchone()[0]
+        conn.close()
+        record("fake-live DB is paused again after the window completes", bool(is_paused_after), f"is_paused={is_paused_after}")
+
+        integ = broker.execute("CHECK_LIVE_DB_INTEGRITY", {})
+        record("fake-live DB passes integrity check after the window", integ.result.get("healthy") is True, str(integ.result))
+    finally:
+        broker._derive_worst_case_activation_burst = original_derive
+        broker.CANONICAL_LIVE_DB_PATH = original_path
+        safe_rmtree(tmp_dir2)
+
+
 def test_fail_closed_on_malformed_requests(_: Path) -> None:
     result = broker.execute("LIVE_DB_READ", {"sql": 12345})
     record("malformed params (wrong type) fail closed as REJECTED, not a crash", result.status == "REJECTED", result.failure_reason or "")
@@ -495,6 +672,7 @@ def main() -> int:
     test_positive_and_adversarial_research_sharing_experiment(Path("."))
     test_positive_provider_and_level2a(Path("."))
     test_audit_log_written(Path("."))
+    test_run_bounded_live_window(Path("."))
     test_fail_closed_on_malformed_requests(Path("."))
 
     after_hash = hashlib.sha256(REAL_LIVE_DB_PATH.read_bytes()).hexdigest() if REAL_LIVE_DB_PATH.exists() else None
