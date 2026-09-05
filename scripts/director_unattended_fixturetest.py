@@ -130,6 +130,12 @@ def run_once(
     # what "unchanged" means for that disposable DB (0, not the real 623).
     env["VILLAGE_DATA_ROOT"] = str(fake_village_root)
     env["DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT"] = "0"
+    # Default this whole suite to a shift-local live-window cap of 1 so
+    # every test that doesn't care about the continuous-planning behavior
+    # itself stays fast and deterministic (one live window + one analysis
+    # per shift, not up to 5 real fixture-provider live windows). Tests
+    # that specifically exercise cross-shift continuation override this.
+    env["DIRECTOR_UNATTENDED_MAX_LIVE_WINDOWS"] = "1"
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
@@ -184,7 +190,11 @@ def main() -> int:
         # fits the 50-event window) and WILL execute for real against the
         # fully disposable fake village -- that is now correct, intended
         # behavior, not a refusal, and this is exactly why the fake
-        # village must be real, seeded, and paused rather than a stub. ---
+        # village must be real, seeded, and paused rather than a stub.
+        # DIRECTOR_UNATTENDED_MAX_LIVE_WINDOWS=1 (this suite's default) caps
+        # this run to exactly one live window + its automatic analysis --
+        # this test's job is the ORIGINAL 26-seed-task+one-window shape;
+        # the new continuous-planning-across-shifts behavior is Test 2. ---
         proc = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
         record("full isolated run exits 0", proc.returncode == 0, proc.stdout[-800:] + proc.stderr[-800:])
         record("isolated status file was created (not the real one)", (tmp_root / "unattended_status.json").exists(), "")
@@ -205,7 +215,7 @@ def main() -> int:
             str(status.get("live_events_added_total")),
         )
         record(
-            "the advance never exceeded the mechanically-guaranteed 50-event window",
+            "the single window's advance never exceeded the mechanically-guaranteed 50-event window (cap=1 this test)",
             status.get("live_events_added_total", 999) <= 50,
             str(status.get("live_events_added_total")),
         )
@@ -214,23 +224,105 @@ def main() -> int:
             status["max_live_event_baseline"] == status.get("live_events_added_total"),
             f"baseline={status['max_live_event_baseline']} added={status.get('live_events_added_total')}",
         )
+        # --- Required regression coverage: a completed finite seed backlog
+        # must NOT equal genuine exhaustion; the dynamic planner must have
+        # inspected the newest live evidence and generated the next
+        # justified task (the automatic post-window analysis) itself,
+        # never declaring exhaustion merely because the seed queue emptied. ---
+        analyze_task_ids = [t for t in status["completed_task_ids"] if t.startswith("analyze_live_window_")]
+        record(
+            "seed queue exhausting did NOT immediately declare genuine exhaustion -- the dynamic planner "
+            "generated and completed an automatic post-live-window analysis task first",
+            len(analyze_task_ids) == 1,
+            f"completed={status['completed_task_ids']}",
+        )
+        shift1 = status["current_shift"]
+        record("shift-local state exists with a shift_id", bool(shift1 and shift1.get("shift_id")), str(shift1))
+        record(
+            "genuine exhaustion required 3 consecutive no-material-task planning passes, not an instant check",
+            shift1["consecutive_no_material_task_passes"] == 3,
+            str(shift1),
+        )
+        record(
+            "shift-local live_windows_this_shift respected the shift cap (1, this test's override)",
+            shift1["live_windows_this_shift"] == 1,
+            str(shift1["live_windows_this_shift"]),
+        )
+        record(
+            "shift-local completed_tasks_this_shift matches lifetime completed_task_count on a single-shift run",
+            shift1["completed_tasks_this_shift"] == status["completed_task_count"],
+            f"{shift1['completed_tasks_this_shift']} vs {status['completed_task_count']}",
+        )
 
-        # --- Test 2: resume does not duplicate / re-spend completed work,
-        # and (critically, given test 1 now legitimately advances events)
-        # does not attempt a SECOND live window merely because one already
-        # succeeded -- attempt_live_window_1 is a one-shot task id. ---
+        # --- Test 2: a SECOND intentional run against the already-completed
+        # first shift must (a) not re-run already-completed seed work or
+        # re-analyze an already-analyzed window (no duplication/re-spend),
+        # but (b) MUST start a genuinely NEW shift and, since real margin
+        # remains and the per-shift cap resets, run ANOTHER bounded live
+        # window -- proving a completed previous shift does not poison a
+        # new one, and that the Director keeps making real scientific
+        # progress across shifts rather than needing a human to notice
+        # "genuinely exhausted" and manually resubmit the exact same task. ---
         calls_after_first = status["provider_calls_used"]
         completed_after_first = status["completed_task_count"]
         events_after_first = status["live_events_added_total"]
+        shift1_id = shift1["shift_id"]
         proc2 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
-        record("second run against already-exhausted state exits 0", proc2.returncode == 0, proc2.stdout[-300:])
+        record("second run exits 0", proc2.returncode == 0, proc2.stdout[-300:])
         status2 = status_at(tmp_root)
-        record("resume does not re-run completed tasks", status2["completed_task_count"] == completed_after_first, f"{status2['completed_task_count']} vs {completed_after_first}")
-        record("resume does not re-spend provider calls", status2["provider_calls_used"] == calls_after_first, f"{status2['provider_calls_used']} vs {calls_after_first}")
+        record("resume does not re-run any previously completed task", all(t in status2["completed_task_ids"] for t in status["completed_task_ids"]), "")
         record(
-            "resume does not run a second live window now that the first one-shot task already completed",
-            status2["live_events_added_total"] == events_after_first,
+            "second run started a genuinely NEW shift (completed previous shift does not poison the new one)",
+            status2["current_shift"]["shift_id"] != shift1_id,
+            f"{status2['current_shift']['shift_id']} vs {shift1_id}",
+        )
+        record(
+            "the new shift's own counters are fresh, not inherited from the completed first shift",
+            status2["current_shift"]["completed_tasks_this_shift"] < completed_after_first,
+            str(status2["current_shift"]),
+        )
+        record(
+            "the new shift attempted (and completed) a SECOND live window, since margin remained and its own cap reset",
+            "attempt_live_window_2" in status2["completed_task_ids"],
+            f"completed={status2['completed_task_ids']}",
+        )
+        record(
+            "the second window's own analysis task also completed automatically",
+            any(t.startswith("analyze_live_window_") for t in status2["completed_task_ids"] if t not in status["completed_task_ids"]),
+            f"completed={status2['completed_task_ids']}",
+        )
+        record(
+            "lifetime live_events_added_total strictly increased (real further progress, not a no-op)",
+            status2["live_events_added_total"] > events_after_first,
             f"{status2['live_events_added_total']} vs {events_after_first}",
+        )
+        record(
+            "provider calls only increased by what the new shift's own work actually spent (no re-spend of old work)",
+            status2["provider_calls_used"] >= calls_after_first,
+            f"{status2['provider_calls_used']} vs {calls_after_first}",
+        )
+
+        # --- Test 2b: restart resumes an INTERRUPTED active shift (state
+        # left as "running" -- simulating a crash) appropriately: the SAME
+        # shift_id and its accumulated consecutive_no_material_task_passes
+        # continue, rather than a fresh shift resetting the counter. ---
+        interrupted = status_at(tmp_root)
+        interrupted["state"] = "running"  # simulate: process died mid-shift, never reached a clean stop
+        interrupted["current_shift"]["consecutive_no_material_task_passes"] = 2
+        interrupted_shift_id = interrupted["current_shift"]["shift_id"]
+        (tmp_root / "unattended_status.json").write_text(json.dumps(interrupted, indent=2))
+        proc2b = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("resume-after-simulated-crash exits 0", proc2b.returncode == 0, proc2b.stdout[-300:])
+        status2b = status_at(tmp_root)
+        record(
+            "an interrupted active shift (state=running on disk) resumes the SAME shift_id, not a new one",
+            status2b["current_shift"]["shift_id"] == interrupted_shift_id,
+            f"{status2b['current_shift']['shift_id']} vs {interrupted_shift_id}",
+        )
+        record(
+            "the resumed shift's no-material-task counter continued from where it was primed (2 -> 3), proving state actually carried over",
+            status2b["current_shift"]["consecutive_no_material_task_passes"] == 3 and status2b["stop_reason"] == "genuinely_exhausted",
+            str(status2b["current_shift"]),
         )
 
         # --- Test 3: stop-flag mid-shift + resume-after-stop, fresh state
@@ -260,7 +352,20 @@ def main() -> int:
 
         proc4 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
         status4 = status_at(tmp_root)
-        record("resume-after-stop completes the remaining work without duplicating the first 5", status4["completed_task_count"] == primed["completed_task_count"], f"{status4['completed_task_count']} vs {primed['completed_task_count']}")
+        # NOTE, 2026-09-05: this no longer asserts an EXACT count match --
+        # with continuous dynamic planning, a resumed run that finishes the
+        # original seed+analysis work AND still has live-event margin left
+        # will legitimately go on to do MORE real science (another live
+        # window + its own analysis), exactly as intended. What this test
+        # must still prove is the original guarantee: nothing already
+        # completed before the stop is ever duplicated or re-run.
+        no_duplicates = len(status4["completed_task_ids"]) == len(set(status4["completed_task_ids"]))
+        first_five_preserved = set(primed["completed_task_ids"][:5]).issubset(set(status4["completed_task_ids"]))
+        record(
+            "resume-after-stop does not duplicate any previously completed task, and reaches at least the original work",
+            no_duplicates and first_five_preserved and status4["completed_task_count"] >= primed["completed_task_count"],
+            f"no_duplicates={no_duplicates} first_five_preserved={first_five_preserved} {status4['completed_task_count']} vs >= {primed['completed_task_count']}",
+        )
 
         # --- Test 4: lock prevents a concurrent second instance ---
         shutil.rmtree(tmp_root)

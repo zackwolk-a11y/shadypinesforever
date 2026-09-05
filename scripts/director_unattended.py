@@ -32,9 +32,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import signal
 import sys
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +47,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import director_broker as broker  # noqa: E402
+from app.core.config import get_settings as _get_settings  # noqa: E402
 
 DIRECTOR_DIR = REPO_ROOT / ".director"
 
@@ -100,7 +103,13 @@ _baseline_override = os.environ.get("DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT", ""
 BASELINE_MAX_EVENT = int(_baseline_override) if _baseline_override else 633
 
 # Founder-authorized overnight live-science budget, 2026-09-05.
-MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT = 250
+#: Test-only override, same pattern as DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT
+#: above -- lets a test shrink the overnight budget so a live-window/
+#: analysis loop reaches its true margin limit in seconds instead of
+#: potentially many real (fixture) provider calls. Unset (the only thing a
+#: real launch should ever use), this is exactly 250, unchanged.
+_overnight_budget_override = os.environ.get("DIRECTOR_UNATTENDED_MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT", "").strip()
+MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT = int(_overnight_budget_override) if _overnight_budget_override else 250
 ABSOLUTE_EVENT_CEILING = BASELINE_MAX_EVENT + MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT  # 883
 #: Raised 25 -> 50, 2026-09-05, per explicit Founder authorization, to
 #: match the proven worst-case single-activation burst (42, see
@@ -112,7 +121,26 @@ ABSOLUTE_EVENT_CEILING = BASELINE_MAX_EVENT + MAX_ADDITIONAL_LIVE_EVENTS_OVERNIG
 #: wouldn't fit. Must track director_broker.RunBoundedLiveWindowParams's
 #: own le=50 ceiling -- both were raised together this same commit.
 MAX_SINGLE_LIVE_WINDOW = 50
-MAX_LIVE_WINDOWS = 5  # 250 // 50, per the Founder's own arithmetic
+#: Founder-authorized 2026-09-05 ("make the unattended Director actually
+#: continuous"): a genuine per-shift cap on how many bounded live windows
+#: ONE continuous shift may attempt, independent of (and never looser
+#: than) the absolute lifetime event ceiling above. Previously defined but
+#: never enforced; now the actual gate generate_next_investigation_task()
+#: checks before ever proposing another live window this shift.
+#: Test-only override, same pattern as the two above -- unset (the only
+#: thing a real launch should ever use), this is exactly 5, unchanged.
+_max_live_windows_override = os.environ.get("DIRECTOR_UNATTENDED_MAX_LIVE_WINDOWS", "").strip()
+MAX_LIVE_WINDOWS = int(_max_live_windows_override) if _max_live_windows_override else 5  # 250 // 50, per the Founder's own arithmetic
+
+
+def _worst_case_activation_burst() -> int:
+    """The same mechanically-proven bound director_broker.py's own
+    RUN_BOUNDED_LIVE_WINDOW pre-activation check enforces (see
+    _derive_worst_case_activation_burst) -- read fresh from real
+    production settings each time, never hardcoded here, so this
+    planning-time eligibility check can never drift from the capability's
+    own actual safety authority."""
+    return broker._derive_worst_case_activation_burst(_get_settings())
 
 _NETWORK_ERROR_HINTS = (
     "connection", "timeout", "timed out", "network", "dns", "refused",
@@ -165,6 +193,27 @@ def _default_status() -> dict[str, Any]:
         "max_live_event_baseline": BASELINE_MAX_EVENT,
         "stop_reason": None,
         "continuing_because": None,
+        "current_shift": None,
+    }
+
+
+def _new_shift_state(starting_live_event: int) -> dict[str, Any]:
+    """Shift-local state (Founder-authorized 2026-09-05), tracked
+    separately from the lifetime/historical fields above. A completed or
+    interrupted-and-abandoned shift's counters must never be mistaken for
+    the current shift's -- see main()'s resume-vs-fresh-shift decision."""
+    return {
+        "shift_id": uuid.uuid4().hex[:12],
+        "shift_started_at": _now(),
+        "shift_cycle_count": 0,
+        "starting_live_event": starting_live_event,
+        "current_live_event": starting_live_event,
+        "live_events_added_this_shift": 0,
+        "provider_calls_this_shift": 0,
+        "completed_tasks_this_shift": 0,
+        "live_windows_this_shift": 0,
+        "consecutive_no_material_task_passes": 0,
+        "stop_reason": None,
     }
 
 
@@ -411,22 +460,30 @@ def _remaining_overnight_live_budget() -> int | None:
 
 
 def task_attempt_live_window_1() -> TaskResult:
+    return _attempt_live_window_task_body("attempt_live_window_1")
+
+
+def _attempt_live_window_task_body(window_label: str) -> TaskResult:
     """Preregistration, per the Founder's 2026-09-05 night-policy update
     (max window 25 -> 50, matching the proven worst-case atomic burst of
     42): why fresh live data is necessary -- every claim this project has
     made about cross-agent transmission, private continuity, and Wall/
-    Rabbit-Hole/Belief non-uptake rests on the same frozen 623-event
-    snapshot; only genuinely new, unforced activity can test whether those
-    patterns hold going forward or were an artifact of this specific
-    history. Evidence sought: any new MESSAGE/QUESTION/RESEARCH/REFLECTION/
-    WALL/RABBIT_HOLE/BELIEF event past 623. Falsification criterion for
-    the favored hypothesis: a live window (of the Founder-mandated
-    max_new_events, mechanically <= 50 and never exceeding the actual
-    requested value) that produces zero new cross-agent reference, zero
-    new research/reflection activity, and no departure from the existing
-    all-zero Wall/Rabbit-Hole/Belief pattern would falsify it. Requested
-    event budget: computed fresh each call from the real current live
-    max event id (see _remaining_overnight_live_budget), never assumed."""
+    Rabbit-Hole/Belief non-uptake rests on evidence collected up to some
+    prior frozen event snapshot; only genuinely new, unforced activity can
+    test whether those patterns hold going forward or were an artifact of
+    that specific history. Evidence sought: any new MESSAGE/QUESTION/
+    RESEARCH/REFLECTION/WALL/RABBIT_HOLE/BELIEF event past the current
+    baseline. Falsification criterion for the favored hypothesis: a live
+    window (of the Founder-mandated max_new_events, mechanically <= 50 and
+    never exceeding the actual requested value) that produces zero new
+    cross-agent reference, zero new research/reflection activity, and no
+    departure from the existing all-zero Wall/Rabbit-Hole/Belief pattern
+    would falsify it. Requested event budget: computed fresh each call
+    from the real current live max event id (see
+    _remaining_overnight_live_budget), never assumed. Reused verbatim by
+    every dynamically-generated follow-up window this shift (Founder
+    authorization 2026-09-05) -- window_label only distinguishes which
+    attempt this is in logging/summary text, not the science itself."""
     remaining = _remaining_overnight_live_budget()
     if remaining is None:
         return TaskResult(status="LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED", summary="could not read the real live max event id -- refusing to attempt a live window")
@@ -439,13 +496,13 @@ def task_attempt_live_window_1() -> TaskResult:
         {
             "max_new_events": window_size,
             "question": (
-                "Does a fresh, mechanically-bounded live window surface new evidence of durable "
-                "cross-agent transmission, private intellectual continuity, or Research Wall/Rabbit "
-                "Hole/Belief uptake beyond what the frozen event-623 snapshot already shows?"
+                f"({window_label}) Does a fresh, mechanically-bounded live window surface new "
+                "evidence of durable cross-agent transmission, private intellectual continuity, or "
+                "Research Wall/Rabbit Hole/Belief uptake beyond what prior evidence already shows?"
             ),
             "favored_hypothesis": (
-                "Real, unforced Village activity beyond event 623 would show at least one new "
-                "instance of a real cross-agent reference, a new research thread, or a new "
+                "Real, unforced Village activity beyond the current baseline would show at least one "
+                "new instance of a real cross-agent reference, a new research thread, or a new "
                 "reflection -- consistent with the same rates this project has already documented."
             ),
             "competing_hypothesis": (
@@ -466,7 +523,7 @@ def task_attempt_live_window_1() -> TaskResult:
         )
     return TaskResult(
         status="COMPLETED",
-        summary=f"live window advanced {payload.get('events_added')} events ({payload.get('activations_run')} activations), stopped: {payload.get('stopped_reason')}",
+        summary=f"{window_label}: live window advanced {payload.get('events_added')} events ({payload.get('activations_run')} activations), stopped: {payload.get('stopped_reason')}",
         detail=payload,
     )
 
@@ -644,9 +701,8 @@ def generate_dynamic_tasks(status: dict[str, Any]) -> list[Task]:
     result = broker.execute("LIVE_DB_READ", {"sql": "SELECT agent_id FROM agents ORDER BY agent_id"})
     if result.status != "SUCCESS":
         return []
-    import re as _re
 
-    agent_ids = [row[0] for row in result.result["rows"] if _re.match(r"^agent_[a-z_]+$", row[0])]
+    agent_ids = [row[0] for row in result.result["rows"] if re.match(r"^agent_[a-z_]+$", row[0])]
     tasks = []
     for agent_id in agent_ids:
         task_id = f"agent_profile_{agent_id}"
@@ -697,7 +753,211 @@ def next_unfinished_task(status: dict[str, Any]) -> Task | None:
     return None
 
 
-def write_final_founder_packet(status: dict[str, Any], before: dict[str, Any]) -> Path:
+# ---------------------------------------------------------------------------
+# Continuous-Director dynamic planner (Founder authorization, 2026-09-05):
+# consulted ONLY once next_unfinished_task() above (the static + per-agent
+# seed queue) has nothing left. A completed finite seed backlog must not be
+# mistaken for genuine exhaustion -- this is the mechanism that keeps the
+# Director working: inspect the newest live evidence, generate the next
+# justified investigation, execute, ingest, repeat. Every task it produces
+# still only ever calls broker.execute() -- no new capability, no direct
+# DB access, nothing that bypasses the existing safety pipeline.
+# ---------------------------------------------------------------------------
+
+_TIMESTAMP_RE = re.compile(r"^[0-9T:\.\-\+Z ]{4,40}$")
+
+
+def _safe_timestamp(value: Any) -> str:
+    """Defensive validation before embedding a DB-returned timestamp into a
+    hand-built SQL string (LIVE_DB_READ takes raw SQL text, not bound
+    params) -- mirrors the agent_id regex-validation pattern already used
+    elsewhere in this file. Every value here originates from the broker's
+    own read of the events table, never external input, but this is
+    cheap insurance against ever embedding an unexpected character."""
+    text = str(value)
+    if not _TIMESTAMP_RE.match(text):
+        raise ValueError(f"unexpected timestamp value, refusing to embed in SQL: {value!r}")
+    return text
+
+
+def _completed_live_windows(status: dict[str, Any]) -> list[tuple[str, int, int]]:
+    """(task_id, start_max_event_id, end_max_event_id) for every COMPLETED
+    attempt_live_window_* task recorded in results_store this far, oldest
+    first -- read straight from the persisted detail RUN_BOUNDED_LIVE_WINDOW
+    itself returned, never re-derived."""
+    store = status.get("results_store", {})
+    out: list[tuple[str, int, int]] = []
+    for task_id, detail in store.items():
+        if not task_id.startswith("attempt_live_window_") or not isinstance(detail, dict):
+            continue
+        start = detail.get("start_max_event_id")
+        end = detail.get("end_max_event_id")
+        if isinstance(start, int) and isinstance(end, int) and end > start:
+            out.append((task_id, start, end))
+    out.sort(key=lambda t: t[1])
+    return out
+
+
+def _run_analyze_live_window(start_event_id: int, end_event_id: int) -> TaskResult:
+    """Automatic post-live-window analysis (Founder authorization,
+    2026-09-05): every completed live window must be inspected before the
+    Director considers what to do next. Examines which agents acted,
+    messages, memories, questions, reflections, research, relationship
+    totals, and Research Wall/Rabbit-Hole/Belief uptake across the exact
+    new event interval, plus a cross-agent-transmission check restricted
+    to that window's own new messages -- every query a single read-only
+    LIVE_DB_READ SELECT (or the existing GET_EVENT_RANGE capability). No
+    new broker capability, no write, no Village behavior change. Any row
+    the contamination registry would flag (see
+    director_contamination_registry.py, wired into GET_EVENT_RANGE) is
+    excluded from the agent/event-type analysis, not merely counted --
+    consistent with the 2026-09-05 incident's exclusion requirement, even
+    though a live window advancing forward from the current baseline can
+    never actually overlap the frozen 624-633 interval."""
+    event_range = broker.execute("GET_EVENT_RANGE", {"start_id": start_event_id + 1, "end_id": end_event_id, "limit": 500})
+    if event_range.status != "SUCCESS":
+        return TaskResult(status="FAILED", summary=event_range.failure_reason or "could not read event range", detail=event_range.to_dict())
+
+    columns = event_range.result["columns"]
+    all_rows = event_range.result["rows"]
+    idx = {name: i for i, name in enumerate(columns)}
+    excluded = [r for r in all_rows if r[idx["contaminated"]]]
+    rows = [r for r in all_rows if not r[idx["contaminated"]]]
+    if not rows:
+        return TaskResult(
+            status="COMPLETED",
+            summary=f"window {start_event_id + 1}-{end_event_id}: no non-contaminated event rows found (nothing to analyze)",
+            detail={"columns": columns, "rows": rows, "excluded_contaminated_count": len(excluded)},
+        )
+
+    agent_ids_acted = sorted({r[idx["agent_id"]] for r in rows if r[idx["agent_id"]]})
+    event_type_counts: dict[str, int] = {}
+    for r in rows:
+        et = r[idx["event_type"]]
+        event_type_counts[et] = event_type_counts.get(et, 0) + 1
+
+    timestamps = [r[idx["created_at"]] for r in rows]
+    min_ts, max_ts = _safe_timestamp(min(timestamps)), _safe_timestamp(max(timestamps))
+
+    def _grouped_count(table: str) -> TaskResult:
+        return _run_read(
+            f"SELECT agent_id, COUNT(*) as n FROM {table} "
+            f"WHERE created_at BETWEEN '{min_ts}' AND '{max_ts}' GROUP BY agent_id ORDER BY n DESC",
+            f"{table} in window",
+        )
+
+    messages_result = _run_read(
+        "SELECT sender_agent_id, recipient_agent_id, COUNT(*) as n FROM messages "
+        f"WHERE created_at BETWEEN '{min_ts}' AND '{max_ts}' GROUP BY sender_agent_id, recipient_agent_id ORDER BY n DESC",
+        "messages in window",
+    )
+    memories_result = _grouped_count("memories")
+    questions_result = _grouped_count("agent_questions")
+    reflections_result = _grouped_count("agent_reflections")
+    research_result = _grouped_count("research_sessions")
+    transmission_result = _run_read(
+        "SELECT m.id, m.sender_agent_id, m.recipient_agent_id, "
+        "(SELECT COUNT(*) FROM memories mem WHERE mem.content LIKE '%' || substr(m.content, 1, 30) || '%') as memory_hits "
+        f"FROM messages m WHERE m.created_at BETWEEN '{min_ts}' AND '{max_ts}' ORDER BY m.id",
+        "cross-agent transmission check (window-scoped)",
+    )
+    wall_result = _run_read(
+        "SELECT (SELECT COUNT(*) FROM research_wall) as wall, (SELECT COUNT(*) FROM rabbit_holes) as holes, "
+        "(SELECT COUNT(*) FROM agent_beliefs) as beliefs",
+        "Wall/Rabbit-Hole/Belief cumulative totals (not window-scoped -- no history table exists to diff against)",
+    )
+    relationships_result = _run_read(
+        "SELECT COUNT(*) as n_relationships, SUM(interaction_count) as total_interactions FROM relationships",
+        "relationship totals (cumulative, not window-scoped)",
+    )
+
+    def _col_sum(result: TaskResult, col_index: int) -> int:
+        if result.status != "COMPLETED":
+            return 0
+        return sum(row[col_index] for row in result.detail.get("rows", []))
+
+    n_messages = _col_sum(messages_result, 2)
+    n_memories = _col_sum(memories_result, 1)
+    n_questions = _col_sum(questions_result, 1)
+    n_reflections = _col_sum(reflections_result, 1)
+    n_research = _col_sum(research_result, 1)
+    transmission_hits = _col_sum(transmission_result, 3)
+
+    culture_note = (
+        f"cross-agent transmission detected ({transmission_hits} hit(s)) -- warrants a dedicated follow-up trace"
+        if transmission_hits > 0
+        else "no new cross-agent transmission detected in this window, consistent with the established pattern"
+    )
+
+    summary = (
+        f"window {start_event_id + 1}-{end_event_id}: {len(rows)} events, agents acted={agent_ids_acted}, "
+        f"event types={event_type_counts}; {n_messages} messages, {n_memories} memories, {n_questions} questions, "
+        f"{n_reflections} reflections, {n_research} research sessions; {culture_note}"
+    )
+
+    return TaskResult(
+        status="COMPLETED",
+        summary=summary,
+        detail={
+            "start_event_id": start_event_id, "end_event_id": end_event_id,
+            "agent_ids_acted": agent_ids_acted, "event_type_counts": event_type_counts,
+            "excluded_contaminated_count": len(excluded),
+            "messages": messages_result.detail, "memories": memories_result.detail,
+            "questions": questions_result.detail, "reflections": reflections_result.detail,
+            "research_sessions": research_result.detail, "cross_agent_transmission": transmission_result.detail,
+            "wall_rabbit_belief_totals": wall_result.detail, "relationship_totals": relationships_result.detail,
+        },
+    )
+
+
+def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, Any]) -> Task | None:
+    """The dynamic half of the planner (Founder authorization, 2026-09-05):
+    consulted only once the static + per-agent seed queue has nothing left.
+    Priority: (1) any completed live window whose event interval hasn't
+    been analyzed yet -- analyze it next; (2) otherwise, if this shift's
+    own live-window cap (MAX_LIVE_WINDOWS) and the mechanically-proven
+    remaining margin both still allow it, attempt one more bounded live
+    window. Returns None (no material task) once neither avenue applies --
+    callers count 3 consecutive None results as genuine exhaustion, never
+    a bare empty seed queue."""
+    for task_id, start, end in _completed_live_windows(status):
+        analysis_task_id = f"analyze_live_window_{start}_{end}"
+        if analysis_task_id in status["completed_task_ids"] or analysis_task_id in status["failed_task_ids"]:
+            continue
+        return Task(
+            analysis_task_id,
+            f"Automatic post-live-window analysis of events {start + 1}-{end}",
+            [1, 2, 3, 4, 6, 7, 8, 9, 10],
+            "R",
+            (lambda s=start, e=end: _run_analyze_live_window(s, e)),
+        )
+
+    if shift["live_windows_this_shift"] >= MAX_LIVE_WINDOWS:
+        return None
+    remaining = _remaining_overnight_live_budget()
+    if remaining is None or remaining < _worst_case_activation_burst():
+        return None
+
+    used_live_ids = {
+        tid for tid in (
+            status["completed_task_ids"] + status["failed_task_ids"] + status.get("live_bound_not_guaranteed_task_ids", [])
+        )
+        if tid.startswith("attempt_live_window_")
+    }
+    n = 1
+    while f"attempt_live_window_{n}" in used_live_ids:
+        n += 1
+    task_id = f"attempt_live_window_{n}"
+    return Task(
+        task_id,
+        f"Dynamically continued (shift {shift['shift_id']}): attempt bounded live-science window #{n}",
+        [1, 2, 4, 5, 6, 7, 8, 9, 10],
+        "L",
+        (lambda tid=task_id: _attempt_live_window_task_body(tid)),
+    )
+
+
+def write_final_founder_packet(status: dict[str, Any], before: dict[str, Any], shift: dict[str, Any]) -> Path:
     path = FOUNDER_PACKETS_DIR / "unattended_shift_completion_2026-09-04.md"
     store = status.get("results_store", {})
     stat_lines = (store.get("statistical_reanalysis_shift_experiments") or {}).get("lines", [])
@@ -706,19 +966,34 @@ def write_final_founder_packet(status: dict[str, Any], before: dict[str, Any]) -
 
 ## 1. Why the shift stopped
 
-**Genuinely exhausted**: every task in the static queue plus everything the
-data-driven per-agent generator could produce from the current (frozen)
-live DB snapshot has been completed or definitively failed. No fixed task
-count was used as the stop condition -- this is a real "nothing further
-is safely executable without crossing into L (live advancement) or P
-(production modification)" boundary.
+**Genuinely exhausted** (Founder-authorized conservative rule, 2026-09-05):
+{shift['consecutive_no_material_task_passes']} consecutive dynamic-planning
+passes this shift produced no material safe next task, AND no unresolved
+high-value scientific question could currently be investigated safely (the
+static + per-agent seed queue was already exhausted, every completed live
+window had already been analyzed, and either this shift's live-window cap
+({MAX_LIVE_WINDOWS}) or the mechanically-proven remaining live-event margin
+ruled out attempting another window). A completed finite seed backlog is
+explicitly NOT treated as genuine exhaustion by itself -- the dynamic
+planner (generate_next_investigation_task) is always consulted first.
+
+Shift: `{shift['shift_id']}`, started {shift['shift_started_at']},
+{shift['shift_cycle_count']} planning cycles this shift.
 
 ## 2. Completed this shift
 
-{status['completed_task_count']} tasks completed, {status['deferred_network_count']} deferred for network,
-{len(status['failed_task_ids'])} failed. Provider calls used: {status['provider_calls_used']}.
+{shift['completed_tasks_this_shift']} tasks completed THIS SHIFT
+({status['completed_task_count']} lifetime), {status['deferred_network_count']}
+deferred for network, {len(status['failed_task_ids'])} failed (lifetime).
+Provider calls this shift: {shift['provider_calls_this_shift']}
+({status['provider_calls_used']} lifetime).
 
-Completed task IDs: {status['completed_task_ids']}
+Live events added this shift: {shift['live_events_added_this_shift']}
+across {shift['live_windows_this_shift']} live window(s)
+(starting live event {shift['starting_live_event']} -> current
+{shift['current_live_event']}).
+
+Completed task IDs (lifetime): {status['completed_task_ids']}
 
 ## 3. New evidence / statistical reanalysis
 
@@ -747,7 +1022,7 @@ shift.
 ## 6. Safety state at completion
 
 - Live DB hash: {before['sha256']} (matches the safety snapshot taken immediately after the last completed task; re-verified after every single task)
-- Max event id: {before['max_event_id']} (starting baseline {BASELINE_MAX_EVENT}; expected baseline at completion {status['max_live_event_baseline']}; live events added this shift: {status['live_events_added_total']})
+- Max event id: {before['max_event_id']} (module starting baseline {BASELINE_MAX_EVENT}; expected baseline at completion {status['max_live_event_baseline']}; live events added this shift: {shift['live_events_added_this_shift']}; lifetime total: {status['live_events_added_total']})
 - Day/period/paused: {before['current_day']} / {before['current_period']} / {before['is_paused']}
 - Live DB mutated: {status['live_db_mutated']}
 - No live advancement, no production/prompt/schema change, no Level 2B, no new broker capability added during execution.
@@ -828,42 +1103,93 @@ def main() -> int:
             print(f"REFUSING TO START: live DB integrity check failed: {before}")
             return 1
 
+        # Shift-local state (Founder authorization, 2026-09-05): a
+        # completed or founder-stopped previous shift's counters must
+        # never poison this run's genuine-exhaustion evaluation. Only an
+        # actually-interrupted shift (state left as "running" on disk --
+        # meaning the previous process died without ever reaching a clean
+        # stop) resumes the same shift_id and its accumulated counters;
+        # every other launch (including "the previous shift completed")
+        # begins a fresh shift with fresh counters.
+        previous_state = status.get("state")
+        existing_shift = status.get("current_shift")
+        resuming_interrupted_shift = previous_state == "running" and existing_shift is not None
+        if resuming_interrupted_shift:
+            shift = existing_shift
+        else:
+            if existing_shift is not None:
+                append_rolling_packet(
+                    "Previous shift ended",
+                    f"shift_id={existing_shift.get('shift_id')} stop_reason={existing_shift.get('stop_reason')} "
+                    f"completed_tasks_this_shift={existing_shift.get('completed_tasks_this_shift')} "
+                    f"live_events_added_this_shift={existing_shift.get('live_events_added_this_shift')}",
+                )
+            shift = _new_shift_state(before["max_event_id"])
+        status["current_shift"] = shift
+
         status["state"] = "running"
         status["stop_reason"] = None
+        shift["stop_reason"] = None
         save_status(status)
         append_rolling_packet(
-            "Session start" if status["completed_task_count"] == 0 else "Session resumed",
-            f"Baseline: {before}\nAlready completed: {status['completed_task_ids']}\n"
-            f"Provider calls used so far this shift: {status['provider_calls_used']}\n"
-            f"Live events added so far this shift: {status['live_events_added_total']}",
+            "Session start" if status["completed_task_count"] == 0 else ("Interrupted shift resumed" if resuming_interrupted_shift else "New shift started"),
+            f"Shift: {shift['shift_id']} (started {shift['shift_started_at']})\n"
+            f"Baseline: {before}\nAlready completed (lifetime): {status['completed_task_ids']}\n"
+            f"Provider calls used so far (lifetime): {status['provider_calls_used']}\n"
+            f"Live events added so far (lifetime): {status['live_events_added_total']}",
         )
 
         while True:
             if _stop_requested or STOP_FLAG_PATH.exists():
                 status["state"] = "stopped"
                 status["stop_reason"] = "founder_requested_stop"
+                shift["stop_reason"] = "founder_requested_stop"
                 save_status(status)
                 STOP_FLAG_PATH.unlink(missing_ok=True)
                 print("Stop requested. Exiting cleanly.")
                 return 0
 
             status["planning_cycle"] += 1
+            shift["shift_cycle_count"] += 1
+
+            # Seed queue first (static + per-agent dynamic generator); if
+            # and only if that has nothing left, fall back to the
+            # continuous-Director dynamic planner (Founder authorization,
+            # 2026-09-05) -- a completed finite seed backlog must never by
+            # itself be treated as genuine exhaustion.
             task = next_unfinished_task(status)
+            if task is None:
+                task = generate_next_investigation_task(status, shift)
 
             if task is None:
+                shift["consecutive_no_material_task_passes"] += 1
+                save_status(status)
+                if shift["consecutive_no_material_task_passes"] < 3:
+                    append_rolling_packet(
+                        f"Dynamic planning pass {shift['consecutive_no_material_task_passes']}/3: no material task",
+                        "Seed queue empty and generate_next_investigation_task found no unanalyzed live window "
+                        "and no further live window this shift can currently be safely attempted (shift cap or "
+                        "mechanical margin). Continuing to the conservative 3-pass confirmation before declaring "
+                        "genuine exhaustion.",
+                    )
+                    continue
                 status["state"] = "stopped"
                 status["stop_reason"] = "genuinely_exhausted"
+                shift["stop_reason"] = "genuinely_exhausted"
                 save_status(status)
-                packet_path = write_final_founder_packet(status, before)
+                packet_path = write_final_founder_packet(status, before, shift)
                 append_rolling_packet(
                     "Shift complete -- genuinely exhausted",
-                    f"No further safe R/D/N task available after {status['planning_cycle']} planning cycles. "
-                    f"Completed: {status['completed_task_count']}. Deferred: {status['deferred_network_count']}. "
-                    f"Failed: {len(status['failed_task_ids'])}. Blocked candidates recorded: "
-                    f"{len(_KNOWN_BLOCKED_DIAGNOSTIC_TYPES)}. Founder Approval Packet: {packet_path}",
+                    f"3 consecutive dynamic-planning passes produced no material safe next task and no "
+                    f"unresolved high-value scientific question could currently be investigated safely, after "
+                    f"{shift['shift_cycle_count']} planning cycles this shift ({status['planning_cycle']} lifetime). "
+                    f"Completed this shift: {shift['completed_tasks_this_shift']}. Live windows this shift: "
+                    f"{shift['live_windows_this_shift']}. Founder Approval Packet: {packet_path}",
                 )
-                print(f"Genuinely exhausted after {status['planning_cycle']} planning cycles. Founder Approval Packet: {packet_path}")
+                print(f"Genuinely exhausted after {shift['shift_cycle_count']} planning cycles this shift ({status['planning_cycle']} lifetime). Founder Approval Packet: {packet_path}")
                 return 0
+
+            shift["consecutive_no_material_task_passes"] = 0
 
             if task.task_id.startswith("agent_profile_"):
                 status["dynamically_generated_task_count"] += 1
@@ -877,8 +1203,9 @@ def main() -> int:
                 if not remaining_r:
                     status["state"] = "stopped"
                     status["stop_reason"] = "provider_budget_exhausted_no_offline_work_remains"
+                    shift["stop_reason"] = "provider_budget_exhausted_no_offline_work_remains"
                     save_status(status)
-                    packet_path = write_final_founder_packet(status, before)
+                    packet_path = write_final_founder_packet(status, before, shift)
                     append_rolling_packet("Stopped", f"Provider budget ({MAX_TOTAL_PROVIDER_CALLS}) exhausted and no R-class work remains. Founder Approval Packet: {packet_path}")
                     print(f"Provider budget exhausted, no offline work remains. Founder Approval Packet: {packet_path}")
                     return 0
@@ -891,13 +1218,27 @@ def main() -> int:
             result = task.run()
 
             status["provider_calls_used"] += result.provider_calls
+            shift["provider_calls_this_shift"] += result.provider_calls
             status["current_task"] = None
+
+            if task.method == "L":
+                # Counts against this shift's live-window cap on ANY
+                # outcome (COMPLETED, FAILED, or
+                # LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED) -- not only
+                # success. Counting only successes would let a
+                # persistently-failing live-window call spin forever: a
+                # FAILED result never re-triggers the "no material task"
+                # 3-strikes branch (a task WAS found and attempted every
+                # cycle), so without this the shift-local cap would never
+                # actually bound the retries.
+                shift["live_windows_this_shift"] += 1
 
             if result.status == "COMPLETED":
                 status["completed_task_ids"].append(task.task_id)
                 status["completed_task_count"] += 1
                 status["last_completed_task"] = task.task_id
                 status["results_store"][task.task_id] = result.detail
+                shift["completed_tasks_this_shift"] += 1
                 if task.method == "L":
                     # A real, authorized live-window advance -- move the
                     # expected baseline forward BEFORE the safety check
@@ -907,12 +1248,15 @@ def main() -> int:
                     # 50-event window fits the proven 42-event worst case).
                     events_added = result.detail.get("events_added", 0)
                     status["live_events_added_total"] += events_added
+                    shift["live_events_added_this_shift"] += events_added
                     new_baseline = result.detail.get("end_max_event_id")
                     if new_baseline is not None:
+                        shift["current_live_event"] = new_baseline
                         if new_baseline > ABSOLUTE_EVENT_CEILING:
                             status["state"] = "stopped"
                             status["stop_reason"] = "SAFETY_VIOLATION_live_event_ceiling_exceeded"
                             status["live_db_mutated"] = True
+                            shift["stop_reason"] = "SAFETY_VIOLATION_live_event_ceiling_exceeded"
                             save_status(status)
                             append_rolling_packet("SAFETY STOP", f"Live window pushed max_event_id to {new_baseline}, exceeding the absolute ceiling {ABSOLUTE_EVENT_CEILING}. Halting immediately.")
                             print("SAFETY VIOLATION: absolute live event ceiling exceeded. Halting immediately.")
@@ -963,6 +1307,7 @@ def main() -> int:
                 status["state"] = "stopped"
                 status["stop_reason"] = "SAFETY_VIOLATION_live_db_changed"
                 status["live_db_mutated"] = True
+                shift["stop_reason"] = "SAFETY_VIOLATION_live_db_changed"
                 save_status(status)
                 append_rolling_packet("SAFETY STOP", f"Live DB changed unexpectedly after {task.task_id}. Before={before}, After={after}, expected baseline={status['max_live_event_baseline']}, hash_violation={hash_violation}, event_violation={event_violation}. Halting immediately.")
                 print("SAFETY VIOLATION: live DB changed. Halting immediately.")
