@@ -910,16 +910,249 @@ def _run_analyze_live_window(start_event_id: int, end_event_id: int) -> TaskResu
     )
 
 
+def _shift_window_analyses(status: dict[str, Any], shift_start: int, shift_end: int) -> list[tuple[int, int, dict]]:
+    """(start, end, detail) for every completed analyze_live_window_*
+    result whose interval falls within [shift_start, shift_end] -- i.e.
+    the live windows THIS shift itself produced, oldest first. Reads only
+    already-collected results_store data, never the live DB again."""
+    store = status.get("results_store", {})
+    out: list[tuple[int, int, dict]] = []
+    for task_id, detail in store.items():
+        if not task_id.startswith("analyze_live_window_") or not isinstance(detail, dict):
+            continue
+        s, e = detail.get("start_event_id"), detail.get("end_event_id")
+        if isinstance(s, int) and isinstance(e, int) and s >= shift_start and e <= shift_end:
+            out.append((s, e, detail))
+    out.sort(key=lambda t: t[0])
+    return out
+
+
+def _run_cross_window_synthesis(status: dict[str, Any], shift_start: int, shift_end: int) -> TaskResult:
+    """Task class A (Founder authorization, 2026-09-05): compares every
+    live window THIS SHIFT produced across the shift's full interval --
+    which agents became more/less active, whether Wall/Rabbit-Hole/Belief
+    state changed, whether relationship totals moved, and cumulative
+    cross-agent transmission -- purely by aggregating already-collected
+    analyze_live_window_* results (ZERO new broker calls, zero new
+    provider spend; this is why reaching the live-window cap is never
+    itself exhaustion, there is still cheap, real evidence to mine). Also
+    emits ranked, falsifiable hypotheses (task class J), each with
+    evidence-for, evidence-against, an alternative explanation, a
+    falsifiable prediction, and a safest-next-test with its type."""
+    windows = _shift_window_analyses(status, shift_start, shift_end)
+    if not windows:
+        return TaskResult(status="FAILED", summary="no analyzed live windows found in this shift's interval")
+
+    def _field_totals(field: str) -> dict[str, int]:
+        totals: dict[str, int] = {}
+        for _, _, d in windows:
+            for row in (d.get(field) or {}).get("rows", []):
+                totals[row[0]] = totals.get(row[0], 0) + row[1]
+        return totals
+
+    def _messages_totals() -> tuple[dict[str, int], dict[str, int]]:
+        sent: dict[str, int] = {}
+        received: dict[str, int] = {}
+        for _, _, d in windows:
+            for row in (d.get("messages") or {}).get("rows", []):
+                sender, recipient, n = row[0], row[1], row[2]
+                if sender:
+                    sent[sender] = sent.get(sender, 0) + n
+                if recipient:
+                    received[recipient] = received.get(recipient, 0) + n
+        return sent, received
+
+    messages_sent, messages_received = _messages_totals()
+    memories_totals = _field_totals("memories")
+    questions_totals = _field_totals("questions")
+    reflections_totals = _field_totals("reflections")
+    research_totals = _field_totals("research_sessions")
+
+    all_agents = sorted(
+        set(messages_sent) | set(messages_received) | set(memories_totals)
+        | set(questions_totals) | set(reflections_totals) | set(research_totals)
+    )
+    activity_totals = {
+        a: messages_sent.get(a, 0) + messages_received.get(a, 0) + memories_totals.get(a, 0)
+        + questions_totals.get(a, 0) + reflections_totals.get(a, 0) + research_totals.get(a, 0)
+        for a in all_agents
+    }
+
+    def _half_totals(half_windows: list) -> dict[str, int]:
+        agg: dict[str, int] = {}
+        for _, _, d in half_windows:
+            for row in (d.get("messages") or {}).get("rows", []):
+                if row[0]:
+                    agg[row[0]] = agg.get(row[0], 0) + row[2]
+            for field in ("memories", "questions", "reflections", "research_sessions"):
+                for row in (d.get(field) or {}).get("rows", []):
+                    agg[row[0]] = agg.get(row[0], 0) + row[1]
+        return agg
+
+    midpoint = max(1, len(windows) // 2)
+    first_totals = _half_totals(windows[:midpoint])
+    second_totals = _half_totals(windows[midpoint:]) if len(windows) > midpoint else {}
+    trends = {}
+    for a in all_agents:
+        f, s = first_totals.get(a, 0), second_totals.get(a, 0)
+        if not second_totals:
+            trends[a] = "single-window this shift, no trend derivable"
+        elif s > f:
+            trends[a] = "more active in the later part of this shift"
+        elif s < f:
+            trends[a] = "less active in the later part of this shift"
+        else:
+            trends[a] = "steady across this shift"
+
+    def _first_row(field: str) -> Any:
+        return (windows[0][2].get(field) or {}).get("rows", [None])[0]
+
+    def _last_row(field: str) -> Any:
+        return (windows[-1][2].get(field) or {}).get("rows", [None])[0]
+
+    first_wall, last_wall = _first_row("wall_rabbit_belief_totals"), _last_row("wall_rabbit_belief_totals")
+    new_persistent_state = first_wall != last_wall
+    first_rel, last_rel = _first_row("relationship_totals"), _last_row("relationship_totals")
+    relationship_moved = first_rel != last_rel
+
+    total_transmission_hits = sum(
+        row[3] for _, _, d in windows for row in (d.get("cross_agent_transmission") or {}).get("rows", [])
+    )
+    most_active = max(activity_totals, key=activity_totals.get) if activity_totals else None
+
+    hypotheses = [
+        {
+            "hypothesis": (
+                f"{most_active} continues to dominate real activity across this shift's {len(windows)} live window(s)"
+                if most_active else "no agent showed measurable non-event activity this shift"
+            ),
+            "evidence_for": f"activity totals: {activity_totals}",
+            "evidence_against": "a single shift's windows are a small sample; dominance could reflect scheduling opportunity, not durable disposition",
+            "alternative_explanation": "the scheduler/opportunity-selection mechanism, not agent disposition, determines who acts",
+            "falsifiable_prediction": "a much larger live sample would show the same agent(s) dominating at a similar rate",
+            "safest_next_test": "read-only: agent_opportunity_and_scheduling_trace across this interval",
+            "test_type": "read_only",
+        },
+        {
+            "hypothesis": (
+                "no durable cross-agent transmission occurred across this shift's live windows"
+                if total_transmission_hits == 0 else
+                f"cross-agent transmission occurred ({total_transmission_hits} hit(s)) and warrants a dedicated trace"
+            ),
+            "evidence_for": f"{total_transmission_hits} substring-match transmission hit(s) across {len(windows)} window(s)",
+            "evidence_against": None if total_transmission_hits == 0 else f"{total_transmission_hits} hit(s) directly contradict a strict no-transmission claim",
+            "alternative_explanation": "transmission may occur through paraphrase or delayed reference this substring check cannot detect",
+            "falsifiable_prediction": (
+                "a live window immediately following an agent explicitly referencing another agent's shared content would still show zero substring hits"
+                if total_transmission_hits == 0 else
+                "the specific message pair(s) found show a real, attributable causal link, not coincidental phrasing overlap"
+            ),
+            "safest_next_test": "read-only: manually inspect the specific flagged message/memory pair(s)" if total_transmission_hits else "disposable: extend message_provenance_cross_check over a longer interval",
+            "test_type": "read_only",
+        },
+        {
+            "hypothesis": (
+                "no new Wall/Rabbit-Hole/Belief uptake formed this shift, consistent with the established all-zero pattern"
+                if not new_persistent_state else
+                "new Wall/Rabbit-Hole/Belief state appeared this shift -- a genuine departure from the established pattern"
+            ),
+            "evidence_for": f"cumulative totals: first window={first_wall}, last window={last_wall}",
+            "evidence_against": None,
+            "alternative_explanation": "these mechanisms may require conditions (e.g. explicit prompting) this shift's unforced activity never created",
+            "falsifiable_prediction": (
+                "a much longer live run under identical conditions would still show zero uptake"
+                if not new_persistent_state else "the new state persists and is referenced again in a later window"
+            ),
+            "safest_next_test": "read-only: wall_rabbit_belief_population_recheck at the start of the next shift",
+            "test_type": "read_only",
+        },
+    ]
+
+    summary = (
+        f"cross-window synthesis, shift interval {shift_start}-{shift_end} ({len(windows)} window(s)): "
+        f"activity totals={activity_totals}; trends={trends}; new persistent Wall/Rabbit/Belief state={new_persistent_state}; "
+        f"relationship totals moved={relationship_moved}; cumulative cross-agent transmission hits={total_transmission_hits}"
+    )
+    return TaskResult(
+        status="COMPLETED",
+        summary=summary,
+        detail={
+            "shift_start": shift_start, "shift_end": shift_end, "windows_analyzed": len(windows),
+            "activity_totals": activity_totals, "trends": trends,
+            "messages_sent": messages_sent, "messages_received": messages_received,
+            "new_persistent_state": new_persistent_state, "relationship_totals_moved": relationship_moved,
+            "cumulative_cross_agent_transmission_hits": total_transmission_hits,
+            "hypotheses": hypotheses,
+        },
+    )
+
+
+def _maybe_generate_replication_task(status: dict[str, Any], shift: dict[str, Any]) -> Task | None:
+    """Task class K (Founder authorization, 2026-09-05): autonomously
+    re-running an ALREADY-APPROVED disposable experiment when this shift's
+    own cross-window synthesis shows a qualifying real-world condition --
+    never inventing a new experiment_id or new stimulus text, only reusing
+    the exact, already-reviewed 'quiet_agent_thread_counterfactual'
+    template this file already ships for agent_lucid. Gated on the
+    synthesis having already run THIS shift, so this is always a genuine,
+    evidence-triggered follow-up, never an independent guess."""
+    synthesis_task_id = f"cross_window_synthesis_{shift['starting_live_event']}_{shift['current_live_event']}"
+    synthesis = status.get("results_store", {}).get(synthesis_task_id)
+    if not isinstance(synthesis, dict):
+        return None  # synthesis hasn't run yet this shift -- nothing to react to
+
+    replication_task_id = f"quiet_agent_replication_agent_lucid_shift_{shift['shift_id']}"
+    if replication_task_id in status["completed_task_ids"] or replication_task_id in status["failed_task_ids"]:
+        return None
+
+    lucid_sent_this_shift = synthesis.get("messages_sent", {}).get("agent_lucid", 0)
+    if not lucid_sent_this_shift:
+        return None  # no new real activity from Lucid this shift -- nothing to justify a fresh trial
+
+    def _run() -> TaskResult:
+        return _run_experiment(
+            "quiet_agent_thread_counterfactual", "agent_lucid",
+            "I asked Optimisto how people actually land on what they want to dig into this morning "
+            "-- he never answered. Still don't know what he thinks.",
+            "EPISODIC", 4,
+        )
+
+    return Task(
+        replication_task_id,
+        f"Dynamically justified (shift {shift['shift_id']}): agent_lucid sent {lucid_sent_this_shift} new "
+        "message(s) this shift per the cross-window synthesis -- replicate the already-approved quiet-agent "
+        "unresolved-memory experiment to test whether new real activity changes the substantive-response rate",
+        [1, 4, 5],
+        "D",
+        _run,
+    )
+
+
 def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, Any]) -> Task | None:
-    """The dynamic half of the planner (Founder authorization, 2026-09-05):
-    consulted only once the static + per-agent seed queue has nothing left.
-    Priority: (1) any completed live window whose event interval hasn't
-    been analyzed yet -- analyze it next; (2) otherwise, if this shift's
-    own live-window cap (MAX_LIVE_WINDOWS) and the mechanically-proven
-    remaining margin both still allow it, attempt one more bounded live
-    window. Returns None (no material task) once neither avenue applies --
-    callers count 3 consecutive None results as genuine exhaustion, never
-    a bare empty seed queue."""
+    """The dynamic half of the planner (Founder authorization, 2026-09-05,
+    expanded 2026-09-05 to widen the scientific repertoire): consulted
+    only once the static + per-agent seed queue has nothing left. Every
+    currently-authorized task class is checked, in priority order, before
+    a planning pass may count as "no material task":
+
+    1. any completed live window whose event interval hasn't been
+       analyzed yet -- analyze it next (task class per-window analysis).
+    2. otherwise, if this shift's own live-window cap (MAX_LIVE_WINDOWS)
+       and the mechanically-proven remaining margin both still allow it,
+       attempt one more bounded live window.
+    3. otherwise (no more live advancement is currently permitted THIS
+       SHIFT -- which is NOT exhaustion, only "no more live windows"):
+       cross-window synthesis of this shift's full live interval, if at
+       least one window ran this shift and it hasn't been synthesized yet
+       (task class A, with embedded ranked hypotheses, task class J).
+    4. otherwise, an evidence-justified replication of an
+       ALREADY-APPROVED disposable experiment, if the synthesis surfaced
+       a qualifying condition (task class K).
+
+    Returns None (no material task) only once every one of the above has
+    been checked and found nothing to do -- callers count 3 consecutive
+    None results as genuine exhaustion, never a bare empty seed queue and
+    never merely reaching the live-window cap."""
     for task_id, start, end in _completed_live_windows(status):
         analysis_task_id = f"analyze_live_window_{start}_{end}"
         if analysis_task_id in status["completed_task_ids"] or analysis_task_id in status["failed_task_ids"]:
@@ -932,29 +1165,49 @@ def generate_next_investigation_task(status: dict[str, Any], shift: dict[str, An
             (lambda s=start, e=end: _run_analyze_live_window(s, e)),
         )
 
-    if shift["live_windows_this_shift"] >= MAX_LIVE_WINDOWS:
-        return None
-    remaining = _remaining_overnight_live_budget()
-    if remaining is None or remaining < _worst_case_activation_burst():
-        return None
+    live_window_permitted = shift["live_windows_this_shift"] < MAX_LIVE_WINDOWS
+    if live_window_permitted:
+        remaining = _remaining_overnight_live_budget()
+        live_window_permitted = remaining is not None and remaining >= _worst_case_activation_burst()
 
-    used_live_ids = {
-        tid for tid in (
-            status["completed_task_ids"] + status["failed_task_ids"] + status.get("live_bound_not_guaranteed_task_ids", [])
+    if live_window_permitted:
+        used_live_ids = {
+            tid for tid in (
+                status["completed_task_ids"] + status["failed_task_ids"] + status.get("live_bound_not_guaranteed_task_ids", [])
+            )
+            if tid.startswith("attempt_live_window_")
+        }
+        n = 1
+        while f"attempt_live_window_{n}" in used_live_ids:
+            n += 1
+        task_id = f"attempt_live_window_{n}"
+        return Task(
+            task_id,
+            f"Dynamically continued (shift {shift['shift_id']}): attempt bounded live-science window #{n}",
+            [1, 2, 4, 5, 6, 7, 8, 9, 10],
+            "L",
+            (lambda tid=task_id: _attempt_live_window_task_body(tid)),
         )
-        if tid.startswith("attempt_live_window_")
-    }
-    n = 1
-    while f"attempt_live_window_{n}" in used_live_ids:
-        n += 1
-    task_id = f"attempt_live_window_{n}"
-    return Task(
-        task_id,
-        f"Dynamically continued (shift {shift['shift_id']}): attempt bounded live-science window #{n}",
-        [1, 2, 4, 5, 6, 7, 8, 9, 10],
-        "L",
-        (lambda tid=task_id: _attempt_live_window_task_body(tid)),
-    )
+
+    # No more live advancement is currently permitted this shift (cap
+    # reached or margin insufficient) -- that is NOT exhaustion, only "no
+    # more live windows." Mine the accumulated evidence instead.
+    if shift["current_live_event"] > shift["starting_live_event"]:
+        synthesis_task_id = f"cross_window_synthesis_{shift['starting_live_event']}_{shift['current_live_event']}"
+        if synthesis_task_id not in status["completed_task_ids"] and synthesis_task_id not in status["failed_task_ids"]:
+            shift_start, shift_end = shift["starting_live_event"], shift["current_live_event"]
+            return Task(
+                synthesis_task_id,
+                f"Cross-window synthesis of this shift's full live interval {shift_start}-{shift_end}",
+                [1, 2, 3, 4, 6, 7, 8, 9, 10],
+                "R",
+                (lambda ss=shift_start, se=shift_end: _run_cross_window_synthesis(status, ss, se)),
+            )
+        replication_task = _maybe_generate_replication_task(status, shift)
+        if replication_task is not None:
+            return replication_task
+
+    return None
 
 
 def write_final_founder_packet(status: dict[str, Any], before: dict[str, Any], shift: dict[str, Any]) -> Path:

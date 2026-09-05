@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -59,6 +60,18 @@ def record(name: str, passed: bool, detail: str = "") -> None:
 
 def _hash_or_none(path: Path) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+
+def _extract_function_source(text: str, func_name: str) -> str:
+    """Pulls one top-level function's full source text out of
+    director_unattended.py by pattern, without ever importing the module
+    into this process (this file's own standing invariant) -- used to
+    prove by source inspection, not just behavior, that the new dynamic
+    task classes can never select an unapproved capability."""
+    pattern = re.compile(rf"^def {re.escape(func_name)}\(.*?(?=^def |\Z)", re.MULTILINE | re.DOTALL)
+    m = pattern.search(text)
+    assert m, f"could not find function {func_name!r} in director_unattended.py"
+    return m.group(0)
 
 
 def _build_fake_village_data_root() -> Path:
@@ -386,6 +399,115 @@ def main() -> int:
             "with no provider key, D-class tasks defer/fail but R-class offline tasks still complete",
             any(t.startswith(("memory_formation", "agent_opportunity", "research_initiation", "agent_question_continuity", "llm_run_cost", "wall_rabbit", "blocked_candidates", "relationship_dump", "message_provenance", "reflection_pressure", "agent_profile_")) for t in status6["completed_task_ids"]),
             str(status6["completed_task_ids"]),
+        )
+
+        # --- Test 6: expanded scientific repertoire (Founder authorization,
+        # 2026-09-05) -- once the live-window cap is reached, the planner
+        # must mine accumulated evidence (cross-window synthesis, then an
+        # evidence-justified replication) rather than declaring exhaustion. ---
+        shutil.rmtree(tmp_root)
+        tmp_root.mkdir()
+        shutil.rmtree(fake_village_root, ignore_errors=True)
+        fake_village_root = _build_fake_village_data_root()
+
+        proc7 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("Test 6 seed run exits 0", proc7.returncode == 0, proc7.stdout[-300:])
+        status_a = status_at(tmp_root)
+        shift_a = status_a["current_shift"]
+        synthesis_task_id_a = f"cross_window_synthesis_{shift_a['starting_live_event']}_{shift_a['current_live_event']}"
+        record(
+            "reaching the live-window cap (1, this test's override) is NOT treated as exhaustion -- cross-window "
+            "synthesis is generated and completed automatically, without any manual priming",
+            synthesis_task_id_a in status_a["completed_task_ids"],
+            f"completed={status_a['completed_task_ids']}",
+        )
+        record(
+            "the live-window cap is never bypassed by evidence-mining work (still exactly 1 live window this shift)",
+            "attempt_live_window_2" not in status_a["completed_task_ids"] and shift_a["live_windows_this_shift"] == 1,
+            str(shift_a),
+        )
+
+        # Prime the trigger condition for task class K (an evidence-justified
+        # replication of an ALREADY-APPROVED experiment) directly into the
+        # already-completed synthesis result, and resume the SAME shift
+        # (state=running, simulating "the process paused right after
+        # synthesis, before the next planning pass") to prove: (5) a
+        # synthesis can generate a justified follow-up, (8) an approved
+        # disposable experiment can be selected when justified.
+        primed = status_at(tmp_root)
+        primed["state"] = "running"
+        primed["current_shift"]["consecutive_no_material_task_passes"] = 0
+        primed["results_store"][synthesis_task_id_a]["messages_sent"]["agent_lucid"] = 3
+        (tmp_root / "unattended_status.json").write_text(json.dumps(primed, indent=2))
+
+        proc8 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("Test 6 primed-trigger run exits 0", proc8.returncode == 0, proc8.stdout[-300:])
+        status_b = status_at(tmp_root)
+        replication_task_id = f"quiet_agent_replication_agent_lucid_shift_{shift_a['shift_id']}"
+        record(
+            "a synthesis showing new agent_lucid activity generates a justified follow-up replication task",
+            replication_task_id in status_b["completed_task_ids"],
+            f"completed={status_b['completed_task_ids']}",
+        )
+        record(
+            "the follow-up reused the SAME shift (resumed, not a fresh one) -- proves it was genuinely evidence-triggered mid-shift",
+            status_b["current_shift"]["shift_id"] == shift_a["shift_id"],
+            f"{status_b['current_shift']['shift_id']} vs {shift_a['shift_id']}",
+        )
+        record(
+            "the already-completed cross-window synthesis was not duplicated",
+            status_b["completed_task_ids"].count(synthesis_task_id_a) == 1,
+            str(status_b["completed_task_ids"].count(synthesis_task_id_a)),
+        )
+        record(
+            "the live-window cap is STILL never bypassed even after generating a follow-up investigation",
+            "attempt_live_window_2" not in status_b["completed_task_ids"],
+            str(status_b["completed_task_ids"]),
+        )
+
+        # A further intentional run starts a genuinely NEW shift with real
+        # margin remaining -- it legitimately runs another live window and
+        # therefore a NEW cross-window synthesis over a DIFFERENT interval
+        # (changed evidence makes a fresh analysis valid, distinct from --
+        # and not a duplicate of -- the first shift's own synthesis).
+        proc9 = run_once(tmp_root, master_index_scratch_relpath, fake_village_root)
+        record("Test 6 next-shift run exits 0", proc9.returncode == 0, proc9.stdout[-300:])
+        status_c = status_at(tmp_root)
+        shift_c = status_c["current_shift"]
+        synthesis_task_id_c = f"cross_window_synthesis_{shift_c['starting_live_event']}_{shift_c['current_live_event']}"
+        record(
+            "a new shift with new live evidence produces a NEW, differently-keyed cross-window synthesis "
+            "(changed evidence makes re-analysis valid; the prior shift's synthesis is preserved, not overwritten)",
+            synthesis_task_id_c != synthesis_task_id_a
+            and synthesis_task_id_c in status_c["completed_task_ids"]
+            and synthesis_task_id_a in status_c["completed_task_ids"],
+            f"a={synthesis_task_id_a} c={synthesis_task_id_c} completed={status_c['completed_task_ids']}",
+        )
+        record(
+            "three consecutive true no-material-task passes still terminate cleanly once evidence is fully mined",
+            status_c["stop_reason"] == "genuinely_exhausted" and shift_c["consecutive_no_material_task_passes"] == 3,
+            str(shift_c),
+        )
+
+        # Source-level proof (never importing the runner into this process,
+        # this file's own standing invariant): the new task classes can
+        # never select an unapproved capability. Cross-window synthesis
+        # makes ZERO broker calls at all (pure aggregation of
+        # already-collected results); the replication follow-up only ever
+        # reuses the pre-existing, already-approved _run_experiment helper,
+        # never a raw broker.execute call of its own.
+        source_text = RUNNER.read_text()
+        synthesis_src = _extract_function_source(source_text, "_run_cross_window_synthesis")
+        replication_src = _extract_function_source(source_text, "_maybe_generate_replication_task")
+        record(
+            "_run_cross_window_synthesis makes zero broker calls (cannot select any capability, approved or not)",
+            "broker.execute(" not in synthesis_src,
+            "found a broker.execute( call in _run_cross_window_synthesis",
+        )
+        record(
+            "_maybe_generate_replication_task only ever reuses the pre-approved _run_experiment helper, never a raw broker.execute call of its own",
+            "_run_experiment(" in replication_src and "broker.execute(" not in replication_src,
+            "expected _run_experiment( present and broker.execute( absent in _maybe_generate_replication_task",
         )
 
     finally:
