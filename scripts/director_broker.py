@@ -73,6 +73,27 @@ import sys  # noqa: E402
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+# Load project configuration (.env) into the process environment exactly
+# once, here, so every broker capability can call app.core.config.get_settings()
+# / app.core.db_safety's env-derived constants without the caller ever
+# needing to `source .env` in a shell first. This is Director/broker
+# infrastructure only -- it does not change what app.core.config does with
+# the environment once populated (still plain os.getenv calls, still no
+# caching), and override=False means a value already exported in the real
+# process environment always wins over the file. No value is ever logged,
+# printed, or returned by this call or by anything that reads os.environ
+# afterward -- see PROVIDER_CONFIGURATION_STATUS/CALL_AUTHORIZED_DIRECTOR_
+# PROVIDER's own "never return secret values" contract, unaffected by this.
+try:
+    import dotenv as _dotenv
+
+    _dotenv.load_dotenv(REPO_ROOT / ".env", override=False)
+except ImportError:
+    pass  # python-dotenv not installed: capabilities that need a real
+          # provider will simply see PROVIDER_CONFIGURATION_STATUS's
+          # configured=False, exactly as if no key were ever set -- fails
+          # closed, never silently substitutes fixture behavior as "real".
+
 from app.core.db_safety import (  # noqa: E402
     CANONICAL_LIVE_DB_PATH,
     VILLAGE_DATA_ROOT,
