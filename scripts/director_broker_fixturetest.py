@@ -469,9 +469,21 @@ def test_run_bounded_live_window(_: Path) -> None:
     disposable DB using the real run_next_event() + fixture provider."""
     import os
     os.environ.pop("LLM_PROVIDER", None)
+    import director_diagnostics as dd
+    import seed_agents
+    import sqlite3 as _sqlite3
+    from sqlalchemy import select
+    from app.providers.llm import get_llm_provider
+    from app.services.orchestrator import run_next_event
 
+    original_derive = broker._derive_worst_case_activation_burst
+
+    # max_new_events default raised to 42 (2026-09-05 policy update): the
+    # smallest value the proven worst-case burst (42) can ever be
+    # accommodated within -- a "good_params" example must actually be
+    # good under the current mechanical guarantee, not merely schema-valid.
     good_params = {
-        "max_new_events": 25,
+        "max_new_events": 42,
         "question": "Does a real live window surface fresh cross-agent transmission evidence?",
         "favored_hypothesis": "Some real cross-agent influence will appear.",
         "competing_hypothesis": "No new cross-agent influence appears in a small window.",
@@ -480,7 +492,7 @@ def test_run_bounded_live_window(_: Path) -> None:
     # --- Malformed / adversarial parameter rejection ---
     for bad_field, bad_value, label in [
         ("max_new_events", 0, "max_new_events below minimum (1)"),
-        ("max_new_events", 26, "max_new_events above the Founder-mandated ceiling (25)"),
+        ("max_new_events", 51, "max_new_events above the Founder-mandated ceiling (50)"),
         ("question", "", "empty question (preregistration required)"),
         ("favored_hypothesis", "", "empty favored_hypothesis"),
         ("competing_hypothesis", "", "empty competing_hypothesis"),
@@ -489,6 +501,17 @@ def test_run_bounded_live_window(_: Path) -> None:
         bad_params[bad_field] = bad_value
         r = broker.execute("RUN_BOUNDED_LIVE_WINDOW", bad_params)
         record(f"RUN_BOUNDED_LIVE_WINDOW rejects {label}", r.status == "REJECTED", r.failure_reason or "")
+
+    # --- Founder-mandated mechanical-guarantee test #1: request 41 (one
+    # below the proven worst case) must be refused, structurally, before
+    # ever touching a database. ---
+    r41 = broker.execute("RUN_BOUNDED_LIVE_WINDOW", {**good_params, "max_new_events": 41})
+    record(
+        "mechanical-guarantee test 1: request 41 (< worst case 42) is rejected",
+        r41.status == "SUCCESS" and r41.result.get("status") == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED" and r41.result.get("computed_worst_case_burst") == 42,
+        str(r41.result),
+    )
+    record("request 41 never touches the live DB", r41.live_db_accessed is False, "")
 
     extra_field_params = dict(good_params)
     extra_field_params["event_ceiling_override"] = 999999
@@ -507,11 +530,13 @@ def test_run_bounded_live_window(_: Path) -> None:
 
     # --- Proves the capability never opens a database at all when the
     # bound cannot be mechanically guaranteed -- even a nonexistent path
-    # still returns a clean, correct refusal. ---
+    # still returns a clean, correct refusal. Deliberately uses a
+    # below-worst-case value (25), NOT good_params (now 42, which is
+    # accepted) -- this test's whole point is exercising the refusal path. ---
     original_path = broker.CANONICAL_LIVE_DB_PATH
     broker.CANONICAL_LIVE_DB_PATH = Path("/tmp/rbtw_fixturetest_definitely_does_not_exist.db")
     try:
-        r = broker.execute("RUN_BOUNDED_LIVE_WINDOW", good_params)
+        r = broker.execute("RUN_BOUNDED_LIVE_WINDOW", {**good_params, "max_new_events": 25})
         record("RUN_BOUNDED_LIVE_WINDOW succeeds even against a nonexistent DB path (never opens it)", r.status == "SUCCESS", r.failure_reason or "")
         record(
             "RUN_BOUNDED_LIVE_WINDOW correctly reports LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED for a 25-event window (worst case 42 > 25)",
@@ -560,15 +585,298 @@ def test_run_bounded_live_window(_: Path) -> None:
     rs_fu = _RS(interpretation="x", evidence_strength=_EvidenceStrength.WEAK, follow_up_questions=[f"f{i}" for i in range(_MAX_FOLLOW_UPS + 3)])
     record("ResearchSynthesis.follow_up_questions really truncates to its real cap (executed live)", len(rs_fu.follow_up_questions) == _MAX_FOLLOW_UPS, f"got {len(rs_fu.follow_up_questions)}, cap {_MAX_FOLLOW_UPS}")
 
+    # =======================================================================
+    # Founder-mandated mechanical-guarantee tests 2-12 (2026-09-05 policy
+    # update: max window 25 -> 50, matching the proven worst case of 42).
+    # =======================================================================
+
+    # --- #2: request 42 (exactly the worst case) is ACCEPTED and cannot
+    # overshoot, against a real disposable fake-live DB with the real
+    # (unmocked, now-correct) worst_case_burst=42 and the real fixture
+    # provider (whose own synthesis generator produces far fewer than 42
+    # events per activation in practice -- the guarantee holds regardless
+    # of what actually happens, not because of what usually happens). ---
+    tmp_dir_g2, fake_live_g2 = build_fixture_live_db()
+    try:
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect(str(fake_live_g2))
+        conn.execute("UPDATE simulation_clock SET is_paused = 1")
+        conn.commit()
+        conn.close()
+        broker.CANONICAL_LIVE_DB_PATH = fake_live_g2
+
+        r42 = broker.execute("RUN_BOUNDED_LIVE_WINDOW", {**good_params, "max_new_events": 42})
+        record("mechanical-guarantee test 2: request 42 is accepted", r42.status == "SUCCESS" and r42.result.get("status") == "COMPLETED", str(r42.result) if r42.status == "SUCCESS" else r42.failure_reason)
+        if r42.status == "SUCCESS" and r42.result.get("status") == "COMPLETED":
+            record("mechanical-guarantee test 2: request 42 cannot overshoot", r42.result.get("events_added", 999) <= 42, str(r42.result))
+    finally:
+        broker.CANONICAL_LIVE_DB_PATH = original_path
+        safe_rmtree(tmp_dir_g2)
+
+    # --- #3: request 50 (the new ceiling) is ACCEPTED and cannot overshoot. ---
+    tmp_dir_g3, fake_live_g3 = build_fixture_live_db()
+    try:
+        conn = _sqlite3.connect(str(fake_live_g3))
+        conn.execute("UPDATE simulation_clock SET is_paused = 1")
+        conn.commit()
+        conn.close()
+        broker.CANONICAL_LIVE_DB_PATH = fake_live_g3
+
+        r50 = broker.execute("RUN_BOUNDED_LIVE_WINDOW", {**good_params, "max_new_events": 50})
+        record("mechanical-guarantee test 3: request 50 is accepted", r50.status == "SUCCESS" and r50.result.get("status") == "COMPLETED", str(r50.result) if r50.status == "SUCCESS" else r50.failure_reason)
+        if r50.status == "SUCCESS" and r50.result.get("status") == "COMPLETED":
+            record("mechanical-guarantee test 3: request 50 cannot overshoot", r50.result.get("events_added", 999) <= 50, str(r50.result))
+    finally:
+        broker.CANONICAL_LIVE_DB_PATH = original_path
+        safe_rmtree(tmp_dir_g3)
+
+    # --- #4, #5, #6: deterministic stub-based tests of _advance_bounded's
+    # own arithmetic, using injected activations of EXACT known sizes
+    # (not dependent on real model output) to test the precise boundary
+    # conditions the Founder specified. ---
+    from app.domain.enums import EventType as _EventType2
+
+    def _make_event_injector(session_, n_events):
+        def _run():
+            for _ in range(n_events):
+                session_.add(_Event(event_type=_EventType2.AGENT_WOKE, agent_id="agent_dex", payload={}, sim_day=1, sim_period="MORNING"))
+            session_.commit()
+            return object()
+        return _run
+
+    from app.db.models.events import Event as _Event
+
+    tmp_dir_g456, session_g456 = dd.create_guarded_isolated_sqlite_session(prefix="director_broker_fixturetest_g456_")
+    try:
+        seed_agents.run(session_g456)
+        session_g456.commit()
+
+        def _get_max_g456():
+            return session_g456.scalar(select(_Event.id).order_by(_Event.id.desc()).limit(1)) or 0
+
+        # #4: one activation emits the full worst-case 42 -- must be
+        # accepted without tripping the internal safety check (42 == 42,
+        # not > 42).
+        start4 = _get_max_g456()
+        outcome4 = broker._advance_bounded(
+            session_g456, _get_max_g456, _make_event_injector(session_g456, 42),
+            target_max_event_id=start4 + 42, worst_case_burst=42,
+        )
+        record(
+            "mechanical-guarantee test 4: one activation emitting exactly the full worst-case 42 is accepted",
+            outcome4.end_max_event_id - outcome4.start_max_event_id == 42 and outcome4.activations_run == 1,
+            f"added={outcome4.end_max_event_id - outcome4.start_max_event_id} activations={outcome4.activations_run}",
+        )
+
+        # #5: first activation leaves <42 margin -> no second activation runs.
+        # Window of 50, first activation consumes 10 -> remaining=40 < 42.
+        start5 = _get_max_g456()
+        outcome5 = broker._advance_bounded(
+            session_g456, _get_max_g456, _make_event_injector(session_g456, 10),
+            target_max_event_id=start5 + 50, worst_case_burst=42,
+        )
+        record(
+            "mechanical-guarantee test 5: <42 remaining margin after activation 1 -> exactly one activation runs",
+            outcome5.activations_run == 1 and outcome5.stopped_reason == "insufficient_margin",
+            f"activations={outcome5.activations_run} stopped={outcome5.stopped_reason}",
+        )
+
+        # #6: first activation leaves EXACTLY 42 margin -> a second
+        # activation MAY run (remaining >= worst_case_burst, the guard is
+        # `< `, not `<=`), and the total still respects the window.
+        # Window of 50, first activation consumes 8 -> remaining=42 == 42.
+        start6 = _get_max_g456()
+        call_count = {"n": 0}
+        def _second_activation_small():
+            call_count["n"] += 1
+            # second call emits a small, safe number (<=42) so the total
+            # (8 + this) stays within the 50-event window.
+            for _ in range(5):
+                session_g456.add(_Event(event_type=_EventType2.AGENT_WOKE, agent_id="agent_dex", payload={}, sim_day=1, sim_period="MORNING"))
+            session_g456.commit()
+            return object()
+        def _first_then_second():
+            if call_count["n"] == 0:
+                return _make_event_injector(session_g456, 8)()
+            return _second_activation_small()
+        outcome6 = broker._advance_bounded(
+            session_g456, _get_max_g456, _first_then_second,
+            target_max_event_id=start6 + 50, worst_case_burst=42,
+        )
+        record(
+            "mechanical-guarantee test 6: exactly-42 remaining margin permits a second activation",
+            outcome6.activations_run == 2,
+            f"activations={outcome6.activations_run}",
+        )
+        record(
+            "mechanical-guarantee test 6: total still respects the requested window",
+            outcome6.end_max_event_id - outcome6.start_max_event_id <= 50,
+            f"added={outcome6.end_max_event_id - outcome6.start_max_event_id}",
+        )
+    finally:
+        session_g456.close()
+        safe_rmtree(tmp_dir_g456)
+
+    # --- #7, #8, #9: absolute overnight ceiling arithmetic (this is
+    # director_unattended.py's policy layer, not director_broker.py's
+    # capability -- the capability only ever knows about max_new_events,
+    # never the 873 absolute ceiling). Tested directly against
+    # director_unattended's own remaining-budget function. ---
+    import director_unattended as du
+
+    original_execute = broker.execute
+    def _fake_fingerprint_execute(capability, params, **kwargs):
+        if capability == "LIVE_DB_FINGERPRINT":
+            fake_result = broker.BrokerResult(operation_id="t", capability=capability, status="SUCCESS", started_at="", ended_at="")
+            fake_result.result = {"max_event_id": _fake_current_event["value"]}
+            return fake_result
+        return original_execute(capability, params, **kwargs)
+
+    _fake_current_event = {"value": 623}
+    broker.execute = _fake_fingerprint_execute
+    try:
+        # #7 / #8: current event 850, ceiling 873 -> remaining=23. Window
+        # requested (up to 50) must be clamped to 23 by
+        # task_attempt_live_window_1's own min(MAX_SINGLE_LIVE_WINDOW, remaining)
+        # logic, and since 23 < worst_case(42), the resulting call must
+        # correctly refuse rather than ever touch the live DB.
+        _fake_current_event["value"] = 850
+        remaining_at_850 = du._remaining_overnight_live_budget()
+        record("mechanical-guarantee test 7/8: remaining budget at event 850 is exactly 23 (873-850)", remaining_at_850 == 23, f"got {remaining_at_850}")
+
+        result_at_850 = du.task_attempt_live_window_1()
+        record(
+            "mechanical-guarantee test 8: current=850, requested up to 50 -> correctly refuses (clamped window 23 < worst case 42)",
+            result_at_850.status == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            result_at_850.summary,
+        )
+
+        # #9: current event 872 -> remaining=1, no activation allowed at all.
+        _fake_current_event["value"] = 872
+        remaining_at_872 = du._remaining_overnight_live_budget()
+        record("mechanical-guarantee test 9: remaining budget at event 872 is exactly 1", remaining_at_872 == 1, f"got {remaining_at_872}")
+        result_at_872 = du.task_attempt_live_window_1()
+        record(
+            "mechanical-guarantee test 9: current=872 -> no activation allowed",
+            result_at_872.status == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            result_at_872.summary,
+        )
+
+        # Ceiling-exhausted case: current == absolute ceiling -> remaining <= 0,
+        # refused without even calling RUN_BOUNDED_LIVE_WINDOW.
+        _fake_current_event["value"] = 873
+        remaining_at_ceiling = du._remaining_overnight_live_budget()
+        result_at_ceiling = du.task_attempt_live_window_1()
+        record(
+            "absolute event ceiling 873 cannot be crossed: at the ceiling, remaining budget is 0 and the task refuses immediately",
+            remaining_at_ceiling == 0 and result_at_ceiling.status == "LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED",
+            f"remaining={remaining_at_ceiling} status={result_at_ceiling.status}",
+        )
+    finally:
+        broker.execute = original_execute
+
+    # --- #10: failures always re-pause safely. Forces an exception mid-loop
+    # (via a stub that raises) and confirms the finally block still
+    # re-pauses the clock, against a disposable fake-live DB. ---
+    tmp_dir_g10, fake_live_g10 = build_fixture_live_db()
+    try:
+        conn = _sqlite3.connect(str(fake_live_g10))
+        conn.execute("UPDATE simulation_clock SET is_paused = 1")
+        conn.commit()
+        conn.close()
+        broker.CANONICAL_LIVE_DB_PATH = fake_live_g10
+        broker._derive_worst_case_activation_burst = lambda settings: 3
+
+        # execute()'s own contract (see its docstring) is to let a genuine
+        # internal bug propagate as a real exception, never silently
+        # absorb it as an ordinary REJECTED/FAILED result -- only
+        # BrokerError-shaped rejections get that graceful treatment. So
+        # THIS test must catch the raw exception itself, exactly as any
+        # real caller of a genuinely-broken internal function would.
+        original_advance_bounded = broker._advance_bounded
+        def _raising_advance_bounded(*args, **kwargs):
+            raise RuntimeError("simulated mid-window failure")
+        broker._advance_bounded = _raising_advance_bounded
+        try:
+            try:
+                broker.execute("RUN_BOUNDED_LIVE_WINDOW", {**good_params, "max_new_events": 10})
+                record("mechanical-guarantee test 10: a forced mid-window failure is reported, not silently swallowed", False, "no exception raised -- the failure was silently swallowed!")
+            except RuntimeError as exc:
+                record("mechanical-guarantee test 10: a forced mid-window failure is reported, not silently swallowed", "simulated mid-window failure" in str(exc), str(exc))
+        finally:
+            broker._advance_bounded = original_advance_bounded
+
+        conn = _sqlite3.connect(str(fake_live_g10))
+        is_paused_after_failure = conn.execute("SELECT is_paused FROM simulation_clock LIMIT 1").fetchone()[0]
+        conn.close()
+        record("mechanical-guarantee test 10: fake-live DB is re-paused even after a forced failure", bool(is_paused_after_failure), f"is_paused={is_paused_after_failure}")
+    finally:
+        broker._derive_worst_case_activation_burst = original_derive
+        broker.CANONICAL_LIVE_DB_PATH = original_path
+        safe_rmtree(tmp_dir_g10)
+
+    # --- #11: auto_advance remains False -- verified by direct source
+    # inspection (the only call site is fixed, not parameterized) AND
+    # behaviorally: exhausting every seeded agent's daily activation
+    # budget must never advance the simulated day/period during a window. ---
+    import inspect as _inspect
+    source = _inspect.getsource(broker._impl_run_bounded_live_window)
+    # The docstring itself explains, in prose, why auto_advance=True must
+    # never be used -- so a whole-source substring check would always
+    # "find" that phrase. Check the actual call SITE specifically instead.
+    call_lines = [line for line in source.splitlines() if "run_next_event(session" in line]
+    record(
+        "mechanical-guarantee test 11: run_next_event is never called with auto_advance=True",
+        len(call_lines) == 1 and "auto_advance" not in call_lines[0],
+        f"call site(s) found: {call_lines}",
+    )
+
+    tmp_dir_g11, fake_live_g11 = build_fixture_live_db()
+    try:
+        conn = _sqlite3.connect(str(fake_live_g11))
+        conn.execute("UPDATE simulation_clock SET is_paused = 1")
+        day_period_before = conn.execute("SELECT current_day, current_period FROM simulation_clock LIMIT 1").fetchone()
+        conn.commit()
+        conn.close()
+        broker.CANONICAL_LIVE_DB_PATH = fake_live_g11
+        broker._derive_worst_case_activation_burst = lambda settings: 3
+
+        # A large window (300, bypassing the public 50-cap via
+        # model_construct exactly as the earlier infinite-loop test does)
+        # forces the loop to run until no agent is eligible -- if
+        # auto_advance were ever True, this would cross a day/period
+        # boundary and trigger daily_synthesis.generate_report(), which
+        # this capability must never do.
+        oversized = broker.RunBoundedLiveWindowParams.model_construct(
+            max_new_events=300, question=good_params["question"],
+            favored_hypothesis=good_params["favored_hypothesis"],
+            competing_hypothesis=good_params["competing_hypothesis"],
+        )
+        fake_result_g11 = broker.BrokerResult(operation_id="t", capability="RUN_BOUNDED_LIVE_WINDOW", status="FAILED", started_at="", ended_at="")
+        broker._impl_run_bounded_live_window(oversized, fake_result_g11)
+
+        conn = _sqlite3.connect(str(fake_live_g11))
+        day_period_after = conn.execute("SELECT current_day, current_period FROM simulation_clock LIMIT 1").fetchone()
+        daily_report_count = conn.execute("SELECT COUNT(*) FROM daily_reports").fetchone()[0]
+        conn.close()
+        record(
+            "mechanical-guarantee test 11: exhausting all agents never advances day/period (auto_advance stayed False)",
+            day_period_after == day_period_before,
+            f"before={day_period_before} after={day_period_after}",
+        )
+        record(
+            "mechanical-guarantee test 12: no daily_reports row is ever created by this capability (period/day synthesis stays outside it)",
+            daily_report_count == 0,
+            f"count={daily_report_count}",
+        )
+    finally:
+        broker._derive_worst_case_activation_burst = original_derive
+        broker.CANONICAL_LIVE_DB_PATH = original_path
+        safe_rmtree(tmp_dir_g11)
+
     # --- Pure algorithm correctness, against a REAL disposable DB with the
     # REAL run_next_event() + fixture provider, proving the bound
     # guarantee holds mechanically when given a true worst-case burst. ---
-    import director_diagnostics as dd
-    from app.core.db_safety import safe_rmtree
-    from sqlalchemy import select
-    import seed_agents
-    from app.providers.llm import get_llm_provider
-    from app.services.orchestrator import run_next_event
     from app.db.models.events import Event
 
     tmp_dir, session = dd.create_guarded_isolated_sqlite_session(prefix="director_broker_fixturetest_rbtw_")
@@ -634,10 +942,7 @@ def test_run_bounded_live_window(_: Path) -> None:
     # pause -> advance -> re-pause -> integrity-check code path is
     # correct, not just the pure algorithm in isolation. ---
     tmp_dir2, fake_live_path = build_fixture_live_db()
-    original_derive = broker._derive_worst_case_activation_burst
-    original_path = broker.CANONICAL_LIVE_DB_PATH
     try:
-        import sqlite3 as _sqlite3
         conn = _sqlite3.connect(str(fake_live_path))
         conn.execute("UPDATE simulation_clock SET is_paused = 1")
         conn.commit()

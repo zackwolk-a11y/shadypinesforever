@@ -483,8 +483,18 @@ class CallAuthorizedDirectorProviderParams(_StrictModel):
 #: live-science shift. The preregistration fields (question/hypotheses)
 #: are required, not optional -- an empty or missing justification fails
 #: schema validation before any live-DB check ever runs.
+#:
+#: max_new_events ceiling raised 25 -> 50, 2026-09-05, per explicit
+#: Founder authorization, specifically because the proven worst-case
+#: single-activation burst (_derive_worst_case_activation_burst() == 42,
+#: see director_broker_fixturetest.py's live-executed proof against the
+#: real ResearchSynthesis validators) exceeded the prior 25-event ceiling
+#: -- no window that small could ever admit a single activation. 50
+#: leaves >=42 margin for one activation while the existing
+#: `remaining < worst_case_burst` guard in _advance_bounded still
+#: prevents a second one whenever it wouldn't fit.
 class RunBoundedLiveWindowParams(_StrictModel):
-    max_new_events: int = Field(ge=1, le=25)
+    max_new_events: int = Field(ge=1, le=50)
     question: str = Field(min_length=1, max_length=2000)
     favored_hypothesis: str = Field(min_length=1, max_length=2000)
     competing_hypothesis: str = Field(min_length=1, max_length=2000)
@@ -630,7 +640,12 @@ def _impl_live_db_fingerprint(params: NoParams, result: BrokerResult) -> dict[st
     file_hash = hashlib.sha256(CANONICAL_LIVE_DB_PATH.read_bytes()).hexdigest()
     conn = _open_live_db_readonly()
     try:
-        max_event = conn.execute("SELECT MAX(id) FROM events").fetchone()[0]
+        # COALESCE, not bare MAX: a genuinely empty events table (e.g. a
+        # freshly-seeded disposable DB) returns SQL NULL / Python None from
+        # a bare MAX(id), which broke a real safety pre-flight check
+        # (None != 0) during test-isolation work on 2026-09-05. 0 is the
+        # correct, honest "no events yet" value.
+        max_event = conn.execute("SELECT COALESCE(MAX(id), 0) FROM events").fetchone()[0]
         day, period, paused = conn.execute(
             "SELECT current_day, current_period, is_paused FROM simulation_clock LIMIT 1"
         ).fetchone()

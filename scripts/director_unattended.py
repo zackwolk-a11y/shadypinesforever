@@ -81,13 +81,35 @@ MASTER_INDEX_RELATIVE_PATH = os.environ.get(
 )
 
 MAX_TOTAL_PROVIDER_CALLS = 96
-BASELINE_MAX_EVENT = 623
+#: CORRECTION, 2026-09-05, following a real incident: a fixture-provider
+#: test run of this file advanced the REAL live Village by 10 events,
+#: because RUN_BOUNDED_LIVE_WINDOW is now genuinely enabled (the 42-event
+#: worst case fits inside the new 50-event window) and the test's own
+#: isolation only redirected this runner's bookkeeping paths, never the
+#: live DB itself. DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT lets a test
+#: point this constant at a disposable database's own true starting count
+#: (typically 0, immediately after seed_agents.run(), which never emits
+#: Event rows) instead of the real Village's 623 -- used together with
+#: VILLAGE_DATA_ROOT (an app.core.db_safety-native override) to make an
+#: isolated test's entire live-data root disposable, not just this
+#: runner's own status/packet files.
+_baseline_override = os.environ.get("DIRECTOR_UNATTENDED_BASELINE_MAX_EVENT", "").strip()
+BASELINE_MAX_EVENT = int(_baseline_override) if _baseline_override else 623
 
 # Founder-authorized overnight live-science budget, 2026-09-05.
 MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT = 250
 ABSOLUTE_EVENT_CEILING = BASELINE_MAX_EVENT + MAX_ADDITIONAL_LIVE_EVENTS_OVERNIGHT  # 873
-MAX_SINGLE_LIVE_WINDOW = 25
-MAX_LIVE_WINDOWS = 10
+#: Raised 25 -> 50, 2026-09-05, per explicit Founder authorization, to
+#: match the proven worst-case single-activation burst (42, see
+#: director_broker.py's _derive_worst_case_activation_burst -- computed
+#: from real, already-existing production caps, not a new schema change).
+#: A 25-event window could never admit even one activation; 50 leaves
+#: >=42 margin for exactly one while director_broker.py's own
+#: `remaining < worst_case_burst` guard still blocks a second whenever it
+#: wouldn't fit. Must track director_broker.RunBoundedLiveWindowParams's
+#: own le=50 ceiling -- both were raised together this same commit.
+MAX_SINGLE_LIVE_WINDOW = 50
+MAX_LIVE_WINDOWS = 5  # 250 // 50, per the Founder's own arithmetic
 
 _NETWORK_ERROR_HINTS = (
     "connection", "timeout", "timed out", "network", "dns", "refused",
@@ -386,6 +408,22 @@ def _remaining_overnight_live_budget() -> int | None:
 
 
 def task_attempt_live_window_1() -> TaskResult:
+    """Preregistration, per the Founder's 2026-09-05 night-policy update
+    (max window 25 -> 50, matching the proven worst-case atomic burst of
+    42): why fresh live data is necessary -- every claim this project has
+    made about cross-agent transmission, private continuity, and Wall/
+    Rabbit-Hole/Belief non-uptake rests on the same frozen 623-event
+    snapshot; only genuinely new, unforced activity can test whether those
+    patterns hold going forward or were an artifact of this specific
+    history. Evidence sought: any new MESSAGE/QUESTION/RESEARCH/REFLECTION/
+    WALL/RABBIT_HOLE/BELIEF event past 623. Falsification criterion for
+    the favored hypothesis: a live window (of the Founder-mandated
+    max_new_events, mechanically <= 50 and never exceeding the actual
+    requested value) that produces zero new cross-agent reference, zero
+    new research/reflection activity, and no departure from the existing
+    all-zero Wall/Rabbit-Hole/Belief pattern would falsify it. Requested
+    event budget: computed fresh each call from the real current live
+    max event id (see _remaining_overnight_live_budget), never assumed."""
     remaining = _remaining_overnight_live_budget()
     if remaining is None:
         return TaskResult(status="LIVE_BOUND_NOT_MECHANICALLY_GUARANTEED", summary="could not read the real live max event id -- refusing to attempt a live window")
@@ -862,9 +900,8 @@ def main() -> int:
                     # expected baseline forward BEFORE the safety check
                     # below runs, so an intentional, bounded advance is
                     # recognized as legitimate rather than flagged as a
-                    # violation. Currently unreachable (RUN_BOUNDED_LIVE_
-                    # WINDOW always refuses under today's schema), kept
-                    # correct for when it becomes reachable.
+                    # violation. Genuinely reachable as of 2026-09-05 (the
+                    # 50-event window fits the proven 42-event worst case).
                     events_added = result.detail.get("events_added", 0)
                     status["live_events_added_total"] += events_added
                     new_baseline = result.detail.get("end_max_event_id")
@@ -904,12 +941,27 @@ def main() -> int:
             save_status(status)
 
             after = safety_snapshot()
-            if after["sha256"] != before["sha256"] or after["max_event_id"] != status["max_live_event_baseline"]:
+            # CORRECTION, 2026-09-05, following a real incident: a
+            # legitimate, authorized live-window advance necessarily
+            # changes the file hash (real content changed) -- the original
+            # version of this check compared the hash unconditionally and
+            # would have flagged EVERY successful live window as a false
+            # "SAFETY_VIOLATION_live_db_changed", never actually verified
+            # until RUN_BOUNDED_LIVE_WINDOW became reachable. The event-id
+            # comparison against the just-updated max_live_event_baseline
+            # already correctly distinguishes "the exact authorized amount
+            # changed" from "something changed unexpectedly" -- the hash
+            # must only be compared when this task was NOT itself a
+            # completed live-window advance.
+            was_legitimate_live_advance = task.method == "L" and result.status == "COMPLETED"
+            hash_violation = (not was_legitimate_live_advance) and after["sha256"] != before["sha256"]
+            event_violation = after["max_event_id"] != status["max_live_event_baseline"]
+            if hash_violation or event_violation:
                 status["state"] = "stopped"
                 status["stop_reason"] = "SAFETY_VIOLATION_live_db_changed"
                 status["live_db_mutated"] = True
                 save_status(status)
-                append_rolling_packet("SAFETY STOP", f"Live DB changed unexpectedly after {task.task_id}. Before={before}, After={after}, expected baseline={status['max_live_event_baseline']}. Halting immediately.")
+                append_rolling_packet("SAFETY STOP", f"Live DB changed unexpectedly after {task.task_id}. Before={before}, After={after}, expected baseline={status['max_live_event_baseline']}, hash_violation={hash_violation}, event_violation={event_violation}. Halting immediately.")
                 print("SAFETY VIOLATION: live DB changed. Halting immediately.")
                 return 2
             before = after  # the new legitimate baseline for the next iteration's comparison
