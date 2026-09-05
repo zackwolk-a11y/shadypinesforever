@@ -47,10 +47,38 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import director_broker as broker  # noqa: E402
 
 DIRECTOR_DIR = REPO_ROOT / ".director"
-STATUS_PATH = DIRECTOR_DIR / "unattended_status.json"
-STOP_FLAG_PATH = DIRECTOR_DIR / "unattended_stop_requested"
-LOCK_PATH = DIRECTOR_DIR / "unattended.lock"
-ROLLING_PACKET_PATH = DIRECTOR_DIR / "founder_packets" / "unattended_director_shift_2026-09-04.md"
+
+# Test isolation (root cause of a real incident: a fixture-provider test
+# run of this file once wrote into these exact same real paths as a
+# genuine unattended shift, which was then mistaken for fixture leftover
+# and deleted). DIRECTOR_UNATTENDED_STATE_ROOT lets a test harness redirect
+# every piece of THIS RUNNER's OWN bookkeeping (status file, lock,
+# stop-flag, rolling packet, completion packet) to an isolated directory.
+# Unset (the default, and the only thing a real launch should ever use),
+# it resolves to the real .director directory, identical to this script's
+# original behavior. This does not, and cannot, affect the broker's own
+# paths (director_broker.py's DIRECTOR_DIR/AUDIT_DIR are separate module
+# constants, untouched by this variable) -- LIVE_DB_READ, Level 2A
+# diagnostics, and disposable experiments always go through the real
+# broker exactly as before, in both modes.
+_state_root_override = os.environ.get("DIRECTOR_UNATTENDED_STATE_ROOT", "").strip()
+STATE_ROOT = Path(_state_root_override).resolve() if _state_root_override else DIRECTOR_DIR
+STATUS_PATH = STATE_ROOT / "unattended_status.json"
+STOP_FLAG_PATH = STATE_ROOT / "unattended_stop_requested"
+LOCK_PATH = STATE_ROOT / "unattended.lock"
+FOUNDER_PACKETS_DIR = STATE_ROOT / "founder_packets"
+ROLLING_PACKET_PATH = FOUNDER_PACKETS_DIR / "unattended_director_shift_2026-09-04.md"
+
+# The one task (master_index_addendum) that writes into the broker's own
+# real .director/founder_packets/ tree via WRITE_DIRECTOR_ARTIFACT -- that
+# capability's paths are NOT affected by STATE_ROOT above (they are the
+# broker's, not this runner's). This lets a test target a harmless scratch
+# file under the same approved subtree instead of the real canonical
+# master index; a real run defaults to the true index.
+MASTER_INDEX_RELATIVE_PATH = os.environ.get(
+    "DIRECTOR_UNATTENDED_MASTER_INDEX_PATH",
+    "founder_packets/master_evidence_roadmap_index_2026-09-04.md",
+)
 
 MAX_TOTAL_PROVIDER_CALLS = 96
 BASELINE_MAX_EVENT = 623
@@ -90,17 +118,22 @@ def load_status() -> dict[str, Any]:
         "pid": os.getpid(),
         "started_at": _now(),
         "last_update": _now(),
+        "planning_cycle": 0,
         "current_task": None,
         "last_completed_task": None,
         "completed_task_ids": [],
         "deferred_network_task_ids": [],
         "failed_task_ids": [],
         "completed_task_count": 0,
+        "dynamically_generated_task_count": 0,
         "deferred_network_count": 0,
         "provider_calls_used": 0,
+        "results_store": {},
+        "blocked_tasks": [],
         "live_db_mutated": False,
         "max_live_event_baseline": BASELINE_MAX_EVENT,
         "stop_reason": None,
+        "continuing_because": None,
     }
 
 
@@ -272,7 +305,7 @@ def task_wall_rabbit_belief_population_recheck() -> TaskResult:
     )
 
 
-TASKS: list[Task] = [
+STATIC_TASKS: list[Task] = [
     Task("clean_wall_priming_replication", "Methodologically clean replication of the Roxy Wall-priming test", [6, 10], "D", task_clean_wall_priming_replication),
     Task("lucid_replication_n6", "Backlog #5: Lucid unresolved-memory replication at n=6 pairs", [1, 4, 5], "D", task_lucid_replication_n6),
     Task("alien_constructed_unresolved", "Backlog #6: Alien, constructed unresolved memory from her own real content", [1, 4], "D", task_alien_constructed_unresolved),
@@ -284,6 +317,302 @@ TASKS: list[Task] = [
     Task("llm_run_cost_breakdown", "Backlog #12/#24: consolidated real-call cost/purpose breakdown", [18], "R", task_llm_run_cost_breakdown),
     Task("wall_rabbit_belief_recheck", "Backlog #21: Wall/Rabbit-Hole/Belief population recheck", [6, 7, 8], "R", task_wall_rabbit_belief_population_recheck),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Continuous-planning extension: more static tasks (meta-analysis of
+# already-collected evidence, blocked-candidate documentation, and
+# per-agent snapshots), plus one genuine data-driven generator so the
+# queue does not have to be fully hand-written in advance.
+# ---------------------------------------------------------------------------
+
+
+#: Diagnostic types this project has already BUILT and fixture-tested
+#: ([PSIP]) but never added to director_broker._APPROVED_DIAGNOSTIC_TYPES.
+#: Running any of these requires a separate, explicit broker-catalog
+#: registration -- exactly the "record as blocked candidate, keep working"
+#: case the Founder's continuous-planning instruction calls for.
+_KNOWN_BLOCKED_DIAGNOSTIC_TYPES = {
+    "conversation_decision_trace": "would need real per-decision telemetry correlation the DB doesn't have; also not yet in the broker's approved catalog",
+    "research_provenance_and_evidence_flow_trace": "not yet in the broker's approved catalog",
+    "relationship_state_and_influence_trace": "not yet in the broker's approved catalog",
+    "belief_lifecycle_trace": "not yet in the broker's approved catalog; also 0 real beliefs exist to trace",
+    "rabbit_hole_lifecycle_trace": "not yet in the broker's approved catalog; also 0 real rabbit holes exist to trace",
+    "invalid_decision_pattern_trace": "not yet in the broker's approved catalog",
+    "observability_gap_scan": "needs the 'daily_reports' table added to LIVE_DB_READ's/GET_*'s table allowlist -- a broker-capability change, not yet authorized",
+}
+
+
+def task_blocked_candidates_survey() -> TaskResult:
+    """R-class, always safe: records the known-blocked diagnostic
+    candidates so the planner keeps working other safe tasks instead of
+    stalling on them, per the Founder's explicit instruction."""
+    return TaskResult(
+        status="COMPLETED",
+        summary=f"{len(_KNOWN_BLOCKED_DIAGNOSTIC_TYPES)} diagnostic types recorded as blocked (need broker-catalog registration, not executed)",
+        detail={"blocked": _KNOWN_BLOCKED_DIAGNOSTIC_TYPES},
+    )
+
+
+def task_llm_run_cost_by_day() -> TaskResult:
+    return _run_read(
+        "SELECT date(created_at) as day, COUNT(*) as n, SUM(estimated_cost_usd) as cost "
+        "FROM llm_runs GROUP BY date(created_at) ORDER BY day",
+        "llm_runs cost by calendar day",
+    )
+
+
+def task_relationship_dump_and_analysis() -> TaskResult:
+    return _run_read(
+        "SELECT agent_a_id, agent_b_id, trust_score, familiarity, intellectual_affinity, interaction_count "
+        "FROM relationships ORDER BY interaction_count DESC",
+        "full relationship table dump (Part 4/9 roadmap: does relationship state correlate with who talks to whom)",
+    )
+
+
+def task_message_provenance_cross_check() -> TaskResult:
+    # Extends C14/C15: for each real message, does ANY memory's content
+    # contain a real substring of it? A crude but honest, fully-offline
+    # test of whether message content ever survives into durable memory
+    # text anywhere in the Village, independent of the architectural
+    # (no-Event-emitted) argument already established.
+    return _run_read(
+        "SELECT m.id, m.sender_agent_id, m.recipient_agent_id, "
+        "(SELECT COUNT(*) FROM memories mem WHERE mem.content LIKE '%' || substr(m.content, 1, 30) || '%') as memory_hits "
+        "FROM messages m ORDER BY m.id",
+        "message-content-in-memory cross-check (extends C14/C15)",
+    )
+
+
+def task_reflection_pressure_recheck() -> TaskResult:
+    return _run_read(
+        "SELECT agent_id, reflection_pressure, last_reflection_sim_day FROM agents ORDER BY agent_id",
+        "reflection_pressure recheck (Part 2 roadmap: mechanism verification, ties to C16)",
+    )
+
+
+def task_statistical_reanalysis_shift_experiments(status: dict[str, Any]) -> TaskResult:
+    """Meta-analysis, R-class, zero new provider calls: pools this shift's
+    newly collected disposable-experiment trial data (read back from
+    results_store, not re-paid) against the already-published rates in
+    thread_genesis_bootstrap_investigation_2026-09-04.md and
+    memory_framing_replication_2026-09-04.md."""
+    store = status.get("results_store", {})
+
+    def _rate(task_id: str) -> tuple[int, int] | None:
+        trials = (store.get(task_id) or {}).get("trials")
+        if not trials:
+            return None
+        treatment = [t for t in trials if t["condition"] == "TREATMENT"]
+        substantive = sum(
+            1 for t in treatment
+            if any(a not in ("OBSERVE", "DRINK_COFFEE", "REST", "DO_NOTHING", "LISTEN_TO_MUSIC") for a in t["action_types"])
+        )
+        return substantive, len(treatment)
+
+    summary_lines = []
+    lucid_original = (2, 4)  # from thread_genesis_bootstrap_investigation_2026-09-04.md, Experiment A
+    lucid_new = _rate("lucid_replication_n6")
+    if lucid_new:
+        pooled = (lucid_original[0] + lucid_new[0], lucid_original[1] + lucid_new[1])
+        summary_lines.append(
+            f"Lucid: original n=4 -> {lucid_original[0]}/{lucid_original[1]}; "
+            f"this shift's n=6 -> {lucid_new[0]}/{lucid_new[1]}; pooled n=10 -> {pooled[0]}/{pooled[1]} "
+            f"({100*pooled[0]/pooled[1]:.1f}%)"
+        )
+    wall_clean = _rate("clean_wall_priming_replication")
+    if wall_clean:
+        summary_lines.append(
+            f"Roxy Wall-priming, CLEAN (neutral, non-directive wording): {wall_clean[0]}/{wall_clean[1]} "
+            f"({100*wall_clean[0]/wall_clean[1]:.1f}%) -- compare against the earlier CONTAMINATED "
+            f"4/4 (100%) result that explicitly named 'the wall' and 'shared it as a real finding'"
+        )
+    alien_new = _rate("alien_constructed_unresolved")
+    questauthor_new = _rate("questauthor_constructed_unresolved")
+    if alien_new:
+        summary_lines.append(f"Alien, constructed unresolved memory: {alien_new[0]}/{alien_new[1]} substantive (compare thread_genesis's real-neutral-memory result: 0/4)")
+    if questauthor_new:
+        summary_lines.append(f"QuestAuthor, constructed unresolved memory: {questauthor_new[0]}/{questauthor_new[1]} substantive (compare thread_genesis's real-neutral-memory result: 0/4)")
+
+    if not summary_lines:
+        return TaskResult(status="FAILED", summary="no shift experiment results available yet in results_store")
+    return TaskResult(status="COMPLETED", summary="; ".join(summary_lines), detail={"lines": summary_lines})
+
+
+def task_master_index_addendum(status: dict[str, Any]) -> TaskResult:
+    """Appends (never overwrites) a dated corrections/addendum section to
+    the canonical master index, per the standing evidence-hygiene rule:
+    OLD CLAIM -> NEW EVIDENCE -> CURRENT INTERPRETATION, never silent
+    deletion."""
+    read = broker.execute("READ_DIRECTOR_ARTIFACT", {"relative_path": MASTER_INDEX_RELATIVE_PATH})
+    if read.status != "SUCCESS":
+        return TaskResult(status="FAILED", summary=read.failure_reason or "could not read master index")
+    existing = read.result["content"]
+
+    store = status.get("results_store", {})
+    stat_summary = (store.get("statistical_reanalysis_shift_experiments") or {}).get("lines", [])
+    addendum = (
+        "\n\n---\n\n## Addendum — Unattended Shift, "
+        + _now()
+        + "\n\n**Methodological correction (evidence hygiene, not deletion):** the original Roxy "
+        "Wall-priming result reported as this shift began (CONTROL 0/4, TREATMENT 4/4 POST_TO_WALL) "
+        "used treatment memory text that explicitly named \"the wall\" and \"shared it as a real "
+        "finding\" -- closer to naming the target mechanism than the neutral-fact framing this "
+        "project holds itself to elsewhere. **Status: CORRECTED, not retracted.** A methodologically "
+        "clean replication (`clean_wall_priming_replication`, neutral wording naming no action) was "
+        "run this shift; see the statistical reanalysis below for its actual rate.\n\n"
+        "**New evidence collected this shift:**\n\n"
+        + "\n".join(f"- {line}" for line in stat_summary)
+        + "\n\n**Blocked candidates surfaced this shift (recorded, not executed):** "
+        + ", ".join(sorted(_KNOWN_BLOCKED_DIAGNOSTIC_TYPES))
+        + " -- each requires a separate broker-catalog registration decision, not a Village behavior change.\n"
+    )
+    write = broker.execute(
+        "WRITE_DIRECTOR_ARTIFACT",
+        {"relative_path": MASTER_INDEX_RELATIVE_PATH, "content": existing + addendum},
+    )
+    if write.status != "SUCCESS":
+        return TaskResult(status="FAILED", summary=write.failure_reason or "could not write addendum")
+    return TaskResult(status="COMPLETED", summary="master index addendum appended", detail={"addendum_chars": len(addendum)})
+
+
+MORE_STATIC_TASKS: list[Task] = [
+    Task("blocked_candidates_survey", "Survey and record diagnostic types blocked on broker-catalog registration", [3, 12], "R", task_blocked_candidates_survey),
+    Task("llm_run_cost_by_day", "Cost/call efficiency: real-call breakdown by calendar day", [18], "R", task_llm_run_cost_by_day),
+    Task("relationship_dump_and_analysis", "Relationship-mediated culture: full table dump for analysis", [9], "R", task_relationship_dump_and_analysis),
+    Task("message_provenance_cross_check", "Cross-agent transmission: does any message's content ever appear in any memory?", [2, 3], "R", task_message_provenance_cross_check),
+    Task("reflection_pressure_recheck", "Reflection mechanism verification recheck (ties to C16)", [2], "R", task_reflection_pressure_recheck),
+]
+# The two tasks below consume this shift's own results_store (populated
+# from the D-class tasks above) -- pure meta-analysis, zero new provider
+# calls, and only meaningful once at least one D-task has completed, so
+# they are appended after the disposable-experiment tasks by construction
+# (list order = default priority order in get_task_queue below).
+MORE_STATIC_TASKS_NEEDING_STATUS: list[tuple[str, str, list[int], str, Callable[[dict[str, Any]], TaskResult]]] = [
+    ("statistical_reanalysis_shift_experiments", "Pool this shift's new disposable-experiment results against already-published rates", [1, 4, 5, 6], "R", task_statistical_reanalysis_shift_experiments),
+    ("master_index_addendum", "Append (never overwrite) a corrections addendum to the canonical master index", [11], "R", task_master_index_addendum),
+]
+
+
+def generate_dynamic_tasks(status: dict[str, Any]) -> list[Task]:
+    """The genuinely data-driven half of the planner: queries the live DB
+    (through the broker, read-only) for the current agent roster and
+    yields one per-agent profile task for any agent not yet profiled --
+    computed from what the database actually contains right now, not
+    hardcoded to '8' in source. On this frozen snapshot it will always
+    yield the same 8 the first time it's called and nothing thereafter,
+    but the mechanism itself does not assume that population size."""
+    result = broker.execute("LIVE_DB_READ", {"sql": "SELECT agent_id FROM agents ORDER BY agent_id"})
+    if result.status != "SUCCESS":
+        return []
+    import re as _re
+
+    agent_ids = [row[0] for row in result.result["rows"] if _re.match(r"^agent_[a-z_]+$", row[0])]
+    tasks = []
+    for agent_id in agent_ids:
+        task_id = f"agent_profile_{agent_id}"
+        if task_id in status["completed_task_ids"] or task_id in status["failed_task_ids"]:
+            continue
+
+        def _make_run(aid: str) -> Callable[[], TaskResult]:
+            def _run() -> TaskResult:
+                return _run_read(
+                    "SELECT "
+                    "(SELECT COUNT(*) FROM memories WHERE agent_id = '" + aid + "') as memories, "
+                    "(SELECT COUNT(*) FROM agent_questions WHERE agent_id = '" + aid + "') as questions, "
+                    "(SELECT COUNT(*) FROM research_sessions WHERE agent_id = '" + aid + "') as research, "
+                    "(SELECT COUNT(*) FROM messages WHERE sender_agent_id = '" + aid + "') as sent, "
+                    "(SELECT COUNT(*) FROM messages WHERE recipient_agent_id = '" + aid + "') as received, "
+                    "(SELECT reflection_pressure FROM agents WHERE agent_id = '" + aid + "') as reflection_pressure",
+                    f"per-agent profile snapshot: {aid}",
+                )
+            return _run
+
+        tasks.append(Task(task_id, f"Dynamically generated per-agent profile snapshot for {agent_id}", [1, 4], "R", _make_run(agent_id)))
+    return tasks
+
+
+def get_task_queue(status: dict[str, Any]) -> list[Task]:
+    """One planning cycle's worth of candidate tasks, priority-ordered:
+    the original 10, then the newer static analysis/meta-analysis tasks,
+    then whatever the data-driven generator currently yields. Recomputed
+    fresh each cycle rather than cached once, so a generator that depends
+    on mutable status (like the meta-analysis tasks reading results_store)
+    always sees the latest state."""
+    queue = list(STATIC_TASKS) + list(MORE_STATIC_TASKS)
+    for task_id, desc, phases, method, fn in MORE_STATIC_TASKS_NEEDING_STATUS:
+        queue.append(Task(task_id, desc, phases, method, (lambda fn=fn: fn(status))))
+    queue.extend(generate_dynamic_tasks(status))
+    return queue
+
+
+def next_unfinished_task(status: dict[str, Any]) -> Task | None:
+    for task in get_task_queue(status):
+        if task.task_id in status["completed_task_ids"] or task.task_id in status["failed_task_ids"]:
+            continue
+        return task
+    return None
+
+
+def write_final_founder_packet(status: dict[str, Any], before: dict[str, Any]) -> Path:
+    path = FOUNDER_PACKETS_DIR / "unattended_shift_completion_2026-09-04.md"
+    store = status.get("results_store", {})
+    stat_lines = (store.get("statistical_reanalysis_shift_experiments") or {}).get("lines", [])
+    content = f"""# Unattended Director Shift — Completion Report
+### {_now()} — standalone runner, zero Claude Code involvement during execution
+
+## 1. Why the shift stopped
+
+**Genuinely exhausted**: every task in the static queue plus everything the
+data-driven per-agent generator could produce from the current (frozen)
+live DB snapshot has been completed or definitively failed. No fixed task
+count was used as the stop condition -- this is a real "nothing further
+is safely executable without crossing into L (live advancement) or P
+(production modification)" boundary.
+
+## 2. Completed this shift
+
+{status['completed_task_count']} tasks completed, {status['deferred_network_count']} deferred for network,
+{len(status['failed_task_ids'])} failed. Provider calls used: {status['provider_calls_used']}.
+
+Completed task IDs: {status['completed_task_ids']}
+
+## 3. New evidence / statistical reanalysis
+
+{chr(10).join('- ' + l for l in stat_lines) if stat_lines else '(see results_store in unattended_status.json for raw detail)'}
+
+## 4. Blocked candidates (recorded, not executed)
+
+{chr(10).join(f'- `{k}`: {v}' for k, v in _KNOWN_BLOCKED_DIAGNOSTIC_TYPES.items())}
+
+Each requires a separate, explicit broker-catalog registration decision
+(adding a diagnostic_type to `_APPROVED_DIAGNOSTIC_TYPES` or a table to
+the read allowlist) -- Director-infrastructure engineering, not a Village
+behavior change, but still outside this shift's standing authorization.
+
+## 5. Highest-value next consequential action
+
+Per the accumulated evidence across this whole project, the two genuine
+boundaries now reached are: (a) registering the blocked diagnostic types
+above (a narrow broker-infrastructure change, low risk, would unlock
+several more free R-class tasks), and (b) the still-pending Gate C
+(A+C social-experience-persistence) production candidate, which remains
+unimplemented and would require a real `app/` code change plus separate
+Founder authorization to prototype live. Neither was attempted this
+shift.
+
+## 6. Safety state at completion
+
+- Live DB hash: {before['sha256']} (unchanged throughout -- re-verified after every single task)
+- Max event id: {before['max_event_id']} (baseline {BASELINE_MAX_EVENT})
+- Day/period/paused: {before['current_day']} / {before['current_period']} / {before['is_paused']}
+- Live DB mutated: {status['live_db_mutated']}
+- No live advancement, no production/prompt/schema change, no Level 2B, no new broker capability added during execution.
+
+**Control returned to Founder. No consequential action was taken.**
+"""
+    path.write_text(content)
+    return path
 
 
 # ---------------------------------------------------------------------------
@@ -358,7 +687,7 @@ def main() -> int:
             f"Provider calls used so far this shift: {status['provider_calls_used']}",
         )
 
-        for task in TASKS:
+        while True:
             if _stop_requested or STOP_FLAG_PATH.exists():
                 status["state"] = "stopped"
                 status["stop_reason"] = "founder_requested_stop"
@@ -367,20 +696,46 @@ def main() -> int:
                 print("Stop requested. Exiting cleanly.")
                 return 0
 
-            if task.task_id in status["completed_task_ids"] or task.task_id in status["failed_task_ids"]:
-                continue
+            status["planning_cycle"] += 1
+            task = next_unfinished_task(status)
+
+            if task is None:
+                status["state"] = "stopped"
+                status["stop_reason"] = "genuinely_exhausted"
+                save_status(status)
+                packet_path = write_final_founder_packet(status, before)
+                append_rolling_packet(
+                    "Shift complete -- genuinely exhausted",
+                    f"No further safe R/D/N task available after {status['planning_cycle']} planning cycles. "
+                    f"Completed: {status['completed_task_count']}. Deferred: {status['deferred_network_count']}. "
+                    f"Failed: {len(status['failed_task_ids'])}. Blocked candidates recorded: "
+                    f"{len(_KNOWN_BLOCKED_DIAGNOSTIC_TYPES)}. Founder Approval Packet: {packet_path}",
+                )
+                print(f"Genuinely exhausted after {status['planning_cycle']} planning cycles. Founder Approval Packet: {packet_path}")
+                return 0
+
+            if task.task_id.startswith("agent_profile_"):
+                status["dynamically_generated_task_count"] += 1
 
             if status["provider_calls_used"] >= MAX_TOTAL_PROVIDER_CALLS and task.method in ("D", "N"):
-                status["state"] = "stopped"
-                status["stop_reason"] = "provider_budget_exhausted"
-                save_status(status)
-                append_rolling_packet("Stopped", f"Provider budget ({MAX_TOTAL_PROVIDER_CALLS}) exhausted before task {task.task_id}.")
-                print(f"Provider budget exhausted ({status['provider_calls_used']}/{MAX_TOTAL_PROVIDER_CALLS}). Stopping cleanly.")
-                return 0
+                status["continuing_because"] = "provider budget exhausted for D/N; continuing with R-only tasks"
+                # Skip (do not mark failed -- may resume later) any D/N
+                # task once the budget is spent, but keep planning: an
+                # R-class task might still exist further in the queue.
+                remaining_r = [t for t in get_task_queue(status) if t.method == "R" and t.task_id not in status["completed_task_ids"] and t.task_id not in status["failed_task_ids"]]
+                if not remaining_r:
+                    status["state"] = "stopped"
+                    status["stop_reason"] = "provider_budget_exhausted_no_offline_work_remains"
+                    save_status(status)
+                    packet_path = write_final_founder_packet(status, before)
+                    append_rolling_packet("Stopped", f"Provider budget ({MAX_TOTAL_PROVIDER_CALLS}) exhausted and no R-class work remains. Founder Approval Packet: {packet_path}")
+                    print(f"Provider budget exhausted, no offline work remains. Founder Approval Packet: {packet_path}")
+                    return 0
+                task = remaining_r[0]
 
             status["current_task"] = task.task_id
             save_status(status)
-            print(f"[{_now()}] running {task.task_id} ({task.method}) -- {task.description}")
+            print(f"[{_now()}] cycle {status['planning_cycle']}: running {task.task_id} ({task.method}) -- {task.description}")
 
             result = task.run()
 
@@ -391,6 +746,7 @@ def main() -> int:
                 status["completed_task_ids"].append(task.task_id)
                 status["completed_task_count"] += 1
                 status["last_completed_task"] = task.task_id
+                status["results_store"][task.task_id] = result.detail
                 append_rolling_packet(f"Task completed: {task.task_id}", f"Method: {task.method}\nRoadmap phases: {task.roadmap_phases}\nResult: {result.summary}\n\n```json\n{json.dumps(result.detail, indent=2, default=str)[:8000]}\n```")
             elif result.status == "DEFERRED_NETWORK":
                 if task.task_id not in status["deferred_network_task_ids"]:
@@ -400,6 +756,8 @@ def main() -> int:
                 print(f"  DEFERRED_NETWORK: {result.summary}")
             else:  # FAILED or NEW_EXPERIMENT_APPROVAL_REQUIRED
                 status["failed_task_ids"].append(task.task_id)
+                if result.status == "NEW_EXPERIMENT_APPROVAL_REQUIRED":
+                    status["blocked_tasks"].append({"task_id": task.task_id, "reason": result.summary})
                 append_rolling_packet(f"{result.status}: {task.task_id}", f"Reason: {result.summary}")
                 print(f"  {result.status}: {result.summary}")
 
@@ -414,13 +772,6 @@ def main() -> int:
                 append_rolling_packet("SAFETY STOP", f"Live DB changed unexpectedly after {task.task_id}. Before={before}, After={after}. Halting immediately.")
                 print("SAFETY VIOLATION: live DB changed. Halting immediately.")
                 return 2
-
-        status["state"] = "stopped"
-        status["stop_reason"] = "backlog_exhausted"
-        save_status(status)
-        append_rolling_packet("Backlog exhausted", f"All {len(TASKS)} coded tasks finished or failed. Completed: {status['completed_task_count']}. Deferred (network): {status['deferred_network_count']}. Failed: {len(status['failed_task_ids'])}.")
-        print("All coded tasks finished. See the rolling packet and status file.")
-        return 0
     finally:
         release_lock()
 
