@@ -16,14 +16,26 @@ const OCCLUDERS=[
 // event. It has no effect on the backend: Run Day/Run Period/Next Event
 // already ran to completion (and returned) before any of this runs.
 const DWELL_ACT=1100, DWELL_GATHER=1000, DWELL_ICON=900, DWELL_FOUNDER=1200;
+const DWELL_WALL=1200, DWELL_RABBIT_HOLE=1000, DWELL_RABBIT_HOLE_ICON=750;
 const dwellForSpeech=text=>clamp(900+(text?.length??0)*35,1200,6000);
+// How long a just-touched Research Wall card / Rabbit Hole marker glows in
+// drawWall() — a presentation cue only, never a change to the underlying
+// data (which already came from a real RESEARCH_WALL_POSTED/RABBIT_HOLE_*
+// event by the time this fires).
+const PULSE_MS=2500;
 // Types with no independent visual meaning of their own — AGENT_WOKE and
 // CONVERSATION_MESSAGE are bookkeeping rows (the actual spoken text lives
 // on the sibling AGENT_ACTED.payload.public_dialogue); CONVERSATION_ENDED
 // needs no staging since the next AGENT_ACTED for each participant already
-// walks them to wherever they go next. They still advance the queue (and
-// the "N of M" counter) — just with no walk/hold phase attached.
-const PASSTHROUGH_TYPES=new Set(['AGENT_WOKE','CONVERSATION_MESSAGE','CONVERSATION_ENDED']);
+// walks them to wherever they go next. SEARCH_EXECUTED/SOURCE_DISCOVERED
+// are real research-session bookkeeping too, but showing them as their own
+// staged action would mean inventing a "browsing" or "typing" pose the
+// backend never described — the agent stays exactly where
+// AGENT_RESEARCH_STARTED already put them. They still advance the queue
+// (and the "N of M" counter) — just with no walk/hold phase attached.
+const PASSTHROUGH_TYPES=new Set([
+ 'AGENT_WOKE','CONVERSATION_MESSAGE','CONVERSATION_ENDED','SEARCH_EXECUTED','SOURCE_DISCOVERED',
+]);
 export class WorldScene {
  constructor(canvas,onSelect){
   this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.onSelect=onSelect;
@@ -37,6 +49,11 @@ export class WorldScene {
   // the backend. `replayDone`/`replayTotal` back the "Replaying N of M"
   // indicator world.mjs renders.
   this.queue=[];this.playing=null;this.speed=1;this.replayDone=0;this.replayTotal=0;
+  // Temporary highlight timers for Research Wall cards / Rabbit Hole
+  // markers, keyed 'wall:<id>' / 'hole:<id>' — set only when a real
+  // RESEARCH_WALL_POSTED/FINDING_SHARED/RABBIT_HOLE_* event for that exact
+  // persisted item is replayed (see pulse()/beginItem()).
+  this.pulses=new Map();
   this.canvas.addEventListener('wheel',e=>{e.preventDefault();this.zoom(e.deltaY>0?.9:1.1);},{passive:false});
   this.canvas.addEventListener('pointerdown',e=>{this.canvas.setPointerCapture(e.pointerId);this.drag={x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY};});
   this.canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.follow=null;this.target.x-=(e.clientX-this.drag.x)/this.scale;this.target.y-=(e.clientY-this.drag.y)/this.scale;this.drag.x=e.clientX;this.drag.y=e.clientY;});
@@ -62,6 +79,13 @@ export class WorldScene {
  center(id){const a=this.residents.get(id);if(a){this.selected=id;this.target.x=a.x;this.target.y=a.y-120;this.target.zoom=1.45;}}
  toWorld(x,y){return{x:(x-this.offsetX)/this.scale,y:(y-this.offsetY)/this.scale};}
  bubble(id,text,kind,detail){if(!text||!this.residents.has(id))return;this.bubbles.set(id,{text,kind,detail,until:performance.now()+14000});}
+ // Cross-references an already-fetched, already-persisted item — never a
+ // new request, never invented content. `id` is compared as a string
+ // since Event.entity_id/payload fields travel as strings while the wall
+ // and rabbit-hole list items carry integer ids.
+ findWallPost(id){return id==null?null:this.snapshot?.wall?.find(p=>String(p.id)===String(id))??null;}
+ findRabbitHole(id){return id==null?null:this.snapshot?.holes?.find(h=>String(h.id)===String(id))??null;}
+ pulse(kind,id,now){if(id==null)return;this.pulses.set(`${kind}:${id}`,{until:now+PULSE_MS});}
  apply(snapshot){
   this.snapshot=snapshot;this.stale=false;
   // While a backlog is replaying, positions come ONLY from advanceQueue()
@@ -154,10 +178,15 @@ export class WorldScene {
    a.thoughtUntil=now+5000;
    return {event,actors:[event.agent_id],phase:'holding',dwell:DWELL_ICON,holdStart:now,kind:'icon'};
   }
-  if(/RESEARCH_COMPLETED|FINDING_CREATED/.test(et)){
+  if(et==='RESEARCH_COMPLETED'){
    const a=this.residents.get(event.agent_id);if(!a)return null;
    a.findingUntil=now+8000;
-   return {event,actors:[event.agent_id],phase:'holding',dwell:DWELL_ICON,holdStart:now,kind:'icon'};
+   return {event,actors:[event.agent_id],phase:'holding',dwell:DWELL_ICON,holdStart:now,kind:'research_done'};
+  }
+  if(et==='FINDING_CREATED'){
+   const a=this.residents.get(event.agent_id);if(!a)return null;
+   a.findingUntil=now+8000;
+   return {event,actors:[event.agent_id],phase:'holding',dwell:dwellForSpeech(p.finding_text),holdStart:now,kind:'finding'};
   }
   if(et==='FOUNDER_MESSAGE_DELIVERED'){
    const ids=(p.recipients??[event.agent_id]).filter(id=>this.residents.has(id));
@@ -166,20 +195,120 @@ export class WorldScene {
    this.founderCueUntil=now+3000;
    return {event,actors:ids,phase:'holding',dwell:DWELL_FOUNDER,holdStart:now,kind:'icon'};
   }
+  // --- Research: walk to the computer, hold in a distinct "researching"
+  // pose for a human-readable interval. SEARCH_EXECUTED/SOURCE_DISCOVERED
+  // (above, in PASSTHROUGH_TYPES) deliberately leave the agent exactly
+  // here until RESEARCH_COMPLETED — no invented browsing/typing beats.
+  if(et==='AGENT_RESEARCH_STARTED'){
+   const id=event.agent_id;if(!this.residents.has(id))return null;
+   this.walkTo(id,'research_computer');
+   return {event,actors:[id],phase:'walking',dwell:dwellForSpeech(p.question),holdStart:null,kind:'research_start'};
+  }
+  // Research completing is already handled by the RESEARCH_COMPLETED
+  // regex branch above (icon-only) — extended below in onArrived() to
+  // also clear the "researching" pose and add a real-content bubble,
+  // without changing when/whether it fires.
+  // --- Research Wall: walk to the wall, then emphasize the exact card
+  // that was actually posted (never a made-up one).
+  if(et==='RESEARCH_WALL_POSTED'){
+   const id=event.agent_id;if(!this.residents.has(id))return null;
+   this.walkTo(id,'research_wall');
+   const post=this.findWallPost(event.entity_id);
+   const dwell=post?dwellForSpeech(post.content):DWELL_WALL;
+   return {event,actors:[id],phase:'walking',dwell,holdStart:null,kind:'wall_post'};
+  }
+  if(et==='FINDING_SHARED'){
+   const id=event.agent_id;if(!this.residents.has(id))return null;
+   this.walkTo(id,'research_wall');
+   const post=this.findWallPost(p.via_wall_post);
+   const dwell=post?dwellForSpeech(post.content):DWELL_WALL;
+   return {event,actors:[id],phase:'walking',dwell,holdStart:null,kind:'wall_share'};
+  }
+  // --- Rabbit Holes: CREATED/JOINED/UPDATED are real physical acts (the
+  // agent contributed something) and walk to the board. LEFT is a status
+  // change on the agent's own membership — a brief icon, no walk. RESOLVED
+  // /ABANDONED are pure state changes on the shared thread itself, not a
+  // personal act, so they get NO agent-specific staging at all — only the
+  // board marker's pulse (set immediately, independent of queue timing).
+  if(et==='RABBIT_HOLE_CREATED'){
+   const id=event.agent_id;if(!this.residents.has(id))return null;
+   this.walkTo(id,'rabbit_holes');this.pulse('hole',event.entity_id,now);
+   return {event,actors:[id],phase:'walking',dwell:dwellForSpeech(p.title),holdStart:null,kind:'rabbit_hole'};
+  }
+  if(et==='RABBIT_HOLE_JOINED'){
+   const id=event.agent_id;if(!this.residents.has(id))return null;
+   this.walkTo(id,'rabbit_holes');this.pulse('hole',event.entity_id,now);
+   return {event,actors:[id],phase:'walking',dwell:DWELL_RABBIT_HOLE,holdStart:null,kind:'rabbit_hole_joined'};
+  }
+  if(et==='RABBIT_HOLE_UPDATED'){
+   const id=event.agent_id;if(!this.residents.has(id))return null;
+   this.walkTo(id,'rabbit_holes');this.pulse('hole',event.entity_id,now);
+   return {event,actors:[id],phase:'walking',dwell:p.note?dwellForSpeech(p.note):DWELL_RABBIT_HOLE,holdStart:null,kind:'rabbit_hole_updated'};
+  }
+  if(et==='RABBIT_HOLE_LEFT'){
+   const a=this.residents.get(event.agent_id);if(!a)return null;
+   a.rabbitHoleUntil=now+DWELL_RABBIT_HOLE_ICON+300;this.pulse('hole',event.entity_id,now);
+   return {event,actors:[event.agent_id],phase:'holding',dwell:DWELL_RABBIT_HOLE_ICON,holdStart:now,kind:'icon'};
+  }
+  if(et==='RABBIT_HOLE_RESOLVED'||et==='RABBIT_HOLE_ABANDONED'){
+   this.pulse('hole',event.entity_id,now);
+   return null; // state/UI emphasis only — no physical action was persisted
+  }
+  // --- Conversations: a joiner walks to wherever the OTHER current
+  // members of that same conversation already are. Resolved entirely from
+  // already-fetched conversation/agent data — never from the (always-null)
+  // Conversation.location, and never invented if that data isn't findable.
+  if(et==='CONVERSATION_JOINED'){
+   const id=event.agent_id;if(!this.residents.has(id))return null;
+   const conv=this.snapshot?.allConversations?.find(c=>c.id===p.conversation_id);
+   const otherIds=(conv?.participants??[]).map(x=>x.agent_id).filter(x=>x!==id);
+   const anchor=otherIds.map(x=>this.slots.get(x)).find(Boolean);
+   if(!anchor)return null; // no known destination — never invent one
+   this.walkTo(id,anchor.zone);
+   return {event,actors:[id],phase:'walking',dwell:DWELL_GATHER,holdStart:null,kind:'gather'};
+  }
   return null; // any other event type: no distinct visual, just advance
  }
  // Fires the moment every actor in the current item has physically
  // arrived — never before. This is what a bubble/finding icon waits on.
  onArrived(p,now){
-  const ep=p.event.payload??{};
+  const event=p.event,ep=event.payload??{};
   if(p.kind==='act'){
    if(ep.public_dialogue){
     const kind=(ep.actions??[]).includes('ASK_QUESTION')?'ASK_QUESTION':'SPEAK';
-    this.bubble(p.event.agent_id,ep.public_dialogue,kind,{kind:'event',event:p.event});
+    this.bubble(event.agent_id,ep.public_dialogue,kind,{kind:'event',event});
    }else{
-    const a=this.residents.get(p.event.agent_id);
+    const a=this.residents.get(event.agent_id);
     if(a)a.replayMotion=(ep.actions??[]).map(x=>MOTIONS[x]).find(Boolean)??'idle';
    }
+  }else if(p.kind==='research_start'){
+   const a=this.residents.get(event.agent_id);
+   if(a)a.replayMotion='work';
+   if(ep.question)this.bubble(event.agent_id,`Started researching: ${ep.question}`,'SPEAK',{kind:'event',event});
+  }else if(p.kind==='research_done'){
+   const a=this.residents.get(event.agent_id);if(a)a.replayMotion=null; // research pose ends here
+   this.bubble(event.agent_id,`Research complete — ${ep.finding_count ?? 0} finding(s), ${ep.evidence_strength ?? '?'} evidence.`,'SPEAK',{kind:'event',event});
+  }else if(p.kind==='finding'){
+   if(ep.finding_text)this.bubble(event.agent_id,ep.finding_text,'FINDING',{kind:'event',event});
+  }else if(p.kind==='wall_post'){
+   const post=this.findWallPost(event.entity_id);
+   this.pulse('wall',event.entity_id,now);
+   const a=this.residents.get(event.agent_id);if(a)a.replayMotion='post';
+   this.bubble(event.agent_id,post?`Pinned to the wall: ${post.content}`:`Pinned a ${ep.post_type??'note'} to the wall.`,'SPEAK',{kind:'event',event});
+  }else if(p.kind==='wall_share'){
+   const post=this.findWallPost(ep.via_wall_post);
+   this.pulse('wall',ep.via_wall_post,now);
+   const a=this.residents.get(event.agent_id);if(a)a.replayMotion='post';
+   this.bubble(event.agent_id,post?`Shared to the wall: ${post.content}`:'Shared a finding to the Research Wall.','SPEAK',{kind:'event',event});
+  }else if(p.kind==='rabbit_hole'){
+   const a=this.residents.get(event.agent_id);if(a){a.replayMotion='think';a.rabbitHoleUntil=now+p.dwell+300;}
+   if(ep.title)this.bubble(event.agent_id,`Opened a rabbit hole: ${ep.title}`,'SPEAK',{kind:'event',event});
+  }else if(p.kind==='rabbit_hole_joined'){
+   const a=this.residents.get(event.agent_id);if(a){a.replayMotion='think';a.rabbitHoleUntil=now+p.dwell+300;}
+   this.bubble(event.agent_id,'Joined this thread.','SPEAK',{kind:'event',event});
+  }else if(p.kind==='rabbit_hole_updated'){
+   const a=this.residents.get(event.agent_id);if(a){a.replayMotion='think';a.rabbitHoleUntil=now+p.dwell+300;}
+   if(ep.note)this.bubble(event.agent_id,ep.note,'SPEAK',{kind:'event',event});
   }
   // 'gather': arriving together is the whole visual — no invented dialogue.
   p.holdStart=now;
@@ -244,6 +373,7 @@ export class WorldScene {
    }else if(a.card.conversation_partners?.length||a.card.interaction_target){const targets=a.card.interaction_target?[{agent_id:a.card.interaction_target}]:(a.card.conversation_partners??[]);const others=targets.map(p=>this.residents.get(p.agent_id)).filter(Boolean);const closest=others.sort((b,c)=>Math.hypot(a.x-b.x,a.y-b.y)-Math.hypot(a.x-c.x,a.y-c.y))[0];if(closest&&Math.abs(closest.x-a.x)>10)a.face=closest.x>a.x?1:-1;}
    if(this.bubbles.get(id)?.until<now)this.bubbles.delete(id);
   }
+  for(const [key,pulse] of this.pulses)if(pulse.until<now)this.pulses.delete(key);
   if(this.follow){const a=this.residents.get(this.follow);if(a){this.target.x=a.x;this.target.y=a.y-120;}}
   this.target.x=clamp(this.target.x,100,1436);this.target.y=clamp(this.target.y,150,924);
   for(const k of ['x','y','zoom'])this.camera[k]+=(this.target[k]-this.camera[k])*(this.reduce?1:1-Math.exp(-6*dt));
@@ -275,8 +405,14 @@ export class WorldScene {
   const idx=CAST.indexOf(id.replace('agent_',''));if(idx<0)return;
   const f=this.frames[idx];const scale=.84+(a.y-320)/2100;const h=154*scale,w=h*f.w/f.h;
   const motion=a.replayMotion??a.card.motion;const bubble=this.bubbles.get(id);const talk=Boolean(bubble);const time=this.reduce?0:t;
-  const bounce=a.walking?Math.abs(Math.sin(time*8+a.phase))*3:Math.sin(time*1.8+a.phase)*.75;
-  const tilt=a.walking?Math.sin(time*8)*.025:talk?Math.sin(time*4+a.phase)*.018:motion==='listen'?Math.sin(time*2.5+a.phase)*.012:motion==='write'||motion==='work'?.025:0;
+  // REST/idle read as visibly calmer than an active pose — a slower, smaller
+  // breathing sway instead of the default idle motion — while walking,
+  // conversing (listen) and researching (work) keep their own distinct
+  // rhythm below. No new assets: same static frame throughout, only the
+  // sway/tilt parameters change.
+  const resting=motion==='rest'||motion==='idle';
+  const bounce=a.walking?Math.abs(Math.sin(time*8+a.phase))*3:resting?Math.sin(time*.9+a.phase)*.35:Math.sin(time*1.8+a.phase)*.75;
+  const tilt=a.walking?Math.sin(time*8)*.025:talk?Math.sin(time*4+a.phase)*.018:motion==='listen'?Math.sin(time*2.5+a.phase)*.012:motion==='work'?.025+Math.sin(time*3+a.phase)*.006:motion==='write'||motion==='post'?.025:motion==='think'?Math.sin(time*1.4+a.phase)*.01:0;
   c.save();c.translate(a.x,a.y);c.fillStyle='#050e0ba0';c.beginPath();c.ellipse(0,0,w*.4,8,0,0,Math.PI*2);c.fill();
   if(this.selected===id){c.strokeStyle=COLORS[idx];c.lineWidth=1.5;c.beginPath();c.ellipse(0,0,w*.55,12,0,0,Math.PI*2);c.stroke();}
   c.scale(a.face,1);c.rotate(tilt);c.drawImage(this.atlas,f.x,f.y,f.w,f.h,-w/2,-h-bounce,w,h);c.restore();
@@ -287,18 +423,26 @@ export class WorldScene {
   const scale=.84+(a.y-320)/2100,h=154*scale,w=h*this.frames[idx].w/this.frames[idx].h;
   const fontSize=Math.max(14,12/this.scale);c.font=`500 ${fontSize}px system-ui`;const tw=c.measureText(a.card.name).width;
   c.fillStyle='#10211de0';c.beginPath();c.roundRect(a.x-tw/2-9,a.y+11,tw+18,23,4);c.fill();c.fillStyle=COLORS[idx];c.textAlign='center';c.fillText(a.card.name,a.x,a.y+27);
-  if(a.thoughtUntil>performance.now()||a.findingUntil>performance.now()||a.founderUntil>performance.now()||a.card.current_research_id||a.card.motion==='message'){
-   const icon=a.founderUntil>performance.now()?'✉':a.findingUntil>performance.now()?'◇':a.card.current_research_id?'⌕':a.card.motion==='message'?'✉':'○';
+  const now=performance.now();
+  if(a.thoughtUntil>now||a.findingUntil>now||a.founderUntil>now||a.rabbitHoleUntil>now||a.card.current_research_id||a.card.motion==='message'){
+   const icon=a.founderUntil>now?'✉':a.findingUntil>now?'◇':a.rabbitHoleUntil>now?'◈':a.card.current_research_id?'⌕':a.card.motion==='message'?'✉':'○';
    c.fillStyle='#cee5cd';c.font='24px Georgia';c.fillText(icon,a.x+w/2+10,a.y-h+22);
   }
  }
  drawWall(c){
+  const now=performance.now();
   const colors={QUESTION:'#ddd4a8',FINDING:'#dfc998',SOURCE:'#a8c1ac',HYPOTHESIS:'#bac6b2',DISAGREEMENT:'#c99078',CONNECTION:'#9bc8bc',MYSTERY:'#beb2c7'};
   for(const [i,p]of (this.snapshot?.wall??[]).slice(0,12).entries()){
-   const x=962+(i%4)*44,y=103+Math.floor(i/4)*36;c.save();c.translate(x,y);c.rotate((i%3-1)*.04);c.fillStyle=colors[p.post_type]??'#dac49a';c.fillRect(0,0,36,28);c.fillStyle='#66563e';c.beginPath();c.arc(18,3,1.8,0,7);c.fill();c.restore();this.hit.push({kind:'post',post:p,x,y,w:36,h:28});
+   const x=962+(i%4)*44,y=103+Math.floor(i/4)*36;
+   const pulse=this.pulses.get(`wall:${p.id}`);
+   if(pulse&&pulse.until>now){const k=(pulse.until-now)/PULSE_MS;c.save();c.strokeStyle=`rgba(240,229,205,${.25+k*.5})`;c.lineWidth=2+k*2;c.strokeRect(x-4-k*3,y-4-k*3,44+(k*6),36+(k*6));c.restore();}
+   c.save();c.translate(x,y);c.rotate((i%3-1)*.04);c.fillStyle=colors[p.post_type]??'#dac49a';c.fillRect(0,0,36,28);c.fillStyle='#66563e';c.beginPath();c.arc(18,3,1.8,0,7);c.fill();c.restore();this.hit.push({kind:'post',post:p,x,y,w:36,h:28});
   }
   for(const[i,h]of(this.snapshot?.holes??[]).slice(0,8).entries()){
-   const x=1181+(i%2)*30,y=145+Math.floor(i/2)*21;c.fillStyle={HOT:'#d89069',NEW:'#d9ceac',ACTIVE:'#98beaa',COOLING:'#a3b8bf',DORMANT:'#7c8176',RESOLVED:'#9aaf72',ABANDONED:'#706c64'}[h.status]??'#a9b7a1';c.fillRect(x,y,23,15);this.hit.push({kind:'hole',id:h.id,x,y,w:23,h:15});
+   const x=1181+(i%2)*30,y=145+Math.floor(i/2)*21;
+   const pulse=this.pulses.get(`hole:${h.id}`);
+   if(pulse&&pulse.until>now){const k=(pulse.until-now)/PULSE_MS;c.save();c.strokeStyle=`rgba(240,229,205,${.25+k*.5})`;c.lineWidth=2+k*2;c.strokeRect(x-3-k*2,y-3-k*2,23+(k*4),15+(k*4));c.restore();}
+   c.fillStyle={HOT:'#d89069',NEW:'#d9ceac',ACTIVE:'#98beaa',COOLING:'#a3b8bf',DORMANT:'#7c8176',RESOLVED:'#9aaf72',ABANDONED:'#706c64'}[h.status]??'#a9b7a1';c.fillRect(x,y,23,15);this.hit.push({kind:'hole',id:h.id,x,y,w:23,h:15});
   }
  }
  drawAmbience(c,t){

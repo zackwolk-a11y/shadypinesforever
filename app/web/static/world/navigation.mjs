@@ -16,6 +16,10 @@ export const ZONES={
   front_door:{label:'Front door',spots:[[210,340],[245,380],[170,380],[210,430],[290,345],[160,435],[305,410],[275,465]]},
   back_door:{label:'Back door',spots:[[1290,350],[1240,390],[1180,375],[1270,430],[1160,425],[1090,380],[1350,360],[1310,470]]},
   performance_corner:{label:'Listening corner',spots:[[120,625],[120,730],[145,835],[205,910],[290,915],[345,945],[405,935],[475,920]]},
+  // Presentation-only staging spot near the Rabbit Holes board plaque —
+  // no backend location by this name exists; this exists purely so a
+  // RABBIT_HOLE_* event has somewhere physical to walk an agent to.
+  rabbit_holes:{label:'Rabbit Holes board',spots:[[1170,355],[1230,372],[1190,412],[1250,406],[1210,340],[1140,397],[1258,352],[1200,378]]},
 };
 export const OBSTACLES=[{x:640,y:480,w:350,h:110},{x:150,y:625,w:420,h:130}];
 const blocked=(x,y)=>OBSTACLES.some(o=>x>o.x-12&&x<o.x+o.w+12&&y>o.y-12&&y<o.y+o.h+12);
