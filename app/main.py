@@ -24,6 +24,7 @@ from app.services.orchestrator import run_next_event
 from app.web.api import router as fishbowl_api_router
 from app.web.control import router as fishbowl_control_router
 from app.web.pages import router as fishbowl_pages_router
+from app.web.world import router as world_router
 
 app = FastAPI(
     title="The Internal Village",
@@ -40,6 +41,7 @@ app.mount(
 app.include_router(fishbowl_pages_router)
 app.include_router(fishbowl_api_router)
 app.include_router(fishbowl_control_router)
+app.include_router(world_router)
 
 
 @app.on_event("startup")

@@ -341,6 +341,7 @@ def get_agent_card(session: Session, agent: Agent) -> AgentCard:
         status=_agent_status_label(agent, conversation, research),
         current_location=agent.current_location,
         current_activity=agent.current_activity,
+        interaction_target=agent.interaction_target,
         conversation_id=conversation.id if conversation else None,
         conversation_partners=_conversation_partners(conversation, agent.agent_id),
         current_research_id=research.research_id if research else None,

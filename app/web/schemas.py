@@ -70,6 +70,7 @@ class AgentCard(BaseModel):
     status: str
     current_location: str | None = None
     current_activity: str | None = None
+    interaction_target: str | None = None
     conversation_id: int | None = None
     conversation_partners: list[ConversationPartner] = []
     current_research_id: str | None = None
