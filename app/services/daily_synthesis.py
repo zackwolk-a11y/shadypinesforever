@@ -459,7 +459,7 @@ def gather_facts(session: Session, day: int, settings: Settings) -> DailyFacts:
                 FactItem(
                     kind="founder_message", ref_id=str(message.id),
                     text=message.content[:280],
-                    classification=FindingClassification.FACT.value, score=90.0,
+                    classification=FindingClassification.SIMULATION_EVENT.value, score=90.0,
                 )
             )
     facts.founder_messages = founder_items
