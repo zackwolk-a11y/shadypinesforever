@@ -1,9 +1,30 @@
 import {W,H,ZONES,allocate,route} from './navigation.mjs';
-import {MOTIONS} from './adapter.mjs';
+import {MOTIONS,agentLabelParts} from './adapter.mjs';
 export const CAST=['optimisto','vince','questauthor','alien','sol','roxy','dex','lucid'];
 export const COLORS=['#cec298','#b98060','#d3ad56','#91bcb1','#c18785','#e0b450','#8fa9bd','#b4be93'];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const short=(s,n=86)=>s.length>n?s.slice(0,n-1).trimEnd()+'…':s;
+// On-screen width cap (CSS px) for every per-resident text pill. Converted
+// to world units at the current scale by the caller, so a pill is bounded
+// on screen no matter the zoom. Sized so that even four residents sharing
+// one zone (the espresso-counter case) keep mostly-separated labels; the
+// full untruncated text is always still one click away in the detail sheet.
+export const LABEL_MAX_SCREEN_PX=128;
+// Largest leading slice of `text` (with a trailing ellipsis when anything
+// was dropped) whose rendered width fits `maxW`, using the real font
+// currently set on `c`. Never returns raw text wider than maxW, so the
+// pill built around it stays bounded and the glyphs never spill past it.
+// Deterministic: pure function of (measureText, text, maxW).
+export const clampText=(c,text,maxW)=>{
+  const s=String(text??'');
+  if(c.measureText(s).width<=maxW)return s;
+  let lo=0,hi=s.length;
+  while(lo<hi){
+    const mid=Math.ceil((lo+hi)/2);
+    if(c.measureText(s.slice(0,mid).trimEnd()+'…').width<=maxW)lo=mid;else hi=mid-1;
+  }
+  return s.slice(0,lo).trimEnd()+'…';
+};
 const loadImage=src=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error('The clubhouse artwork could not load.'));image.src=src;});
 // Clipped original artwork is reused as an occluder; no duplicate furniture texture.
 const OCCLUDERS=[
@@ -36,6 +57,11 @@ const PULSE_MS=2500;
 const PASSTHROUGH_TYPES=new Set([
  'AGENT_WOKE','CONVERSATION_MESSAGE','CONVERSATION_ENDED','SEARCH_EXECUTED','SOURCE_DISCOVERED',
 ]);
+// Founder-message screen tint: a constant, non-fading alpha under reduced
+// motion; the normal fade-with-remain otherwise. Pulled out as a pure
+// export so this one decorative computation can be checked directly,
+// without mocking the whole canvas draw() surface it lives inside.
+export const founderTintAlpha=(reduce,remain)=>reduce?.03:.06*remain;
 export class WorldScene {
  constructor(canvas,onSelect){
   this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.onSelect=onSelect;
@@ -49,6 +75,10 @@ export class WorldScene {
   // the backend. `replayDone`/`replayTotal` back the "Replaying N of M"
   // indicator world.mjs renders.
   this.queue=[];this.playing=null;this.speed=1;this.replayDone=0;this.replayTotal=0;
+  // Pause/resume for the replay queue ONLY — see pauseReplay()/resumeReplay()
+  // below. Never touches the backend or the poll() that keeps fetching
+  // persisted events; it only stops advanceQueue() from being called.
+  this.replayPaused=false;this.pauseStartedAt=null;
   // Temporary highlight timers for Research Wall cards / Rabbit Hole
   // markers, keyed 'wall:<id>' / 'hole:<id>' — set only when a real
   // RESEARCH_WALL_POSTED/FINDING_SHARED/RABBIT_HOLE_* event for that exact
@@ -73,7 +103,30 @@ export class WorldScene {
    frames.push({x:sx+left,y:sy+top,w:right-left+1,h:bottom-top+1});
   }return frames;
  }
- resize(){this.width=innerWidth;this.height=innerHeight;const dpr=Math.min(devicePixelRatio||1,2);this.dpr=dpr;this.canvas.width=Math.round(this.width*dpr);this.canvas.height=Math.round(this.height*dpr);this.baseScale=Math.min((this.width>900?this.width-230:this.width)/W,(this.height-145)/H);}
+ resize(){
+  this.width=innerWidth;this.height=innerHeight;
+  const dpr=Math.min(devicePixelRatio||1,2);this.dpr=dpr;
+  this.canvas.width=Math.round(this.width*dpr);this.canvas.height=Math.round(this.height*dpr);
+  // The clubhouse is the primary content: it should COVER the usable frame,
+  // not politely fit inside it with dark margins. The usable frame is the
+  // viewport minus the gutters the UI genuinely needs — and the roster only
+  // costs horizontal space while it is docked (>=1200px); below that it is
+  // a slide-in drawer (see world.css / world.mjs) and the room takes the
+  // width back. Masthead + bottom bar fade to transparent, so the room
+  // slides under them and only a slim clearance is reserved.
+  this.rosterDocked=this.width>=1200;
+  const gx0=this.rosterDocked?202:22,gx1=22;
+  const gy0=this.height<720?70:90,gy1=this.height<720?78:96;
+  this.roomBox={x:gx0,y:gy0,w:this.width-gx0-gx1,h:this.height-gy0-gy1};
+  // Uniform scale — aspect ratio is never distorted. Grow to a full cover of
+  // the frame, capped so no more than ~14% is ever cropped off the two
+  // horizontal edges (every zone's residents stay on screen). The vertical
+  // may crop further: the room art carries generous decorative slack above
+  // the action, and draw() steers that crop to the top.
+  const cover=Math.max(this.roomBox.w/W,this.roomBox.h/H);
+  const horizCap=(this.roomBox.w+W*0.14)/W;
+  this.baseScale=Math.min(cover,horizCap);
+ }
  zoom(factor){this.target.zoom=clamp(this.target.zoom*factor,.65,2.6);}
  reset(){this.follow=null;this.target={x:768,y:515,zoom:1};}
  center(id){const a=this.residents.get(id);if(a){this.selected=id;this.target.x=a.x;this.target.y=a.y-120;this.target.zoom=1.45;}}
@@ -124,8 +177,24 @@ export class WorldScene {
  }
  // --- Visual event queue -------------------------------------------------
  isReplaying(){return this.queue.length>0||this.playing!=null;}
- replayStatus(){return {active:this.isReplaying(),done:this.replayDone,total:this.replayTotal};}
+ replayStatus(){return {active:this.isReplaying(),done:this.replayDone,total:this.replayTotal,paused:this.replayPaused};}
  setSpeed(n){this.speed=n;}
+ // Freezes/resumes ONLY advanceQueue()'s consumption of the already-fetched,
+ // already-persisted event queue — poll() keeps fetching on its own timer
+ // throughout, and nothing here ever reaches the backend. Resuming
+ // compensates the in-flight item's holdStart by exactly the paused
+ // duration, so a hold that was already under way keeps its full remaining
+ // dwell instead of being treated as elapsed the moment the tab was paused.
+ pauseReplay(){
+  if(this.replayPaused)return;
+  this.replayPaused=true;this.pauseStartedAt=performance.now();
+ }
+ resumeReplay(){
+  if(!this.replayPaused)return;
+  const delta=performance.now()-this.pauseStartedAt;
+  this.pauseStartedAt=null;this.replayPaused=false;
+  if(this.playing&&this.playing.phase==='holding')this.playing.holdStart+=delta;
+ }
  enqueue(events){
   if(!events?.length)return;
   if(!this.isReplaying()){this.replayDone=0;this.replayTotal=0;}
@@ -327,6 +396,7 @@ export class WorldScene {
   }
  }
  advanceQueue(now){
+  if(this.replayPaused)return;
   const wasReplaying=this.isReplaying();
   if(!this.playing){
    if(!this.queue.length)return;
@@ -349,7 +419,7 @@ export class WorldScene {
  }
  skipToLive(){
   this.queue=[];this.playing=null;this.replayDone=0;this.replayTotal=0;
-  this.speed=1;
+  this.speed=1;this.replayPaused=false;this.pauseStartedAt=null;
   if(!this.snapshot)return;
   this.slots=allocate(this.snapshot.agents,this.slots);
   for(const card of this.snapshot.agents){
@@ -380,25 +450,41 @@ export class WorldScene {
  }
  draw(t){
   const c=this.ctx,d=this.dpr;c.setTransform(d,0,0,d,0,0);c.fillStyle='#101d1b';c.fillRect(0,0,this.width,this.height);
-  this.scale=this.baseScale*this.camera.zoom;const bias=this.width>900?90:0;
-  this.offsetX=this.width/2+bias-this.camera.x*this.scale;this.offsetY=this.height/2+12-this.camera.y*this.scale;
+  this.scale=this.baseScale*this.camera.zoom;
+  // Centre the room in the usable frame (frame.x already accounts for the
+  // docked roster). Any vertical overflow from the cover-scale is steered
+  // mostly to the top, where the room art has decorative slack, so the
+  // action band and the recording desk stay in view.
+  const f=this.roomBox,cropY=Math.max(0,H*this.scale-f.h);
+  this.offsetX=f.x+f.w/2-this.camera.x*this.scale;
+  this.offsetY=f.y+f.h/2+12-this.camera.y*this.scale-cropY*0.42;
   c.translate(this.offsetX,this.offsetY);c.scale(this.scale,this.scale);this.hit=[];
   c.drawImage(this.room,0,0,W,H);
   const period=this.snapshot?.dashboard.clock.period??'NIGHT';
   // Color grade only. Weather is never inferred.
   c.fillStyle={MORNING:'#edca7909',RESEARCH:'#243d420d',AFTERNOON:'#e2d5960b',EVENING:'#4b251923',NIGHT:'#04132642'}[period]??'#04132622';c.fillRect(0,0,W,H);
-  if(this.founderCueUntil>performance.now()){c.fillStyle=`rgba(160,211,188,${.06*(this.founderCueUntil-performance.now())/3000})`;c.fillRect(0,0,W,H);}
+  if(this.founderCueUntil>performance.now()){const remain=(this.founderCueUntil-performance.now())/3000;c.fillStyle=`rgba(160,211,188,${founderTintAlpha(this.reduce,remain)})`;c.fillRect(0,0,W,H);}
+  // --- Environment / location signage -----------------------------------
+  // These plaques are signposted INTO the room: they belong to the
+  // environment layer, below the pinned Research-Wall cards, below the
+  // conversation lines, and — critically — below the depth-sorted resident
+  // sprites and every piece of character UI. A resident walking in front of
+  // the Research Wall / Rabbit Holes must occlude the sign, not float
+  // behind it. They still register their click targets here; because a
+  // resident's hit region is pushed later in the frame it now wins the
+  // reverse hit-test, so clicking a resident standing on a sign selects the
+  // resident. (Previously these were drawn last, on top of everyone.)
+  this.plaque(c,1045,258,'RESEARCH WALL',{kind:'wall'});
+  this.plaque(c,1210,261,'RABBIT HOLES',{kind:'holes'});
+  if(this.snapshot?.conversations.length)this.plaque(c,800,620,`${this.snapshot.conversations.length} CONVERSATION${this.snapshot.conversations.length===1?'':'S'}`,{kind:'conversations'});
   this.drawWall(c);
+  this.drawConnections(c,performance.now());
   const layers=[...this.residents.entries()].map(([id,a])=>({depth:a.y,draw:()=>this.drawResident(c,id,a,t)}));
   for(const o of OCCLUDERS)layers.push({depth:o.depth,draw:()=>{c.save();c.beginPath();o.points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.clip();c.drawImage(this.room,0,0,W,H);c.restore();}});
   layers.sort((a,b)=>a.depth-b.depth).forEach(l=>l.draw());
   this.drawAmbience(c,this.reduce?0:t);
   for(const [id,a]of this.residents)this.drawLabel(c,id,a);
   for(const [id,b]of [...this.bubbles].slice(-3)){const a=this.residents.get(id);if(a)this.drawBubble(c,a,b);}
-  // Furniture labels are physical interaction targets, not invented wall content.
-  this.plaque(c,1045,258,'RESEARCH WALL',{kind:'wall'});
-  this.plaque(c,1210,261,'RABBIT HOLES',{kind:'holes'});
-  if(this.snapshot?.conversations.length)this.plaque(c,800,620,`${this.snapshot.conversations.length} CONVERSATION${this.snapshot.conversations.length===1?'':'S'}`,{kind:'conversations'});
   const vignette=c.createRadialGradient(768,500,340,768,500,1000);vignette.addColorStop(0,'#00100a00');vignette.addColorStop(1,'#07161080');c.fillStyle=vignette;c.fillRect(0,0,W,H);
  }
  drawResident(c,id,a,t){
@@ -421,13 +507,104 @@ export class WorldScene {
  drawLabel(c,id,a){
   const idx=CAST.indexOf(id.replace('agent_',''));if(idx<0)return;
   const scale=.84+(a.y-320)/2100,h=154*scale,w=h*this.frames[idx].w/this.frames[idx].h;
-  const fontSize=Math.max(14,12/this.scale);c.font=`500 ${fontSize}px system-ui`;const tw=c.measureText(a.card.name).width;
-  c.fillStyle='#10211de0';c.beginPath();c.roundRect(a.x-tw/2-9,a.y+11,tw+18,23,4);c.fill();c.fillStyle=COLORS[idx];c.textAlign='center';c.fillText(a.card.name,a.x,a.y+27);
+  // Every pill's text is clamped to this world width — a fixed on-screen
+  // cap divided by the current scale — so no label (name, status, or
+  // activity) can grow unbounded or reach across a neighbouring resident,
+  // at any zoom.
+  const maxLabelW=LABEL_MAX_SCREEN_PX/this.scale;
+  // Cascade: when residents share a zone their label stacks would pile on
+  // the same pixels. Group by the persisted current_location (falling back
+  // to on-screen proximity when a location is absent), order left-to-right
+  // with an id tiebreak so it is stable frame to frame, and step each
+  // successive label in the group down by a row — the cluster then reads as
+  // a staircase instead of a heap. Presentation-only: the grouping key and
+  // positions are all existing state; nothing here moves an agent or writes
+  // anything back.
+  const zone=a.card?.current_location;
+  const cohort=[...this.residents.entries()].filter(([,o])=>zone!=null
+    ? o.card?.current_location===zone
+    : Math.abs(o.x-a.x)<maxLabelW*0.85&&Math.abs(o.y-a.y)<80);
+  const rank=cohort.filter(([oid,o])=>o.x<a.x||(o.x===a.x&&oid<id)).length;
+  const ny=a.y+rank*22;
+  const fontSize=Math.max(14,12/this.scale);c.font=`500 ${fontSize}px system-ui`;
+  const nameText=clampText(c,a.card.name,maxLabelW);const tw=c.measureText(nameText).width;
+  c.fillStyle='#10211de0';c.beginPath();c.roundRect(a.x-tw/2-9,ny+11,tw+18,23,4);c.fill();c.fillStyle=COLORS[idx];c.textAlign='center';c.fillText(nameText,a.x,ny+27);
+  // What to show under this resident is decided by agentLabelParts()
+  // (adapter.mjs): `state` is the concise status line, always drawn;
+  // `detail` is the activity line and is null whenever it would only
+  // restate `state` (case/whitespace-insensitive), so a resident whose
+  // status and activity say the same thing gets ONE pill, not two stacked
+  // copies of the same sentence. Both strings are a literal pretty() of
+  // persisted AgentCard fields — the backend precedence in
+  // _agent_status_label() (app/web/reads.py) for `state`, current_activity
+  // for `detail` — nothing invented or reworded here.
+  const {state,detail}=agentLabelParts(a.card);
+  const statusFontSize=Math.max(11,10/this.scale);c.font=`${statusFontSize}px system-ui`;
+  const statusText=clampText(c,state,maxLabelW);const sw=c.measureText(statusText).width;
+  c.fillStyle='#0e1c19cc';c.beginPath();c.roundRect(a.x-sw/2-8,ny+37,sw+16,19,4);c.fill();
+  c.fillStyle='#a9c9bb';c.fillText(statusText,a.x,ny+50);
+  // The activity-detail row is the most space-hungry and the least load-
+  // bearing, so in a cluster it is shown only for the selected resident —
+  // everyone else keeps name + state, and the full activity text is still
+  // one click away in the detail sheet.
+  if(detail&&(cohort.length<2||this.selected===id)){
+   const activityFontSize=Math.max(10,9/this.scale);c.font=`${activityFontSize}px system-ui`;
+   const activityText=clampText(c,detail,maxLabelW);const aw=c.measureText(activityText).width;
+   c.fillStyle='#0e1c19a8';c.beginPath();c.roundRect(a.x-aw/2-7,ny+58,aw+14,17,4);c.fill();
+   c.fillStyle='#7fa393';c.fillText(activityText,a.x,ny+70);
+  }
   const now=performance.now();
   if(a.thoughtUntil>now||a.findingUntil>now||a.founderUntil>now||a.rabbitHoleUntil>now||a.card.current_research_id||a.card.motion==='message'){
    const icon=a.founderUntil>now?'✉':a.findingUntil>now?'◇':a.rabbitHoleUntil>now?'◈':a.card.current_research_id?'⌕':a.card.motion==='message'?'✉':'○';
    c.fillStyle='#cee5cd';c.font='24px Georgia';c.fillText(icon,a.x+w/2+10,a.y-h+22);
   }
+ }
+ // Groups of agent_ids to connect this frame — every group traces straight
+ // back to a real persisted Conversation row, never a guess from proximity
+ // or activity text. Two sources, both already-fetched/real:
+ //  - snapshot.conversations: ConversationDetail.participants for every
+ //    currently non-ENDED conversation (Packet 12's `/conversations` read).
+ //  - the in-flight replay item's `actors`, but only while it's a 'gather'
+ //    (CONVERSATION_STARTED/CONVERSATION_JOINED — see beginItem() above),
+ //    whose actors already came straight from that event's own payload.
+ activeConversationGroups(){
+  const groups=[];const seen=new Set();
+  for(const c of this.snapshot?.conversations??[]){
+   const ids=(c.participants??[]).map(p=>p.agent_id).filter(id=>this.residents.has(id));
+   if(ids.length<2)continue;
+   const key=ids.slice().sort().join(',');if(seen.has(key))continue;
+   seen.add(key);groups.push(ids);
+  }
+  if(this.playing?.kind==='gather'&&this.playing.phase==='holding'){
+   const ids=this.playing.actors.filter(id=>this.residents.has(id));
+   const key=ids.slice().sort().join(',');
+   if(ids.length>1&&!seen.has(key)){seen.add(key);groups.push(ids);}
+  }
+  return groups;
+ }
+ // Transient — drawn only for the frames where a real conversation grouping
+ // exists (see activeConversationGroups()); it disappears the moment that
+ // conversation ends/isn't reported active, unlike the persistent per-agent
+ // status chip in drawLabel(). The gentle pulse is presentation-only, same
+ // as the wall/rabbit-hole glows below.
+ drawConnections(c,now){
+  const groups=this.activeConversationGroups();
+  if(!groups.length)return;
+  const pulse=this.reduce?.5:.5+Math.sin(now/260)*.22;
+  c.save();c.lineWidth=2.2/this.scale;c.strokeStyle=`rgba(230,212,158,${pulse})`;c.lineCap='round';
+  for(const ids of groups){
+   const points=ids.map(id=>this.residents.get(id)).filter(Boolean);
+   if(points.length<2)continue;
+   if(points.length<=3){
+    for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++){
+     c.beginPath();c.moveTo(points[i].x,points[i].y-70);c.lineTo(points[j].x,points[j].y-70);c.stroke();
+    }
+   }else{
+    const cx=points.reduce((s,p)=>s+p.x,0)/points.length,cy=points.reduce((s,p)=>s+p.y,0)/points.length-70;
+    for(const p of points){c.beginPath();c.moveTo(p.x,p.y-70);c.lineTo(cx,cy);c.stroke();}
+   }
+  }
+  c.restore();
  }
  drawWall(c){
   const now=performance.now();

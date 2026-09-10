@@ -1,26 +1,53 @@
 import {VillageAdapter,get,API,pretty} from './adapter.mjs';
 import {WorldScene,CAST,COLORS} from './scene.mjs';
 import {ZONES} from './navigation.mjs';
+import {freshness,freshnessLine} from './freshness.mjs';
 const $=id=>document.getElementById(id);
 const adapter=new VillageAdapter();let snapshot=null,busy=false,polling=false,pendingPoll=false,selected=null,detailGeneration=0,toastTimer;
+// Freshness inputs — real read-request outcomes and the receipt time of
+// the last fully successful snapshot. Nothing here is ever derived from
+// Village data, and none of it is faked when a request fails.
+let lastSnapshotAt=null,lastPollOk=false,consecutiveFailures=0;
 const scene=new WorldScene($('world'),select);
 const element=(tag,text,cls)=>{const el=document.createElement(tag);if(text!=null)el.textContent=text;if(cls)el.className=cls;return el;};
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,7000);}
 function setControls(){document.querySelectorAll('[data-control],#message-form button[type=submit]').forEach(b=>b.disabled=busy||!snapshot||scene.stale);$('pause').hidden=Boolean(snapshot?.dashboard.clock.is_paused);$('resume').hidden=!snapshot?.dashboard.clock.is_paused;}
+// The visible data-freshness / connection status. Derived ONLY from real
+// Fishbowl read outcomes (lastPollOk / consecutiveFailures) and the time
+// of the last good snapshot (lastSnapshotAt) — never from Village data,
+// and never faked. A non-fresh verdict also freezes the scene and the
+// founder controls so the visitor cannot act on a room that isn't live.
+function renderFreshness(){
+ const verdict=freshness({now:Date.now(),lastSnapshotAt,lastPollOk,consecutiveFailures});
+ document.body.dataset.freshness=verdict.state;
+ document.body.dataset.stale=String(verdict.state!=='fresh');
+ scene.stale=verdict.state!=='fresh';
+ const c=$('connection');c.textContent=freshnessLine(verdict);c.dataset.state=verdict.state;
+ setControls();
+ return verdict;
+}
 async function poll(){
  if(document.hidden)return;
  if(polling){pendingPoll=true;return;}
  polling=true;
  try{
-  const next=await adapter.poll();snapshot=next;scene.apply(next);document.body.dataset.stale='false';
-  const {clock,providers}=next.dashboard;$('clock').textContent=`DAY ${clock.day} · ${clock.period}${clock.is_paused?' · PAUSED':''}`;
-  const live=providers.llm_is_live||providers.research_is_live;
-  $('connection').textContent=`${live?'Connected to Village':'Fixture preview · test data'} · updated ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+  const next=await adapter.poll();snapshot=next;scene.apply(next);
+  // A fully successful read: this is the only place lastSnapshotAt is set.
+  lastSnapshotAt=Date.now();lastPollOk=true;consecutiveFailures=0;
+  const {clock,providers}=next.dashboard;const live=providers.llm_is_live||providers.research_is_live;
+  $('clock').textContent=`DAY ${clock.day} · ${clock.period}${clock.is_paused?' · PAUSED':''} · ${live?'live Village':'fixture data'}`;
+  renderFreshness();
   $('load-state').hidden=true;renderRoster();
   if(next.events[0])$('last-event').textContent=next.events[0].headline;
   if(next.newEvents.some(e=>/BELIEF_REVISED|BELIEF_UPDATED/.test(e.event_type)))toast('A resident revised a belief. Open their details to read the change.');
   if(next.newEvents.some(e=>e.event_type==='FOUNDER_MESSAGE_DELIVERED'))sound.cue();
- }catch(e){scene.stale=true;document.body.dataset.stale='true';$('connection').textContent='Connection interrupted · retrying';if(!snapshot){$('load-state').textContent=e.message;$('load-state').hidden=false;}}
+ }catch(e){
+  // A failed read never substitutes or invents Village activity: the last
+  // good snapshot and the scene are left exactly as they were, and only
+  // the freshness verdict is downgraded (fresh -> stale -> unavailable).
+  lastPollOk=false;consecutiveFailures++;renderFreshness();
+  if(!snapshot){$('load-state').textContent=e.message;$('load-state').hidden=false;}
+ }
  finally{polling=false;setControls();if(pendingPoll){pendingPoll=false;queueMicrotask(poll);}}
 }
 let rosterSignature='';
@@ -30,7 +57,7 @@ function renderRoster(){
  $('resident-count').textContent=String(snapshot.agents.length).padStart(2,'0');
  for(const a of snapshot.agents){const i=CAST.indexOf(a.agent_id.replace('agent_',''));const b=element('button');b.style.setProperty('--resident-color',COLORS[i]??'#bcc7a2');
   const dot=element('span',null,'portrait-dot'),wrap=element('span');wrap.append(element('span',a.name,'resident-name'),element('span',ZONES[a.visual_location]?.label??'Location unavailable','resident-location'),element('span',pretty(a.current_activity)||'quiet','resident-activity'));
-  b.append(dot,wrap);b.title=`${a.name} · ${pretty(a.current_activity)||'quiet'} · ${a.current_location??'location unavailable'}`;b.onclick=()=>select({kind:'agent',id:a.agent_id});$('roster').append(b);$('recipient').append(new Option(a.name,a.agent_id));
+  b.append(dot,wrap);b.title=`${a.name} · ${pretty(a.current_activity)||'quiet'} · ${a.current_location??'location unavailable'}`;b.onclick=()=>{select({kind:'agent',id:a.agent_id});setRosterOpen(false);};$('roster').append(b);$('recipient').append(new Option(a.name,a.agent_id));
  }$('recipient').value=recipientValue;
 }
 function link(parent,text,path){const a=element('a',text,'detail-link');a.href='/fishbowl/'+path;parent.append(a);}
@@ -128,22 +155,52 @@ for(const b of document.querySelectorAll('.speed-btn'))b.onclick=()=>{
  for(const x of document.querySelectorAll('.speed-btn'))x.setAttribute('aria-pressed',String(x===b));
 };
 $('skip-live').onclick=()=>scene.skipToLive();
+// Pauses/resumes ONLY this tab's consumption of the already-persisted
+// replay queue (scene.pauseReplay()/resumeReplay()) — the backend has
+// already finished running, and poll() keeps fetching on its own timer
+// throughout, paused or not.
+function syncReplayPause(){
+ const paused=scene.replayPaused;
+ $('replay-pause').setAttribute('aria-pressed',String(paused));
+ $('replay-pause').textContent=paused?'Resume replay':'Pause replay';
+}
+$('replay-pause').onclick=()=>{
+ if(scene.replayPaused)scene.resumeReplay();else scene.pauseReplay();
+ syncReplayPause();
+};
 // A light, independent ticker (not tied to the 2s network poll) so
 // "Replaying N of M" advances smoothly as the queue drains between polls.
 setInterval(()=>{
  const rs=scene.replayStatus();
  $('replay-bar').hidden=!rs.active;
- if(rs.active)$('replay-status').textContent=`Replaying ${rs.done} of ${rs.total}`;
+ if(rs.active)$('replay-status').textContent=`Replaying ${rs.done} of ${rs.total}`+(rs.paused?' — paused':'');
+ syncReplayPause();
 },200);
 // Read-only introspection for tests/tools — never written to by the page.
 window.__world={scene,adapter};
+// Roster drawer — only interactive below the 1200px CSS breakpoint, where
+// the docked roster would otherwise steal width from the clubhouse. Above
+// it the toggle/scrim are display:none and this is inert. The eight
+// residents stay reachable either way (docked list or drawer list).
+function setRosterOpen(open){
+ document.body.classList.toggle('roster-open',open);
+ $('roster-toggle').setAttribute('aria-expanded',String(open));
+ $('roster-scrim').hidden=!open;
+}
+$('roster-toggle').onclick=()=>setRosterOpen(!document.body.classList.contains('roster-open'));
+$('roster-scrim').onclick=()=>setRosterOpen(false);
 $('close-detail').onclick=()=>{$('details').close();detailGeneration++;};
 $('follow').onclick=()=>{if(selected?.kind==='agent'){scene.follow=scene.follow===selected.id?null:selected.id;$('follow').textContent=scene.follow?'Stop following':'Follow resident';}};
 $('message-open').onclick=()=>$('message-dialog').showModal();$('cancel-message').onclick=()=>$('message-dialog').close();
 $('message-form').onsubmit=e=>{e.preventDefault();control('founder-message',false,{content:$('message').value,target_agent_id:$('recipient').value||null});};
 $('cancel-day').onclick=()=>$('day-dialog').close();$('confirm-day').onclick=()=>{$('day-dialog').close();control('run-day',true);};
 for(const b of document.querySelectorAll('[data-control]'))b.onclick=()=>control(b.dataset.control);
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('details').open){$('details').close();detailGeneration++;}});
+window.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('details').open){$('details').close();detailGeneration++;}else if(document.body.classList.contains('roster-open'))setRosterOpen(false);});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
 setControls();
-try{await scene.start();await poll();setInterval(poll,2000);}catch(e){$('load-state').textContent=e.message;}
+try{await scene.start();await poll();setInterval(poll,2000);
+ // Independent of the 2s network poll so the verdict keeps aging — and can
+ // fall to "stale" then "unavailable" — even if polls stop arriving at all
+ // (e.g. the tab was backgrounded, or the engine went away mid-session).
+ setInterval(renderFreshness,3000);
+}catch(e){$('load-state').textContent=e.message;}

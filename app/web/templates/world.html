@@ -11,14 +11,17 @@
   <canvas id="world" aria-label="The clubhouse. Select a resident using the resident list, or drag to pan and scroll to zoom." tabindex="0"></canvas>
   <header class="mast">
     <a class="wordmark" href="/world/"><span>THE INTERNAL VILLAGE</span><strong>Shady Pines</strong><i>THE CLUBHOUSE</i></a>
-    <div class="top-right"><div id="clock">Connecting to the Village…</div><div id="connection" role="status">Waiting for the first update</div>
+    <div class="top-right"><div id="clock">Connecting to the Village…</div><div id="connection" role="status" aria-live="polite" data-state="unknown">Waiting for the first update</div>
       <div id="replay-bar" hidden aria-label="Event replay controls"><span id="replay-status" role="status">Replaying…</span>
+        <button id="replay-pause" aria-pressed="false">Pause replay</button>
         <button class="speed-btn" data-speed="1" aria-pressed="true">1x</button><button class="speed-btn" data-speed="2">2x</button><button class="speed-btn" data-speed="4">4x</button>
         <button id="skip-live">Skip to live</button>
       </div>
     <a href="/fishbowl/">Open Fishbowl ↗</a></div>
   </header>
+  <button id="roster-toggle" class="roster-toggle" aria-expanded="false" aria-controls="roster">Residents</button>
   <aside class="residents" aria-label="Residents"><div class="eyebrow">IN THE CLUBHOUSE <span id="resident-count"></span></div><div id="roster"></div></aside>
+  <div id="roster-scrim" hidden></div>
   <div id="load-state" role="status">Opening the clubhouse…</div>
   <div class="camera-tools" aria-label="Camera controls">
     <button id="zoom-out" aria-label="Zoom out">−</button><button id="reset">Reset view</button><button id="zoom-in" aria-label="Zoom in">+</button><button id="sound" aria-pressed="false">Sound off</button>

@@ -13,6 +13,42 @@ export const MOTIONS = {
   LEAVE_CONVERSATION:'idle', START_RESEARCH:'work', POST_TO_WALL:'post',
   READ_WALL_POST:'think', FORM_BELIEF:'think', REVISE_BELIEF:'think', CHALLENGE_CLAIM:'think',
 };
+// Compact current-activity text for one resident — reads ONLY
+// AgentCard.current_activity, never the conversation/research-aware
+// AgentCard.status precedence (see _agent_status_label() in
+// app/web/reads.py), so it stays a literal reflection of that one
+// persisted field. 'Unknown activity' covers both an absent value (null/
+// undefined/blank) and a malformed one (anything not a non-empty string) —
+// never invents or guesses a real activity.
+export function activityLabel(card) {
+  const raw = card?.current_activity;
+  if (typeof raw !== 'string' || !raw.trim()) return 'Unknown activity';
+  return pretty(raw);
+}
+// Normalize for equivalence testing only: fold every run of whitespace or
+// underscore to one space and trim. Case is already handled by pretty();
+// this additionally makes "reading  a book" / "reading_a_book " equivalent.
+const normLabel = value => String(value ?? '').replace(/[\s_]+/g, ' ').trim().toLowerCase();
+// What the scene should actually draw under one resident, given the two
+// persisted fields it has (AgentCard.status and AgentCard.current_activity):
+//   state  — the concise status/action line, always shown. pretty(status),
+//            or the literal 'idle' when status is absent/blank (same
+//            fallback the old inline chip used).
+//   detail — the activity line, shown ONLY when current_activity is a real
+//            value AND it is not just a case/whitespace-equivalent restatement
+//            of `state`. null the rest of the time, so a resident whose
+//            status and activity say the same thing gets one pill, not two.
+// Neither field is invented or reworded — both are a literal pretty() of
+// persisted state, exactly as before.
+export function agentLabelParts(card) {
+  const statusRaw = card?.status;
+  const state = (typeof statusRaw === 'string' && statusRaw.trim()) ? pretty(statusRaw) : 'idle';
+  const activity = activityLabel(card);
+  const detail = (activity !== 'Unknown activity' && normLabel(activity) !== normLabel(state))
+    ? activity
+    : null;
+  return {state, detail};
+}
 export function motionFor(card, event) {
   if (card.current_research_id) return 'work';
   // An event applies only while it is the backend's latest action, never forever.
