@@ -8,3 +8,4 @@ venv/
 *.sqlite3
 .env
 .pytest_cache/
+.director/control_room/
