@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Founder Reports{% endblock %}
+{% block content %}
+<h1>Founder Field Reports</h1>
+{% if reports %}
+  {% for r in reports %}
+  <div class="panel" style="cursor:pointer" onclick="location.href='/fishbowl/reports/{{ r.day_number }}'">
+    <div><strong>Day {{ r.day_number }}</strong> — {{ r.title }}
+      {% if not r.had_meaningful_activity %}<span class="badge badge--fixture">quiet day</span>{% endif %}
+      {% if r.is_fixture %}<span class="badge badge--fixture">FIXTURE</span>{% endif %}
+    </div>
+    <div class="muted">{{ r.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
+  </div>
+  {% endfor %}
+{% else %}<div class="empty">No Founder reports yet — reports are generated automatically at each day boundary.</div>{% endif %}
+{% endblock %}

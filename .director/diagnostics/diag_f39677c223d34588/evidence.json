@@ -1,0 +1,103 @@
+{
+  "question_1_participant_construction": {
+    "code": {
+      "start_morning_gathering_source": "def start_morning_gathering(\n    session: Session, clock: SimulationClock, *, correlation_id: str | None = None\n) -> Conversation:\n    \"\"\"Everyone in the room, no agenda.\n\n    Deliberately not \"generate one research topic each\": that produces exactly\n    the eight-silo behaviour the experiment is trying to avoid. Agents are asked\n    to participate naturally; whatever curiosity emerges is theirs.\n    \"\"\"\n    participants = list(session.scalars(select(Agent.agent_id).order_by(Agent.id)))\n    return start_conversation(\n        session,\n        trigger=ConversationTrigger.MORNING_GATHERING,\n        participant_ids=participants,\n        clock=clock,\n        correlation_id=correlation_id,\n    )\n\n\n#: Packet 7 (\u00a710): friends talking is baseline positive collaboration, so\n#: every exchange nudges trust up a little \u2014 small and capped, so it takes\n#: many conversations to move, never one.\n_CONVERSATION_TRUST_DELTA = 0.5\n_MAX_TRUST_SCORE = 100.0\n\n",
+      "morning_gathering_held_today_source": "def morning_gathering_held_today(session: Session, clock: SimulationClock) -> bool:\n    \"\"\"Whether the day's gathering has already happened.\"\"\"\n    return (\n        session.scalars(\n            select(Event.id)\n            .where(\n                Event.event_type == EventType.CONVERSATION_STARTED,\n                Event.sim_day == clock.current_day,\n            )\n            .limit(50)\n        ).all()\n        and session.scalars(\n            select(Event.id)\n            .where(\n                Event.event_type == EventType.CONVERSATION_STARTED,\n                Event.sim_day == clock.current_day,\n                Event.payload[\"trigger\"].as_string() == ConversationTrigger.MORNING_GATHERING.value,\n            )\n            .limit(1)\n        ).first()\n        is not None\n    )\n\n"
+    },
+    "live_agent_table_order_by_id": [
+      "agent_optimisto",
+      "agent_vince",
+      "agent_questauthor",
+      "agent_alien",
+      "agent_sol",
+      "agent_roxy",
+      "agent_dex",
+      "agent_lucid"
+    ],
+    "live_conversation_participant_orders": [
+      {
+        "id": 1,
+        "participant_ids": [
+          "agent_optimisto",
+          "agent_vince",
+          "agent_questauthor",
+          "agent_alien",
+          "agent_sol",
+          "agent_roxy",
+          "agent_dex",
+          "agent_lucid"
+        ],
+        "started_sim_day": 1
+      },
+      {
+        "id": 2,
+        "participant_ids": [
+          "agent_optimisto",
+          "agent_vince",
+          "agent_questauthor",
+          "agent_alien",
+          "agent_sol",
+          "agent_roxy",
+          "agent_dex",
+          "agent_lucid"
+        ],
+        "started_sim_day": 2
+      },
+      {
+        "id": 3,
+        "participant_ids": [
+          "agent_optimisto",
+          "agent_vince",
+          "agent_questauthor",
+          "agent_alien",
+          "agent_sol",
+          "agent_roxy",
+          "agent_dex",
+          "agent_lucid"
+        ],
+        "started_sim_day": 3
+      }
+    ],
+    "orders_identical_across_all_observed_conversations": true,
+    "conclusion_basis": "start_morning_gathering builds participant_ids via `select(Agent.agent_id).order_by(Agent.id)` every time it is called \u2014 Agent.id is each agent's fixed database primary key, assigned once at seeding and never reassigned. This query is structurally incapable of producing a different order across calls unless the agents table itself changes (an agent added/removed). The live data above shows the actual order this produces and whether the three observed gatherings match it exactly."
+  },
+  "question_2_invalid_decision_trace": {
+    "validate_decision_source": "def validate_decision(\n    decision: AgentDecision,\n    *,\n    agent: Agent,\n    present_agent_ids: tuple[str, ...],\n    in_conversation: bool = False,\n    open_conversation_id: int | None = None,\n    session: Session | None = None,\n    clock: SimulationClock | None = None,\n    settings: Settings | None = None,\n) -> None:\n    \"\"\"Semantic validation, after the schema has already been satisfied.\n\n    Schema validation proves the shape; this proves the decision refers to a\n    world that exists and stays within budget. The research budget check only\n    runs when ``session``/``clock``/``settings`` are supplied \u2014 callers that\n    only exercise non-research actions may omit them.\n    \"\"\"\n    if decision.location is not None and decision.location not in CLUBHOUSE_LOCATIONS:\n        raise DecisionRejected(\n            f\"location {decision.location!r} is not a clubhouse location\"\n        )\n\n    seen_singletons: set[ActionType] = set()\n    for action in decision.actions:\n        if action.type not in ALLOWED_ACTIONS:\n            raise DecisionRejected(f\"action {action.type} is not available in this packet\")\n\n        if action.type in IN_CONVERSATION_ACTIONS and not in_conversation:\n            raise DecisionRejected(\n                f\"{action.type.value} requires being in an open conversation\"\n            )\n        if action.type in NOT_IN_CONVERSATION_ACTIONS and in_conversation:\n            raise DecisionRejected(f\"cannot {action.type.value} while in a conversation\")\n\n        if action.type in SINGLETON_ACTIONS:\n            if action.type in seen_singletons:\n                raise DecisionRejected(f\"at most one {action.type.value} action per decision\")\n            seen_singletons.add(action.type)\n\n        if action.type is ActionType.START_CONVERSATION:\n            if in_conversation:\n                raise DecisionRejected(\"a conversation is already open\")\n            if not action.target_agent_id:\n                raise DecisionRejected(\"START_CONVERSATION requires a target_agent_id\")\n\n        if action.type is ActionType.ASK_QUESTION and not action.target_agent_id:\n            raise DecisionRejected(\"ASK_QUESTION requires a target_agent_id\")\n\n        if action.type is ActionType.START_RESEARCH:\n            if session is not None and clock is not None and settings is not None:\n                reason = research.check_research_budget(session, agent, clock, settings)\n                if reason:\n                    raise DecisionRejected(reason)\n            if action.target_question_id is not None and session is not None:\n                target_question = session.get(AgentQuestion, action.target_question_id)\n                if target_question is None or target_question.agent_id != agent.agent_id:\n                    raise DecisionRejected(\n                        f\"unknown target_question_id {action.target_question_id!r}\"\n                    )\n        elif action.target_question_id is not None:\n            raise DecisionRejected(\n                f\"target_question_id is only meaningful for START_RESEARCH, not {action.type.value}\"\n            )\n\n        if action.target_agent_id is not None:\n            if action.target_agent_id == agent.agent_id:\n                raise DecisionRejected(\"an agent cannot address itself\")\n            if action.target_agent_id not in present_agent_ids:\n                raise DecisionRejected(\n                    f\"unknown target_agent_id {action.target_agent_id!r}\"\n                )\n\n        if action.type in CONTENT_ACTIONS:\n            if not (action.content or \"\").strip():\n                raise DecisionRejected(f\"{action.type.value} requires content\")\n\n        if action.type in (ActionType.SPEAK, ActionType.START_CONVERSATION) and session is not None:\n            if dialogue.has_generic_filler_opener(action.content or \"\"):\n                raise DecisionRejected(\n                    \"opens with a generic filler phrase (\\\"that's fascinating\\\", \\\"great \"\n                    \"point\\\", ...) \u2014 respond to what was actually said instead\"\n                )\n            if dialogue.is_repetitive(session, agent.agent_id, action.content or \"\"):\n                raise DecisionRejected(\n                    \"repeats one of your own recent utterances verbatim \u2014 say something new\"\n                )\n\n        if action.type is ActionType.JOIN_CONVERSATION:\n            if open_conversation_id is None:\n                raise DecisionRejected(\"no open conversation to join\")\n            elif session is not None:\n                open_convo = session.get(Conversation, open_conversation_id)\n                if open_convo is None or open_convo.status is ConversationStatus.ENDED:\n                    raise DecisionRejected(\"that conversation has already ended\")\n                if len(open_convo.participant_ids or []) >= dialogue.MAX_SPONTANEOUS_PARTICIPANTS:\n                    raise DecisionRejected(\"that conversation is already full\")\n\n        if session is not None:\n            _validate_wall_and_rabbit_hole_action(session, agent, action)\n\n",
+    "traced_events": [
+      {
+        "event_id": 131,
+        "agent_id": "agent_lucid",
+        "reason": "START_CONVERSATION requires a target_agent_id",
+        "sim_day": 2,
+        "created_at": "2026-09-03 08:01:25.552013",
+        "classification": "generation/validation failure \u2014 the agent's own decision output omitted a required field",
+        "nearest_same_day_conversation_id": 2,
+        "nearest_conversation_ended_at": "2026-09-03 08:01:00.643405",
+        "seconds_after_that_conversations_close": 24.908608
+      },
+      {
+        "event_id": 187,
+        "agent_id": "agent_lucid",
+        "reason": "no open conversation to join",
+        "sim_day": 2,
+        "created_at": "2026-09-03 08:02:40.645312",
+        "classification": "post-closure timing \u2014 action referenced a conversation that was no longer open",
+        "nearest_same_day_conversation_id": 2,
+        "nearest_conversation_ended_at": "2026-09-03 08:01:00.643405",
+        "seconds_after_that_conversations_close": 100.001907
+      },
+      {
+        "event_id": 220,
+        "agent_id": "agent_dex",
+        "reason": "START_CONVERSATION requires content",
+        "sim_day": 3,
+        "created_at": "2026-09-03 08:23:09.702158",
+        "classification": "generation/validation failure \u2014 the agent's own decision output omitted a required field",
+        "nearest_same_day_conversation_id": 3,
+        "nearest_conversation_ended_at": "2026-09-03 08:23:05.197159",
+        "seconds_after_that_conversations_close": 4.504999
+      }
+    ],
+    "structural_relationship_to_floor_allocation": "validate_decision gates START_CONVERSATION and JOIN_CONVERSATION as NOT_IN_CONVERSATION_ACTIONS-adjacent checks evaluated on a standalone agent activation OUTSIDE any conversation the agent is currently a participant-with-the-floor in. next_speaker (the function responsible for the confirmed floor-allocation defect) is only ever called to pick who speaks NEXT INSIDE an already-open conversation; it plays no role in whether an agent, activated independently, chooses to attempt START_CONVERSATION or JOIN_CONVERSATION, or whether that attempt is valid. These are different code paths. See validate_decision_source above for the exact gating logic; see traced_events above for each event's own agent_id, timing, and classification."
+  }
+}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Research Wall{% endblock %}
+{% block content %}
+<h1>The Research Wall</h1>
+<p class="muted">The clubhouse's shared, public surface — findings, sources, questions, hypotheses, disagreements, connections, mysteries, and rabbit-hole suggestions, pinned by whoever found them.</p>
+<div id="wall-posts">
+  {% if posts %}
+    {% for p in posts %}
+    <div class="panel" id="post-{{ p.id }}">
+      <div><strong>{{ p.agent_name }}</strong> <span class="badge badge--fixture">{{ p.post_type }}</span>{% if p.sim_day %} <span class="muted">day {{ p.sim_day }}</span>{% endif %}</div>
+      <div>{{ p.content }}</div>
+      <div class="muted">{{ p.created_at.strftime("%Y-%m-%d %H:%M") }}
+        {% if p.related_research_id %} · <a href="/fishbowl/research/{{ p.related_research_id }}">research</a>{% endif %}
+        {% if p.related_rabbit_hole_id %} · <a href="/fishbowl/rabbit-holes/{{ p.related_rabbit_hole_id }}">rabbit hole</a>{% endif %}
+        {% if p.related_wall_post_id %} · connects to <a href="#post-{{ p.related_wall_post_id }}">post #{{ p.related_wall_post_id }}</a>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}<div class="empty">Nothing pinned yet.</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>Fishbowl.initWall();</script>
+{% endblock %}

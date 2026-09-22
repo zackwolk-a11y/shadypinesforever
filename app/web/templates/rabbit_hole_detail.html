@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ hole.title }}{% endblock %}
+{% block content %}
+<p><a href="/fishbowl/rabbit-holes">&larr; all rabbit holes</a></p>
+<h1>{{ hole.title }} <span class="badge badge--fixture">{{ hole.status }}</span></h1>
+<p class="muted">opened by <a href="/fishbowl/agents/{{ hole.originating_agent_id }}">{{ hole.originating_agent_name }}</a> · {{ hole.evidence_strength }} · heat {{ "%.1f"|format(hole.activity_level) }}{% if hole.last_activity_day %} · last active day {{ hole.last_activity_day }}{% endif %}</p>
+
+<div class="two-col">
+  <div>
+    {% if hole.description %}<div class="panel"><div class="panel__title">Description</div><p>{{ hole.description }}</p></div>{% endif %}
+    {% if hole.current_hypothesis %}<div class="panel"><div class="panel__title">Current Hypothesis</div><p>{{ hole.current_hypothesis }}</p></div>{% endif %}
+    {% if hole.counterarguments %}
+    <div class="panel"><div class="panel__title">Counterarguments</div><ul>{% for c in hole.counterarguments %}<li>{{ c }}</li>{% endfor %}</ul></div>
+    {% endif %}
+    {% if hole.open_questions %}
+    <div class="panel"><div class="panel__title">Open Questions</div><ul>{% for q in hole.open_questions %}<li>{{ q }}</li>{% endfor %}</ul></div>
+    {% endif %}
+    {% if hole.related_research_ids %}
+    <div class="panel"><div class="panel__title">Related Research</div>
+      <ul>{% for r in hole.related_research_ids %}<li><a href="/fishbowl/research/{{ r }}">{{ r }}</a></li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="panel__title">Members ({{ hole.members|length }})</div>
+      {% if hole.members %}
+      <ul>
+        {% for m in hole.members %}
+        <li><a href="/fishbowl/agents/{{ m.agent_id }}">{{ m.agent_name }}</a> — {{ "active" if m.active else "left" }} (joined {{ m.joined_at.strftime("%Y-%m-%d %H:%M") }})</li>
+        {% endfor %}
+      </ul>
+      {% else %}<div class="empty">No members yet.</div>{% endif %}
+    </div>
+
+    <div class="panel">
+      <div class="panel__title">Timeline</div>
+      {% if hole.timeline %}
+      <ul class="feed" style="max-height:none">
+        {% for t in hole.timeline %}
+        <li><time>{{ t.created_at.strftime("%m-%d %H:%M") }}</time><span>{{ t.headline }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}<div class="empty">No history yet.</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

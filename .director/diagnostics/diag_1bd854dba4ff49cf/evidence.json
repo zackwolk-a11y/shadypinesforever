@@ -1,0 +1,124 @@
+{
+  "scenarios": [
+    {
+      "conversation_id": 1,
+      "sim_day_used": 1,
+      "participant_count": 8,
+      "prior_activation_counts": {
+        "agent_optimisto": 0,
+        "agent_vince": 0,
+        "agent_questauthor": 0,
+        "agent_alien": 0,
+        "agent_sol": 0,
+        "agent_roxy": 0,
+        "agent_dex": 0,
+        "agent_lucid": 0
+      },
+      "trace": [
+        {
+          "turn": 0,
+          "wake_event_id": 1,
+          "speaker": "agent_optimisto",
+          "consecutive_silences": 1,
+          "conversation_status": "ACTIVE",
+          "should_close": false
+        },
+        {
+          "turn": 1,
+          "wake_event_id": 3,
+          "speaker": "agent_vince",
+          "consecutive_silences": 2,
+          "conversation_status": "WINDING_DOWN",
+          "should_close": true
+        }
+      ],
+      "closed": true,
+      "close_reason": "should_close_true",
+      "distinct_agents_offered_floor": [
+        "agent_optimisto",
+        "agent_vince"
+      ],
+      "starvation_reproduced": true
+    },
+    {
+      "conversation_id": 2,
+      "sim_day_used": 2,
+      "participant_count": 8,
+      "prior_activation_counts": {
+        "agent_optimisto": 0,
+        "agent_vince": 0,
+        "agent_questauthor": 0,
+        "agent_alien": 0,
+        "agent_sol": 0,
+        "agent_roxy": 0,
+        "agent_dex": 0,
+        "agent_lucid": 0
+      },
+      "trace": [
+        {
+          "turn": 0,
+          "wake_event_id": 1,
+          "speaker": "agent_optimisto",
+          "consecutive_silences": 1,
+          "conversation_status": "ACTIVE",
+          "should_close": false
+        },
+        {
+          "turn": 1,
+          "wake_event_id": 3,
+          "speaker": "agent_vince",
+          "consecutive_silences": 2,
+          "conversation_status": "WINDING_DOWN",
+          "should_close": true
+        }
+      ],
+      "closed": true,
+      "close_reason": "should_close_true",
+      "distinct_agents_offered_floor": [
+        "agent_optimisto",
+        "agent_vince"
+      ],
+      "starvation_reproduced": true
+    },
+    {
+      "conversation_id": 3,
+      "sim_day_used": 3,
+      "participant_count": 8,
+      "prior_activation_counts": {
+        "agent_optimisto": 0,
+        "agent_vince": 0,
+        "agent_questauthor": 0,
+        "agent_alien": 0,
+        "agent_sol": 0,
+        "agent_roxy": 0,
+        "agent_dex": 0,
+        "agent_lucid": 0
+      },
+      "trace": [
+        {
+          "turn": 0,
+          "wake_event_id": 1,
+          "speaker": "agent_optimisto",
+          "consecutive_silences": 1,
+          "conversation_status": "ACTIVE",
+          "should_close": false
+        },
+        {
+          "turn": 1,
+          "wake_event_id": 3,
+          "speaker": "agent_vince",
+          "consecutive_silences": 2,
+          "conversation_status": "WINDING_DOWN",
+          "should_close": true
+        }
+      ],
+      "closed": true,
+      "close_reason": "should_close_true",
+      "distinct_agents_offered_floor": [
+        "agent_optimisto",
+        "agent_vince"
+      ],
+      "starvation_reproduced": true
+    }
+  ]
+}

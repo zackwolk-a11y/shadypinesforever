@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Research{% endblock %}
+{% block content %}
+<h1>Research Sessions</h1>
+<div id="research-list">
+  {% if sessions %}
+    {% for r in sessions %}
+    <div class="panel" style="cursor:pointer" onclick="location.href='/fishbowl/research/{{ r.research_id }}'">
+      <div><strong>{{ r.agent_name }}</strong>
+        <span class="badge {{ 'badge--fixture' if r.is_fixture else 'badge--live' }}">{{ 'FIXTURE' if r.is_fixture else 'LIVE' }}</span>
+        <span class="dim">{{ r.status }}</span></div>
+      <div>{{ r.question }}</div>
+      <div class="muted">{{ r.evidence_strength }}{% if r.confidence is not none %} · {{ "%.0f"|format(r.confidence) }}% confidence{% endif %} · {{ r.finding_count }} finding(s), {{ r.source_count }} source(s)</div>
+    </div>
+    {% endfor %}
+  {% else %}<div class="empty">No research sessions yet.</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>Fishbowl.initResearchList();</script>
+{% endblock %}

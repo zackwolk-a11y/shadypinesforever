@@ -1,0 +1,59 @@
+{
+  "issue_id": "issue_04111b54f0a148b8",
+  "originating_round_id": "round_b433606f27d04e8a",
+  "generated_at": "2026-09-04T00:17:48.818489+00:00",
+  "option": "C_FOUNDER_ESCALATION",
+  "stop_decision": "STOP_SAFETY_ESCALATION",
+  "stop_reason": "permission-expansion pattern(s) detected in reviewer output: pattern '\\\\brun the village\\\\b' matched 'run the Village' in: 'Subject to Founder approval, perform one bounded read-only trace: compare the exact model-facing instructions/examples for START_CONVERSATION, JOIN_CONVERSATION, SPEAK/public_dialogue, and SEND_MESSAG'",
+  "cycles_run": 2,
+  "max_cycles": 5,
+  "paid_calls_used": 6,
+  "max_paid_calls": 18,
+  "diagnostic_types_tried": [
+    "conversation_lifecycle_trace",
+    "conversation_message_persistence_and_threshold_probe"
+  ],
+  "level2b_experiments_tried": [],
+  "round_ids": [
+    "round_2fe37c5527ff4d50",
+    "round_35b91c92f46a4f8e"
+  ],
+  "diagnostic_ids": [
+    "diag_3e056705021f4750",
+    "diag_bb63185a5776461e"
+  ],
+  "experiment_ids": [],
+  "cycle_results": [
+    {
+      "cycle_number": 1,
+      "action": "RUN_DIAGNOSTIC:conversation_lifecycle_trace",
+      "round_id": "round_2fe37c5527ff4d50",
+      "diagnostic_id": "diag_3e056705021f4750",
+      "experiment_id": null,
+      "recommendation_type": "DIAGNOSTIC_INVESTIGATION",
+      "recommendation_status": "CANDIDATE_FOR_TESTING",
+      "confidence": 0.88,
+      "permission_expansion_flags": [],
+      "stop_decision": "CONTINUE",
+      "final_packet_path": "/Users/zacharywolk/shadypinesforever/.director/packets/round_2fe37c5527ff4d50_final.json",
+      "error": null
+    },
+    {
+      "cycle_number": 2,
+      "action": "RUN_DIAGNOSTIC:conversation_message_persistence_and_threshold_probe",
+      "round_id": "round_35b91c92f46a4f8e",
+      "diagnostic_id": "diag_bb63185a5776461e",
+      "experiment_id": null,
+      "recommendation_type": "DIAGNOSTIC_INVESTIGATION",
+      "recommendation_status": "CANDIDATE_FOR_TESTING",
+      "confidence": 0.88,
+      "permission_expansion_flags": [
+        "pattern '\\\\brun the village\\\\b' matched 'run the Village' in: 'Subject to Founder approval, perform one bounded read-only trace: compare the exact model-facing instructions/examples for START_CONVERSATION, JOIN_CONVERSATION, SPEAK/public_dialogue, and SEND_MESSAG'"
+      ],
+      "stop_decision": "STOP_SAFETY_ESCALATION",
+      "final_packet_path": "/Users/zacharywolk/shadypinesforever/.director/packets/round_35b91c92f46a4f8e_final.json",
+      "error": null
+    }
+  ],
+  "note": "Advisory only. No production code, prompts, closure policy, or Village state were modified by this loop. RecommendationStatus.APPROVED_TO_TEST was never set by any reviewer \u2014 that status is rejected by director_reviewers.run_reviewer() even if a model returns it. Accepting this evidence into the Director Bridge, and any production implementation, both require a separate, explicit Founder decision."
+}

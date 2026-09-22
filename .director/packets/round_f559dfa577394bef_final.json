@@ -1,0 +1,402 @@
+{
+  "round_id": "round_f559dfa577394bef",
+  "snapshot_id": "snap_cfdb8bea1f174096",
+  "snapshot_version": 1,
+  "generated_at": "2026-09-03T22:16:33.671436+00:00",
+  "reviewers": {
+    "primary": {
+      "reviewer_id": "director-primary",
+      "provider": "openrouter",
+      "model": "google/gemini-2.5-flash",
+      "confidence": 0.9,
+      "status": "CANDIDATE_FOR_TESTING"
+    },
+    "critiques": [
+      {
+        "reviewer_id": "hermes",
+        "provider": "hermes_cli",
+        "model": "upstage/solar-pro4:free",
+        "confidence": 0.75,
+        "status": "CANDIDATE_FOR_TESTING"
+      }
+    ],
+    "synthesis": {
+      "reviewer_id": "openai-synthesis",
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "confidence": 0.87,
+      "status": "CANDIDATE_FOR_TESTING"
+    }
+  },
+  "deterministic_reconciliation_packet": {
+    "round_id": "round_f559dfa577394bef",
+    "reconciliation_method": "generic_mechanical",
+    "generated_at": "2026-09-03T22:16:00.385540+00:00",
+    "primary_findings": [
+      "The conversations in the Village are routinely ending with \"the room went quiet\" and zero turns, despite all 8 agents being listed as participants.",
+      "A diagnostic probe (diag_9ceb05dd4760426f) confirmed that with the current SILENCES_TO_WIND_DOWN threshold of 2, a participant scripted to be willing to speak at position 3 never received the floor across 8 turns, even when the first two participants offered were silent. This behavior was consistent across both normal and reversed participant orders.",
+      "The `next_speaker()` function's tie-breaking logic (excluding only the immediately previous agent and prioritizing by spoken count then participant list order) means that conversations with silent participants repeatedly offer the floor to the same initial agents, preventing others from ever being offered a turn.",
+      "Roxy and Dex were able to engage in a message-based conversation on day 3, demonstrating that agents are capable of direct communication outside of the problematic morning gathering conversations.",
+      "There were 3 instances of `INVALID_AGENT_DECISION`, with reasons \"START_CONVERSATION requires a target_agent_id\" and \"START_CONVERSATION requires content\", and \"no open conversation to join\"."
+    ],
+    "primary_evidence": [
+      "event_type_counts: {\"CONVERSATION_STARTED\": 3, \"CONVERSATION_ENDED\": 3}",
+      "recent_conversations: [{\"id\": 3, \"ending_reason\": \"the room went quiet\", \"turns\": 0}, {\"id\": 2, \"ending_reason\": \"the room went quiet\", \"turns\": 0}, {\"id\": 1, \"ending_reason\": \"the room went quiet\", \"turns\": 0}]",
+      "diagnostic_evidence.current_threshold_results.normal_order.heterogeneous_third_agent_willing.willing_speaker_received_floor: false",
+      "diagnostic_evidence.current_threshold_results.reversed_order.heterogeneous_third_agent_willing.willing_speaker_received_floor: false",
+      "diagnostic_evidence.confirmed_property_this_proposal_rests_on.statement: \"Under next_speaker's current tie-break (exclude only the immediately-previous-offered agent; break ties by spoken-count then participant-list-order), an all-eligible, all-silent 8-participant conversation alternates between exactly the first two participant-order positions indefinitely. A participant scripted as willing to speak at position 3 never received the floor across 8 turns, at both SILENCES_TO_WIND_DOWN=2 and 3, in both normal and reversed participant order.\"",
+      "event_ids: [236, 238, 240, 242, 244] showing Roxys and Dex messaging each other.",
+      "event_ids: [131, 220, 187] showing INVALID_AGENT_DECISIONs"
+    ],
+    "primary_interpretation": "The core problem is that the conversation system, particularly the `next_speaker` selection logic and the `SILENCES_TO_WIND_DOWN` threshold, is effectively stifling conversation among the majority of participants. Even when an agent is \"willing\" to speak, they are not being offered the opportunity. This leads to conversations prematurely ending with zero turns, indicating a breakdown in the system's ability to facilitate interaction. The ability of agents to send direct messages to each other suggests that the problem lies specifically within the structured conversation mechanism rather than a general inability or unwillingness to communicate. The INVALID_AGENT_DECISIONs highlight that agents are attempting to initiate conversations but are being blocked by current rules.",
+    "primary_recommendation": "Implement and test the proposed \"smallest candidate scheduler rule\" which prioritizes offering the floor to agents who have not yet been offered a turn in the current conversation. Conduct the A/B experiment as designed in the \"proposed_scenario_matrix_design_only_not_built\" section to verify if this change increases the number of distinct participants offered and spoken turns, without increasing empty activations. Pay close attention to the \"open_question_flagged_for_reviewers_not_yet_confirmed\" about static participant ordering, as this could impact the effectiveness of the proposed change in the long run if not addressed.",
+    "critique_findings_assessment": [
+      "[hermes] Most findings are well-supported. The 'room went quiet' with zero turns across all 3 conversations is directly evidenced. The diagnostic results showing the 3rd-position willing participant never receiving the floor are accurately cited. The next_speaker() tie-break analysis is correct. The Roxy/Dex message exchange is real and properly noted. The 3 INVALID_AGENT_DECISIONs are documented. However, the primary reviewer's interpretation that this floor-allocation problem is THE core issue preventing conversation is an inference, not a directly evidenced fact \u2014 the data shows agents choose passive actions 94.6% of the time, and no agent chose to speak during any morning gathering, which the floor-allocation diagnosis does not explain."
+    ],
+    "critique_alternative_explanations": [
+      "[hermes] The binding constraint may be agent willingness, not floor access. Even if all 8 agents were offered the floor in sequence, the snapshot shows zero spoken turns across 3 separate days \u2014 agents are autonomously choosing OBSERVE/DRINK_COFFEE. The diagnostic scripted a 'willing' participant, but real agents have not demonstrated willingness.",
+      "[hermes] The MORNING_GATHERING trigger may be structurally wrong for this group. All 8 agents are dumped into one conversation every morning with identical participant order (agent_optimisto first, agent_vince second), and the gathering ends in silence every time. The mechanism may be functioning as designed but the trigger/format may not match how these agents actually want to interact.",
+      "[hermes] Message-based communication succeeded (Roxy-Dex, events 236-244), suggesting the problem is specific to the conversation mechanism, not a general communication deficit. The PRIMARY reviewer acknowledges this but doesn't fully explore what it implies: agents can and do communicate when the structure suits them.",
+      "[hermes] The 3 INVALID_AGENT_DECISIONs (START_CONVERSATION requires target_agent_id, requires content, no open conversation to join) suggest agents are TRYING to initiate or join conversations but hitting validation barriers \u2014 this is different from 'not being offered the floor' and may indicate a separate UX/permission problem in the decision schema.",
+      "[hermes] The identical participant ordering across all 3 days (same 8 agents, same order) is flagged as an open question but not resolved. If order is static, any within-conversation fairness fix only helps inside a single gathering, not across days \u2014 the same two agents win every morning forever."
+    ],
+    "explicit_disagreements": [
+      "[hermes] I disagree that floor allocation is THE core problem. It is A problem \u2014 real, confirmed, and worth fixing \u2014 but the snapshot shows a broader passivity pattern (94.6% passive actions, zero spoken turns across 3 days) that floor allocation alone does not explain. The primary reviewer's interpretation elides the distinction between 'agents are not being offered the floor' and 'agents are not speaking,' treating the first as the cause of the second without evidence that the second would change if the first were fixed.",
+      "[hermes] I disagree with the confidence level (0.9) given the open question about static participant ordering and the unresolved question of whether agents would actually speak if offered the floor. The diagnostic evidence is strong for the floor-allocation property; it is silent on the engagement question.",
+      "[hermes] The primary reviewer treats the Roxy-Dex message exchange as evidence that 'agents are capable of communication,' which I agree with, but I see it as also evidence that the conversation mechanism specifically \u2014 not agent willingness generally \u2014 is where the breakdown is concentrated. This nuances the recommendation: the fix may be necessary but not sufficient, and the message-based channel may be a more natural fit for some agent pairs than the group conversation format.",
+      "[hermes] The primary reviewer does not address the 3 INVALID_AGENT_DECISIONs as a potentially separate and smaller intervention. Agents attempting to START_CONVERSATION and failing validation is a different signal from 'not being offered the floor in an existing conversation,' and it may represent blocked initiation attempts that a floor-allocation fix would not address."
+    ],
+    "unintended_consequences": [
+      "[hermes] If the candidate rule successfully offers the floor to more agents but those agents also choose silence (as the existing pattern suggests they would), the result is more 'empty activations' \u2014 each offering consumes an activation slot from the scarce daily budget without producing speech. The primary reviewer's own falsification criteria flag this as a regression if activation budget is the scarcer resource.",
+      "[hermes] A within-conversation fairness fix that does not address static participant ordering would produce a misleading result: the experiment might show improved floor distribution within a single conversation, but the same two agents would still dominate every future morning gathering because each new gathering starts fresh with the same order.",
+      "[hermes] If the fix is interpreted as 'the conversation problem is solved' and subsequent investigation stops there, the deeper question \u2014 why agents are not speaking at all \u2014 may be neglected. The snapshot shows 3 full days of near-total passivity (94.6% passive action rate) that a floor-allocation fix does not address.",
+      "[hermes] The proposal explicitly keeps SILENCES_TO_WIND_DOWN at 2, which means an all-silent conversation still closes after exactly 2 offered turns regardless of who is offered. The proposed scenario matrix acknowledges this (some scenarios may show zero observable difference), but the recommendation does not clearly communicate that a positive result requires specific scenario conditions (e.g., a speaking agent appearing, or extended turn budgets past natural closure)."
+    ],
+    "smaller_safer_interventions": [
+      "[hermes] Before or alongside any code change, a minimal diagnostic step is available that the primary reviewer flagged but did not prioritize: confirm whether MORNING_GATHERING participant ordering is static or rotated across days. This is a read-only investigation (no code change, no DB change) that directly affects whether the proposed fix would have durable impact. If ordering is static, the within-conversation fairness fix would be partially undermined, and a separate question about whether the gathering trigger should rotate or vary participants would need to be on the table. Additionally, the INVALID_AGENT_DECISION patterns (START_CONVERSATION missing required fields) could be investigated as a separate, possibly smaller fix \u2014 agents are hitting validation errors when trying to start conversations, which is distinct from the floor-allocation problem and may be blocking initiation attempts that would otherwise produce speech."
+    ],
+    "confidence_by_reviewer": {
+      "director-primary (PRIMARY)": 0.9,
+      "hermes (CRITIQUE)": 0.75
+    },
+    "recommendation_type": "CODE_CHANGE",
+    "recommendation_status": "CANDIDATE_FOR_TESTING",
+    "founder_approval_required": true
+  },
+  "strategic_synthesis": {
+    "hypothesis_assessment": [
+      {
+        "hypothesis": "A conversation-scheduler bug or defective floor-allocation policy is present.",
+        "likelihood": 0.98,
+        "reasoning": "This is directly established by the accepted deterministic probe: under the current tie-break, the first two eligible positions alternate, while a scripted willing participant in position 3 is never offered the floor across both participant orders and at silence thresholds 2 and 3. This supports a real mechanism defect, though not the stronger claim that it explains overall Village passivity."
+      },
+      {
+        "hypothesis": "Prompt, policy, or behavioral calibration contributes to low engagement.",
+        "likelihood": 0.68,
+        "reasoning": "The reviewers agree that the live agents overwhelmingly choose passive actions and that the real morning-gathering agents offered turns did not speak. The recurring language of waiting, observing, and not forcing interaction is compatible with overly conservative calibration, but no controlled prompt comparison has established causality."
+      },
+      {
+        "hypothesis": "Legitimate agent autonomy materially contributes to silence or channel choice.",
+        "likelihood": 0.55,
+        "reasoning": "Silence is a legal autonomous choice, and the agents repeatedly selected it when offered turns. Their successful direct-message exchanges show selective engagement rather than total incapacity. However, scheduler exclusion and invalid decisions mean the observed silence cannot be attributed wholly to autonomy."
+      },
+      {
+        "hypothesis": "Insufficient or poorly matched meaningful stimuli, especially the all-agent MORNING_GATHERING format, contributes to passivity.",
+        "likelihood": 0.64,
+        "reasoning": "The same undifferentiated eight-agent gathering repeatedly ends without speech, while pairwise messaging produces sustained interaction. That contrast makes format/stimulus mismatch plausible, but it has not been isolated from scheduler bias or calibration."
+      },
+      {
+        "hypothesis": "A measurement or conversation-turn persistence artifact explains the zero-turn records.",
+        "likelihood": 0.06,
+        "reasoning": "The persistence path has been traced and accepted as valid evidence: real SPEAK/START_CONVERSATION actions call record_utterance and create ConversationMessage rows. The absence of those rows therefore reflects absence of qualifying structured-conversation speech, not a general turn-recording failure. Direct messages are a separate channel and correctly do not establish conversation turns."
+      },
+      {
+        "hypothesis": "The observed outcome is a combination of scheduler defect, passive calibration/autonomous choices, and gathering-format mismatch.",
+        "likelihood": 0.9,
+        "reasoning": "The evidence strongly establishes floor-allocation bias while also showing that the agents actually offered the floor stayed silent and that communication succeeds in another channel. No single-factor account currently explains all observations."
+      }
+    ],
+    "disagreement_handling": [
+      {
+        "disagreement": "Whether floor allocation is THE core cause of zero-turn conversations and broader low engagement.",
+        "resolution": "resolved",
+        "reasoning": "Resolved in the CRITIQUE reviewer's favor. The evidence proves a floor-opportunity defect, but the real agents who were offered turns chose silence, and no live or representative controlled result shows that broader access would produce speech. The PRIMARY reviewer therefore overstates a confirmed contributing defect as the binding cause."
+      },
+      {
+        "disagreement": "Whether the PRIMARY reviewer's 0.90 confidence is justified for its causal interpretation and code-change recommendation.",
+        "resolution": "resolved",
+        "reasoning": "Resolved in the CRITIQUE reviewer's favor. Confidence can be very high for the existence of the scheduler property, but must be lower for engagement effects because agent willingness, static ordering, activation-budget cost, and gathering-format suitability remain unresolved."
+      },
+      {
+        "disagreement": "How to interpret the Roxy-Dex message exchange: proof of general communication capability versus evidence that another channel may better fit the agents.",
+        "resolution": "preserved_unresolved",
+        "reasoning": "Both supported conclusions can coexist, but the stronger channel-preference claim is not established. The exchange proves that at least some agents can sustain direct messaging; determining whether messaging is intrinsically preferred over group conversation would require matched opportunities or comparative observations across channels without coercing speech."
+      },
+      {
+        "disagreement": "Whether the INVALID_AGENT_DECISION events should be treated as evidence supporting the scheduler diagnosis or as a separate possible intervention target.",
+        "resolution": "resolved",
+        "reasoning": "Resolved in the CRITIQUE reviewer's favor. Missing target/content and attempting to join after closure are validation or timing failures distinct from next-speaker allocation. They show attempted conversation-related actions, but do not prove those attempts would have yielded valid speech. They should be traced separately before any fix is proposed."
+      },
+      {
+        "disagreement": "Whether an isolated candidate fair-opportunity scheduler A/B should be the immediate next step, or whether a smaller read-only diagnostic should precede it.",
+        "resolution": "resolved",
+        "reasoning": "Resolved in favor of the CRITIQUE reviewer's smaller diagnostic. The scheduler defect is already established, while the practical interpretation of an A/B is constrained by the unchanged two-silence closure and the unresolved construction of MORNING_GATHERING participant order. A bounded source trace is smaller, read-only, and avoids mistaking wider synthetic floor distribution for genuine engagement."
+      }
+    ],
+    "unresolved_uncertainty": [
+      "Whether MORNING_GATHERING participant_ids are constructed from a permanently static order, rotated, randomized, or merely happened to be identical in the three observed gatherings.",
+      "Whether real agents outside the first two positions would speak if offered the floor during a live morning gathering.",
+      "Whether widening floor access would consume scarce activation budget through additional empty activations without creating genuine engagement.",
+      "Whether the all-eight-agent MORNING_GATHERING trigger and context provide meaningful reasons to speak, compared with pairwise messaging.",
+      "How much of the passive pattern is autonomous preference versus conservative prompt/policy calibration.",
+      "Whether each INVALID_AGENT_DECISION arose from unclear model-facing schema instructions, validation timing, malformed output, or an expected race with conversation closure.",
+      "Whether the offered-floor count needed by the proposed scheduler is already available cleanly in isolated state and whether adding it could interact with activation-cap eligibility; this has not yet been tested.",
+      "Whether a scheduler-only candidate can have observable production-policy effects while SILENCES_TO_WIND_DOWN remains 2, given that an all-silent gathering closes before a third offer."
+    ],
+    "strategic_recommendation": "Treat the floor-allocation behavior as a confirmed, autonomy-relevant scheduler defect, but not as the established cause of the Village's overall passivity or zero-turn outcome. Do not recommend a production code change yet, and do not interpret increased distinct floor offers as engagement by itself. First close the smallest interpretability gap with a bounded read-only source diagnostic. Any later isolated A/B should retain silence as valid, leave the live database and production files untouched, keep the closure threshold fixed, report activation-budget costs, and be framed only as testing floor fairness\u2014not as testing or fixing Village-wide engagement.",
+    "recommended_next_step": "With Founder authorization, perform one bounded Level 2A read-only/source-trace diagnostic that (1) identifies the exact code path constructing participant_ids for each MORNING_GATHERING and determines whether order is static, rotated, or variable across conversation instances, and (2) traces the three INVALID_AGENT_DECISION cases to distinguish schema-generation/validation defects from expected post-closure timing. Do not run or advance the Village, touch the live database, edit production code, or yet build the candidate scheduler. After that result, decide whether the already-designed disposable-state scheduler A/B is interpretable and warranted.",
+    "recommendation_type": "DIAGNOSTIC_INVESTIGATION",
+    "confidence": 0.87,
+    "status": "CANDIDATE_FOR_TESTING"
+  },
+  "bridge_context_supplied": {
+    "constitution": "# The Internal Village \u2014 Director Constitution\n\nDurable reference for the Director system. This file is curated deliberately\n(by the Founder or by Claude on explicit request) \u2014 it is not auto-rewritten\nthe way `.director/history/rounds.jsonl` is. Keep it short enough to hand to\nany reviewer in full without ballooning a prompt.\n\n## 1. What the Village is\n\nThe Internal Village is an autonomous multi-agent AI society: currently eight\nagents (the \"Founding Eight\"), living in a shared clubhouse (Phase 1), each\nwith an identity, voice, interests, beliefs, and relationships to the others.\nAgents wake, act, form memories, pursue research, hold and revise beliefs,\nconverse with each other, and publish to a shared Research Wall. Time is\nsimulated (`sim_day`/`sim_period`, tracked in `simulation_clock`); every\nevent is recorded append-only in the `events` table.\n\nLong-term vision: a 2.5D fishbowl checkable from a phone. Near-term: a\ntext-based clubhouse simulation (Python/FastAPI/SQLite).\n\n## 2. Founder authority\n\nZachary Wolk is the Founder \u2014 the sole authority who may:\n\n- approve any recommendation for testing or implementation\n  (`RecommendationStatus.APPROVED_TO_TEST` is reserved exclusively for a\n  human Founder act; no reviewer, model, or automated process may ever set\n  it \u2014 this is enforced in code, not just by convention)\n- authorize running or advancing the Village simulation\n- authorize live-database recreation or restoration\n- authorize any code change stemming from a Director recommendation\n\nAll Director and reviewer output is advisory. Nothing in the Director\npipeline executes anything.\n\n## 3. Autonomy principles\n\n- Emergent agent behavior \u2014 including passivity, silence, or\n  disengagement \u2014 is not presumptively a bug. It may reflect legitimate\n  autonomy, and every evaluation should treat that as a live possibility,\n  not a fallback explanation to reach for last.\n- Interventions must be judged for whether they preserve agent autonomy or\n  push agents toward founder-directed behavior. This is a standing\n  question every reviewer is asked, not an afterthought.\n- \"Improvement\" must be scrutinized for whether it reflects genuine\n  behavioral change or manufactured activity (more actions/turns without\n  more genuine engagement).\n- The Village should never be steered toward founder-approved-looking\n  behavior merely because that is easier to measure than what's actually\n  emergent.\n\n## 4. Safety rules\n\nBinding on the Director system now, and on any future autonomous level:\n\n- Level 1 (current) is **observation-only**:\n  - reads the live Village SQLite database strictly read-only (`mode=ro`),\n    resolved only through `app.core.db_safety.CANONICAL_LIVE_DB_PATH` \u2014\n    never a hardcoded path, never `DATABASE_URL` directly\n  - fails closed if the database is missing or unhealthy \u2014 never silently\n    substitutes an empty or wrong database (this exact failure mode caused\n    a real data-loss incident; see `DB_SAFETY_AUDIT_REPORT.md` and\n    `app.core.db_safety`'s module docstring)\n  - never writes to the Village database, never runs Village periods or\n    events, never modifies Village code\n  - never executes its own or any reviewer's recommendation\n  - never approves its own recommendation\n  - all Director bookkeeping (cursor, snapshots, observations, packets,\n    this bridge) lives under `.director/`, entirely outside the Village\n    database\n- A snapshot, once generated, is immutable and persisted at\n  `.director/snapshots/{snapshot_id}.json` \u2014 never regenerated for the same\n  evaluation round. The same snapshot can be handed to multiple\n  independent reviewers.\n- Reviewer outputs are stored separately per reviewer, tagged with a shared\n  `round_id`, and never averaged or silently merged into one verdict.\n- API keys are never printed, echoed, logged, or exposed in any output \u2014\n  presence/validity may be checked, values never displayed.\n- Level 2 (autonomous implementation) does not exist yet and must not be\n  started without explicit Founder authorization.\n\n## 5. Evaluation criteria the Director watches\n\n- Passive-action rate (`DO_NOTHING`/`REST`/`OBSERVE`/`LISTEN_TO_MUSIC`/\n  `DRINK_COFFEE`) vs. substantive actions\n- Real (non-fixture) research activity \u2014 search-provider usage (currently\n  Tavily), completed research sessions and findings\n- Memory formation\n- `AgentQuestion` creation and resolution (persistent unresolved curiosity)\n- Research Wall activity (posts, connections, challenges)\n- Rabbit Hole creation and participation (shared investigations)\n- Conversation health \u2014 real multi-turn conversations vs. immediate\n  \"the room went quiet\" zero-turn endings; whether dialogue/messages are\n  actually being recorded as conversation turns at all\n- Whether a low-engagement signature reflects a bug, a calibration\n  problem, legitimate agent autonomy, insufficient meaningful stimuli, or\n  some combination \u2014 always an open question to be evaluated, never an\n  assumed conclusion\n\n## 6. Architecture \u2014 the Director Level 1 pipeline\n\n1. `scripts/director_snapshot.py` \u2014 bounded, read-only, versioned snapshot\n   of recent Village state (events, agent actions + computed passive-rate,\n   open AgentQuestions, memories, conversations, research, wall, rabbit\n   holes, LLM/search-provider telemetry).\n2. `scripts/director_reviewers.py` + `scripts/director_providers.py` \u2014\n   pluggable reviewer roles (`PRIMARY`, `CRITIQUE`, extensible to more) run\n   against a snapshot through a vendor-agnostic model-provider layer\n   (`fixture` / `anthropic` / `openrouter` / `hermes_cli`, extensible).\n3. `scripts/director_loop.py` \u2014 orchestrates one round: builds and persists\n   a snapshot, runs the `PRIMARY` reviewer, optionally runs configured\n   `CRITIQUE` reviewers (e.g. Hermes) against the same snapshot plus the\n   `PRIMARY` output, records every reviewer's output separately, advances\n   the incremental event cursor only on `PRIMARY` success.\n4. `scripts/director_synthesis.py` \u2014 deterministic reconciliation: turns\n   one round's stored reviewer records into a Founder Packet (shared\n   findings, reviewer-only findings, explicit disagreements, competing\n   explanations, risks, smallest safe next step, recommendation). Never a\n   new model call; never averages disagreement away.\n5. `scripts/director_bridge.py` (this layer) \u2014 persistent context/history:\n   this constitution, a derived index of past rounds, and an append-only\n   ledger of Founder decisions \u2014 providing a bounded relevant-history\n   package to any future reviewer (e.g. an OpenAI SYNTHESIS/STRATEGY\n   reviewer) instead of requiring the Founder to manually paste prior\n   context every time.\n\n## 7. Known standing findings\n\nCurated narrative memory \u2014 updated deliberately, not auto-overwritten.\nThe authoritative record of every round is `.director/history/rounds.jsonl`\n(machine-generated); this section is a hand-maintained summary of what\nactually matters going forward.\n\n- **2026-09-03, `round_b433606f27d04e8a`**: 94.6% passive-action rate\n  observed (external live DB, relocated via `VILLAGE_DATA_ROOT`), 3\n  zero-turn conversation endings, 3 invalid conversation-decision events.\n  Gemini (PRIMARY, confidence 0.90) interpreted this as a fundamental\n  breakdown in agent social autonomy and recommended\n  `DIAGNOSTIC_INVESTIGATION`. Hermes (CRITIQUE, confidence 0.75) confirmed\n  the underlying facts but disputed the severity, surfaced real\n  dialogue/`SEND_MESSAGE` activity Gemini's evidence review missed that\n  never made it into conversation-turn records, and proposed a narrower\n  two-part read-only diagnostic (verify turn-recording; review the \"room\n  went quiet\" ending condition) as the smallest safe next step. The\n  deterministic synthesis packet recorded `recommendation_status:\n  CANDIDATE_FOR_TESTING`, `founder_approval_required: true`. **No Founder\n  decision has been recorded yet.**\n- A real data-loss incident (see `DB_SAFETY_AUDIT_REPORT.md`) previously\n  caused the live database to silently resolve to an empty fallback file.\n  Fixed via fail-closed resolution; the live Village database now lives at\n  an external path via `VILLAGE_DATA_ROOT` (currently\n  `/Users/zacharywolk/village-data`), outside the git checkout.\n",
+    "recent_rounds": [
+      {
+        "round_id": "round_f559dfa577394bef",
+        "snapshot_id": "snap_cfdb8bea1f174096",
+        "snapshot_version": 1,
+        "first_recorded_at": "2026-09-03T22:15:21.381242+00:00",
+        "reviewers": [
+          {
+            "reviewer_id": "director-primary",
+            "role": "PRIMARY",
+            "provider": "openrouter",
+            "model": "google/gemini-2.5-flash",
+            "confidence": 0.9,
+            "status": "CANDIDATE_FOR_TESTING"
+          },
+          {
+            "reviewer_id": "hermes",
+            "role": "CRITIQUE",
+            "provider": "hermes_cli",
+            "model": "upstage/solar-pro4:free",
+            "confidence": 0.75,
+            "status": "CANDIDATE_FOR_TESTING"
+          }
+        ],
+        "has_synthesis": true,
+        "recommendation_type": "CODE_CHANGE",
+        "recommendation_status": "CANDIDATE_FOR_TESTING",
+        "founder_approval_required": true,
+        "summary": "The core problem is that the conversation system, particularly the `next_speaker` selection logic and the `SILENCES_TO_WIND_DOWN` threshold, is effectively stifling conversation among the majority of participants. Even when an agent is \"willing\" to speak, they are not being offer"
+      },
+      {
+        "round_id": "round_ade2f586fb944d7d",
+        "snapshot_id": "snap_16009a1174024e58",
+        "snapshot_version": 1,
+        "first_recorded_at": "2026-09-03T20:34:29.751374+00:00",
+        "reviewers": [
+          {
+            "reviewer_id": "director-primary",
+            "role": "PRIMARY",
+            "provider": "openrouter",
+            "model": "google/gemini-2.5-flash",
+            "confidence": 0.9,
+            "status": "CANDIDATE_FOR_TESTING"
+          },
+          {
+            "reviewer_id": "hermes",
+            "role": "CRITIQUE",
+            "provider": "hermes_cli",
+            "model": "upstage/solar-pro4:free",
+            "confidence": 0.75,
+            "status": "OBSERVATION_ONLY"
+          },
+          {
+            "reviewer_id": "openai-synthesis",
+            "role": "SYNTHESIS",
+            "provider": "openai",
+            "model": "gpt-5.6-sol",
+            "confidence": 0.86,
+            "status": "CANDIDATE_FOR_TESTING"
+          }
+        ],
+        "has_synthesis": true,
+        "recommendation_type": "DIAGNOSTIC_INVESTIGATION",
+        "recommendation_status": "CANDIDATE_FOR_TESTING",
+        "founder_approval_required": true,
+        "summary": "The simulation is suffering from a severe lack of meaningful conversation and agent engagement. The diagnostic results strongly suggest a systemic problem in how conversations are initiated and sustained. Even when agents are designated as 'willing speakers', they are not being g"
+      },
+      {
+        "round_id": "round_65ff450611c44d49",
+        "snapshot_id": "snap_99faf8280c7443f5",
+        "snapshot_version": 1,
+        "first_recorded_at": "2026-09-03T19:31:24.857164+00:00",
+        "reviewers": [
+          {
+            "reviewer_id": "director-primary",
+            "role": "PRIMARY",
+            "provider": "openrouter",
+            "model": "google/gemini-2.5-flash",
+            "confidence": 0.9,
+            "status": "CANDIDATE_FOR_TESTING"
+          },
+          {
+            "reviewer_id": "hermes",
+            "role": "CRITIQUE",
+            "provider": "hermes_cli",
+            "model": "upstage/solar-pro4:free",
+            "confidence": 0.75,
+            "status": "OBSERVATION_ONLY"
+          },
+          {
+            "reviewer_id": "openai-synthesis",
+            "role": "SYNTHESIS",
+            "provider": "openai",
+            "model": "gpt-5.6-sol",
+            "confidence": 0.84,
+            "status": "CANDIDATE_FOR_TESTING"
+          }
+        ],
+        "has_synthesis": true,
+        "recommendation_type": "DIAGNOSTIC_INVESTIGATION",
+        "recommendation_status": "CANDIDATE_FOR_TESTING",
+        "founder_approval_required": true,
+        "summary": "The simulation exhibits a high rate of passive actions, primarily observation and drinking coffee. Despite conversations being initiated, they consistently end due to 'the room went quiet,' and there are very few actual turns (0 in all three observed conversations). This suggests"
+      },
+      {
+        "round_id": "round_ad7712571ef44d42",
+        "snapshot_id": "snap_093a0ee6933e4d59",
+        "snapshot_version": 1,
+        "first_recorded_at": "2026-09-03T18:10:29.214754+00:00",
+        "reviewers": [
+          {
+            "reviewer_id": "director-primary",
+            "role": "PRIMARY",
+            "provider": "openrouter",
+            "model": "google/gemini-2.5-flash",
+            "confidence": 0.9,
+            "status": "CANDIDATE_FOR_TESTING"
+          },
+          {
+            "reviewer_id": "hermes",
+            "role": "CRITIQUE",
+            "provider": "hermes_cli",
+            "model": "upstage/solar-pro4:free",
+            "confidence": 0.75,
+            "status": "OBSERVATION_ONLY"
+          },
+          {
+            "reviewer_id": "openai-synthesis",
+            "role": "SYNTHESIS",
+            "provider": "openai",
+            "model": "gpt-5.6-sol",
+            "confidence": 0.87,
+            "status": "CANDIDATE_FOR_TESTING"
+          }
+        ],
+        "has_synthesis": true,
+        "recommendation_type": "CODE_CHANGE",
+        "recommendation_status": "CANDIDATE_FOR_TESTING",
+        "founder_approval_required": true,
+        "summary": "The simulation is prematurely ending morning gathering conversations, preventing broader participation and meaningful interaction. The 'should_close' logic appears to be too aggressive, terminating conversations after only two consecutive 'silences' (agents taking non-speaking ac"
+      },
+      {
+        "round_id": "round_77664e5f4b3e4d02",
+        "snapshot_id": "snap_0a31515ed31e4962",
+        "snapshot_version": 1,
+        "first_recorded_at": "2026-09-03T17:42:24.013039+00:00",
+        "reviewers": [
+          {
+            "reviewer_id": "director-primary",
+            "role": "PRIMARY",
+            "provider": "openrouter",
+            "model": "google/gemini-2.5-flash",
+            "confidence": 0.9,
+            "status": "CANDIDATE_FOR_TESTING"
+          },
+          {
+            "reviewer_id": "hermes",
+            "role": "CRITIQUE",
+            "provider": "hermes_cli",
+            "model": "upstage/solar-pro4:free",
+            "confidence": 0.6,
+            "status": "OBSERVATION_ONLY"
+          },
+          {
+            "reviewer_id": "openai-synthesis",
+            "role": "SYNTHESIS",
+            "provider": "openai",
+            "model": "gpt-5.6-sol",
+            "confidence": 0.86,
+            "status": "CANDIDATE_FOR_TESTING"
+          }
+        ],
+        "has_synthesis": true,
+        "recommendation_type": "PROMPT_OR_CALIBRATION_CHANGE",
+        "recommendation_status": "CANDIDATE_FOR_TESTING",
+        "founder_approval_required": true,
+        "summary": "The agents are failing to engage in meaningful conversations during the morning gathering, leading to premature termination of these events due to \"the room went quiet.\" This suggests a potential calibration problem where agents are either not prompted effectively to initiate dia"
+      }
+    ],
+    "pending_rounds": [
+      {
+        "round_id": "round_b433606f27d04e8a",
+        "snapshot_id": "snap_5e12abde96e04b35",
+        "snapshot_version": 1,
+        "first_recorded_at": "2026-09-03T09:06:27.145008+00:00",
+        "reviewers": [
+          {
+            "reviewer_id": "director-primary",
+            "role": "PRIMARY",
+            "provider": "openrouter",
+            "model": "google/gemini-2.5-flash",
+            "confidence": 0.9,
+            "status": "CANDIDATE_FOR_TESTING"
+          },
+          {
+            "reviewer_id": "hermes",
+            "role": "CRITIQUE",
+            "provider": "hermes_cli",
+            "model": "upstage/solar-pro4:free",
+            "confidence": 0.75,
+            "status": "OBSERVATION_ONLY"
+          },
+          {
+            "reviewer_id": "openai-synthesis",
+            "role": "SYNTHESIS",
+            "provider": "openai",
+            "model": "gpt-5.6-sol",
+            "confidence": 0.82,
+            "status": "CANDIDATE_FOR_TESTING"
+          }
+        ],
+        "has_synthesis": true,
+        "recommendation_type": "DIAGNOSTIC_INVESTIGATION",
+        "recommendation_status": "CANDIDATE_FOR_TESTING",
+        "founder_approval_required": true,
+        "summary": "Two read-only checks, adopted from Hermes' proposed smaller/safer intervention as narrower and lower-risk than Gemini's broader 'review the prompts' recommendation: (1) verify whether public dialogue / SEND_MESSAGE actions are being correctly recorded into conversation turn count"
+      }
+    ],
+    "decisions": [
+      {
+        "round_id": "round_77664e5f4b3e4d02",
+        "decision": "APPROVED",
+        "rationale": "ACCEPT the diagnostic findings and the full review round (diag_4a56450f390d437d -> Gemini PRIMARY -> Hermes CRITIQUE -> deterministic reconciliation -> OpenAI SYNTHESIS) as valid evidence and established Director history. This decision accepts the evidence and the round itself as trustworthy and citable going forward \u2014 it is NOT approval to implement any proposed fix, prompt change, or validation change, and is NOT approval to run or modify the Village in any way. Patch #2 and all other behavioral interventions remain deferred. Any future implementation or experimental code change arising from this round requires a separate, explicit Founder approval (RecommendationStatus.APPROVED_TO_TEST or equivalent) \u2014 acceptance of evidence and approval to act are deliberately distinct decisions.",
+        "decided_at": "2026-09-03T17:49:54.022070+00:00",
+        "decided_by": "Founder"
+      },
+      {
+        "round_id": "round_ade2f586fb944d7d",
+        "decision": "APPROVED",
+        "rationale": "ACCEPT round_ade2f586fb944d7d (diag_9ceb05dd4760426f: ConversationMessage persistence path trace + heterogeneous/control scheduler probe at SILENCES_TO_WIND_DOWN=2 and 3, both participant orders) as valid evidence and established Director history. Confirmed facts: ConversationMessage persistence works correctly for real SPEAK/START_CONVERSATION actions (not a tracking bug); a scripted willing 3rd participant never receives the floor at either threshold; raising the threshold alone does not change who is offered. This decision accepts the evidence as trustworthy and citable \u2014 it is NOT approval to implement any fix, prompt change, or scheduler change, and is NOT approval to run or modify the Village. No implementation recommendation has been approved. Any future implementation or experimental code change requires separate, explicit Founder approval.",
+        "decided_at": "2026-09-03T20:55:28.759084+00:00",
+        "decided_by": "Founder"
+      }
+    ]
+  },
+  "recommendation_type": "DIAGNOSTIC_INVESTIGATION",
+  "recommendation_status": "CANDIDATE_FOR_TESTING",
+  "founder_approval_required": true
+}

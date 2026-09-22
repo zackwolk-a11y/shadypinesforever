@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+.env
+.pytest_cache/
+.director/control_room/

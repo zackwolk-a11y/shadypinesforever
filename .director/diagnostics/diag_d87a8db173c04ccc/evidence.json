@@ -1,0 +1,199 @@
+{
+  "intended_policy": {
+    "readme_conversations_section": "### Conversations\n\nThe day opens with everyone in the room and no agenda \u2014 deliberately *not*\n\"generate one research topic each\", which produces exactly the eight-silo\nbehaviour the experiment is trying to avoid. Turn-taking is mechanical\n(whoever has spoken least, never the same agent twice in a row); what anyone\nsays is theirs. Silence is a legal move, and two consecutive silences wind a\nconversation down. A conversation also ends at the turn cap\n(`MAX_CONVERSATION_TURNS`) or when everyone has left. Packet 8 below covers\nwhat actually happens inside one \u2014 why it started, how a reply engages what\nwas just said, and how an outsider can join.\n",
+    "regression_test_full_text": "#!/usr/bin/env python3\n\"\"\"Deterministic regression test for the conversation turn-rotation fix\n(Finding 1, Baseline Run 2 diagnosis): ``app.services.conversations.\nnext_speaker`` picking the same participant over and over when nobody has\nspoken yet.\n\nThe tie-break is \"whoever has spoken least, breaking ties by participant\norder.\" At the start of every conversation everybody is tied at zero spoken\nturns, so the exclusion of \"don't repeat the immediately-previous pick\" has\nto actually engage in that exact state to do anything. Before the fix it was\nkeyed on who last *spoke* (via ``ConversationMessage``) \u2014 which stays\n``None`` until somebody actually speaks \u2014 so a participant who is picked,\nchooses not to speak, and is asked again a moment later was *still* tied for\n\"fewest spoken\" with everyone else and won the same participant-order\ntie-break again. Reproduced live: an 8-participant MORNING_GATHERING gave\nall three of its turns to the same first-listed agent and closed from their\nown silence, without a second participant ever being offered the floor.\n\nThe fix keys the exclusion on who was last *offered* the floor (the most\nrecent AGENT_WOKE event recorded for this conversation) instead of who last\nspoke. This test constructs that exact edge case directly \u2014 no simulation\nrandomness, no LLM call \u2014 and proves the turn now rotates.\n\nRuns against its own throwaway SQLite database (deleted first).\n\nUsage::\n\n    python scripts/smoke_test_conversation_turn_rotation.py\n    python scripts/smoke_test_conversation_turn_rotation.py --keep-db\n\"\"\"\n\nfrom __future__ import annotations\n\nimport argparse\nimport os\nimport sys\nfrom pathlib import Path\n\nREPO_ROOT = Path(__file__).resolve().parent.parent\nDB_PATH = REPO_ROOT / \"smoke_test_conversation_turn_rotation.db\"\n\nos.environ[\"DATABASE_URL\"] = f\"sqlite:///{DB_PATH}\"\nos.environ.setdefault(\"LLM_PROVIDER\", \"fixture\")\nos.environ.setdefault(\"RESEARCH_PROVIDER\", \"fixture\")\n\nsys.path.insert(0, str(REPO_ROOT))\nsys.path.insert(0, str(REPO_ROOT / \"scripts\"))\n\n\ndef _clean_db() -> None:\n    for suffix in (\"\", \"-shm\", \"-wal\"):\n        p = Path(f\"{DB_PATH}{suffix}\")\n        if p.exists():\n            p.unlink()\n\n\ndef main() -> int:\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"--keep-db\", action=\"store_true\")\n    args = parser.parse_args()\n\n    _clean_db()\n\n    from alembic import command\n    from alembic.config import Config\n\n    command.upgrade(Config(str(REPO_ROOT / \"alembic.ini\")), \"head\")\n\n    import seed_agents\n\n    from app.core.config import get_settings\n    from app.db.models.agents import Agent\n    from app.db.models.conversations import Conversation\n    from app.db.models.events import Event\n    from app.db.models.world import SimulationClock\n    from app.db.session import SessionLocal, engine\n    from app.domain.enums import ConversationStatus, ConversationTrigger, EventType\n    from app.services import conversations as convo\n    from sqlalchemy import select\n\n    settings = get_settings()\n    checks: list[tuple[str, bool]] = []\n\n    session = SessionLocal()\n    try:\n        seed_agents.run(session)\n        session.commit()\n\n        clock = session.scalars(select(SimulationClock)).one()\n        participants = list(session.scalars(select(Agent.agent_id).order_by(Agent.id)))[:4]\n\n        def _offer_turn(agent_id: str) -> None:\n            \"\"\"Record exactly what a real activation records for this\n            conversation (an AGENT_WOKE event carrying conversation_id in\n            its payload) without recording a spoken ConversationMessage \u2014\n            i.e. the agent was given the floor and chose not to speak.\"\"\"\n            session.add(\n                Event(\n                    event_type=EventType.AGENT_WOKE,\n                    agent_id=agent_id,\n                    sim_day=clock.current_day,\n                    payload={\"conversation_id\": conversation.id},\n                )\n            )\n            session.commit()\n\n        conversation = Conversation(\n            trigger_type=ConversationTrigger.MORNING_GATHERING,\n            participant_ids=list(participants),\n            status=ConversationStatus.ACTIVE,\n            started_sim_day=clock.current_day, started_sim_period=clock.current_period,\n        )\n        session.add(conversation)\n        session.commit()\n\n        # Nobody has spoken yet -> everyone tied at spoken=0 -> the\n        # participant-order tie-break picks the first participant.\n        first_pick = convo.next_speaker(session, conversation, clock, settings)\n        checks.append((\n            \"next_speaker picks the first-listed participant when nobody has \"\n            f\"spoken yet (picked {first_pick!r}, expected {participants[0]!r})\",\n            first_pick == participants[0],\n        ))\n\n        # They were offered the floor and chose not to speak \u2014 exactly the\n        # state that broke before the fix (no ConversationMessage recorded).\n        _offer_turn(first_pick)\n\n        second_pick = convo.next_speaker(session, conversation, clock, settings)\n        checks.append((\n            \"THE FIX: next_speaker does not repeat the same participant who \"\n            f\"was just offered the floor and stayed silent (first={first_pick!r}, \"\n            f\"second={second_pick!r})\",\n            second_pick is not None and second_pick != first_pick,\n        ))\n        checks.append((\n            \"the second pick is still a real, eligible participant in this \"\n            f\"conversation ({second_pick!r} in {participants})\",\n            second_pick in participants,\n        ))\n\n        # The fix's actual guarantee is \"never repeat the immediately-\n        # previous pick,\" not full round-robin fairness across every\n        # participant \u2014 with everyone still tied at spoken=0, the\n        # participant-order tie-break can and does bring an earlier picker\n        # back once someone *else* has been the most recent pick (e.g.\n        # optimisto, vince, optimisto, vince, ... is an expected, in-scope\n        # sequence). What must never happen, proven over a longer run of\n        # consecutive silent turns, is any *back-to-back* repeat.\n        picks = [first_pick, second_pick]\n        for _ in range(4):\n            _offer_turn(picks[-1])\n            picks.append(convo.next_speaker(session, conversation, clock, settings))\n        consecutive_repeat = next(\n            ((a, b) for a, b in zip(picks, picks[1:]) if a == b), None\n        )\n        checks.append((\n            f\"no back-to-back repeat across a longer run of silent turns (picks: {picks})\",\n            consecutive_repeat is None,\n        ))\n\n        # Sole-survivor escape hatch still works: once every OTHER\n        # participant is at today's activation cap, the last eligible\n        # participant may be picked again even though they were just\n        # offered the floor (otherwise next_speaker would incorrectly\n        # return None with a real eligible speaker still in the room).\n        last_pick = picks[-1]\n        cap = settings.max_daily_agent_activations\n        for other in participants:\n            if other == last_pick:\n                continue\n            for _ in range(cap):\n                session.add(Event(\n                    event_type=EventType.AGENT_ACTED, agent_id=other,\n                    sim_day=clock.current_day, payload={},\n                ))\n            session.commit()\n        _offer_turn(last_pick)\n        sole_survivor_pick = convo.next_speaker(session, conversation, clock, settings)\n        checks.append((\n            \"sole-survivor escape hatch: the one remaining eligible \"\n            f\"participant ({last_pick!r}) can still be picked again once \"\n            \"everyone else is at the daily activation cap\",\n            sole_survivor_pick == last_pick,\n        ))\n\n        session.close()\n        engine.dispose()\n    finally:\n        pass\n\n    print(\"\\nChecks:\")\n    all_ok = True\n    for label, ok in checks:\n        print(f\"  [{'PASS' if ok else 'FAIL'}] {label}\")\n        all_ok &= ok\n\n    if not args.keep_db:\n        _clean_db()\n    else:\n        print(f\"\\nDatabase kept at {DB_PATH}\")\n\n    if not all_ok:\n        print(\"\\nFAIL: conversation turn-rotation regression check failed.\")\n        return 1\n    print(f\"\\nPASS: next_speaker rotates away from a silent participant instead of repeating them ({len(checks)} checks).\")\n    return 0\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n"
+  },
+  "code_analysis": {
+    "next_speaker_source": "def next_speaker(\n    session: Session, conversation: Conversation, clock: SimulationClock, settings: Settings,\n) -> str | None:\n    \"\"\"Whoever has spoken least, breaking ties by the participant order \u2014\n    among participants who haven't already reached today's activation\n    budget, and never the same agent who was just given the floor.\n\n    Turn-taking is mechanism. What the speaker says \u2014 or whether they say\n    anything \u2014 is theirs. But a pick here grants a real activation exactly\n    like the scheduler does (the same AGENT_ACTED/INVALID_AGENT_DECISION\n    event lands either way \u2014 see app.services.scheduler.activations_today),\n    so it must respect the same day-wide\n    ``Settings.max_daily_agent_activations`` the scheduler enforces. Without\n    this, an agent who is picked but never actually speaks keeps winning\n    the \"fewest spoken turns\" tie-break forever (their spoken count stays 0\n    no matter how many times they're activated) and can be re-picked\n    indefinitely \u2014 confirmed reaching 9 activations in a single day against\n    a configured cap of 6 (Packet 12's live-day diagnostic).\n\n    The \"don't repeat the immediately-previous pick\" exclusion is keyed on\n    who was last *offered* the floor (the most recent AGENT_WOKE event for\n    this conversation), not who last *spoke* \u2014 spoken counts stay 0 for\n    everyone until somebody actually speaks, so a version of this keyed on\n    the last speaker never engages for exactly the case it exists to\n    prevent: a conversation's first-listed participant can be picked, decline\n    to speak, and still be tied for \"fewest spoken\" with everyone else next\n    time, winning the participant-order tie-break again and again \u2014 starving\n    every other participant for the conversation's whole life. Confirmed on\n    a real live day: an 8-participant MORNING_GATHERING gave all three of\n    its turns to the same first-listed agent and closed from their own\n    silence, without a second participant ever being offered the floor.\n\n    Returns ``None`` when nobody left in the room is eligible for another\n    turn today \u2014 the caller closes the conversation exactly as it already\n    does when the room is genuinely empty, never leaving it open with no\n    possible next speaker.\n    \"\"\"\n    from app.services import scheduler\n\n    participants: list[str] = list(conversation.participant_ids or [])\n    if not participants:\n        return None\n\n    eligible = [\n        a for a in participants\n        if scheduler.activations_today(session, a, clock) < settings.max_daily_agent_activations\n    ]\n    if not eligible:\n        return None\n\n    spoken = dict(\n        session.execute(\n            select(ConversationMessage.agent_id, func.count())\n            .where(ConversationMessage.conversation_id == conversation.id)\n            .group_by(ConversationMessage.agent_id)\n        ).all()\n    )\n    last_offered = session.scalars(\n        select(Event.agent_id)\n        .where(\n            Event.event_type == EventType.AGENT_WOKE,\n            Event.payload[\"conversation_id\"].as_integer() == conversation.id,\n        )\n        .order_by(desc(Event.id))\n        .limit(1)\n    ).first()\n\n    ranked = sorted(\n        (a for a in eligible if a != last_offered or len(eligible) == 1),\n        key=lambda a: (spoken.get(a, 0), participants.index(a)),\n    )\n    return ranked[0] if ranked else None\n\n",
+    "should_close_source": "def should_close(\n    session: Session,\n    conversation: Conversation,\n    settings: Settings,\n    consecutive_silences: int,\n) -> bool:\n    \"\"\"Whether this conversation has run its course.\"\"\"\n    if len(conversation.participant_ids or []) < 2:\n        return True\n    if turn_count(session, conversation) >= settings.max_conversation_turns:\n        return True\n    return consecutive_silences >= SILENCES_TO_WIND_DOWN and (\n        conversation.status is ConversationStatus.WINDING_DOWN\n    )\n\n",
+    "silences_to_wind_down_constant": 2
+  },
+  "observed_current_code_behavior": {
+    "control_all_silent_extended": {
+      "participant_ids": [
+        "agent_1",
+        "agent_2",
+        "agent_3",
+        "agent_4",
+        "agent_5",
+        "agent_6",
+        "agent_7",
+        "agent_8"
+      ],
+      "trace": [
+        {
+          "turn": 0,
+          "speaker": "agent_1",
+          "spoke": false,
+          "injected": false,
+          "consecutive_silences": 1,
+          "conversation_status": "ACTIVE",
+          "should_close": false
+        },
+        {
+          "turn": 1,
+          "speaker": "agent_2",
+          "spoke": false,
+          "injected": false,
+          "consecutive_silences": 2,
+          "conversation_status": "WINDING_DOWN",
+          "should_close": true
+        },
+        {
+          "turn": 2,
+          "speaker": "agent_1",
+          "spoke": false,
+          "injected": false,
+          "consecutive_silences": 3,
+          "conversation_status": "WINDING_DOWN",
+          "should_close": true
+        },
+        {
+          "turn": 3,
+          "speaker": "agent_2",
+          "spoke": false,
+          "injected": false,
+          "consecutive_silences": 4,
+          "conversation_status": "WINDING_DOWN",
+          "should_close": true
+        },
+        {
+          "turn": 4,
+          "speaker": "agent_1",
+          "spoke": false,
+          "injected": false,
+          "consecutive_silences": 5,
+          "conversation_status": "WINDING_DOWN",
+          "should_close": true
+        },
+        {
+          "turn": 5,
+          "speaker": "agent_2",
+          "spoke": false,
+          "injected": false,
+          "consecutive_silences": 6,
+          "conversation_status": "WINDING_DOWN",
+          "should_close": true
+        }
+      ],
+      "natural_close_turn": 1,
+      "distinct_agents_offered": [
+        "agent_1",
+        "agent_2"
+      ]
+    }
+  },
+  "counterfactual_forced_speak": {
+    "participant_ids": [
+      "agent_1",
+      "agent_2",
+      "agent_3",
+      "agent_4",
+      "agent_5",
+      "agent_6",
+      "agent_7",
+      "agent_8"
+    ],
+    "trace": [
+      {
+        "turn": 0,
+        "speaker": "agent_1",
+        "spoke": false,
+        "injected": false,
+        "consecutive_silences": 1,
+        "conversation_status": "ACTIVE",
+        "should_close": false
+      },
+      {
+        "turn": 1,
+        "speaker": "agent_2",
+        "spoke": false,
+        "injected": false,
+        "consecutive_silences": 2,
+        "conversation_status": "WINDING_DOWN",
+        "should_close": true
+      },
+      {
+        "turn": 2,
+        "speaker": "agent_3",
+        "spoke": true,
+        "injected": true,
+        "consecutive_silences": 0,
+        "conversation_status": "ACTIVE",
+        "should_close": false
+      },
+      {
+        "turn": 3,
+        "speaker": "agent_1",
+        "spoke": false,
+        "injected": false,
+        "consecutive_silences": 1,
+        "conversation_status": "ACTIVE",
+        "should_close": false
+      },
+      {
+        "turn": 4,
+        "speaker": "agent_2",
+        "spoke": false,
+        "injected": false,
+        "consecutive_silences": 2,
+        "conversation_status": "WINDING_DOWN",
+        "should_close": true
+      },
+      {
+        "turn": 5,
+        "speaker": "agent_1",
+        "spoke": false,
+        "injected": false,
+        "consecutive_silences": 3,
+        "conversation_status": "WINDING_DOWN",
+        "should_close": true
+      }
+    ],
+    "natural_close_turn": 1,
+    "distinct_agents_offered": [
+      "agent_1",
+      "agent_2",
+      "agent_3"
+    ],
+    "injected_agent": "agent_3",
+    "injected_at_turn": 2,
+    "note": "agent_3 (participant index 2) was never naturally offered the floor in the control (see control_all_silent_extended.distinct_agents_offered) \u2014 next_speaker's exclude-only-the-immediately-previous-pick rule locks onto the first two eligible participants indefinitely under all-silence. This scenario force-injects agent_3 at turn 2 and has them speak, to test what next_speaker/should_close do afterward. The current lifecycle's should_close already fires at turn 1 in the unforced control, before this injected turn would naturally be reached \u2014 this is an explicit hypothetical about what closure would bypass, not a claim the current code reaches this state on its own."
+  },
+  "order_sensitivity": {
+    "variant_0": {
+      "participant_order": [
+        "agent_1",
+        "agent_2",
+        "agent_3",
+        "agent_4",
+        "agent_5",
+        "agent_6",
+        "agent_7",
+        "agent_8"
+      ],
+      "distinct_agents_offered": [
+        "agent_1",
+        "agent_2"
+      ],
+      "natural_close_turn": 1
+    },
+    "variant_1": {
+      "participant_order": [
+        "agent_8",
+        "agent_7",
+        "agent_6",
+        "agent_5",
+        "agent_4",
+        "agent_3",
+        "agent_2",
+        "agent_1"
+      ],
+      "distinct_agents_offered": [
+        "agent_8",
+        "agent_7"
+      ],
+      "natural_close_turn": 1
+    }
+  }
+}

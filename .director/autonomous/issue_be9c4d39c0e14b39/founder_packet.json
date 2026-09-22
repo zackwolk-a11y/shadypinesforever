@@ -1,0 +1,40 @@
+{
+  "issue_id": "issue_be9c4d39c0e14b39",
+  "originating_round_id": "round_b433606f27d04e8a",
+  "generated_at": "2026-09-04T00:20:14.419793+00:00",
+  "option": "C_FOUNDER_ESCALATION",
+  "stop_decision": "STOP_MAX_CYCLES",
+  "stop_reason": "reached the maximum investigation cycles for this issue without a conclusive recommendation.",
+  "cycles_run": 1,
+  "max_cycles": 1,
+  "paid_calls_used": 3,
+  "max_paid_calls": 5,
+  "diagnostic_types_tried": [],
+  "level2b_experiments_tried": [
+    "speaker_selection_fair_opportunity_ab"
+  ],
+  "round_ids": [
+    "round_7f9dffb521b94b16"
+  ],
+  "diagnostic_ids": [],
+  "experiment_ids": [
+    "exp_029ddb1758e04edf"
+  ],
+  "cycle_results": [
+    {
+      "cycle_number": 1,
+      "action": "RUN_LEVEL2B_EXPERIMENT:speaker_selection_fair_opportunity_ab",
+      "round_id": "round_7f9dffb521b94b16",
+      "diagnostic_id": null,
+      "experiment_id": "exp_029ddb1758e04edf",
+      "recommendation_type": "DIAGNOSTIC_INVESTIGATION",
+      "recommendation_status": "CANDIDATE_FOR_TESTING",
+      "confidence": 0.9,
+      "permission_expansion_flags": [],
+      "stop_decision": "STOP_MAX_CYCLES",
+      "final_packet_path": "/Users/zacharywolk/shadypinesforever/.director/packets/round_7f9dffb521b94b16_final.json",
+      "error": null
+    }
+  ],
+  "note": "Advisory only. No production code, prompts, closure policy, or Village state were modified by this loop. RecommendationStatus.APPROVED_TO_TEST was never set by any reviewer \u2014 that status is rejected by director_reviewers.run_reviewer() even if a model returns it. Accepting this evidence into the Director Bridge, and any production implementation, both require a separate, explicit Founder decision."
+}

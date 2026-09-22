@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Rabbit Holes{% endblock %}
+{% block content %}
+<h1>Rabbit Holes</h1>
+<div id="rabbit-hole-list">
+  {% if rabbit_holes %}
+    {% for h in rabbit_holes %}
+    <div class="panel" style="cursor:pointer" onclick="location.href='/fishbowl/rabbit-holes/{{ h.id }}'">
+      <div><strong>{{ h.title }}</strong> <span class="badge badge--fixture">{{ h.status }}</span></div>
+      <div class="muted">opened by {{ h.originating_agent_name }} · {{ h.member_count }} member(s) · {{ h.evidence_strength }} · heat {{ "%.1f"|format(h.activity_level) }}</div>
+    </div>
+    {% endfor %}
+  {% else %}<div class="empty">No rabbit holes yet.</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>Fishbowl.initRabbitHoleList();</script>
+{% endblock %}

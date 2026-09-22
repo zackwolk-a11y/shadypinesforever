@@ -1,0 +1,53 @@
+{
+  "experiment_id": "exp_dff800958f43425e",
+  "experiment_type": "speaker_selection_fair_opportunity_ab",
+  "originating_round_id": "round_73da274827304dbe",
+  "originating_snapshot_id": "snap_f6d2acbb609148d6",
+  "originating_recommendation": "Founder-accepted round_73da274827304dbe (.director/history/decisions.jsonl, decided_at 2026-09-03T23:05:50Z): Level 2B isolated, disposable A/B experiment -- production next_speaker (Candidate A) vs. a minimal fair-opportunity rule (Candidate B) -> Gemini PRIMARY -> Hermes CRITIQUE -> deterministic reconciliation -> GPT-5.6 Sol SYNTHESIS (confidence 0.86, recommendation_type DIAGNOSTIC_INVESTIGATION, recommendation_status CANDIDATE_FOR_TESTING). Preserved conclusion: Candidate B is mechanically inert under every closure-respecting scenario tested -- speaker selection is not established as the cause of Village passivity/zero-turn gatherings. Founder ACCEPTED the evidence as valid Director history; explicitly NOT approval to implement Candidate B, alter closure, rotate participants, or change prompts. This script's only purpose is to catalog that already-accepted result through the new director_experiments.py state machine so the autonomous loop has a real, human-run template to select among -- it draws no new conclusion and authorizes no implementation.",
+  "evidence_refs": [
+    ".director/level2b/ab_experiment_evidence.json -- original human-run A/B evidence (6 scenarios: all_silent, first_two_silent_third_willing, heterogeneous_speak_silence_pattern, reversed_order_third_willing, extended_all_silent_expose_cycling, repeated_gatherings_same_static_order)",
+    ".director/packets/round_73da274827304dbe_final.json -- SYNTHESIS confidence 0.86, recommendation_status CANDIDATE_FOR_TESTING, recommendation_type DIAGNOSTIC_INVESTIGATION",
+    ".director/history/decisions.jsonl round_73da274827304dbe -- Founder ACCEPTED (decided_at 2026-09-03T23:05:50Z), evidence-only, not implementation approval"
+  ],
+  "allowed_operations": {
+    "capabilities": [],
+    "call_service_functions": []
+  },
+  "forbidden_operations": [
+    "live_database_write",
+    "live_database_schema_change",
+    "code_modification",
+    "simulation_advancement",
+    "village_event_execution",
+    "database_migration",
+    "database_restore",
+    "agent_seeding",
+    "config_change",
+    "shell_command_execution",
+    "network_request",
+    "recommendation_implementation"
+  ],
+  "scope": {
+    "participant_ids": [
+      "agent_1",
+      "agent_2",
+      "agent_3",
+      "agent_4",
+      "agent_5",
+      "agent_6",
+      "agent_7",
+      "agent_8"
+    ]
+  },
+  "success_criteria": "Candidate B (fair-opportunity next_speaker variant) is proven mechanically inert relative to Candidate A (real, unmodified production next_speaker) under every closure-respecting scenario, the run is deterministic across two independent invocations, and every one of director_level2b_experiment.REQUIRED_PASSING_CHECKS passes.",
+  "failure_criteria": "Either invocation raises, the two runs diverge non-deterministically where the baseline is expected to be deterministic, or any required falsification check fails.",
+  "timeout_seconds": 120,
+  "output_evidence_dir": "exp_dff800958f43425e",
+  "state": "EXPERIMENT_COMPLETE",
+  "created_at": "2026-09-03T23:59:25.952539+00:00",
+  "approved_at": "2026-09-03T23:59:25.953766+00:00",
+  "approved_by": "Founder",
+  "completed_at": "2026-09-03T23:59:27.605827+00:00",
+  "run_status": "SUCCESS",
+  "run_error": null
+}

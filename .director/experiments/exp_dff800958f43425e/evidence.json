@@ -1,0 +1,1484 @@
+{
+  "experiment": "Level 2B speaker/floor-selection fairness A/B \u2014 disposable, isolated, fixture-only",
+  "participant_ids": [
+    "agent_1",
+    "agent_2",
+    "agent_3",
+    "agent_4",
+    "agent_5",
+    "agent_6",
+    "agent_7",
+    "agent_8"
+  ],
+  "results": {
+    "all_silent": {
+      "A_baseline_production": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2"
+        ]
+      },
+      "B_fair_opportunity": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2"
+        ]
+      }
+    },
+    "first_two_silent_third_willing": {
+      "A_baseline_production": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [
+              "agent_3"
+            ],
+            "willing_received_offer": {
+              "agent_3": false
+            },
+            "willing_spoke": {
+              "agent_3": false
+            }
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2"
+        ]
+      },
+      "B_fair_opportunity": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [
+              "agent_3"
+            ],
+            "willing_received_offer": {
+              "agent_3": false
+            },
+            "willing_spoke": {
+              "agent_3": false
+            }
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2"
+        ]
+      }
+    },
+    "heterogeneous_speak_silence_pattern": {
+      "A_baseline_production": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [
+              "agent_3",
+              "agent_5"
+            ],
+            "willing_received_offer": {
+              "agent_3": false,
+              "agent_5": false
+            },
+            "willing_spoke": {
+              "agent_3": false,
+              "agent_5": false
+            }
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2"
+        ]
+      },
+      "B_fair_opportunity": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [
+              "agent_3",
+              "agent_5"
+            ],
+            "willing_received_offer": {
+              "agent_3": false,
+              "agent_5": false
+            },
+            "willing_spoke": {
+              "agent_3": false,
+              "agent_5": false
+            }
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2"
+        ]
+      }
+    },
+    "reversed_order_third_willing": {
+      "A_baseline_production": {
+        "participant_ids": [
+          "agent_8",
+          "agent_7",
+          "agent_6",
+          "agent_5",
+          "agent_4",
+          "agent_3",
+          "agent_2",
+          "agent_1"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_8",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_7",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_8",
+              "agent_7"
+            ],
+            "offers_per_participant": {
+              "agent_8": 1,
+              "agent_7": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [
+              "agent_6"
+            ],
+            "willing_received_offer": {
+              "agent_6": false
+            },
+            "willing_spoke": {
+              "agent_6": false
+            }
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_8",
+          "agent_7"
+        ]
+      },
+      "B_fair_opportunity": {
+        "participant_ids": [
+          "agent_8",
+          "agent_7",
+          "agent_6",
+          "agent_5",
+          "agent_4",
+          "agent_3",
+          "agent_2",
+          "agent_1"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_8",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_7",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_8",
+              "agent_7"
+            ],
+            "offers_per_participant": {
+              "agent_8": 1,
+              "agent_7": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [
+              "agent_6"
+            ],
+            "willing_received_offer": {
+              "agent_6": false
+            },
+            "willing_spoke": {
+              "agent_6": false
+            }
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_8",
+          "agent_7"
+        ]
+      }
+    },
+    "extended_all_silent_expose_cycling": {
+      "A_baseline_production": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 2,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 3,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 3,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 4,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 4,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 5,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 5,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 6,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 6,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 7,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 7,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 8,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 8,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 9,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 9,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 10,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 10,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 11,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 11,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 12,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 12,
+                "speaker": "agent_3",
+                "spoke": false,
+                "consecutive_silences": 13,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 13,
+                "speaker": "agent_4",
+                "spoke": false,
+                "consecutive_silences": 14,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 14,
+                "speaker": "agent_3",
+                "spoke": false,
+                "consecutive_silences": 15,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 15,
+                "speaker": "agent_4",
+                "spoke": false,
+                "consecutive_silences": 16,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 16,
+                "speaker": "agent_3",
+                "spoke": false,
+                "consecutive_silences": 17,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 17,
+                "speaker": "agent_4",
+                "spoke": false,
+                "consecutive_silences": 18,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 18,
+                "speaker": "agent_3",
+                "spoke": false,
+                "consecutive_silences": 19,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 19,
+                "speaker": "agent_4",
+                "spoke": false,
+                "consecutive_silences": 20,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": false,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2",
+              "agent_3",
+              "agent_4"
+            ],
+            "offers_per_participant": {
+              "agent_1": 6,
+              "agent_2": 6,
+              "agent_3": 4,
+              "agent_4": 4
+            },
+            "spoken_turns": 0,
+            "silence_count": 20,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4"
+        ]
+      },
+      "B_fair_opportunity": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 1,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 2,
+                "speaker": "agent_3",
+                "spoke": false,
+                "consecutive_silences": 3,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 3,
+                "speaker": "agent_4",
+                "spoke": false,
+                "consecutive_silences": 4,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 4,
+                "speaker": "agent_5",
+                "spoke": false,
+                "consecutive_silences": 5,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 5,
+                "speaker": "agent_6",
+                "spoke": false,
+                "consecutive_silences": 6,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 6,
+                "speaker": "agent_7",
+                "spoke": false,
+                "consecutive_silences": 7,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 7,
+                "speaker": "agent_8",
+                "spoke": false,
+                "consecutive_silences": 8,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 8,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 9,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 9,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 10,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 10,
+                "speaker": "agent_3",
+                "spoke": false,
+                "consecutive_silences": 11,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 11,
+                "speaker": "agent_4",
+                "spoke": false,
+                "consecutive_silences": 12,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 12,
+                "speaker": "agent_5",
+                "spoke": false,
+                "consecutive_silences": 13,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 13,
+                "speaker": "agent_6",
+                "spoke": false,
+                "consecutive_silences": 14,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 14,
+                "speaker": "agent_7",
+                "spoke": false,
+                "consecutive_silences": 15,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 15,
+                "speaker": "agent_8",
+                "spoke": false,
+                "consecutive_silences": 16,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 16,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 17,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 17,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 18,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 18,
+                "speaker": "agent_3",
+                "spoke": false,
+                "consecutive_silences": 19,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              },
+              {
+                "turn": 19,
+                "speaker": "agent_4",
+                "spoke": false,
+                "consecutive_silences": 20,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": false,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2",
+              "agent_3",
+              "agent_4",
+              "agent_5",
+              "agent_6",
+              "agent_7",
+              "agent_8"
+            ],
+            "offers_per_participant": {
+              "agent_1": 3,
+              "agent_2": 3,
+              "agent_3": 3,
+              "agent_4": 3,
+              "agent_5": 2,
+              "agent_6": 2,
+              "agent_7": 2,
+              "agent_8": 2
+            },
+            "spoken_turns": 0,
+            "silence_count": 20,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ]
+      }
+    },
+    "repeated_gatherings_same_static_order": {
+      "A_baseline_production": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 5,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          },
+          {
+            "gathering_index": 1,
+            "sim_day": 2,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          },
+          {
+            "gathering_index": 2,
+            "sim_day": 3,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          },
+          {
+            "gathering_index": 3,
+            "sim_day": 4,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          },
+          {
+            "gathering_index": 4,
+            "sim_day": 5,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2"
+        ]
+      },
+      "B_fair_opportunity": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "num_gatherings": 5,
+        "gatherings": [
+          {
+            "gathering_index": 0,
+            "sim_day": 1,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          },
+          {
+            "gathering_index": 1,
+            "sim_day": 2,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          },
+          {
+            "gathering_index": 2,
+            "sim_day": 3,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          },
+          {
+            "gathering_index": 3,
+            "sim_day": 4,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          },
+          {
+            "gathering_index": 4,
+            "sim_day": 5,
+            "trace": [
+              {
+                "turn": 0,
+                "speaker": "agent_1",
+                "spoke": false,
+                "consecutive_silences": 1,
+                "conversation_status": "ACTIVE",
+                "should_close": false
+              },
+              {
+                "turn": 1,
+                "speaker": "agent_2",
+                "spoke": false,
+                "consecutive_silences": 2,
+                "conversation_status": "WINDING_DOWN",
+                "should_close": true
+              }
+            ],
+            "stop_at_close": true,
+            "closure_point_turn": 1,
+            "distinct_eligible_participants_offered": [
+              "agent_1",
+              "agent_2"
+            ],
+            "offers_per_participant": {
+              "agent_1": 1,
+              "agent_2": 1
+            },
+            "spoken_turns": 0,
+            "silence_count": 2,
+            "willing_participants": [],
+            "willing_received_offer": {},
+            "willing_spoke": {}
+          }
+        ],
+        "distinct_participants_offered_across_all_gatherings": [
+          "agent_1",
+          "agent_2"
+        ]
+      }
+    }
+  },
+  "determinism_check": {
+    "run1_equals_run2": true
+  },
+  "falsification": {
+    "does_not_force_or_incentivize_speech": {
+      "result": true,
+      "basis": "speak_policy is supplied externally and identically to both candidates in every scenario; neither candidate function has any code path that alters an agent's own speak/silence choice. Confirmed by construction, not by measurement."
+    },
+    "does_not_change_closure_semantics": {
+      "result": true,
+      "mismatches": []
+    },
+    "does_not_create_new_starvation_pattern": {
+      "result": true,
+      "regressions_zero_offers_under_b_despite_nonzero_under_a": [],
+      "offer_count_redistribution_not_starvation": [
+        {
+          "scenario": "extended_all_silent_expose_cycling",
+          "gathering_index": 0,
+          "participant": "agent_6",
+          "A_offers": 0,
+          "B_offers": 2
+        },
+        {
+          "scenario": "extended_all_silent_expose_cycling",
+          "gathering_index": 0,
+          "participant": "agent_1",
+          "A_offers": 6,
+          "B_offers": 3
+        },
+        {
+          "scenario": "extended_all_silent_expose_cycling",
+          "gathering_index": 0,
+          "participant": "agent_7",
+          "A_offers": 0,
+          "B_offers": 2
+        },
+        {
+          "scenario": "extended_all_silent_expose_cycling",
+          "gathering_index": 0,
+          "participant": "agent_8",
+          "A_offers": 0,
+          "B_offers": 2
+        },
+        {
+          "scenario": "extended_all_silent_expose_cycling",
+          "gathering_index": 0,
+          "participant": "agent_5",
+          "A_offers": 0,
+          "B_offers": 2
+        },
+        {
+          "scenario": "extended_all_silent_expose_cycling",
+          "gathering_index": 0,
+          "participant": "agent_2",
+          "A_offers": 6,
+          "B_offers": 3
+        },
+        {
+          "scenario": "extended_all_silent_expose_cycling",
+          "gathering_index": 0,
+          "participant": "agent_4",
+          "A_offers": 4,
+          "B_offers": 3
+        },
+        {
+          "scenario": "extended_all_silent_expose_cycling",
+          "gathering_index": 0,
+          "participant": "agent_3",
+          "A_offers": 4,
+          "B_offers": 3
+        }
+      ]
+    },
+    "deterministic_where_baseline_is_deterministic": {
+      "result": true
+    },
+    "does_not_alter_unrelated_agent_behavior": {
+      "result": true,
+      "basis": "candidate_b_next_speaker only returns a participant id; it never mutates conversation status, consecutive_silences, agent state, or calls any function other than the real, unmodified scheduler.activations_today for eligibility. See source in this file."
+    },
+    "requires_no_broader_production_architecture_change": {
+      "result": true,
+      "basis": "candidate_b_next_speaker is a single, self-contained function using only already-existing models/utilities (Agent, Conversation, Event, scheduler.activations_today) \u2014 if adopted, it would be a same-shape drop-in replacement for the single sort-key expression inside the real next_speaker, not a new subsystem."
+    },
+    "overall_candidate_b_passes_falsification": true
+  },
+  "closure_respecting_summary": {
+    "all_silent": {
+      "stop_at_close": true,
+      "a_and_b_identical_on_all_measured_fields_per_gathering": [
+        true
+      ],
+      "candidate_b_shows_any_observable_difference_in_this_scenario": false
+    },
+    "first_two_silent_third_willing": {
+      "stop_at_close": true,
+      "a_and_b_identical_on_all_measured_fields_per_gathering": [
+        true
+      ],
+      "candidate_b_shows_any_observable_difference_in_this_scenario": false
+    },
+    "heterogeneous_speak_silence_pattern": {
+      "stop_at_close": true,
+      "a_and_b_identical_on_all_measured_fields_per_gathering": [
+        true
+      ],
+      "candidate_b_shows_any_observable_difference_in_this_scenario": false
+    },
+    "reversed_order_third_willing": {
+      "stop_at_close": true,
+      "a_and_b_identical_on_all_measured_fields_per_gathering": [
+        true
+      ],
+      "candidate_b_shows_any_observable_difference_in_this_scenario": false
+    },
+    "extended_all_silent_expose_cycling": {
+      "stop_at_close": false,
+      "a_and_b_identical_on_all_measured_fields_per_gathering": [
+        false
+      ],
+      "candidate_b_shows_any_observable_difference_in_this_scenario": true
+    },
+    "repeated_gatherings_same_static_order": {
+      "stop_at_close": true,
+      "a_and_b_identical_on_all_measured_fields_per_gathering": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "candidate_b_shows_any_observable_difference_in_this_scenario": false
+    }
+  }
+}

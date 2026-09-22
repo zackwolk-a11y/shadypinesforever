@@ -1,0 +1,53 @@
+{
+  "experiment_id": "exp_029ddb1758e04edf",
+  "experiment_type": "speaker_selection_fair_opportunity_ab",
+  "originating_round_id": "round_b433606f27d04e8a",
+  "originating_snapshot_id": "snap_f6d2acbb609148d6",
+  "originating_recommendation": "Autonomous Director loop cycle 1 for issue 'issue_be9c4d39c0e14b39'; selected parameters from experiment 'exp_dff800958f43425e' (type 'speaker_selection_fair_opportunity_ab').",
+  "evidence_refs": [
+    ".director/level2b/ab_experiment_evidence.json -- original human-run A/B evidence (6 scenarios: all_silent, first_two_silent_third_willing, heterogeneous_speak_silence_pattern, reversed_order_third_willing, extended_all_silent_expose_cycling, repeated_gatherings_same_static_order)",
+    ".director/packets/round_73da274827304dbe_final.json -- SYNTHESIS confidence 0.86, recommendation_status CANDIDATE_FOR_TESTING, recommendation_type DIAGNOSTIC_INVESTIGATION",
+    ".director/history/decisions.jsonl round_73da274827304dbe -- Founder ACCEPTED (decided_at 2026-09-03T23:05:50Z), evidence-only, not implementation approval"
+  ],
+  "allowed_operations": {
+    "capabilities": [],
+    "call_service_functions": []
+  },
+  "forbidden_operations": [
+    "live_database_write",
+    "live_database_schema_change",
+    "code_modification",
+    "simulation_advancement",
+    "village_event_execution",
+    "database_migration",
+    "database_restore",
+    "agent_seeding",
+    "config_change",
+    "shell_command_execution",
+    "network_request",
+    "recommendation_implementation"
+  ],
+  "scope": {
+    "participant_ids": [
+      "agent_1",
+      "agent_2",
+      "agent_3",
+      "agent_4",
+      "agent_5",
+      "agent_6",
+      "agent_7",
+      "agent_8"
+    ]
+  },
+  "success_criteria": "Candidate B (fair-opportunity next_speaker variant) is proven mechanically inert relative to Candidate A (real, unmodified production next_speaker) under every closure-respecting scenario, the run is deterministic across two independent invocations, and every one of director_level2b_experiment.REQUIRED_PASSING_CHECKS passes.",
+  "failure_criteria": "Either invocation raises, the two runs diverge non-deterministically where the baseline is expected to be deterministic, or any required falsification check fails.",
+  "timeout_seconds": 120,
+  "output_evidence_dir": "exp_029ddb1758e04edf",
+  "state": "EXPERIMENT_COMPLETE",
+  "created_at": "2026-09-04T00:17:48.821462+00:00",
+  "approved_at": "2026-09-04T00:17:48.822234+00:00",
+  "approved_by": "autonomous_director_loop",
+  "completed_at": "2026-09-04T00:17:50.366667+00:00",
+  "run_status": "SUCCESS",
+  "run_error": null
+}

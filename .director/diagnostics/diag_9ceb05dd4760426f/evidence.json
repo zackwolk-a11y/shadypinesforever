@@ -1,0 +1,724 @@
+{
+  "persistence_path": {
+    "execute_decision_source": "def execute_decision(\n    session: Session,\n    agent: Agent,\n    decision: AgentDecision,\n    clock: SimulationClock,\n    correlation_id: str,\n    conversation: Conversation | None,\n    settings: Settings,\n    llm_provider: LLMProvider,\n) -> tuple[list[str], bool, research.ResearchOutcome | None]:\n    \"\"\"Perform the state changes a validated decision calls for.\n\n    Returns what was performed, whether the agent spoke (for the conversation\n    engine), and the research outcome if a START_RESEARCH action ran.\n    \"\"\"\n    performed: list[str] = []\n    spoke = False\n    research_outcome: research.ResearchOutcome | None = None\n\n    agent.current_activity = decision.activity\n    if decision.location:\n        agent.current_location = decision.location\n\n    for action in decision.actions:\n        if action.type is ActionType.WRITE_NOTE:\n            memory.write_note(\n                session, agent.agent_id, action.content or \"\", clock, correlation_id,\n                memory_type=action.memory_type or MemoryType.EPISODIC,\n            )\n        elif action.type is ActionType.SPEAK and conversation is not None:\n            convo.record_utterance(\n                session,\n                conversation,\n                agent.agent_id,\n                action.content or \"\",\n                clock,\n                correlation_id=correlation_id,\n                move=action.conversational_move,\n            )\n            if action.conversational_move == dialogue.MOVE_CHANGE_SUBJECT and action.new_subject:\n                conversation.current_subject = action.new_subject[:200]\n            _link_conversation_references(conversation, action)\n            spoke = True\n        elif action.type is ActionType.LEAVE_CONVERSATION and conversation is not None:\n            convo.leave(session, conversation, agent.agent_id, clock, correlation_id=correlation_id)\n        elif action.type is ActionType.JOIN_CONVERSATION and conversation is not None:\n            convo.join(session, conversation, agent.agent_id, clock, correlation_id=correlation_id)\n        elif action.type is ActionType.START_CONVERSATION:\n            reason = dialogue.pick_trigger(session, agent.agent_id, action.target_agent_id, clock)\n            new_conversation = convo.start_conversation(\n                session,\n                trigger=reason.trigger,\n                participant_ids=[agent.agent_id, action.target_agent_id],\n                clock=clock,\n                correlation_id=correlation_id,\n            )\n            new_conversation.correlation_id = correlation_id\n            new_conversation.location = agent.current_location\n            new_conversation.current_subject = reason.subject[:200]\n            new_conversation.initiating_reason = reason.reason\n            if reason.related_research_id:\n                new_conversation.related_research_ids = [reason.related_research_id]\n            if reason.related_wall_post_id:\n                new_conversation.related_wall_post_ids = [reason.related_wall_post_id]\n            if reason.related_rabbit_hole_id:\n                new_conversation.related_rabbit_hole_ids = [reason.related_rabbit_hole_id]\n            if reason.related_memory_id:\n                new_conversation.related_memory_ids = [reason.related_memory_id]\n            convo.record_utterance(\n                session,\n                new_conversation,\n                agent.agent_id,\n                action.content or \"\",\n                clock,\n                correlation_id=correlation_id,\n                move=dialogue.MOVE_OPEN,\n            )\n            spoke = True\n        elif action.type is ActionType.START_RESEARCH:\n            try:\n                research_provider = get_research_provider(settings)\n            except ResearchProviderError as exc:\n                research_outcome = research.record_unavailable_session(\n                    session,\n                    agent,\n                    action.content or \"\",\n                    clock,\n                    correlation_id,\n                    f\"research provider unavailable: {exc}\",\n                    provider_name=settings.research_provider,\n                )\n            else:\n                research_outcome = research.start_research(\n                    session,\n                    agent,\n                    action.content or \"\",\n                    clock,\n                    correlation_id,\n                    settings,\n                    llm_provider,\n                    research_provider,\n                )\n            if action.target_question_id is not None and research_outcome is not None and research_outcome.research_id:\n                target_question = session.get(AgentQuestion, action.target_question_id)\n                if target_question is not None and target_question.agent_id == agent.agent_id:\n                    agent_questions.link_to_research(\n                        session, target_question, research_outcome.research_id, clock,\n                        correlation_id=correlation_id,\n                    )\n        elif action.type in (ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE):\n            message = Message(\n                sender_agent_id=agent.agent_id,\n                recipient_agent_id=action.target_agent_id,\n                content=action.content or \"\",\n            )\n            session.add(message)\n            session.flush()\n            expose(\n                session,\n                agent_id=agent.agent_id,\n                entity_type=\"message\",\n                entity_id=message.id,\n                exposure_type=ExposureType.CREATED,\n            )\n        elif action.type is ActionType.POST_TO_WALL:\n            wall.post_to_wall(\n                session, agent.agent_id, action.wall_post_type, action.content or \"\",\n                clock, correlation_id,\n                related_research_id=action.target_research_id,\n                related_wall_post_id=action.target_wall_post_id,\n                related_rabbit_hole_id=action.target_rabbit_hole_id,\n            )\n        elif action.type is ActionType.READ_WALL_POST:\n            post = session.get(ResearchWallPost, action.target_wall_post_id)\n            wall.read_wall_post(session, agent.agent_id, post, clock, correlation_id)\n        elif action.type is ActionType.CREATE_RABBIT_HOLE:\n            rh.create(\n                session, agent.agent_id, action.title or \"\", action.content or \"\",\n                clock, correlation_id,\n                related_research_id=action.target_research_id,\n                related_wall_post_id=action.target_wall_post_id,\n            )\n        elif action.type is ActionType.JOIN_RABBIT_HOLE:\n            rh.join(session, action.target_rabbit_hole_id, agent.agent_id, clock, correlation_id)\n        elif action.type is ActionType.CONTRIBUTE_TO_RABBIT_HOLE:\n            rh.contribute(\n                session, action.target_rabbit_hole_id, agent.agent_id, action.content or \"\",\n                clock, correlation_id, research_id=action.target_research_id,\n            )\n        elif action.type is ActionType.LEAVE_RABBIT_HOLE:\n            rh.leave(session, action.target_rabbit_hole_id, agent.agent_id, clock, correlation_id)\n        elif action.type is ActionType.RESOLVE_RABBIT_HOLE:\n            rh.resolve(\n                session, action.target_rabbit_hole_id, agent.agent_id, action.content or \"\",\n                clock, correlation_id,\n            )\n        elif action.type is ActionType.CHALLENGE_CLAIM:\n            claim = session.get(Claim, action.target_claim_id)\n            research.challenge_claim(\n                session, agent.agent_id, claim, action.content or \"\", clock, correlation_id\n            )\n        elif action.type is ActionType.FORM_BELIEF:\n            rs = session.scalars(\n                select(ResearchSession).where(\n                    ResearchSession.research_id == action.target_research_id\n                )\n            ).one()\n            initial_confidence = rs.confidence if rs.confidence is not None else 50.0\n            beliefs.form(\n                session, agent.agent_id, action.content or \"\", action.target_research_id,\n                initial_confidence, clock, correlation_id,\n            )\n        elif action.type is ActionType.REVISE_BELIEF:\n            belief = beliefs.owned_by(session, agent.agent_id, action.target_belief_id)\n            if action.target_research_id:\n                basis_type, basis_id = \"research_session\", action.target_research_id\n            elif action.target_wall_post_id:\n                basis_type, basis_id = \"wall_post\", str(action.target_wall_post_id)\n            else:\n                basis_type, basis_id = \"claim\", str(action.target_claim_id)\n            beliefs.revise(\n                session, agent.agent_id, belief, action.belief_relation, basis_type, basis_id,\n                action.content, clock, correlation_id,\n            )\n        elif action.type is ActionType.RETIRE_BELIEF:\n            belief = beliefs.owned_by(session, agent.agent_id, action.target_belief_id)\n            beliefs.retire(session, agent.agent_id, belief, action.content or \"\", clock, correlation_id)\n        # REST / OBSERVE / LISTEN_TO_MUSIC / DRINK_COFFEE / DO_NOTHING are fully\n        # expressed by the activity and location already applied above.\n        agent.interaction_target = action.target_agent_id\n        performed.append(action.type.value)\n\n    if not decision.actions:\n        agent.interaction_target = None\n\n    return performed, spoke, research_outcome\n\n",
+    "record_utterance_source": "def record_utterance(\n    session: Session,\n    conversation: Conversation,\n    agent_id: str,\n    content: str,\n    clock: SimulationClock,\n    *,\n    correlation_id: str | None = None,\n    causation_id: int | None = None,\n    move: str | None = None,\n) -> ConversationMessage:\n    \"\"\"Add one turn, and expose it to everyone in the room.\n\n    ``move`` (Packet 8, ``app.services.dialogue.MOVE_*``) is stored on the\n    event, not the message row \u2014 it's ephemeral tagging metadata for\n    anti-repetition/memory-worthiness detection, not a permanent property of\n    what was said.\n    \"\"\"\n    message = ConversationMessage(\n        conversation_id=conversation.id,\n        agent_id=agent_id,\n        content=content,\n        turn_number=turn_count(session, conversation) + 1,\n    )\n    session.add(message)\n    session.flush()\n\n    event = record_event(\n        session,\n        event_type=EventType.CONVERSATION_MESSAGE,\n        agent_id=agent_id,\n        payload={\"conversation_id\": conversation.id, \"turn\": message.turn_number, \"move\": move},\n        entity_type=\"conversation_message\",\n        entity_id=str(message.id),\n        correlation_id=correlation_id,\n        causation_id=causation_id,\n        clock=clock,\n    )\n    # Participants only. This is the line that keeps knowledge partial.\n    expose_many(\n        session,\n        agent_ids=conversation.participant_ids or [],\n        entity_type=\"conversation_message\",\n        entity_id=message.id,\n        exposure_type=ExposureType.CONVERSATION,\n        source_event_id=event.id,\n    )\n    _touch_relationships(session, conversation.participant_ids or [], agent_id)\n    return message\n\n",
+    "agent_decision_schema_source": "class AgentDecision(BaseModel):\n    \"\"\"What an activated agent decided to do.\n\n    ``public_dialogue`` is what the agent says aloud in the room, if anything.\n    Silence is a legal decision: an empty ``actions`` list with no dialogue is\n    valid and common. ``reflection`` (Packet 7) is likewise optional and rare\n    \u2014 most turns produce none.\n    \"\"\"\n\n    model_config = {\"extra\": \"forbid\"}\n\n    summary: str = Field(description=\"One sentence on what the agent is doing and why.\")\n    activity: str = Field(description=\"Short label for the agent's current activity.\")\n    location: str | None = Field(\n        default=None, description=\"Clubhouse location the agent moves to, or null to stay put.\"\n    )\n    actions: list[AgentAction] = Field(default_factory=list)\n    public_dialogue: str | None = None\n    reflection: Reflection | None = None\n\n    @field_validator(\"actions\")\n    @classmethod\n    def _cap_actions(cls, value: list[AgentAction]) -> list[AgentAction]:\n        if len(value) > MAX_ACTIONS_PER_DECISION:\n            raise ValueError(\n                f\"at most {MAX_ACTIONS_PER_DECISION} actions per decision, got {len(value)}\"\n            )\n        return value\n\n",
+    "existing_integration_test_docstring": "Deterministic Packet 8 smoke test: drives the real loop until an organic\ndialogue/social-intelligence chain has happened, then asserts it end to end.\n\n    Agent A notices Agent B (a conversation begins for a real, computed reason)\n      -> Agent A says something\n      -> Agent B responds specifically to what Agent A said (a tagged,\n         direct-response conversational move, not an independent monologue\n         that merely shares a topic)\n      -> the conversation runs several turns\n      -> a meaningful moment occurs (a challenge, a connection, an anecdote,\n         or a proposal to research something)\n      -> the conversation ends and produces at least one persistent\n         consequence (a memory)\n      -> that consequence is recalled again later, in a genuinely later turn\n\nEvery step happens through the real agent-decision loop \u2014 scheduler picks an\nagent, FixtureLLMProvider.complete() makes that agent's own (character-\nbiased, weighted-random) decision, orchestrator validation and execution run\nexactly as they would for a live model, and app/services/dialogue.py and\napp/services/memory.py are the same modules a live model's decisions would\nrun through. Nothing here scripts what an agent says, hand-writes a\nconversation, or sets a memory directly \u2014 a fixed seed only makes which\nchoices happen to occur reproducible, the same discipline as\nscripts/smoke_test_cross_pollination.py and\nscripts/smoke_test_character_development.py.\n\nUsage::\n\n    python scripts/smoke_test_dialogue.py\n    python scripts/smoke_test_dialogue.py --seed other --max-events 4000\n    python scripts/smoke_test_dialogue.py --keep-db"
+  },
+  "current_threshold": 2,
+  "current_threshold_results": {
+    "normal_order": {
+      "heterogeneous_third_agent_willing": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "trace": [
+          {
+            "turn": 0,
+            "speaker": "agent_1",
+            "spoke": false,
+            "consecutive_silences": 1,
+            "conversation_status": "ACTIVE",
+            "should_close": false
+          },
+          {
+            "turn": 1,
+            "speaker": "agent_2",
+            "spoke": false,
+            "consecutive_silences": 2,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 2,
+            "speaker": "agent_1",
+            "spoke": false,
+            "consecutive_silences": 3,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 3,
+            "speaker": "agent_2",
+            "spoke": false,
+            "consecutive_silences": 4,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 4,
+            "speaker": "agent_1",
+            "spoke": false,
+            "consecutive_silences": 5,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 5,
+            "speaker": "agent_2",
+            "spoke": false,
+            "consecutive_silences": 6,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 6,
+            "speaker": "agent_1",
+            "spoke": false,
+            "consecutive_silences": 7,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 7,
+            "speaker": "agent_2",
+            "spoke": false,
+            "consecutive_silences": 8,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          }
+        ],
+        "closure_point_turn": 1,
+        "distinct_agents_offered": [
+          "agent_1",
+          "agent_2"
+        ],
+        "spoken_turns": 0,
+        "empty_activation_count": 8,
+        "willing_speaker_agent_id": "agent_3",
+        "willing_speaker_received_floor": false
+      },
+      "all_silent_control": {
+        "participant_ids": [
+          "agent_1",
+          "agent_2",
+          "agent_3",
+          "agent_4",
+          "agent_5",
+          "agent_6",
+          "agent_7",
+          "agent_8"
+        ],
+        "trace": [
+          {
+            "turn": 0,
+            "speaker": "agent_1",
+            "spoke": false,
+            "consecutive_silences": 1,
+            "conversation_status": "ACTIVE",
+            "should_close": false
+          },
+          {
+            "turn": 1,
+            "speaker": "agent_2",
+            "spoke": false,
+            "consecutive_silences": 2,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 2,
+            "speaker": "agent_1",
+            "spoke": false,
+            "consecutive_silences": 3,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 3,
+            "speaker": "agent_2",
+            "spoke": false,
+            "consecutive_silences": 4,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 4,
+            "speaker": "agent_1",
+            "spoke": false,
+            "consecutive_silences": 5,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 5,
+            "speaker": "agent_2",
+            "spoke": false,
+            "consecutive_silences": 6,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 6,
+            "speaker": "agent_1",
+            "spoke": false,
+            "consecutive_silences": 7,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 7,
+            "speaker": "agent_2",
+            "spoke": false,
+            "consecutive_silences": 8,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          }
+        ],
+        "closure_point_turn": 1,
+        "distinct_agents_offered": [
+          "agent_1",
+          "agent_2"
+        ],
+        "spoken_turns": 0,
+        "empty_activation_count": 8,
+        "willing_speaker_agent_id": "agent_3",
+        "willing_speaker_received_floor": false
+      }
+    },
+    "reversed_order": {
+      "heterogeneous_third_agent_willing": {
+        "participant_ids": [
+          "agent_8",
+          "agent_7",
+          "agent_6",
+          "agent_5",
+          "agent_4",
+          "agent_3",
+          "agent_2",
+          "agent_1"
+        ],
+        "trace": [
+          {
+            "turn": 0,
+            "speaker": "agent_8",
+            "spoke": false,
+            "consecutive_silences": 1,
+            "conversation_status": "ACTIVE",
+            "should_close": false
+          },
+          {
+            "turn": 1,
+            "speaker": "agent_7",
+            "spoke": false,
+            "consecutive_silences": 2,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 2,
+            "speaker": "agent_8",
+            "spoke": false,
+            "consecutive_silences": 3,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 3,
+            "speaker": "agent_7",
+            "spoke": false,
+            "consecutive_silences": 4,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 4,
+            "speaker": "agent_8",
+            "spoke": false,
+            "consecutive_silences": 5,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 5,
+            "speaker": "agent_7",
+            "spoke": false,
+            "consecutive_silences": 6,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 6,
+            "speaker": "agent_8",
+            "spoke": false,
+            "consecutive_silences": 7,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 7,
+            "speaker": "agent_7",
+            "spoke": false,
+            "consecutive_silences": 8,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          }
+        ],
+        "closure_point_turn": 1,
+        "distinct_agents_offered": [
+          "agent_8",
+          "agent_7"
+        ],
+        "spoken_turns": 0,
+        "empty_activation_count": 8,
+        "willing_speaker_agent_id": "agent_6",
+        "willing_speaker_received_floor": false
+      },
+      "all_silent_control": {
+        "participant_ids": [
+          "agent_8",
+          "agent_7",
+          "agent_6",
+          "agent_5",
+          "agent_4",
+          "agent_3",
+          "agent_2",
+          "agent_1"
+        ],
+        "trace": [
+          {
+            "turn": 0,
+            "speaker": "agent_8",
+            "spoke": false,
+            "consecutive_silences": 1,
+            "conversation_status": "ACTIVE",
+            "should_close": false
+          },
+          {
+            "turn": 1,
+            "speaker": "agent_7",
+            "spoke": false,
+            "consecutive_silences": 2,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 2,
+            "speaker": "agent_8",
+            "spoke": false,
+            "consecutive_silences": 3,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 3,
+            "speaker": "agent_7",
+            "spoke": false,
+            "consecutive_silences": 4,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 4,
+            "speaker": "agent_8",
+            "spoke": false,
+            "consecutive_silences": 5,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 5,
+            "speaker": "agent_7",
+            "spoke": false,
+            "consecutive_silences": 6,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 6,
+            "speaker": "agent_8",
+            "spoke": false,
+            "consecutive_silences": 7,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          },
+          {
+            "turn": 7,
+            "speaker": "agent_7",
+            "spoke": false,
+            "consecutive_silences": 8,
+            "conversation_status": "WINDING_DOWN",
+            "should_close": true
+          }
+        ],
+        "closure_point_turn": 1,
+        "distinct_agents_offered": [
+          "agent_8",
+          "agent_7"
+        ],
+        "spoken_turns": 0,
+        "empty_activation_count": 8,
+        "willing_speaker_agent_id": "agent_6",
+        "willing_speaker_received_floor": false
+      }
+    }
+  },
+  "threshold_comparison": {
+    "note": "SILENCES_TO_WIND_DOWN was asserted == 2, monkeypatched in-process to 3 for this comparison only, restored to 2 in a finally block, and re-asserted == 2 afterward \u2014 all four steps verified, none skipped. app/services/conversations.py on disk was never touched, and the patch cannot outlive this single diagnostic call.",
+    "original_threshold": 2,
+    "alternate_threshold": 3,
+    "restoration_verified": true,
+    "results_at_alternate_threshold": {
+      "normal_order": {
+        "heterogeneous_third_agent_willing": {
+          "participant_ids": [
+            "agent_1",
+            "agent_2",
+            "agent_3",
+            "agent_4",
+            "agent_5",
+            "agent_6",
+            "agent_7",
+            "agent_8"
+          ],
+          "trace": [
+            {
+              "turn": 0,
+              "speaker": "agent_1",
+              "spoke": false,
+              "consecutive_silences": 1,
+              "conversation_status": "ACTIVE",
+              "should_close": false
+            },
+            {
+              "turn": 1,
+              "speaker": "agent_2",
+              "spoke": false,
+              "consecutive_silences": 2,
+              "conversation_status": "ACTIVE",
+              "should_close": false
+            },
+            {
+              "turn": 2,
+              "speaker": "agent_1",
+              "spoke": false,
+              "consecutive_silences": 3,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 3,
+              "speaker": "agent_2",
+              "spoke": false,
+              "consecutive_silences": 4,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 4,
+              "speaker": "agent_1",
+              "spoke": false,
+              "consecutive_silences": 5,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 5,
+              "speaker": "agent_2",
+              "spoke": false,
+              "consecutive_silences": 6,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 6,
+              "speaker": "agent_1",
+              "spoke": false,
+              "consecutive_silences": 7,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 7,
+              "speaker": "agent_2",
+              "spoke": false,
+              "consecutive_silences": 8,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            }
+          ],
+          "closure_point_turn": 2,
+          "distinct_agents_offered": [
+            "agent_1",
+            "agent_2"
+          ],
+          "spoken_turns": 0,
+          "empty_activation_count": 8,
+          "willing_speaker_agent_id": "agent_3",
+          "willing_speaker_received_floor": false
+        },
+        "all_silent_control": {
+          "participant_ids": [
+            "agent_1",
+            "agent_2",
+            "agent_3",
+            "agent_4",
+            "agent_5",
+            "agent_6",
+            "agent_7",
+            "agent_8"
+          ],
+          "trace": [
+            {
+              "turn": 0,
+              "speaker": "agent_1",
+              "spoke": false,
+              "consecutive_silences": 1,
+              "conversation_status": "ACTIVE",
+              "should_close": false
+            },
+            {
+              "turn": 1,
+              "speaker": "agent_2",
+              "spoke": false,
+              "consecutive_silences": 2,
+              "conversation_status": "ACTIVE",
+              "should_close": false
+            },
+            {
+              "turn": 2,
+              "speaker": "agent_1",
+              "spoke": false,
+              "consecutive_silences": 3,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 3,
+              "speaker": "agent_2",
+              "spoke": false,
+              "consecutive_silences": 4,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 4,
+              "speaker": "agent_1",
+              "spoke": false,
+              "consecutive_silences": 5,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 5,
+              "speaker": "agent_2",
+              "spoke": false,
+              "consecutive_silences": 6,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 6,
+              "speaker": "agent_1",
+              "spoke": false,
+              "consecutive_silences": 7,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 7,
+              "speaker": "agent_2",
+              "spoke": false,
+              "consecutive_silences": 8,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            }
+          ],
+          "closure_point_turn": 2,
+          "distinct_agents_offered": [
+            "agent_1",
+            "agent_2"
+          ],
+          "spoken_turns": 0,
+          "empty_activation_count": 8,
+          "willing_speaker_agent_id": "agent_3",
+          "willing_speaker_received_floor": false
+        }
+      },
+      "reversed_order": {
+        "heterogeneous_third_agent_willing": {
+          "participant_ids": [
+            "agent_8",
+            "agent_7",
+            "agent_6",
+            "agent_5",
+            "agent_4",
+            "agent_3",
+            "agent_2",
+            "agent_1"
+          ],
+          "trace": [
+            {
+              "turn": 0,
+              "speaker": "agent_8",
+              "spoke": false,
+              "consecutive_silences": 1,
+              "conversation_status": "ACTIVE",
+              "should_close": false
+            },
+            {
+              "turn": 1,
+              "speaker": "agent_7",
+              "spoke": false,
+              "consecutive_silences": 2,
+              "conversation_status": "ACTIVE",
+              "should_close": false
+            },
+            {
+              "turn": 2,
+              "speaker": "agent_8",
+              "spoke": false,
+              "consecutive_silences": 3,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 3,
+              "speaker": "agent_7",
+              "spoke": false,
+              "consecutive_silences": 4,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 4,
+              "speaker": "agent_8",
+              "spoke": false,
+              "consecutive_silences": 5,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 5,
+              "speaker": "agent_7",
+              "spoke": false,
+              "consecutive_silences": 6,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 6,
+              "speaker": "agent_8",
+              "spoke": false,
+              "consecutive_silences": 7,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 7,
+              "speaker": "agent_7",
+              "spoke": false,
+              "consecutive_silences": 8,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            }
+          ],
+          "closure_point_turn": 2,
+          "distinct_agents_offered": [
+            "agent_8",
+            "agent_7"
+          ],
+          "spoken_turns": 0,
+          "empty_activation_count": 8,
+          "willing_speaker_agent_id": "agent_6",
+          "willing_speaker_received_floor": false
+        },
+        "all_silent_control": {
+          "participant_ids": [
+            "agent_8",
+            "agent_7",
+            "agent_6",
+            "agent_5",
+            "agent_4",
+            "agent_3",
+            "agent_2",
+            "agent_1"
+          ],
+          "trace": [
+            {
+              "turn": 0,
+              "speaker": "agent_8",
+              "spoke": false,
+              "consecutive_silences": 1,
+              "conversation_status": "ACTIVE",
+              "should_close": false
+            },
+            {
+              "turn": 1,
+              "speaker": "agent_7",
+              "spoke": false,
+              "consecutive_silences": 2,
+              "conversation_status": "ACTIVE",
+              "should_close": false
+            },
+            {
+              "turn": 2,
+              "speaker": "agent_8",
+              "spoke": false,
+              "consecutive_silences": 3,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 3,
+              "speaker": "agent_7",
+              "spoke": false,
+              "consecutive_silences": 4,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 4,
+              "speaker": "agent_8",
+              "spoke": false,
+              "consecutive_silences": 5,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 5,
+              "speaker": "agent_7",
+              "spoke": false,
+              "consecutive_silences": 6,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 6,
+              "speaker": "agent_8",
+              "spoke": false,
+              "consecutive_silences": 7,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            },
+            {
+              "turn": 7,
+              "speaker": "agent_7",
+              "spoke": false,
+              "consecutive_silences": 8,
+              "conversation_status": "WINDING_DOWN",
+              "should_close": true
+            }
+          ],
+          "closure_point_turn": 2,
+          "distinct_agents_offered": [
+            "agent_8",
+            "agent_7"
+          ],
+          "spoken_turns": 0,
+          "empty_activation_count": 8,
+          "willing_speaker_agent_id": "agent_6",
+          "willing_speaker_received_floor": false
+        }
+      }
+    }
+  },
+  "note_on_activation_count": "empty_activation_count is a raw count of turns where the offered agent did not speak \u2014 reported as fact only, never itself treated as evidence of improvement or regression."
+}

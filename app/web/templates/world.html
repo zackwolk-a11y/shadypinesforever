@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101d1b">
+  <title>Shady Pines · The Clubhouse</title>
+  <link rel="stylesheet" href="/fishbowl/static/world/world.css">
+</head>
+<body>
+  <canvas id="world" aria-label="The clubhouse. Select a resident using the resident list, or drag to pan and scroll to zoom." tabindex="0"></canvas>
+  <header class="mast">
+    <a class="wordmark" href="/world/"><span>THE INTERNAL VILLAGE</span><strong>Shady Pines</strong><i>THE CLUBHOUSE</i></a>
+    <div class="top-right"><div id="clock">Connecting to the Village…</div><div id="connection" role="status" aria-live="polite" data-state="unknown">Waiting for the first update</div>
+      <div id="replay-bar" hidden aria-label="Event replay controls"><span id="replay-status" role="status">Replaying…</span>
+        <button id="replay-pause" aria-pressed="false">Pause replay</button>
+        <button class="speed-btn" data-speed="1" aria-pressed="true">1x</button><button class="speed-btn" data-speed="2">2x</button><button class="speed-btn" data-speed="4">4x</button>
+        <button id="skip-live">Skip to live</button>
+      </div>
+    <a href="/fishbowl/">Open Fishbowl ↗</a></div>
+  </header>
+  <button id="roster-toggle" class="roster-toggle" aria-expanded="false" aria-controls="roster">Residents</button>
+  <aside class="residents" aria-label="Residents"><div class="eyebrow">IN THE CLUBHOUSE <span id="resident-count"></span></div><div id="roster"></div></aside>
+  <div id="roster-scrim" hidden></div>
+  <div id="load-state" role="status">Opening the clubhouse…</div>
+  <div class="camera-tools" aria-label="Camera controls">
+    <button id="zoom-out" aria-label="Zoom out">−</button><button id="reset">Reset view</button><button id="zoom-in" aria-label="Zoom in">+</button><button id="sound" aria-pressed="false">Sound off</button>
+  </div>
+  <footer class="bottom">
+    <div class="room-caption"><span class="eyebrow">FOUNDER / OBSERVER</span><span id="last-event">The room is quiet.</span></div>
+    <div class="founder-controls" aria-label="Founder controls">
+      <button id="message-open">Message</button><span class="divider"></span>
+      <button data-control="pause" id="pause">Pause</button><button data-control="resume" id="resume">Resume</button>
+      <button data-control="next-event">Next event</button><button data-control="run-period">Run period</button><button data-control="run-day">Run day</button>
+    </div>
+  </footer>
+  <div id="toast" role="status" hidden></div>
+  <dialog id="details" class="detail-sheet"><div class="sheet-tools"><button id="follow" hidden>Follow resident</button><button id="close-detail" aria-label="Close details">Close ×</button></div><div id="detail-content"></div></dialog>
+  <dialog id="message-dialog"><form id="message-form"><div class="eyebrow">A NOTE FROM OUTSIDE</div><h2>Message the Village</h2><label for="recipient">To</label><select id="recipient"><option value="">All residents</option></select><label for="message">Your message</label><textarea id="message" required rows="5" maxlength="12000" placeholder="What’s on your mind?"></textarea><p class="muted">Delivered on the next activation. Residents decide how to respond.</p><div class="dialog-actions"><button type="button" id="cancel-message">Cancel</button><button type="submit">Send message</button></div></form></dialog>
+  <dialog id="day-dialog"><h2>Run a live day?</h2><p>The existing engine will call your configured providers. This may incur API usage.</p><div class="dialog-actions"><button id="cancel-day">Cancel</button><button id="confirm-day">Run day</button></div></dialog>
+  <script type="module" src="/fishbowl/static/world/world.mjs"></script>
+</body>
+</html>

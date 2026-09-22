@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Telemetry{% endblock %}
+{% block content %}
+<h1>Provider &amp; Cost Telemetry</h1>
+<p class="muted">What the Village costs to run. Never shows an API key or a secret environment value.</p>
+
+<div class="panel">
+  <div class="panel__title">Totals</div>
+  <dl id="telemetry-totals">
+    <dt>Total LLM calls</dt><dd>{{ telemetry.llm_total_calls }} ({{ telemetry.llm_live_calls }} live)</dd>
+    <dt>Total estimated cost</dt><dd>${{ "%.4f"|format(telemetry.llm_total_cost_usd) }}</dd>
+    <dt>Total retries</dt><dd>{{ telemetry.llm_total_retries }}</dd>
+    <dt>Research sessions tracked</dt><dd>{{ telemetry.research_total_sessions }} ({{ telemetry.research_live_sessions }} live)</dd>
+  </dl>
+</div>
+
+<div class="panel">
+  <div class="panel__title">LLM Usage by Purpose</div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Purpose</th><th>Calls</th><th>Input tok</th><th>Output tok</th><th>Retries</th><th>Avg latency</th><th>Cost</th></tr></thead>
+    <tbody id="telemetry-by-purpose">
+      {% for p in telemetry.llm_by_purpose %}
+      <tr>
+        <td data-label="Purpose">{{ p.purpose }}</td>
+        <td data-label="Calls">{{ p.calls }}</td>
+        <td data-label="Input tok">{{ p.input_tokens }}</td>
+        <td data-label="Output tok">{{ p.output_tokens }}</td>
+        <td data-label="Retries">{{ p.retries }}</td>
+        <td data-label="Avg latency">{{ p.avg_latency_ms }} ms</td>
+        <td data-label="Cost">${{ "%.4f"|format(p.estimated_cost_usd) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
+<div class="panel">
+  <div class="panel__title">Research Provider Usage</div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Provider</th><th>Sessions</th><th>Queries</th><th>Results</th><th>Fetched</th><th>Failures</th><th>Retries</th><th>Failed sessions</th></tr></thead>
+    <tbody id="telemetry-research-usage">
+      {% for u in telemetry.research_usage %}
+      <tr>
+        <td data-label="Provider">{{ u.provider }}</td>
+        <td data-label="Sessions">{{ u.sessions }}</td>
+        <td data-label="Queries">{{ u.queries_executed }}</td>
+        <td data-label="Results">{{ u.results_returned }}</td>
+        <td data-label="Fetched">{{ u.sources_fetched }}</td>
+        <td data-label="Failures">{{ u.fetch_failures }}</td>
+        <td data-label="Retries">{{ u.retry_count }}</td>
+        <td data-label="Failed sessions">{{ u.failed_sessions }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
+<div class="panel">
+  <div class="panel__title">Recent Model Calls</div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>When</th><th>Purpose</th><th>Agent</th><th>Model</th><th>Tokens (in/out)</th><th>Retries</th><th>Latency</th><th>Cost</th></tr></thead>
+    <tbody id="telemetry-recent">
+      {% for r in telemetry.recent_llm_runs %}
+      <tr>
+        <td data-label="When">{{ r.created_at.strftime("%H:%M:%S") }}</td>
+        <td data-label="Purpose">{{ r.purpose }}</td>
+        <td data-label="Agent">{{ r.agent_name or "—" }}</td>
+        <td data-label="Model">{{ r.model }} <span class="badge {{ 'badge--fixture' if r.is_fixture else 'badge--live' }}">{{ 'FIXTURE' if r.is_fixture else 'LIVE' }}</span></td>
+        <td data-label="Tokens">{{ r.input_tokens }}/{{ r.output_tokens }}</td>
+        <td data-label="Retries">{{ r.retry_count }}</td>
+        <td data-label="Latency">{{ r.latency_ms }} ms</td>
+        <td data-label="Cost">${{ "%.4f"|format(r.estimated_cost_usd) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>Fishbowl.initTelemetry();</script>
+{% endblock %}

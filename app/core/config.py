@@ -1,0 +1,234 @@
+"""Runtime configuration, read from the environment.
+
+Every knob the Village has lives here rather than being spread through the code
+— model identifiers especially, since providers retire model IDs and a routing
+change should never require editing a service.
+
+Values are read at call time, not import time, so tests and scripts can set the
+environment before anything is constructed.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+
+DEFAULT_DATABASE_URL = "sqlite:///./village.db"
+
+#: (input, output) US dollars per million tokens, for local budgeting only.
+#: Operator-maintained — verify against current published pricing before
+#: trusting a cost report. Unknown models estimate as zero rather than guessing.
+MODEL_PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-haiku-4-5": (1.00, 5.00),
+    "claude-sonnet-5": (2.00, 10.00),
+    "claude-opus-5": (5.00, 25.00),
+}
+
+
+def _env(name: str, default: str) -> str:
+    return os.getenv(name, default)
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
+
+
+@dataclass(frozen=True)
+class Settings:
+    """A snapshot of the environment."""
+
+    app_env: str
+    database_url: str
+
+    # LLM routing. Model IDs are configuration, never literals in service code.
+    llm_provider: str
+    anthropic_api_key: str | None
+    agent_model: str
+    research_model: str
+    report_model: str
+    research_effort: str
+    report_effort: str
+
+    # Simulation budgets (§ "soft global research throttling").
+    max_conversation_turns: int
+    max_context_memories: int
+    max_context_recent_findings: int
+    max_context_wall_headlines: int
+    max_daily_agent_activations: int
+
+    # Research provider routing. Separate from LLM routing on purpose — the
+    # Village should be able to run any model against any search vendor.
+    research_provider: str
+    brave_search_api_key: str | None
+    tavily_api_key: str | None
+
+    # Research budgets (§ "add soft global research throttling").
+    max_research_sessions_per_agent_per_day: int
+    max_search_queries_per_session: int
+    max_sources_per_query: int
+    max_follow_up_depth: int
+    target_research_sessions_per_village_day: int
+    max_evidence_tokens_per_research_session: int
+    # Packet 10: how many discovered sources actually get fetched into a
+    # passage (a real network call live, a deterministic stand-in on
+    # fixture) — was a bare module constant before this packet, promoted to
+    # a real budget so it can be tuned without editing code. Domain
+    # diversity is soft on purpose (Part E: "configurable rather than
+    # rigid") — it is consulted while picking what to fetch, never a hard
+    # rejection.
+    max_fetched_sources_per_session: int
+    max_sources_per_domain_per_session: int
+
+    # Reflection engine (Packet 9). The threshold is deliberately a Settings
+    # value, not a literal in app/services/reflection.py: retuning "how much
+    # accumulated significance earns a reflection" should never require
+    # editing code.
+    reflection_significance_threshold: float
+    max_context_reflections: int
+
+    # Persistent unresolved curiosity (AgentQuestion). Small on purpose —
+    # OPEN QUESTIONS is one more optional context slot, never a backlog.
+    max_context_questions: int
+
+    # Daily Founder report token/context budgets (§ "especially important for
+    # future operating cost") — bounded inputs into daily_synthesis, the same
+    # discipline max_context_* already applies to a single agent's turn.
+    max_report_findings: int
+    max_report_wall_posts: int
+    max_report_rabbit_holes: int
+    max_report_conversations: int
+    max_report_memory_events: int
+    max_report_reflections: int
+    max_report_belief_changes: int
+
+    # Packet 11: per-purpose live-LLM output token budgets (Part N). Explicit
+    # per call site, never inferred by a provider from ``purpose`` — see
+    # app/providers/llm/base.py's LLMProvider.complete docstring. The fixture
+    # provider ignores these entirely; only a live provider spends on them.
+    max_tokens_agent_decision: int
+    max_tokens_search_query: int
+    max_tokens_research_synthesis: int
+    max_tokens_reflection: int
+    max_tokens_daily_report: int
+
+    @property
+    def uses_fixture_llm(self) -> bool:
+        """True when decisions come from the fixture provider, not a live model."""
+        return self.llm_provider == "fixture"
+
+    @property
+    def uses_fixture_research(self) -> bool:
+        """True when research comes from the fixture provider, not a live search."""
+        return self.research_provider == "fixture"
+
+
+def get_settings() -> Settings:
+    """Build a Settings snapshot from the current environment."""
+    return Settings(
+        app_env=_env("APP_ENV", "development"),
+        database_url=resolve_database_url(),
+        llm_provider=_env("LLM_PROVIDER", "fixture").strip().lower(),
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY") or None,
+        agent_model=_env("VILLAGE_AGENT_MODEL", "claude-haiku-4-5"),
+        research_model=_env("VILLAGE_RESEARCH_MODEL", "claude-sonnet-5"),
+        report_model=_env("VILLAGE_REPORT_MODEL", "claude-sonnet-5"),
+        research_effort=_env("VILLAGE_RESEARCH_EFFORT", "low"),
+        report_effort=_env("VILLAGE_REPORT_EFFORT", "medium"),
+        max_conversation_turns=_env_int("MAX_CONVERSATION_TURNS", 8),
+        max_context_memories=_env_int("MAX_CONTEXT_MEMORIES", 6),
+        max_context_recent_findings=_env_int("MAX_CONTEXT_RECENT_FINDINGS", 5),
+        max_context_wall_headlines=_env_int("MAX_CONTEXT_WALL_HEADLINES", 5),
+        max_daily_agent_activations=_env_int("MAX_DAILY_AGENT_ACTIVATIONS", 6),
+        research_provider=_env("RESEARCH_PROVIDER", "fixture").strip().lower(),
+        brave_search_api_key=os.getenv("BRAVE_SEARCH_API_KEY") or None,
+        tavily_api_key=os.getenv("TAVILY_API_KEY") or None,
+        max_research_sessions_per_agent_per_day=_env_int(
+            "MAX_RESEARCH_SESSIONS_PER_AGENT_PER_DAY", 2
+        ),
+        max_search_queries_per_session=_env_int("MAX_SEARCH_QUERIES_PER_SESSION", 3),
+        max_sources_per_query=_env_int("MAX_SOURCES_PER_QUERY", 5),
+        max_follow_up_depth=_env_int("MAX_FOLLOW_UP_DEPTH", 2),
+        target_research_sessions_per_village_day=_env_int(
+            "TARGET_RESEARCH_SESSIONS_PER_VILLAGE_DAY", 4
+        ),
+        max_evidence_tokens_per_research_session=_env_int(
+            "MAX_EVIDENCE_TOKENS_PER_RESEARCH_SESSION", 6000
+        ),
+        max_fetched_sources_per_session=_env_int("MAX_FETCHED_SOURCES_PER_SESSION", 3),
+        max_sources_per_domain_per_session=_env_int("MAX_SOURCES_PER_DOMAIN_PER_SESSION", 2),
+        reflection_significance_threshold=float(
+            _env("REFLECTION_SIGNIFICANCE_THRESHOLD", "100.0")
+        ),
+        max_context_reflections=_env_int("MAX_CONTEXT_REFLECTIONS", 3),
+        max_context_questions=_env_int("MAX_CONTEXT_QUESTIONS", 3),
+        max_report_findings=_env_int("MAX_REPORT_FINDINGS", 8),
+        max_report_wall_posts=_env_int("MAX_REPORT_WALL_POSTS", 6),
+        max_report_rabbit_holes=_env_int("MAX_REPORT_RABBIT_HOLES", 6),
+        max_report_conversations=_env_int("MAX_REPORT_CONVERSATIONS", 6),
+        max_report_memory_events=_env_int("MAX_REPORT_MEMORY_EVENTS", 8),
+        max_report_reflections=_env_int("MAX_REPORT_REFLECTIONS", 6),
+        max_report_belief_changes=_env_int("MAX_REPORT_BELIEF_CHANGES", 6),
+        max_tokens_agent_decision=_env_int("MAX_TOKENS_AGENT_DECISION", 1536),
+        max_tokens_search_query=_env_int("MAX_TOKENS_SEARCH_QUERY", 512),
+        # Bumped from 3072 (Packet 11's original default) after a live run
+        # truncated mid-JSON: a full ResearchSynthesis (up to 5 findings x 5
+        # claims each, plus interpretation/open_questions/follow_ups) can
+        # legitimately need more room than that, and on models where
+        # thinking is on by default the same budget also has to cover
+        # thinking tokens before any output text is written at all. Still a
+        # real, tunable cap — see app/providers/llm/anthropic.py for the
+        # bounded retry that raises this further, temporarily, only if a
+        # live response is actually truncated.
+        max_tokens_research_synthesis=_env_int("MAX_TOKENS_RESEARCH_SYNTHESIS", 8192),
+        max_tokens_reflection=_env_int("MAX_TOKENS_REFLECTION", 1024),
+        max_tokens_daily_report=_env_int("MAX_TOKENS_DAILY_REPORT", 4096),
+    )
+
+
+def resolve_database_url() -> str:
+    """The one place DATABASE_URL is actually resolved — both
+    ``get_settings()`` and ``get_database_url()`` call this so they can
+    never diverge.
+
+    APP_ENV=live NEVER consults DATABASE_URL: it resolves only to the
+    canonical live database (app.core.db_safety.CANONICAL_LIVE_DB_PATH),
+    fails closed if that database is missing or unhealthy, and is the
+    single place a live-capable process can end up pointed at a real
+    database at all. Built after a real incident: a missing DATABASE_URL
+    export silently fell back to ./village.db with no warning, and SQLite
+    itself silently manufactures an empty database for any path that
+    doesn't exist yet rather than erroring — see app.core.db_safety's
+    module docstring for the full forensic signature.
+
+    ``ALLOW_FRESH_LIVE_INIT=1`` is the one deliberate escape hatch, and it
+    is narrow on purpose: it only ever matters when the canonical live
+    database is genuinely missing (an existing file, healthy or not, is
+    never touched regardless of this flag — see
+    ``resolve_live_database_url``). Only ``scripts/init_live_database.py``
+    ever sets it, and only for the lifetime of its own process — never
+    something to export in a shell profile. This is what lets
+    ``alembic/env.py`` (which re-resolves the URL itself, the same as every
+    other caller) create the schema during a deliberate fresh init without
+    a second, redundant resolution path.
+
+    Every other APP_ENV value (the "development" default, or a script's own
+    "test"-style self-isolation) is unchanged from before: DATABASE_URL
+    honored, defaulting to ./village.db.
+    """
+    if _env("APP_ENV", "development") == "live":
+        from app.core.db_safety import resolve_live_database_url
+
+        allow_fresh_init = _env("ALLOW_FRESH_LIVE_INIT", "") == "1"
+        return resolve_live_database_url(allow_fresh_init=allow_fresh_init)
+    return _env("DATABASE_URL", DEFAULT_DATABASE_URL)
+
+
+def get_database_url() -> str:
+    """Shortcut for the one setting nearly everything needs."""
+    return resolve_database_url()
