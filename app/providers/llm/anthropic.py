@@ -59,7 +59,13 @@ from typing import TypeVar
 import pydantic
 from pydantic import BaseModel
 
-from app.providers.llm.base import LLMError, LLMResult, LLMSchemaError, LLMUsage
+from app.providers.llm.base import (
+    LLMError,
+    LLMProviderUnavailable,
+    LLMResult,
+    LLMSchemaError,
+    LLMUsage,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -176,7 +182,7 @@ class AnthropicLLMProvider:
         # None of these format strings interpolate the request body or the
         # client's auth header, so the API key can never leak into a log.
         except anthropic.AuthenticationError as exc:
-            raise LLMError(
+            raise LLMProviderUnavailable(
                 f"Anthropic authentication failed for {purpose!r}: invalid or missing API key."
             ) from exc
         except anthropic.PermissionDeniedError as exc:
@@ -188,7 +194,7 @@ class AnthropicLLMProvider:
                 f"Anthropic model {model!r} not found for {purpose!r}: {exc.message}"
             ) from exc
         except anthropic.RateLimitError as exc:
-            raise LLMError(f"Anthropic rate-limited {purpose!r}: {exc.message}") from exc
+            raise LLMProviderUnavailable(f"Anthropic rate-limited {purpose!r}: {exc.message}") from exc
         except anthropic.APITimeoutError as exc:
             raise LLMError(f"Anthropic timed out for {purpose!r}: {exc}") from exc
         except anthropic.APIConnectionError as exc:
