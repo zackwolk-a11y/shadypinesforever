@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import re
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.agents import AgentInterest
+from app.db.models.research_provenance import Claim
 from app.db.models.wall import ResearchWallPost
 from app.db.models.world import SimulationClock
 from app.domain.enums import EventType, ExposureType, WallPostType
@@ -200,3 +201,35 @@ def find_cross_pollination_candidate(
             best_score = len(overlap)
 
     return best if best_score >= 1 else None
+
+
+def default_read_target(session: Session, agent_id: str) -> ResearchWallPost | None:
+    """Fallback target for READ_WALL_POST when the model omits one.
+
+    Unlike :func:`find_cross_pollination_candidate` (interest-scored, often
+    ``None``), this always resolves to something as long as the wall is
+    non-empty: the highest-confidence unread post if any unread post cites
+    graded research, the most recent unread post otherwise, or — if the
+    agent has already read everything — simply the most recent post of any
+    kind (re-reading is harmless, never invalid).
+    """
+    posts = session.scalars(
+        select(ResearchWallPost).order_by(ResearchWallPost.id.desc())
+    ).all()
+    if not posts:
+        return None
+
+    read_ids = exposed_entity_ids(session, agent_id, "research_wall")
+    pool = [p for p in posts if str(p.id) not in read_ids] or list(posts)
+
+    def _confidence(post: ResearchWallPost) -> float:
+        if not post.related_research_id:
+            return -1.0
+        best_confidence = session.scalars(
+            select(func.max(Claim.confidence)).where(
+                Claim.research_session_id == post.related_research_id
+            )
+        ).first()
+        return best_confidence if best_confidence is not None else -1.0
+
+    return max(pool, key=lambda p: (_confidence(p), p.id))

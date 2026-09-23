@@ -62,6 +62,7 @@ from app.schemas.actions import (
     SINGLETON_ACTIONS,
     ActionType,
     AgentDecision,
+    TargetKind,
 )
 from app.services import agent_questions, beliefs
 from app.services import clock as clock_service
@@ -125,6 +126,60 @@ class EventOutcome:
     @property
     def acted(self) -> bool:
         return self.decision is not None and self.rejected_reason is None
+
+
+#: A neutral fallback opener for START_CONVERSATION when the model omits
+#: ``content`` and the agent has no active question to reach for instead.
+#: Deliberately not one of dialogue.py's banned generic-filler openers.
+_DEFAULT_CONVERSATION_OPENER = "I wanted to catch you for a moment — got a minute?"
+
+
+def normalize_decision(
+    decision: AgentDecision,
+    *,
+    agent: Agent,
+    present_agent_ids: tuple[str, ...],
+    session: Session,
+) -> None:
+    """Fill in a small set of unambiguous or clearly-inferrable omissions
+    before semantic validation runs, instead of hard-rejecting them.
+
+    Every fallback here only fires when the model left a field genuinely
+    empty — an explicit value the model chose, even a wrong one, is never
+    overridden. This runs strictly before :func:`validate_decision`, which
+    still enforces everything this can't safely infer (an unknown agent id,
+    a nonexistent wall post, and so on).
+    """
+    for action in decision.actions:
+        if action.type is ActionType.START_CONVERSATION:
+            if not action.target_agent_id:
+                others = [a for a in present_agent_ids if a != agent.agent_id]
+                if len(others) == 1:
+                    action.target_agent_id = others[0]
+                elif len(others) > 1:
+                    def _affinity(other_id: str) -> float:
+                        rel = dialogue.relationship_between(session, agent.agent_id, other_id)
+                        if rel is None:
+                            return 0.0
+                        return rel.familiarity + rel.intellectual_affinity
+
+                    action.target_agent_id = max(sorted(others), key=_affinity)
+
+            if not (action.content or "").strip() and action.target_agent_id:
+                questions = agent_questions.retrieve_relevant(session, agent.agent_id, limit=1)
+                if questions:
+                    action.content = (
+                        f"I've been turning over a question — {questions[0].question} "
+                        "Want to think it through together?"
+                    )
+                else:
+                    action.content = _DEFAULT_CONVERSATION_OPENER
+
+        if action.type is ActionType.READ_WALL_POST and not action.target_wall_post_id:
+            default_post = wall.default_read_target(session, agent.agent_id)
+            if default_post is not None:
+                action.target_int_id = default_post.id
+                action.target_kind = TargetKind.WALL_POST
 
 
 def validate_decision(
@@ -315,7 +370,12 @@ def _validate_wall_and_rabbit_hole_action(session: Session, agent: Agent, action
                 raise DecisionRejected(f"rabbit hole {hole.id} is {hole.status.value.lower()}")
             if rh.is_member(session, hole.id, agent.agent_id):
                 raise DecisionRejected(f"already a member of rabbit hole {hole.id}")
-        if action.type in (ActionType.CONTRIBUTE_TO_RABBIT_HOLE, ActionType.LEAVE_RABBIT_HOLE, ActionType.RESOLVE_RABBIT_HOLE):
+        # CONTRIBUTE_TO_RABBIT_HOLE deliberately does NOT require prior
+        # membership here — a contribution from a non-member auto-enrolls
+        # them at execution time (see execute_decision) instead of hard-
+        # rejecting, so a real finding never gets thrown away just because
+        # its author forgot a standalone JOIN_RABBIT_HOLE first.
+        if action.type in (ActionType.LEAVE_RABBIT_HOLE, ActionType.RESOLVE_RABBIT_HOLE):
             if not rh.is_member(session, hole.id, agent.agent_id):
                 raise DecisionRejected(
                     f"not a member of rabbit hole {hole.id} — JOIN_RABBIT_HOLE first"
@@ -554,6 +614,11 @@ def execute_decision(
         elif action.type is ActionType.JOIN_RABBIT_HOLE:
             rh.join(session, action.target_rabbit_hole_id, agent.agent_id, clock, correlation_id)
         elif action.type is ActionType.CONTRIBUTE_TO_RABBIT_HOLE:
+            if not rh.is_member(session, action.target_rabbit_hole_id, agent.agent_id):
+                rh.join(
+                    session, action.target_rabbit_hole_id, agent.agent_id, clock,
+                    correlation_id, implicit=True,
+                )
             rh.contribute(
                 session, action.target_rabbit_hole_id, agent.agent_id, action.content or "",
                 clock, correlation_id, research_id=action.target_research_id,
@@ -813,6 +878,12 @@ def run_next_event(
             outcome.rejected_reason = f"provider error: {exc}"
             break
 
+        normalize_decision(
+            result.output,
+            agent=agent,
+            present_agent_ids=context.present_agent_ids,
+            session=session,
+        )
         try:
             validate_decision(
                 result.output,

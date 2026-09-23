@@ -115,15 +115,27 @@ def current_members(session: Session, rabbit_hole_id: int) -> list[str]:
 
 
 def join(
-    session: Session, rabbit_hole_id: int, agent_id: str, clock: SimulationClock, correlation_id: str
+    session: Session,
+    rabbit_hole_id: int,
+    agent_id: str,
+    clock: SimulationClock,
+    correlation_id: str,
+    *,
+    implicit: bool = False,
 ) -> int:
-    """Join a rabbit hole, gaining exposure to everything already linked to it."""
+    """Join a rabbit hole, gaining exposure to everything already linked to it.
+
+    ``implicit`` marks a join the agent didn't explicitly choose — auto-enrolled
+    on its first CONTRIBUTE_TO_RABBIT_HOLE rather than a standalone
+    JOIN_RABBIT_HOLE action — so the event log still shows how membership
+    happened, not just that it did.
+    """
     session.add(RabbitHoleMember(rabbit_hole_id=rabbit_hole_id, agent_id=agent_id))
     event = record_event(
         session,
         event_type=EventType.RABBIT_HOLE_JOINED,
         agent_id=agent_id,
-        payload={"rabbit_hole_id": rabbit_hole_id},
+        payload={"rabbit_hole_id": rabbit_hole_id, "implicit_join": implicit},
         entity_type="rabbit_hole",
         entity_id=str(rabbit_hole_id),
         correlation_id=correlation_id,
