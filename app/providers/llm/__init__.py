@@ -7,6 +7,7 @@ from app.providers.llm.base import (
     LLMError,
     LLMProvider,
     LLMProviderUnavailable,
+    LLMRateLimited,
     LLMResult,
     LLMUsage,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "LLMError",
     "LLMProvider",
     "LLMProviderUnavailable",
+    "LLMRateLimited",
     "LLMResult",
     "LLMUsage",
     "get_llm_provider",

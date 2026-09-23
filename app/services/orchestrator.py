@@ -43,6 +43,7 @@ from app.domain.enums import (
     EventType,
     ExposureType,
     MemoryType,
+    PauseReason,
     RabbitHoleStatus,
     WallPostType,
 )
@@ -51,6 +52,7 @@ from app.providers.llm import (
     LLMError,
     LLMProvider,
     LLMProviderUnavailable,
+    LLMRateLimited,
     get_llm_provider,
 )
 from app.providers.llm.base import LLMResult
@@ -116,6 +118,13 @@ class EventOutcome:
     executed: list[str] = field(default_factory=list)
     rejected_reason: str | None = None
     provider_unavailable: bool = False
+    #: Set only when ``provider_unavailable`` was specifically an
+    #: :class:`~app.providers.llm.base.LLMRateLimited` (HTTP 429 / a usage
+    #: quota exhausted) — the case that trips the circuit breaker and pauses
+    #: the simulation clock, as opposed to some other non-retryable provider
+    #: failure (e.g. bad credentials), which still stops the run but does
+    #: not flip ``SimulationClock.pause_reason``.
+    rate_limited: bool = False
     event_ids: list[int] = field(default_factory=list)
     llm_run_id: int | None = None
     correlation_id: str | None = None
@@ -672,6 +681,52 @@ def execute_decision(
     return performed, spoke, research_outcome
 
 
+def _pause_for_rate_limit(
+    session: Session,
+    clock: SimulationClock,
+    agent: Agent,
+    correlation_id: str,
+    causation_id: int | None,
+    exc: LLMRateLimited,
+    *,
+    conversation_id: int | None = None,
+) -> Event:
+    """The provider circuit breaker (HTTP 429 / quota exhaustion): pause the
+    simulation at exactly the checkpoint it is at right now, and log why.
+
+    Called from inside the same try/except that caught ``exc`` — before this
+    runs, nothing about the current turn has been executed (no decision was
+    normalized, validated, or acted on; see ``run_next_event``'s one-call
+    loop), so there is no partial turn to unwind and nothing to roll back.
+    The clock mutation and the event row below join the caller's existing
+    transaction; the caller commits once, so a crash before that commit
+    leaves the previous, already-consistent state — never a half-paused
+    clock with no matching log entry, or a log entry with no matching
+    pause.
+    """
+    clock.is_paused = True
+    clock.pause_reason = PauseReason.RATE_LIMIT.value
+    return record_event(
+        session,
+        event_type=EventType.SIMULATION_PAUSED_RATE_LIMIT,
+        agent_id=agent.agent_id,
+        payload={
+            "reason": str(exc),
+            "checkpoint_day": clock.current_day,
+            "checkpoint_period": clock.current_period,
+            # The in-flight work this pause preserves rather than discards:
+            # who was mid-activation, and the open conversation (if any)
+            # they were part of — both simply resume, untouched, once the
+            # simulation is unpaused.
+            "checkpoint_agent_id": agent.agent_id,
+            "checkpoint_conversation_id": conversation_id,
+        },
+        correlation_id=correlation_id,
+        causation_id=causation_id,
+        clock=clock,
+    )
+
+
 def run_next_event(
     session: Session,
     *,
@@ -870,6 +925,27 @@ def run_next_event(
                 output_type=AgentDecision,
                 max_tokens=settings.max_tokens_agent_decision,
             )
+        except LLMRateLimited as exc:
+            # Circuit breaker: unlike an ordinary rejected/invalid turn
+            # (below), nothing about this activation is logged as a
+            # decision at all — the provider never got the chance to
+            # produce one, so there is nothing "invalid" to record, and no
+            # ungrounded/degraded fallback turn is synthesized in its
+            # place. The turn simply never happened; it resumes from this
+            # exact checkpoint once the simulation is unpaused. This also
+            # deliberately skips `_after_turn` below — an open
+            # conversation's silence/wind-down bookkeeping must not advance
+            # for a turn that was never actually taken.
+            outcome.rejected_reason = f"provider rate-limited: {exc}"
+            outcome.provider_unavailable = True
+            outcome.rate_limited = True
+            outcome.event_ids.append(
+                _pause_for_rate_limit(
+                    session, clock, agent, correlation_id, woke.id, exc,
+                    conversation_id=conversation.id if conversation is not None else None,
+                ).id
+            )
+            return outcome
         except LLMProviderUnavailable as exc:
             outcome.rejected_reason = f"provider unavailable: {exc}"
             outcome.provider_unavailable = True

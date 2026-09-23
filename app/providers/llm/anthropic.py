@@ -62,6 +62,7 @@ from pydantic import BaseModel
 from app.providers.llm.base import (
     LLMError,
     LLMProviderUnavailable,
+    LLMRateLimited,
     LLMResult,
     LLMSchemaError,
     LLMUsage,
@@ -194,7 +195,13 @@ class AnthropicLLMProvider:
                 f"Anthropic model {model!r} not found for {purpose!r}: {exc.message}"
             ) from exc
         except anthropic.RateLimitError as exc:
-            raise LLMProviderUnavailable(f"Anthropic rate-limited {purpose!r}: {exc.message}") from exc
+            # HTTP 429 — the SDK's own bounded backoff already retried this
+            # and still failed. A quota/rate-limit exhaustion, not a broken
+            # boundary: raised as LLMRateLimited (a LLMProviderUnavailable
+            # subclass) so the orchestrator's circuit breaker pauses the
+            # simulation cleanly instead of treating it like every other
+            # non-retryable provider failure.
+            raise LLMRateLimited(f"Anthropic rate-limited {purpose!r}: {exc.message}") from exc
         except anthropic.APITimeoutError as exc:
             raise LLMError(f"Anthropic timed out for {purpose!r}: {exc}") from exc
         except anthropic.APIConnectionError as exc:

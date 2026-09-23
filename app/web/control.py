@@ -112,6 +112,17 @@ def run_period(session: Session = Depends(get_session)) -> ControlResult:
         for _ in range(_MAX_EVENTS_PER_PERIOD):
             outcome = run_next_event(session, settings=settings, provider=provider, auto_advance=True)
             session.commit()
+            if outcome.provider_unavailable:
+                reason = "rate-limited (429/quota)" if outcome.rate_limited else "unavailable"
+                return ControlResult(
+                    action="run-period", ok=False,
+                    message=(
+                        f"Provider {reason}: {outcome.rejected_reason}. Simulation paused "
+                        f"and checkpointed at day {clock.current_day} {clock.current_period}."
+                    ),
+                    events_run=ran, day=clock.current_day, period=clock.current_period,
+                    is_paused=clock.is_paused,
+                )
             if outcome.clock_advance:
                 session.refresh(clock)
                 break
@@ -162,6 +173,17 @@ def run_day(confirmed: bool = False, session: Session = Depends(get_session)) ->
         for _ in range(_MAX_EVENTS_PER_DAY):
             outcome = run_next_event(session, settings=settings, provider=provider, auto_advance=True)
             session.commit()
+            if outcome.provider_unavailable:
+                reason = "rate-limited (429/quota)" if outcome.rate_limited else "unavailable"
+                return ControlResult(
+                    action="run-day", ok=False,
+                    message=(
+                        f"Provider {reason}: {outcome.rejected_reason}. Simulation paused "
+                        f"and checkpointed at day {clock.current_day} {clock.current_period}."
+                    ),
+                    events_run=ran, day=clock.current_day, period=clock.current_period,
+                    is_paused=clock.is_paused,
+                )
             if outcome.clock_advance:
                 session.refresh(clock)
                 if clock.current_day != start_day:

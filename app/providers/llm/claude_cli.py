@@ -18,6 +18,7 @@ from pydantic import BaseModel, ValidationError
 from app.providers.llm.base import (
     LLMError,
     LLMProviderUnavailable,
+    LLMRateLimited,
     LLMResult,
     LLMSchemaError,
     LLMUsage,
@@ -27,10 +28,17 @@ T = TypeVar("T", bound=BaseModel)
 _DEFAULT_TIMEOUT_SECONDS = 180
 _MAX_TRANSIENT_ATTEMPTS = 2
 _RETRY_DELAY_SECONDS = 2.0
-_NON_RETRYABLE_MARKERS = (
-    "session limit", "weekly limit", "usage limit", "credit balance",
+#: Quota/rate exhaustion — the subscription itself has run out of budget for
+#: the window, not "the request was malformed" or "credentials are broken".
+#: Raised as LLMRateLimited so the orchestrator's circuit breaker can pause
+#: the simulation cleanly rather than treat it like a broken boundary.
+_QUOTA_MARKERS = (
+    "session limit", "weekly limit", "usage limit", "credit balance", "429",
+)
+_AUTH_MARKERS = (
     "authentication", "not logged in", "unauthorized", "invalid api key",
 )
+_NON_RETRYABLE_MARKERS = _QUOTA_MARKERS + _AUTH_MARKERS
 
 
 def _failure_detail(proc: subprocess.CompletedProcess[str], outer: dict) -> str:
@@ -43,6 +51,11 @@ def _failure_detail(proc: subprocess.CompletedProcess[str], outer: dict) -> str:
         f"is_error={bool(outer.get('is_error'))}, stdout_keys={keys}, "
         f"stderr={'present' if proc.stderr else 'empty'})"
     )
+
+
+def _is_quota_exhausted(detail: str) -> bool:
+    lowered = detail.lower()
+    return any(marker in lowered for marker in _QUOTA_MARKERS)
 
 
 def _is_non_retryable_failure(detail: str) -> bool:
@@ -141,11 +154,12 @@ class ClaudeCLILLMProvider:
                 retry_count += 1
                 time.sleep(_RETRY_DELAY_SECONDS)
                 continue
-            error_type = (
-                LLMProviderUnavailable
-                if _is_non_retryable_failure(detail)
-                else LLMError
-            )
+            if _is_quota_exhausted(detail):
+                error_type = LLMRateLimited
+            elif _is_non_retryable_failure(detail):
+                error_type = LLMProviderUnavailable
+            else:
+                error_type = LLMError
             raise error_type(
                 f"Claude CLI failed for {purpose!r} "
                 f"(exit={proc.returncode}, attempt={attempt + 1}): {detail}"

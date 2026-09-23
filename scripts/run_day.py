@@ -79,10 +79,18 @@ def main() -> int:
                 session.commit()
 
                 if outcome.provider_unavailable:
-                    print(
-                        "  Provider unavailable; checkpoint committed at the current "
-                        "day/period. Stop now and resume after access returns."
-                    )
+                    if outcome.rate_limited:
+                        print(
+                            f"  Provider rate-limited (429/quota); simulation set to "
+                            f"PAUSED_RATE_LIMIT and checkpointed at day {clock.current_day} "
+                            f"{clock.current_period}. Resume with the control API's /resume "
+                            "once access returns — no state was lost or faked."
+                        )
+                    else:
+                        print(
+                            "  Provider unavailable; checkpoint committed at the current "
+                            "day/period. Stop now and resume after access returns."
+                        )
                     return 75
 
                 if outcome.clock_advance:

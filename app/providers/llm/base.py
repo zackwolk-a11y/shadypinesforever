@@ -30,6 +30,19 @@ class LLMProviderUnavailable(LLMError):
     """The provider is non-retryably unavailable for the current run."""
 
 
+class LLMRateLimited(LLMProviderUnavailable):
+    """The provider refused the call specifically because a rate limit or
+    usage/spend quota was exhausted (HTTP 429, a session/weekly/usage cap, a
+    depleted credit balance, ...). A subclass of
+    :class:`LLMProviderUnavailable` — every existing ``except
+    LLMProviderUnavailable`` / ``pytest.raises(LLMProviderUnavailable)`` site
+    still catches it — but distinct so the orchestrator's circuit breaker can
+    tell "the model boundary is genuinely broken" apart from "we are
+    temporarily out of budget and should pause, not fail, and resume once
+    the window clears" and record the difference on the simulation clock.
+    """
+
+
 class LLMSchemaError(LLMError):
     """The provider returned something that does not match the requested schema."""
 

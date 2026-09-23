@@ -264,6 +264,22 @@ class ExposureType(str, enum.Enum):
     FOUNDER_MESSAGE = "FOUNDER_MESSAGE"
 
 
+class PauseReason(str, enum.Enum):
+    """Why the simulation is currently paused, beyond a Founder's manual
+    PAUSE (``app/web/control.py``), which leaves this ``None`` — ``is_paused
+    == True`` with no automated reason beyond "someone asked it to stop".
+
+    RATE_LIMIT is set only by the orchestrator's provider circuit breaker
+    (``app/services/orchestrator.py``), never chosen by a model or a human:
+    the LLM boundary raised :class:`~app.providers.llm.base.LLMRateLimited`
+    (an HTTP 429 or a subscription usage/quota cap), and the simulation
+    stopped cleanly at the current day/period rather than falling back to a
+    degraded or ungrounded turn.
+    """
+
+    RATE_LIMIT = "PAUSED_RATE_LIMIT"
+
+
 class EventType(str, enum.Enum):
     """Every kind of thing the village records (§18)."""
 
@@ -338,3 +354,9 @@ class EventType(str, enum.Enum):
     QUESTION_STATUS_CHANGED = "QUESTION_STATUS_CHANGED"
     QUESTION_DORMANT = "QUESTION_DORMANT"
     QUESTION_REFORMULATED = "QUESTION_REFORMULATED"
+    # Provider rate-limit circuit breaker: the LLM boundary raised
+    # LLMRateLimited (HTTP 429 / a usage-quota cap) and the simulation
+    # paused cleanly at the current checkpoint rather than continuing with a
+    # degraded or ungrounded turn. See app.domain.enums.PauseReason and
+    # app/services/orchestrator.py.
+    SIMULATION_PAUSED_RATE_LIMIT = "SIMULATION_PAUSED_RATE_LIMIT"

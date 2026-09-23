@@ -57,6 +57,15 @@ class SimulationClock(Base):
     current_day: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     current_period: Mapped[str] = mapped_column(String(32), nullable=False, default="MORNING")
     is_paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    #: Why ``is_paused`` is set, when it was the provider circuit breaker
+    #: rather than a Founder's manual PAUSE — see
+    #: :class:`app.domain.enums.PauseReason`. Plain string, not a DB enum,
+    #: matching every other lifecycle column in this codebase (e.g.
+    #: ``events.event_type``): SQLite never enforces it as a real
+    #: constraint, so a later reason value is a data change, not a
+    #: migration. ``None`` whenever ``is_paused`` is False, or True for an
+    #: ordinary manual pause.
+    pause_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     last_advanced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
