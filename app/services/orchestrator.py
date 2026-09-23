@@ -47,7 +47,12 @@ from app.domain.enums import (
     WallPostType,
 )
 from app.domain.ids import new_correlation_id
-from app.providers.llm import LLMError, LLMProvider, get_llm_provider
+from app.providers.llm import (
+    LLMError,
+    LLMProvider,
+    LLMProviderUnavailable,
+    get_llm_provider,
+)
 from app.providers.llm.base import LLMResult
 from app.providers.research import ResearchProviderError, get_research_provider
 from app.schemas.actions import (
@@ -109,6 +114,7 @@ class EventOutcome:
     decision: AgentDecision | None = None
     executed: list[str] = field(default_factory=list)
     rejected_reason: str | None = None
+    provider_unavailable: bool = False
     event_ids: list[int] = field(default_factory=list)
     llm_run_id: int | None = None
     correlation_id: str | None = None
@@ -799,6 +805,10 @@ def run_next_event(
                 output_type=AgentDecision,
                 max_tokens=settings.max_tokens_agent_decision,
             )
+        except LLMProviderUnavailable as exc:
+            outcome.rejected_reason = f"provider unavailable: {exc}"
+            outcome.provider_unavailable = True
+            break
         except LLMError as exc:
             outcome.rejected_reason = f"provider error: {exc}"
             break

@@ -26,6 +26,10 @@ class LLMError(RuntimeError):
     """The provider could not produce a result."""
 
 
+class LLMProviderUnavailable(LLMError):
+    """The provider is non-retryably unavailable for the current run."""
+
+
 class LLMSchemaError(LLMError):
     """The provider returned something that does not match the requested schema."""
 

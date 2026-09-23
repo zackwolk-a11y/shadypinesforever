@@ -78,6 +78,13 @@ def main() -> int:
                 )
                 session.commit()
 
+                if outcome.provider_unavailable:
+                    print(
+                        "  Provider unavailable; checkpoint committed at the current "
+                        "day/period. Stop now and resume after access returns."
+                    )
+                    return 75
+
                 if outcome.clock_advance:
                     advances += 1
                     if not args.quiet:
