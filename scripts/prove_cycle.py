@@ -9,11 +9,11 @@ under the live data directory, and works only on a fresh database or a copy.
 
 Usage::
 
-    # Offline wiring check (fixture provider, no spend):
-    python scripts/prove_cycle.py --fresh
+    # Offline wiring check (fixture provider, no spend), as 12 sessions of 10 calls:
+    python scripts/prove_cycle.py --fresh --sessions 12 --max-llm-calls 10
 
-    # Real-model trial on a fresh Village, capped at 80 model calls:
-    LLM_PROVIDER=claude_cli python scripts/prove_cycle.py --fresh --max-llm-calls 80
+    # Real-model trial on a fresh Village: 6 sessions of 20 calls (120 total):
+    LLM_PROVIDER=claude_cli python scripts/prove_cycle.py --fresh --sessions 6 --max-llm-calls 20
 
     # Real-model trial on a copy of an existing Village (e.g. a backup):
     LLM_PROVIDER=claude_cli python scripts/prove_cycle.py --clone-from /path/to/backup.db
@@ -127,7 +127,9 @@ def main() -> int:
     parser.add_argument("--workdir", help="where the trial database and evidence go")
     parser.add_argument("--max-events", type=int, default=600)
     parser.add_argument("--max-llm-calls", type=int, default=150,
-                        help="hard ceiling on model calls this run (all purposes)")
+                        help="hard ceiling on model calls per session (all purposes)")
+    parser.add_argument("--sessions", type=int, default=1,
+                        help="how many bounded sessions to run back to back (each marked separately)")
     parser.add_argument("--seed", default="cycle-proof")
     parser.add_argument("--keep-going", action="store_true", help="don't stop at the first complete cycle")
     parser.add_argument("--engine-defaults", action="store_true",
@@ -161,19 +163,7 @@ def main() -> int:
     provider = get_llm_provider(settings)
     session = SessionLocal()
     log_path = workdir / "trial_log.jsonl"
-    started_runs = session.scalar(select(func.count()).select_from(LLMRun)) or 0
-    # Each run of this script is one trial session. Marking it lets the proof
-    # require that a memory survived into a later session, not just a later turn.
-    session_number = 1 + (session.scalar(
-        select(func.count()).select_from(Event).where(Event.event_type == EventType.TRIAL_SESSION_STARTED)
-    ) or 0)
-    record_event(
-        session, event_type=EventType.TRIAL_SESSION_STARTED,
-        payload={"session": session_number, "max_llm_calls": args.max_llm_calls, "provider": provider.name},
-        clock=session.scalars(select(SimulationClock).limit(1)).first(),
-    )
-    session.commit()
-    print(f"Trial session {session_number}")
+    run_started_runs = session.scalar(select(func.count()).select_from(LLMRun)) or 0
     status = "BUDGET_SPENT"
     print(f"Trial database: {db}")
     print(f"Provider: {provider.name}{'  [FIXTURE — wiring only, not real behaviour]' if provider.is_fixture else ''}")
@@ -181,51 +171,74 @@ def main() -> int:
         f"{k}={os.environ.get(k)}" for k in TRIAL_PROFILE
     ) + (" (engine defaults)" if args.engine_defaults else ""))
 
+    def calls_so_far() -> int:
+        return session.scalar(select(func.count()).select_from(LLMRun)) or 0
+
     found = None
     try:
         with log_path.open("a") as log:
-            for i in range(args.max_events):
-                outcome = run_next_event(session, settings=settings, provider=provider,
-                                         seed=args.seed, auto_advance=True)
+            for _ in range(args.sessions):
+                # Each session is bounded by --max-llm-calls and marked, so the
+                # proof can require a memory to survive into a later session.
+                session_number = 1 + (session.scalar(
+                    select(func.count()).select_from(Event)
+                    .where(Event.event_type == EventType.TRIAL_SESSION_STARTED)
+                ) or 0)
+                record_event(
+                    session, event_type=EventType.TRIAL_SESSION_STARTED,
+                    payload={"session": session_number, "max_llm_calls": args.max_llm_calls,
+                             "provider": provider.name},
+                    clock=session.scalars(select(SimulationClock).limit(1)).first(),
+                )
                 session.commit()
-                log.write(json.dumps({
-                    "i": i, "agent": outcome.activated_agent_id, "conversation": outcome.conversation_id,
-                    "executed": outcome.executed, "rejected": outcome.rejected_reason,
-                    "summary": outcome.decision.summary if outcome.decision else None,
-                    "advance": outcome.clock_advance, "note": outcome.note,
-                }) + "\n")
-                if not args.quiet and outcome.decision is not None:
-                    extra = []
-                    if outcome.decision.new_intention is not None:
-                        extra.append(f"+intention: {outcome.decision.new_intention.what}")
-                    if outcome.decision.fulfills_intention_id:
-                        extra.append(f"fulfils I{outcome.decision.fulfills_intention_id}")
-                    where = f" [conv {outcome.conversation_id}]" if outcome.conversation_id else ""
-                    print(f"  {outcome.activated_agent_id}{where}: {outcome.decision.summary[:110]}"
-                          + (f"  ({'; '.join(extra)})" if extra else ""))
-                elif not args.quiet and outcome.clock_advance:
-                    print(f"  -- {outcome.clock_advance}")
-                if outcome.provider_unavailable:
-                    status = "PROVIDER_PAUSED"
-                    print(f"Provider stopped the run: {outcome.rejected_reason}")
-                    break
-                if outcome.note and "paused" in outcome.note.lower():
-                    status = "PAUSED"
-                    break
-                runs = (session.scalar(select(func.count()).select_from(LLMRun)) or 0) - started_runs
-                if runs >= args.max_llm_calls:
-                    print(f"Model-call budget reached ({runs}).")
-                    break
-                if outcome.decision is not None and (
-                    outcome.decision.fulfills_intention_id or "intentions" in str(outcome.executed) or i % 10 == 0
-                ):
-                    complete = [c for c in cycle_proof.evaluate(session) if c.complete]
-                    if complete and not args.keep_going:
-                        found = complete[0]
-                        status = "CYCLE_FOUND"
+                print(f"Trial session {session_number}")
+                started_runs = calls_so_far()
+                stop = False
+                for i in range(args.max_events):
+                    outcome = run_next_event(session, settings=settings, provider=provider,
+                                             seed=args.seed, auto_advance=True)
+                    session.commit()
+                    log.write(json.dumps({
+                        "session": session_number, "i": i, "agent": outcome.activated_agent_id,
+                        "conversation": outcome.conversation_id,
+                        "executed": outcome.executed, "rejected": outcome.rejected_reason,
+                        "summary": outcome.decision.summary if outcome.decision else None,
+                        "advance": outcome.clock_advance, "note": outcome.note,
+                    }) + "\n")
+                    if not args.quiet and outcome.decision is not None:
+                        extra = []
+                        if outcome.decision.new_intention is not None:
+                            extra.append(f"+intention: {outcome.decision.new_intention.what}")
+                        if outcome.decision.fulfills_intention_id:
+                            extra.append(f"fulfils I{outcome.decision.fulfills_intention_id}")
+                        where = f" [conv {outcome.conversation_id}]" if outcome.conversation_id else ""
+                        print(f"  {outcome.activated_agent_id}{where}: {outcome.decision.summary[:110]}"
+                              + (f"  ({'; '.join(extra)})" if extra else ""))
+                    elif not args.quiet and outcome.clock_advance:
+                        print(f"  -- {outcome.clock_advance}")
+                    if outcome.provider_unavailable:
+                        status, stop = "PROVIDER_PAUSED", True
+                        print(f"Provider stopped the run: {outcome.rejected_reason}")
                         break
-            else:
-                status = "EVENT_CEILING"
+                    if outcome.note and "paused" in outcome.note.lower():
+                        status, stop = "PAUSED", True
+                        break
+                    if outcome.decision is not None and (
+                        outcome.decision.fulfills_intention_id or i % 10 == 0
+                    ):
+                        complete = [c for c in cycle_proof.evaluate(session) if c.complete]
+                        if complete and not args.keep_going:
+                            found, status, stop = complete[0], "CYCLE_FOUND", True
+                            break
+                    runs = calls_so_far() - started_runs
+                    if runs >= args.max_llm_calls:
+                        if not args.quiet:
+                            print(f"  session {session_number}: model-call budget reached ({runs}).")
+                        break
+                else:
+                    status, stop = "EVENT_CEILING", True
+                if stop:
+                    break
     finally:
         cycles = cycle_proof.evaluate(session)
         best = found or (cycles[0] if cycles else None)
@@ -235,7 +248,10 @@ def main() -> int:
             "Database": str(db),
             "Provider": f"{provider.name} (model {settings.agent_model})",
             "Stopped because": status,
-            "Model calls this run": (session.scalar(select(func.count()).select_from(LLMRun)) or 0) - started_runs,
+            "Model calls this run": calls_so_far() - run_started_runs,
+            "Trial sessions so far": session.scalar(
+                select(func.count()).select_from(Event).where(Event.event_type == EventType.TRIAL_SESSION_STARTED)
+            ) or 0,
             "Candidate chains found": len(cycles),
             "Complete chains": sum(1 for c in cycles if c.complete),
         }
