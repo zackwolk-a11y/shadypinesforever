@@ -113,12 +113,44 @@ def activations_today(session: Session, agent_id: str, clock: SimulationClock) -
     )
 
 
+def activations_this_period(session: Session, agent_id: str, clock: SimulationClock) -> int:
+    """Same count as :func:`activations_today`, narrowed to the current period."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(Event)
+            .where(
+                Event.agent_id == agent_id,
+                Event.sim_day == clock.current_day,
+                Event.sim_period == clock.current_period,
+                Event.event_type.in_(ACTIVATION_EVENTS),
+            )
+        )
+        or 0
+    )
+
+
+def has_budget(session: Session, agent_id: str, clock: SimulationClock, settings: Settings) -> bool:
+    """The one budget check every activation-granting path shares: the daily
+    cap always, and the per-period cap when a profile turns it on. Without
+    the per-period cap the whole day's budget is routinely spent in the
+    MORNING (observed on fixture and live days alike), leaving nobody able
+    to follow through on anything later in the day."""
+    if activations_today(session, agent_id, clock) >= settings.max_daily_agent_activations:
+        return False
+    per_period = getattr(settings, "max_period_agent_activations", 0) or 0
+    if per_period and activations_this_period(session, agent_id, clock) >= per_period:
+        return False
+    return True
+
+
 def score_agents(
     session: Session,
     clock: SimulationClock,
     settings: Settings,
     *,
     seed: str = "",
+    exclude: set[str] | None = None,
 ) -> list[ActivationCandidate]:
     """Score every agent, highest first.
 
@@ -140,7 +172,11 @@ def score_agents(
         )
     )
 
+    from app.services import intentions
+
     for agent in session.scalars(select(Agent).order_by(Agent.id)):
+        if exclude and agent.agent_id in exclude:
+            continue
         unread = session.scalar(
             select(func.count())
             .select_from(Message)
@@ -165,11 +201,17 @@ def score_agents(
             "dormant_rabbit_hole_pull": (
                 DORMANT_RABBIT_HOLE_PULL if agent.agent_id in dormant_hole_member_ids else 0.0
             ),
+            # Something this agent said it would do is still open: a chance
+            # to act on it, never an instruction to.
+            "open_intention_pull": (
+                intentions.OPEN_INTENTION_PULL if intentions.has_open(session, agent.agent_id) else 0.0
+            ),
         }
-        # A hard daily ceiling, so no agent can monopolise a day however it scores.
+        # A hard daily ceiling (and the optional per-period one), so no agent
+        # can monopolise a day however it scores.
         score = (
             0.0
-            if agent_activations_today >= settings.max_daily_agent_activations
+            if not has_budget(session, agent.agent_id, clock, settings)
             else sum(components.values())
         )
         candidates.append(
@@ -191,9 +233,10 @@ def next_agent(
     settings: Settings,
     *,
     seed: str = "",
+    exclude: set[str] | None = None,
 ) -> ActivationCandidate | None:
     """The single agent with the best case for acting now, if any qualifies."""
-    for candidate in score_agents(session, clock, settings, seed=seed):
+    for candidate in score_agents(session, clock, settings, seed=seed, exclude=exclude):
         if candidate.is_eligible:
             return candidate
     return None

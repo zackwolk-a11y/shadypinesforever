@@ -154,10 +154,7 @@ def next_speaker(
     if not participants:
         return None
 
-    eligible = [
-        a for a in participants
-        if scheduler.activations_today(session, a, clock) < settings.max_daily_agent_activations
-    ]
+    eligible = [a for a in participants if scheduler.has_budget(session, a, clock, settings)]
     if not eligible:
         return None
 

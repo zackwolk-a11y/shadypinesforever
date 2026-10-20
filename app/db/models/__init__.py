@@ -20,6 +20,7 @@ from app.db.models.conversations import (
 )
 from app.db.models.events import Event, EventType
 from app.db.models.exposure import AgentExposure
+from app.db.models.intentions import AgentFeedback, Intention
 from app.db.models.reports import DailyReport, FounderMessage
 from app.db.models.memory import Memory, MemoryType
 from app.db.models.rabbit_holes import (
@@ -97,6 +98,9 @@ __all__ = [
     # persistent unresolved curiosity
     "AgentQuestion",
     "AgentQuestionStatus",
+    # intention -> action bridge and turn feedback
+    "Intention",
+    "AgentFeedback",
     # events
     "Event",
     "EventType",

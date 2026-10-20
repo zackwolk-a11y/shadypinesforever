@@ -26,6 +26,7 @@ from app.db.models.agents import Agent, AgentBelief, AgentInterest
 from app.db.models.belief import BeliefBasis
 from app.db.models.conversations import Conversation, ConversationMessage, Message
 from app.db.models.events import Event
+from app.db.models.memory import Memory
 from app.db.models.rabbit_holes import RabbitHole, RabbitHoleMember
 from app.db.models.research import ResearchFinding, ResearchSession
 from app.db.models.research_provenance import Claim
@@ -33,7 +34,16 @@ from app.db.models.wall import ResearchWallPost
 from app.db.models.world import CLUBHOUSE_LOCATIONS, SimulationClock
 from app.domain import characters
 from app.domain.enums import EventType, InterestOrigin, MemoryType, RabbitHoleStatus
-from app.services import agent_questions, dialogue, founder, memory, reflection, wall
+from app.services import (
+    agent_questions,
+    dialogue,
+    founder,
+    intentions,
+    memory,
+    reflection,
+    turn_feedback,
+    wall,
+)
 from app.services.exposure import exposed_entity_ids
 
 SYSTEM_PROMPT = """You are one inhabitant of a small research clubhouse shared with seven friends.
@@ -75,6 +85,16 @@ follow-up — is a normal and often worthwhile choice, exactly as normal as
 staying quiet. Neither is the default; both are real options every time
 you're asked.
 
+Saying you'll do something and doing it are different. If you commit to
+something concrete — in a conversation or on your own — record it with
+`new_intention` (what, planned_action, with_agent_id); otherwise it is only
+talk and nobody, including you, will hold onto it. Your open intentions are
+shown back to you later with [I#] ids: carry one out (do the action and set
+`fulfills_intention_id`), drop it (`drops_intention_id`) if you've changed
+your mind, or let it wait. All three are normal. If a memory shown to you
+with an [M#] id shaped this decision, list its number in
+`drew_on_memory_ids`; if none did, leave it empty.
+
 Return one decision. Do not narrate your reasoning. Only use the actions listed
 in AVAILABLE ACTIONS; anything else will be rejected."""
 
@@ -94,6 +114,13 @@ class AgentContext:
     #: that stays unread would keep boosting this agent's activation score
     #: forever, letting one inbox monopolise the Village.
     delivered_messages: tuple = ()
+    #: Memory ids rendered as [M#] this turn — the only ids a decision's
+    #: drew_on_memory_ids may cite.
+    shown_memory_ids: tuple = ()
+    #: This agent's own open intentions rendered as [I#] this turn.
+    shown_intention_ids: tuple = ()
+    #: Feedback notes rendered this turn; the caller marks them shown.
+    feedback_rows: tuple = ()
 
     @property
     def approx_tokens(self) -> int:
@@ -326,6 +353,34 @@ def build_agent_context(
 
     founder_messages = founder.messages_for(session, agent.agent_id)
 
+    # The intention -> action bridge: what this agent said it would do, what
+    # others said they'd do with it (only ones it actually heard), and the
+    # factual notes on its own last turns.
+    own_intentions = intentions.open_for(session, agent.agent_id)
+    others_intentions = intentions.involving(session, agent.agent_id)
+    feedback_rows = (
+        turn_feedback.pending_for(session, agent.agent_id)
+        if getattr(settings, "feedback_notes", "on") != "off" else []
+    )
+    now_index = intentions.clock_index(clock)
+    # The memory of where each open intention was made stays in view while
+    # the intention is open: the moment an agent can act on a promise is the
+    # moment it most needs to remember the conversation behind it. Scoring
+    # alone could rank it below four other memories and hide it.
+    shown_ids = {m.id for m in important_memories}
+    for intention in own_intentions:
+        if intention.source_conversation_id is None:
+            continue
+        pinned = session.scalars(
+            select(Memory)
+            .where(Memory.agent_id == agent.agent_id, Memory.content.contains(f"[I{intention.id}]"))
+            .order_by(Memory.id.desc())
+            .limit(1)
+        ).first()
+        if pinned is not None and pinned.id not in shown_ids:
+            important_memories = [*important_memories, pinned]
+            shown_ids.add(pinned.id)
+
     conversation_turns: list[ConversationMessage] = []
     if conversation is not None:
         visible = exposed_entity_ids(session, agent.agent_id, "conversation_message")
@@ -386,7 +441,10 @@ def build_agent_context(
             "was actually just said — answer, question, challenge, extend, "
             "connect, joke, disagree, admit uncertainty, or change the "
             "subject, as your own voice and the moment call for. Avoid "
-            "generic openers like 'that's fascinating' or 'great point'."
+            "generic openers like 'that's fascinating' or 'great point'. "
+            "Research, wall posts and rabbit holes can't be done from inside "
+            "a conversation — if you agree here to do one later, record it "
+            "with new_intention so it leaves the room with you."
         )
     elif nearby_conversation is not None:
         near_others = ", ".join(nearby_conversation.participant_ids or [])
@@ -402,17 +460,42 @@ def build_agent_context(
         lines.append("FROM THE FOUNDER:")
         lines += [f"  - {_clip(m.content, 200)}" for m in founder_messages]
 
+    if feedback_rows:
+        lines.append("NOTES ON YOUR RECENT TURNS (facts about what happened, not instructions):")
+        lines += [f"  - {_clip(f.note, 220)}" for f in feedback_rows]
+
+    if own_intentions:
+        lines.append(
+            "YOUR OPEN INTENTIONS (things you said you'd do — carry one out and set "
+            "fulfills_intention_id, drop it with drops_intention_id, or let it wait):"
+        )
+        for i in own_intentions:
+            age = max(0, now_index - (i.created_period_index or 0))
+            origin = (
+                f" — said in conversation {i.source_conversation_id}" if i.source_conversation_id else ""
+            )
+            told = f", to {i.with_agent_id}" if i.with_agent_id else ""
+            lines.append(
+                f"  [I{i.id}] {_clip(i.description, 160)} (via {i.planned_action}{told}{origin}, "
+                f"open {age} period{'s' if age != 1 else ''})"
+            )
+    if others_intentions:
+        lines.append("WHAT OTHERS SAID THEY'D DO WITH YOU (still open):")
+        lines += [
+            f"  - {i.agent_id}: {_clip(i.description, 140)}" for i in others_intentions
+        ]
+
     if important_memories:
         lines.append("IMPORTANT MEMORIES:")
         lines += [
-            f"  - [{m.memory_type.value}] {_clip(m.content, 160)}" for m in important_memories
+            f"  [M{m.id}] [{m.memory_type.value}] {_clip(m.content, 300)}" for m in important_memories
         ]
     if social_memories:
         lines.append("RELEVANT SOCIAL MEMORIES:")
-        lines += [f"  - {_clip(m.content, 160)}" for m in social_memories]
+        lines += [f"  [M{m.id}] {_clip(m.content, 200)}" for m in social_memories]
     if rabbit_hole_memories:
         lines.append("RECENT RABBIT-HOLE EXPERIENCE:")
-        lines += [f"  - {_clip(m.content, 220)}" for m in rabbit_hole_memories]
+        lines += [f"  [M{m.id}] {_clip(m.content, 220)}" for m in rabbit_hole_memories]
     if relevant_reflections:
         lines.append("RECENT REFLECTIONS (your own patterns, noticed across several things):")
         lines += [
@@ -514,6 +597,11 @@ def build_agent_context(
         present_agent_ids=present,
         conversation_id=conversation.id if conversation is not None else None,
         delivered_messages=tuple(unread),
+        shown_memory_ids=tuple(
+            m.id for m in (*important_memories, *social_memories, *rabbit_hole_memories)
+        ),
+        shown_intention_ids=tuple(i.id for i in own_intentions),
+        feedback_rows=tuple(feedback_rows),
     )
 
 

@@ -272,6 +272,47 @@ class Reflection(BaseModel):
     )
 
 
+#: Actions an intention may name as the way it will be carried out. Excludes
+#: the passive set and conversation mechanics (SPEAK/LEAVE/JOIN): "I'll keep
+#: talking" is not a plan, and "I'll rest" needs no follow-through tracking.
+PLANNABLE_ACTIONS = frozenset({
+    ActionType.WRITE_NOTE,
+    ActionType.ASK_QUESTION,
+    ActionType.SEND_MESSAGE,
+    ActionType.START_CONVERSATION,
+    ActionType.START_RESEARCH,
+    ActionType.POST_TO_WALL,
+    ActionType.READ_WALL_POST,
+    ActionType.CREATE_RABBIT_HOLE,
+    ActionType.JOIN_RABBIT_HOLE,
+    ActionType.CONTRIBUTE_TO_RABBIT_HOLE,
+    ActionType.RESOLVE_RABBIT_HOLE,
+    ActionType.CHALLENGE_CLAIM,
+    ActionType.FORM_BELIEF,
+    ActionType.REVISE_BELIEF,
+})
+
+
+# Kept out of the docstring for the same reason as TargetKind above: a class
+# docstring becomes the schema description a live model reads. planned_action
+# is a plain string (validated semantically against PLANNABLE_ACTIONS) rather
+# than an enum on purpose — a second 20-member enum nested in the decision
+# envelope is exactly the kind of growth that once got the whole schema
+# rejected as "too complex" by a live structured-output endpoint.
+class IntentionDraft(BaseModel):
+    """Something you mean to do later."""
+
+    model_config = {"extra": "forbid"}
+
+    what: str = Field(description="What you mean to do, in your own words.")
+    planned_action: str = Field(
+        description="The action that would carry it out, e.g. START_RESEARCH, POST_TO_WALL, SEND_MESSAGE."
+    )
+    with_agent_id: str = Field(
+        default="", description="agent_id of who you told or who it involves; empty if no one."
+    )
+
+
 class AgentDecision(BaseModel):
     """What an activated agent decided to do.
 
@@ -291,6 +332,25 @@ class AgentDecision(BaseModel):
     actions: list[AgentAction] = Field(default_factory=list)
     public_dialogue: str | None = None
     reflection: Reflection | None = None
+    #: The intention -> action bridge (app.services.intentions). All four are
+    #: optional and most decisions use none of them. Decision-level rather
+    #: than per-action so SPEAK and "I'll do X later" can share one turn.
+    new_intention: IntentionDraft | None = Field(
+        default=None, description="Record something you mean to do later, if you just committed to it."
+    )
+    #: 0 means "none" for these two (ids start at 1). Plain ints rather than
+    #: ``int | None`` on purpose: every nullable field adds an anyOf union to
+    #: the schema, and union count is what once got the whole decision schema
+    #: rejected by a live structured-output endpoint as "too complex".
+    fulfills_intention_id: int = Field(
+        default=0, description="Number of your open intention [I#] this turn's action carries out; 0 if none."
+    )
+    drops_intention_id: int = Field(
+        default=0, description="Number of your open intention [I#] you've decided not to do; 0 if none."
+    )
+    drew_on_memory_ids: list[int] = Field(
+        default_factory=list, description="Numbers of [M#] memories shown to you that shaped this decision."
+    )
 
     @field_validator("actions")
     @classmethod

@@ -236,6 +236,34 @@ def _nudge_reflection_pressure(
     reflection.accumulate_pressure(session, agent_id, importance, clock)
 
 
+def remember(
+    session: Session,
+    *,
+    agent_id: str,
+    memory_type: MemoryType,
+    content: str,
+    importance: float,
+    confidence: float,
+    clock: SimulationClock,
+    correlation_id: str | None = None,
+    source_event_ids: list[int] = (),
+    related_agent_ids: list[str] = (),
+    related_conversation_ids: list[int] = (),
+    related_research_ids: list[str] = (),
+) -> Memory:
+    """Public entry point for services outside this module (intentions,
+    feedback) that have already decided something is worth remembering.
+    Same row, same events, same reflection-pressure nudge as every
+    in-module memory — never a second memory mechanism."""
+    return _upsert(
+        session, agent_id=agent_id, memory_type=memory_type, content=content[:400],
+        importance=importance, confidence=confidence, clock=clock, correlation_id=correlation_id,
+        source_event_ids=list(source_event_ids), related_agent_ids=list(related_agent_ids),
+        related_conversation_ids=list(related_conversation_ids),
+        related_research_ids=list(related_research_ids),
+    )
+
+
 def write_note(
     session: Session,
     agent_id: str,
@@ -590,6 +618,8 @@ def consider_conversation_ended(session: Session, conversation, reason: str, clo
     "you remember that thing you said about X" (§ conversational memory)
     needs to be honestly reconstructable from later.
     """
+    from app.db.models.conversations import ConversationMessage
+    from app.db.models.intentions import Intention
     from app.services.conversations import everyone_who_was_present
 
     participants = everyone_who_was_present(conversation)
@@ -599,11 +629,52 @@ def consider_conversation_ended(session: Session, conversation, reason: str, clo
     importance = 65.0 if conversation.trigger_type.value in _HIGH_IMPORTANCE_TRIGGERS else 45.0
     subject = conversation.current_subject or "something"
 
+    # What was actually said, verbatim and clipped — never paraphrased or
+    # invented. Before this, the memory was only "Talked with X about
+    # <subject>" (often a mechanical subject like "the day so far"), which is
+    # nothing a later turn could genuinely build on.
+    turns = list(
+        session.scalars(
+            select(ConversationMessage)
+            .where(ConversationMessage.conversation_id == conversation.id)
+            .order_by(ConversationMessage.turn_number)
+        )
+    )
+    # Promises made in the room, heard by everyone present.
+    said_intentions = list(
+        session.scalars(
+            select(Intention)
+            .where(Intention.source_conversation_id == conversation.id)
+            .order_by(Intention.id)
+        )
+    )
+    if said_intentions:
+        importance = max(importance, 62.0)
+
+    def _clip(text: str, n: int) -> str:
+        text = " ".join((text or "").split())
+        return text if len(text) <= n else text[: n - 1] + "…"
+
     for agent_id in participants:
         others = sorted(participants - {agent_id})
-        content = f"Talked with {', '.join(others)} about \"{subject}\" — {reason}."
+        parts = [f"Talked with {', '.join(others)} about \"{_clip(subject, 80)}\" — {reason}."]
+        theirs = next((t for t in reversed(turns) if t.agent_id != agent_id), None)
+        mine = next((t for t in reversed(turns) if t.agent_id == agent_id), None)
+        if theirs is not None:
+            parts.append(f"{theirs.agent_id} said: \"{_clip(theirs.content, 120)}\"")
+        if mine is not None:
+            parts.append(f"I said: \"{_clip(mine.content, 100)}\"")
+        for intention in said_intentions:
+            who = "I" if intention.agent_id == agent_id else intention.agent_id
+            to = (
+                " (to me)" if intention.with_agent_id == agent_id
+                else f" (to {intention.with_agent_id})" if intention.with_agent_id else ""
+            )
+            parts.append(f"{who} said they'd: \"{_clip(intention.description, 90)}\"{to} [I{intention.id}]"
+                         .replace("I said they'd", "I said I'd"))
+        content = " ".join(parts)
         _upsert(
-            session, agent_id=agent_id, memory_type=MemoryType.EPISODIC, content=content[:300],
+            session, agent_id=agent_id, memory_type=MemoryType.EPISODIC, content=content[:600],
             importance=importance, confidence=85.0, clock=clock,
             correlation_id=conversation.correlation_id,
             related_agent_ids=others,
@@ -619,6 +690,8 @@ def consider_reflection(
     reflection,
     clock: SimulationClock,
     correlation_id: str,
+    *,
+    conversation=None,
 ) -> Memory | None:
     """Store a model's own short structured reflection (§15) as one memory.
 
@@ -634,10 +707,17 @@ def consider_reflection(
     ]
     if not parts:
         return None
+    # A reflection made mid-conversation is *about* that conversation; link it
+    # so a later turn with the same people can find it (it used to float free).
+    others = (
+        sorted(set(conversation.participant_ids or []) - {agent_id}) if conversation is not None else []
+    )
     return _upsert(
         session, agent_id=agent_id, memory_type=MemoryType.EPISODIC,
         content=" | ".join(parts)[:400], importance=55.0, confidence=85.0,
         clock=clock, correlation_id=correlation_id,
+        related_agent_ids=others,
+        related_conversation_ids=[conversation.id] if conversation is not None else [],
     )
 
 

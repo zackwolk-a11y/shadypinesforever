@@ -52,7 +52,14 @@ from app.domain.moves import (
     MOVE_QUESTION,
 )
 from app.providers.llm.base import LLMResult, LLMSchemaError, LLMUsage
-from app.schemas.actions import ActionType, AgentAction, AgentDecision, Reflection, TargetKind
+from app.schemas.actions import (
+    ActionType,
+    AgentAction,
+    AgentDecision,
+    IntentionDraft,
+    Reflection,
+    TargetKind,
+)
 from app.schemas.reflection import QuestionUpdate, ReflectionSynthesis
 from app.schemas.report import FounderReportSynthesis
 from app.schemas.research import (
@@ -327,6 +334,9 @@ class _Context:
         ]
         self.locations = [le for le in (_extract(user, "LOCATIONS:") or "").split(", ") if le]
         self.in_conversation = "YOU ARE IN A CONVERSATION" in user
+        self.available_actions = {
+            a.strip() for a in (_extract(user, "AVAILABLE ACTIONS:") or "").split(",") if a.strip()
+        }
 
         self.wall_headlines = _extract_wall_posts(user, "RESEARCH WALL HEADLINES")
         self.wall_read = _extract_wall_posts(user, "WALL POSTS YOU HAVE READ IN FULL")
@@ -363,6 +373,13 @@ class _Context:
         # ever links to one, exactly as optional live.
         self.open_question_ids = _extract_bracket_ids(user, "OPEN QUESTIONS")
 
+        # The intention -> action bridge: this agent's own open intentions
+        # ([I#], with the planned action and who it was said to), the memory
+        # lines it was shown ([M#]) and any feedback notes on its last turns.
+        self.open_intentions = _extract_open_intentions(user)
+        self.memory_lines = _extract_memory_lines(user)
+        self.feedback_notes = _extract_section(user, "NOTES ON YOUR RECENT TURNS")
+
 
 def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
     ctx = _Context(user)
@@ -384,6 +401,10 @@ def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
         if ctx.nearby_subject is not None or ctx.nearby_participants:
             table.append((ActionType.JOIN_CONVERSATION, _join_weight(ctx)))
 
+    # Respect AVAILABLE ACTIONS the way a live model reading the prompt
+    # would (e.g. no second START_CONVERSATION while one is under way).
+    if ctx.available_actions:
+        table = [(a, w) for a, w in table if a.value in ctx.available_actions] or table
     population = [a for a, _ in table]
     weights = [w for _, w in table]
     chosen = rng.choices(population, weights=weights, k=1)[0]
@@ -412,6 +433,48 @@ def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
 
     actions: list[AgentAction] = [action] if action is not None else []
 
+    # The intention -> action bridge, exercised the way a live model would
+    # be free to: sometimes commit to something concrete mid-conversation
+    # (recording it), later carry it out and say which memory reminded it.
+    # A note saying a promise went unrecorded makes this generator record
+    # its next one — the fixture's stand-in for "using feedback".
+    new_intention: IntentionDraft | None = None
+    fulfills: int | None = None
+    drew_on: list[int] = []
+    learned = any("didn't record it as an intention" in n for n in ctx.feedback_notes)
+    if (
+        ctx.in_conversation and chosen is ActionType.SPEAK and action is not None
+        and ctx.last_turn is not None and len(ctx.open_intentions) < 3
+    ):
+        roll = rng.random()
+        last_speaker, last_content = ctx.last_turn
+        kw_set = sorted(_words(last_content)) or [topic]
+        kw = max(kw_set, key=len)
+        if roll < 0.30 or (learned and roll < 0.60):
+            planned = rng.choice(
+                [ActionType.START_RESEARCH, ActionType.POST_TO_WALL, ActionType.SEND_MESSAGE]
+            )
+            what = {
+                ActionType.START_RESEARCH: f"look into {kw} properly",
+                ActionType.POST_TO_WALL: f"put what we said about {kw} on the wall",
+                ActionType.SEND_MESSAGE: f"send {last_speaker} what I find on {kw}",
+            }[planned]
+            action.content = f"{action.content} I'll {what} after this."
+            new_intention = IntentionDraft(what=what, planned_action=planned.value, with_agent_id=last_speaker)
+        elif roll < 0.40 and not learned:
+            action.content = f"{action.content} I'll think about that more later."
+    elif not ctx.in_conversation and ctx.open_intentions and rng.random() < 0.65:
+        intention_id, what, planned_name, told = ctx.open_intentions[0]
+        follow = _build_follow_through(rng, ctx, what, planned_name, told, topic)
+        if follow is not None:
+            actions = [follow]
+            chosen = follow.type
+            fulfills = intention_id
+            drew_on = [
+                mid for mid, text in ctx.memory_lines
+                if f"[I{intention_id}]" in text or (told and told in text)
+            ][:2]
+
     stays_put = ctx.in_conversation or chosen in (
         ActionType.START_RESEARCH, ActionType.CREATE_RABBIT_HOLE, ActionType.CONTRIBUTE_TO_RABBIT_HOLE,
     )
@@ -429,7 +492,39 @@ def _generate_decision(rng: random.Random, user: str) -> AgentDecision:
         actions=actions,
         public_dialogue=f"[fixture] {topic}, maybe." if speaks else None,
         reflection=_maybe_reflect(rng, chosen, topic),
+        new_intention=new_intention,
+        fulfills_intention_id=fulfills or 0,
+        drew_on_memory_ids=drew_on,
     )
+
+
+def _build_follow_through(
+    rng: random.Random, ctx: _Context, what: str, planned_name: str, told: str | None, topic: str
+) -> AgentAction | None:
+    """The concrete action that carries an open intention out."""
+    try:
+        planned = ActionType(planned_name)
+    except ValueError:
+        return None
+    subject = (
+        what.split(" on ")[-1].split(" about ")[-1]
+        .replace("look into ", "").replace(" properly", "").replace(" on the wall", "")
+    )
+    if planned is ActionType.START_RESEARCH:
+        return AgentAction(type=planned, content=f"[fixture] What do we actually know about {subject}?")
+    if planned is ActionType.POST_TO_WALL:
+        return AgentAction(
+            type=planned, wall_post_type=WallPostType.HYPOTHESIS,
+            content=f"[fixture] From a conversation: a working idea about {subject}.",
+        )
+    if planned in (ActionType.SEND_MESSAGE, ActionType.ASK_QUESTION):
+        target = told or (rng.choice(ctx.peers) if ctx.peers else None)
+        if target is None:
+            return None
+        return AgentAction(type=planned, target_agent_id=target,
+                           content=f"[fixture] Following up on {subject}, like I said I would.")
+    target = told or (rng.choice(ctx.peers) if ctx.peers else None)
+    return _build_action(planned, rng, ctx, topic, target)
 
 
 def _maybe_reflect(rng: random.Random, chosen: ActionType, topic: str) -> Reflection | None:
@@ -1154,6 +1249,27 @@ def _extract_nearby_conversation(text: str) -> tuple[str | None, list[str]]:
         return None, []
     participants = [p.strip() for p in m.group(1).split(",") if p.strip()]
     return m.group(2), participants
+
+
+def _extract_open_intentions(text: str) -> list[tuple[int, str, str, str | None]]:
+    """``(id, what, planned_action, told)`` for each line of YOUR OPEN INTENTIONS."""
+    out = []
+    pattern = re.compile(r"^\s*\[I(\d+)\]\s+(.*?)\s+\(via ([A-Z_]+)(?:, to (\S+?))?(?: —|,)")
+    for line in _extract_section(text, "YOUR OPEN INTENTIONS"):
+        m = pattern.match(line)
+        if m:
+            out.append((int(m.group(1)), m.group(2), m.group(3), m.group(4)))
+    return out
+
+
+def _extract_memory_lines(text: str) -> list[tuple[int, str]]:
+    """``(id, text)`` for every [M#] memory line shown, in any memory section."""
+    out = []
+    for line in text.splitlines():
+        m = re.match(r"^\s*\[M(\d+)\]\s*(.*)$", line)
+        if m:
+            out.append((int(m.group(1)), m.group(2)))
+    return out
 
 
 def _extract_own_research_ids(text: str) -> list[str]:

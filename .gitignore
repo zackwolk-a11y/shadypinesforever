@@ -9,3 +9,6 @@ venv/
 .env
 .pytest_cache/
 .director/control_room/
+
+# prove_cycle.py trial workdirs (disposable Village copies)
+.cycle_trials/

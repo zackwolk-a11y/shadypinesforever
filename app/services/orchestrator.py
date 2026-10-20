@@ -55,12 +55,13 @@ from app.providers.llm import (
     LLMRateLimited,
     get_llm_provider,
 )
-from app.providers.llm.base import LLMResult
+from app.providers.llm.base import LLMResult, LLMSchemaError
 from app.providers.research import ResearchProviderError, get_research_provider
 from app.schemas.actions import (
     CONTENT_ACTIONS,
     IN_CONVERSATION_ACTIONS,
     NOT_IN_CONVERSATION_ACTIONS,
+    PLANNABLE_ACTIONS,
     SINGLETON_ACTIONS,
     ActionType,
     AgentDecision,
@@ -71,18 +72,22 @@ from app.services import clock as clock_service
 from app.services import conversations as convo
 from app.services import daily_synthesis
 from app.services import dialogue, founder, memory, rabbit_holes as rh, reflection, research, scheduler, wall
+from app.services import intentions, turn_feedback
 from app.services.context_builder import build_agent_context
 from app.services.events import record_event
 from app.services.exposure import expose, has_been_exposed
 from app.services.telemetry import record_llm_run
 
-PROMPT_VERSION = "agent_decision.v1"
+#: v2: intentions ([I#], new_intention/fulfills/drops), memory citation
+#: ([M#], drew_on_memory_ids) and turn-feedback notes. Bumped so live runs on
+#: the new prompt are always distinguishable from v1 runs in llm_runs.
+PROMPT_VERSION = "agent_decision.v2"
 
 #: Every action currently implemented. Anything else is rejected.
 ALLOWED_ACTIONS: tuple[ActionType, ...] = tuple(ActionType)
 
 
-def _available_actions_for(in_conversation: bool) -> tuple[str, ...]:
+def _available_actions_for(in_conversation: bool, conversation_open: bool = False) -> tuple[str, ...]:
     """The AVAILABLE ACTIONS list shown to an agent this turn, filtered to
     match exactly what ``validate_decision`` will actually permit given
     ``in_conversation`` — the same flag threaded into that call below.
@@ -98,7 +103,14 @@ def _available_actions_for(in_conversation: bool) -> tuple[str, ...]:
     fully avoidable mismatch between what the agent was told and what was
     actually true.
     """
-    excluded = NOT_IN_CONVERSATION_ACTIONS if in_conversation else IN_CONVERSATION_ACTIONS
+    excluded = set(NOT_IN_CONVERSATION_ACTIONS if in_conversation else IN_CONVERSATION_ACTIONS)
+    if conversation_open and not in_conversation:
+        # Someone outside the one open conversation may join it, but may not
+        # open a second one: Phase 1 keeps one conversation at a time, and a
+        # second START_CONVERSATION used to orphan the first (never closed).
+        excluded.add(ActionType.START_CONVERSATION)
+    if not conversation_open:
+        excluded.add(ActionType.JOIN_CONVERSATION)
     return tuple(a.value for a in ALLOWED_ACTIONS if a not in excluded)
 
 
@@ -149,7 +161,7 @@ def normalize_decision(
     agent: Agent,
     present_agent_ids: tuple[str, ...],
     session: Session,
-) -> None:
+) -> dict:
     """Fill in a small set of unambiguous or clearly-inferrable omissions
     before semantic validation runs, instead of hard-rejecting them.
 
@@ -158,10 +170,16 @@ def normalize_decision(
     overridden. This runs strictly before :func:`validate_decision`, which
     still enforces everything this can't safely infer (an unknown agent id,
     a nonexistent wall post, and so on).
+
+    Returns what was inferred, so it can be recorded: a conversation partner
+    the *engine* picked is not a voluntary meeting, and the cycle proof
+    (scripts/prove_cycle.py) needs to be able to tell the difference.
     """
+    notes: dict = {}
     for action in decision.actions:
         if action.type is ActionType.START_CONVERSATION:
             if not action.target_agent_id:
+                notes["target_inferred"] = True
                 others = [a for a in present_agent_ids if a != agent.agent_id]
                 if len(others) == 1:
                     action.target_agent_id = others[0]
@@ -189,6 +207,37 @@ def normalize_decision(
             if default_post is not None:
                 action.target_int_id = default_post.id
                 action.target_kind = TargetKind.WALL_POST
+                notes["wall_post_inferred"] = True
+
+    # An intention's bookkeeping fields should never cost the agent the rest
+    # of its turn (often a SPEAK) over something unambiguous: naming itself
+    # as the person it told, or a near-miss action name.
+    draft = decision.new_intention
+    if draft is not None:
+        if draft.with_agent_id == agent.agent_id:
+            draft.with_agent_id = ""
+            notes["intention_self_target_cleared"] = True
+        planned = (draft.planned_action or "").strip().upper().replace(" ", "_")
+        planned = _PLANNED_ACTION_ALIASES.get(planned, planned)
+        if planned != draft.planned_action:
+            draft.planned_action = planned
+    return notes
+
+
+#: Near-miss spellings a live model plausibly writes for planned_action.
+_PLANNED_ACTION_ALIASES = {
+    "RESEARCH": "START_RESEARCH",
+    "DO_RESEARCH": "START_RESEARCH",
+    "POST": "POST_TO_WALL",
+    "WALL_POST": "POST_TO_WALL",
+    "POST_WALL": "POST_TO_WALL",
+    "MESSAGE": "SEND_MESSAGE",
+    "SEND": "SEND_MESSAGE",
+    "NOTE": "WRITE_NOTE",
+    "ASK": "ASK_QUESTION",
+    "RABBIT_HOLE": "CREATE_RABBIT_HOLE",
+    "CONTRIBUTE": "CONTRIBUTE_TO_RABBIT_HOLE",
+}
 
 
 def validate_decision(
@@ -234,6 +283,10 @@ def validate_decision(
         if action.type is ActionType.START_CONVERSATION:
             if in_conversation:
                 raise DecisionRejected("a conversation is already open")
+            if open_conversation_id is not None:
+                raise DecisionRejected(
+                    "another conversation is already under way — JOIN_CONVERSATION it or wait"
+                )
             if not action.target_agent_id:
                 raise DecisionRejected("START_CONVERSATION requires a target_agent_id")
 
@@ -291,6 +344,31 @@ def validate_decision(
 
         if session is not None:
             _validate_wall_and_rabbit_hole_action(session, agent, action)
+
+    if session is not None:
+        _validate_intention_fields(session, agent, decision, present_agent_ids)
+
+
+def _validate_intention_fields(
+    session: Session, agent: Agent, decision: AgentDecision, present_agent_ids: tuple[str, ...]
+) -> None:
+    """new_intention / fulfills_intention_id / drops_intention_id must refer
+    to something real, the same as every other id an agent may cite."""
+    try:
+        if decision.new_intention is not None:
+            intentions.validate_draft(session, agent.agent_id, decision.new_intention, present_agent_ids)
+        if decision.fulfills_intention_id:
+            intentions.own_open(session, agent.agent_id, decision.fulfills_intention_id)
+            if not any(a.type in PLANNABLE_ACTIONS for a in decision.actions):
+                raise DecisionRejected(
+                    "fulfills_intention_id needs the action that carries it out in this same decision"
+                )
+        if decision.drops_intention_id:
+            intentions.own_open(session, agent.agent_id, decision.drops_intention_id)
+            if decision.drops_intention_id == decision.fulfills_intention_id:
+                raise DecisionRejected("an intention can't be both fulfilled and dropped")
+    except intentions.IntentionError as exc:
+        raise DecisionRejected(str(exc)) from exc
 
 
 def _validate_wall_and_rabbit_hole_action(session: Session, agent: Agent, action) -> None:
@@ -487,12 +565,26 @@ def execute_decision(
     conversation: Conversation | None,
     settings: Settings,
     llm_provider: LLMProvider,
+    *,
+    produced: list | None = None,
 ) -> tuple[list[str], bool, research.ResearchOutcome | None]:
     """Perform the state changes a validated decision calls for.
 
     Returns what was performed, whether the agent spoke (for the conversation
     engine), and the research outcome if a START_RESEARCH action ran.
+
+    ``produced`` (optional) collects ``(ActionType, entity)`` for each action
+    that ran, where entity is ``{"type": ..., "id": ...}`` for whatever it
+    created or touched — what lets an intention be closed against a real row
+    rather than against the agent's say-so.
     """
+    def _produced(action_type: ActionType, entity_type: str | None = None, entity_id=None) -> None:
+        if produced is not None:
+            produced.append((
+                action_type,
+                {"type": entity_type, "id": entity_id} if entity_type is not None else None,
+            ))
+
     performed: list[str] = []
     spoke = False
     research_outcome: research.ResearchOutcome | None = None
@@ -503,10 +595,11 @@ def execute_decision(
 
     for action in decision.actions:
         if action.type is ActionType.WRITE_NOTE:
-            memory.write_note(
+            note = memory.write_note(
                 session, agent.agent_id, action.content or "", clock, correlation_id,
                 memory_type=action.memory_type or MemoryType.EPISODIC,
             )
+            _produced(action.type, "memory", note.id)
         elif action.type is ActionType.SPEAK and conversation is not None:
             convo.record_utterance(
                 session,
@@ -556,6 +649,7 @@ def execute_decision(
                 move=dialogue.MOVE_OPEN,
             )
             spoke = True
+            _produced(action.type, "conversation", new_conversation.id)
         elif action.type is ActionType.START_RESEARCH:
             try:
                 research_provider = get_research_provider(settings)
@@ -587,6 +681,10 @@ def execute_decision(
                         session, target_question, research_outcome.research_id, clock,
                         correlation_id=correlation_id,
                     )
+            _produced(
+                action.type, "research_session",
+                research_outcome.research_id if research_outcome is not None else None,
+            )
         elif action.type in (ActionType.ASK_QUESTION, ActionType.SEND_MESSAGE):
             message = Message(
                 sender_agent_id=agent.agent_id,
@@ -602,26 +700,31 @@ def execute_decision(
                 entity_id=message.id,
                 exposure_type=ExposureType.CREATED,
             )
+            _produced(action.type, "message", message.id)
         elif action.type is ActionType.POST_TO_WALL:
-            wall.post_to_wall(
+            post, _ = wall.post_to_wall(
                 session, agent.agent_id, action.wall_post_type, action.content or "",
                 clock, correlation_id,
                 related_research_id=action.target_research_id,
                 related_wall_post_id=action.target_wall_post_id,
                 related_rabbit_hole_id=action.target_rabbit_hole_id,
             )
+            _produced(action.type, "wall_post", post.id)
         elif action.type is ActionType.READ_WALL_POST:
             post = session.get(ResearchWallPost, action.target_wall_post_id)
             wall.read_wall_post(session, agent.agent_id, post, clock, correlation_id)
+            _produced(action.type, "wall_post", post.id)
         elif action.type is ActionType.CREATE_RABBIT_HOLE:
-            rh.create(
+            hole, _ = rh.create(
                 session, agent.agent_id, action.title or "", action.content or "",
                 clock, correlation_id,
                 related_research_id=action.target_research_id,
                 related_wall_post_id=action.target_wall_post_id,
             )
+            _produced(action.type, "rabbit_hole", hole.id)
         elif action.type is ActionType.JOIN_RABBIT_HOLE:
             rh.join(session, action.target_rabbit_hole_id, agent.agent_id, clock, correlation_id)
+            _produced(action.type, "rabbit_hole", action.target_rabbit_hole_id)
         elif action.type is ActionType.CONTRIBUTE_TO_RABBIT_HOLE:
             if not rh.is_member(session, action.target_rabbit_hole_id, agent.agent_id):
                 rh.join(
@@ -632,6 +735,7 @@ def execute_decision(
                 session, action.target_rabbit_hole_id, agent.agent_id, action.content or "",
                 clock, correlation_id, research_id=action.target_research_id,
             )
+            _produced(action.type, "rabbit_hole", action.target_rabbit_hole_id)
         elif action.type is ActionType.LEAVE_RABBIT_HOLE:
             rh.leave(session, action.target_rabbit_hole_id, agent.agent_id, clock, correlation_id)
         elif action.type is ActionType.RESOLVE_RABBIT_HOLE:
@@ -639,11 +743,13 @@ def execute_decision(
                 session, action.target_rabbit_hole_id, agent.agent_id, action.content or "",
                 clock, correlation_id,
             )
+            _produced(action.type, "rabbit_hole", action.target_rabbit_hole_id)
         elif action.type is ActionType.CHALLENGE_CLAIM:
             claim = session.get(Claim, action.target_claim_id)
             research.challenge_claim(
                 session, agent.agent_id, claim, action.content or "", clock, correlation_id
             )
+            _produced(action.type, "claim", claim.id)
         elif action.type is ActionType.FORM_BELIEF:
             rs = session.scalars(
                 select(ResearchSession).where(
@@ -651,10 +757,11 @@ def execute_decision(
                 )
             ).one()
             initial_confidence = rs.confidence if rs.confidence is not None else 50.0
-            beliefs.form(
+            belief, _ = beliefs.form(
                 session, agent.agent_id, action.content or "", action.target_research_id,
                 initial_confidence, clock, correlation_id,
             )
+            _produced(action.type, "belief", belief.id)
         elif action.type is ActionType.REVISE_BELIEF:
             belief = beliefs.owned_by(session, agent.agent_id, action.target_belief_id)
             if action.target_research_id:
@@ -667,6 +774,7 @@ def execute_decision(
                 session, agent.agent_id, belief, action.belief_relation, basis_type, basis_id,
                 action.content, clock, correlation_id,
             )
+            _produced(action.type, "belief", belief.id)
         elif action.type is ActionType.RETIRE_BELIEF:
             belief = beliefs.owned_by(session, agent.agent_id, action.target_belief_id)
             beliefs.retire(session, agent.agent_id, belief, action.content or "", clock, correlation_id)
@@ -766,9 +874,12 @@ def run_next_event(
 
     conversation = convo.active_conversation(session)
 
-    # The day opens with everyone in the room and no agenda.
+    # The day opens with everyone in the room and no agenda — unless the
+    # Village profile turns the compulsory gathering off, in which case the
+    # only meetings are the ones agents choose to start themselves.
     if (
         conversation is None
+        and getattr(settings, "morning_gathering", "all") != "off"
         and clock.current_period == clock_service.FIRST_PERIOD
         and not convo.morning_gathering_held_today(session, clock)
     ):
@@ -790,10 +901,22 @@ def run_next_event(
     # scripts/smoke_test_dialogue.py). The last event id strictly increases
     # every activation regardless of what happens, so this gate always moves.
     joiner = None
+    outsider = None
     if conversation is not None:
         last_event_id = session.scalar(select(func.max(Event.id))) or 0
         if last_event_id % 4 == 0:
             joiner = dialogue.find_joiner(session, conversation, clock, settings, seed=seed)
+        # Interleave (opt-in): every Nth turn offered while this conversation
+        # is open goes to someone *outside* it, so one conversation no longer
+        # freezes the whole Village until it ends.
+        every = getattr(settings, "conversation_interleave_every", 0) or 0
+        if joiner is None and force_agent_id is None and every > 0:
+            offered = _turns_offered_since_start(session, conversation)
+            if offered and offered % every == 0:
+                outsider = scheduler.next_agent(
+                    session, clock, settings, seed=seed,
+                    exclude=set(conversation.participant_ids or []),
+                )
 
     # ``conversation`` is always the one real open conversation, if any —
     # needed later for execute_decision regardless of who gets this turn.
@@ -814,6 +937,11 @@ def run_next_event(
         agent = session.scalars(select(Agent).where(Agent.agent_id == joiner.agent_id)).one()
         correlation_id = new_correlation_id()
         context_conversation = None
+    elif outsider is not None:
+        agent = session.scalars(select(Agent).where(Agent.agent_id == outsider.agent_id)).one()
+        correlation_id = new_correlation_id()
+        context_conversation = None
+        candidate = outsider
     elif conversation is not None:
         speaker_id = convo.next_speaker(session, conversation, clock, settings)
         if speaker_id is None:
@@ -823,7 +951,7 @@ def run_next_event(
             reason = (
                 "no participants left"
                 if not (conversation.participant_ids or [])
-                else "everyone present has reached today's activation limit"
+                else "everyone present has reached their activation limit (day or period)"
             )
             convo.close(session, conversation, clock, reason,
                         correlation_id=conversation.correlation_id)
@@ -835,12 +963,12 @@ def run_next_event(
                 select(Agent).where(Agent.agent_id == speaker_id)
             ).one()
             correlation_id = conversation.correlation_id or new_correlation_id()
-    if conversation is None and joiner is None and force_agent_id is None:
+    if conversation is None and joiner is None and outsider is None and force_agent_id is None:
         candidate = scheduler.next_agent(session, clock, settings, seed=seed)
         if candidate is None:
             if auto_advance:
                 advance = clock_service.advance(session, clock)
-                if advance.crossed_day_boundary:
+                if advance.crossed_day_boundary and getattr(settings, "daily_report", "on") != "off":
                     daily_synthesis.generate_report(
                         session, advance.from_day, clock, settings, provider,
                     )
@@ -873,7 +1001,9 @@ def run_next_event(
         agent,
         clock,
         settings,
-        available_actions=_available_actions_for(context_conversation is not None),
+        available_actions=_available_actions_for(
+            context_conversation is not None, conversation_open=conversation is not None
+        ),
         conversation=context_conversation,
         nearby_conversation=conversation if context_conversation is None else None,
     )
@@ -890,6 +1020,11 @@ def run_next_event(
             entity_id=message.id,
             exposure_type=ExposureType.DIRECT_MESSAGE,
         )
+    # Same rule for feedback notes: showing one is delivering it, once. In the
+    # control arm (FEEDBACK_NOTES=off) they are withheld but judged the same.
+    turn_feedback.mark_shown(list(context.feedback_rows))
+    if getattr(settings, "feedback_notes", "on") == "off":
+        turn_feedback.judge_unshown(session, agent.agent_id)
 
     woke = record_event(
         session,
@@ -903,7 +1038,15 @@ def run_next_event(
                 else {"conversation_turn": 1.0}
             ),
             "approx_context_tokens": context.approx_tokens,
-            "conversation_id": conversation.id if conversation is not None else None,
+            # An outsider offered a turn during someone else's conversation is
+            # not a turn *in* it (next_speaker keys "last offered" on this).
+            "conversation_id": (
+                None if outsider is not None
+                else conversation.id if conversation is not None else None
+            ),
+            "nearby_conversation_id": conversation.id if outsider is not None else None,
+            "shown_memory_ids": list(context.shown_memory_ids),
+            "shown_intention_ids": list(context.shown_intention_ids),
         },
         correlation_id=correlation_id,
         clock=clock,
@@ -950,11 +1093,29 @@ def run_next_event(
             outcome.rejected_reason = f"provider unavailable: {exc}"
             outcome.provider_unavailable = True
             break
-        except LLMError as exc:
+        except LLMSchemaError as exc:
+            # The model answered, but not in the required shape: that is this
+            # agent's turn going wrong, so it stays an invalid decision.
             outcome.rejected_reason = f"provider error: {exc}"
             break
+        except LLMError as exc:
+            # A timeout, dropped connection or empty CLI output: the turn
+            # never happened. Previously this was logged as the *agent's*
+            # invalid decision and the run carried on, so one network outage
+            # could burn every agent's daily activations on failed calls.
+            # Now it checkpoints and pauses, exactly like the rate-limit
+            # breaker, and scripts/resume_village.py probes before resuming.
+            outcome.rejected_reason = f"provider error: {exc}"
+            outcome.provider_unavailable = True
+            outcome.event_ids.append(
+                _pause_for_provider_error(
+                    session, clock, agent, correlation_id, woke.id, exc,
+                    conversation_id=conversation.id if conversation is not None else None,
+                ).id
+            )
+            return outcome
 
-        normalize_decision(
+        normalize_notes = normalize_decision(
             result.output,
             agent=agent,
             present_agent_ids=context.present_agent_ids,
@@ -990,6 +1151,10 @@ def run_next_event(
         break
 
     if outcome.decision is None:
+        if outcome.provider_unavailable:
+            # Non-retryable provider outage (credentials, quota): not this
+            # agent's invalid decision either — stop, and let run_day exit 75.
+            return outcome
         invalid = record_event(
             session,
             event_type=EventType.INVALID_AGENT_DECISION,
@@ -1000,6 +1165,17 @@ def run_next_event(
             clock=clock,
         )
         outcome.event_ids.append(invalid.id)
+        turn_feedback.judge_next_decision(
+            session, agent.agent_id, first_attempt_ok=False, unrecorded_commitment=False,
+            unknown_memory_ids=[], clock=clock, event_id=invalid.id,
+        )
+        turn_feedback.record(
+            session, agent.agent_id, "rejected_decision",
+            f"Your last decision was rejected and nothing happened: "
+            f"{(outcome.rejected_reason or rejection or 'unknown')[:240]}",
+            clock, source_event_id=invalid.id,
+            detail={"reason": outcome.rejected_reason or rejection},
+        )
         outcome.rejected_reason = outcome.rejected_reason or rejection
         # Falling back to doing nothing is itself the outcome; no state changes.
         # A rejected turn still counts as a pass in the room.
@@ -1007,9 +1183,16 @@ def run_next_event(
             _after_turn(session, context_conversation, clock, settings, spoke=False)
         return outcome
 
+    produced: list = []
     outcome.executed, outcome.spoke, outcome.research = execute_decision(
         session, agent, outcome.decision, clock, correlation_id, conversation,
-        settings, provider,
+        settings, provider, produced=produced,
+    )
+
+    # The intention -> action bridge, applied only to what actually executed.
+    intention_summary = intentions.resolve_turn(
+        session, agent, outcome.decision, produced, clock, correlation_id,
+        conversation=context_conversation,
     )
 
     # Memory selection (Packet 7): every event this turn's actions produced —
@@ -1028,7 +1211,62 @@ def run_next_event(
     memory.consider_turn_events(session, turn_event_ids, clock)
     if outcome.decision.reflection is not None:
         memory.consider_reflection(
-            session, agent.agent_id, outcome.decision.reflection, clock, correlation_id
+            session, agent.agent_id, outcome.decision.reflection, clock, correlation_id,
+            conversation=context_conversation,
+        )
+
+    # Memory use: only ids actually shown this turn count. Anything else is
+    # dropped (never a rejection — a wrong citation is not a wrong action)
+    # and becomes a feedback note instead.
+    shown = set(context.shown_memory_ids)
+    cited = list(dict.fromkeys(outcome.decision.drew_on_memory_ids or []))
+    used_memory_ids = [m for m in cited if m in shown]
+    unknown_memory_ids = [m for m in cited if m not in shown]
+    if used_memory_ids:
+        record_event(
+            session,
+            event_type=EventType.MEMORY_USED,
+            agent_id=agent.agent_id,
+            payload={
+                "memory_ids": used_memory_ids,
+                "actions": [t.value for t, _ in produced],
+                "fulfilled_intention_ids": intention_summary["fulfilled"],
+                "formed_intention_id": intention_summary["formed"],
+            },
+            correlation_id=correlation_id,
+            causation_id=woke.id,
+            clock=clock,
+        )
+
+    # Feedback: judge the notes this agent was shown before this turn, then
+    # record any new ones this turn produced (judged on its next turn).
+    commitment_phrase = turn_feedback.find_unrecorded_commitment(outcome.decision)
+    first_attempt_ok = rejection is None
+    turn_feedback.judge_next_decision(
+        session, agent.agent_id, first_attempt_ok=first_attempt_ok,
+        unrecorded_commitment=commitment_phrase is not None,
+        unknown_memory_ids=unknown_memory_ids, clock=clock, event_id=woke.id,
+    )
+    if commitment_phrase:
+        turn_feedback.record(
+            session, agent.agent_id, "unrecorded_commitment",
+            f"You said \"{commitment_phrase[:120]}\" but didn't record it as an intention, "
+            "so it won't stay on your list.",
+            clock, source_event_id=woke.id,
+            detail={"phrase": commitment_phrase, "conversation_id": outcome.conversation_id},
+        )
+    if unknown_memory_ids:
+        turn_feedback.record(
+            session, agent.agent_id, "unknown_memory_citation",
+            f"Your last decision cited memory ids {unknown_memory_ids} that weren't shown to you; "
+            "only [M#] ids from your context count.",
+            clock, source_event_id=woke.id, detail={"memory_ids": unknown_memory_ids},
+        )
+    if rejection is not None:
+        turn_feedback.record(
+            session, agent.agent_id, "corrected_decision",
+            f"Your last decision was first rejected ({rejection[:200]}); the corrected one went through.",
+            clock, source_event_id=woke.id, detail={"reason": rejection},
         )
     # Packet 9: the reflection engine's expensive half — see
     # app/services/reflection.py's module docstring for why this only checks
@@ -1048,6 +1286,14 @@ def run_next_event(
             "public_dialogue": outcome.decision.public_dialogue,
             "is_fixture": provider.is_fixture,
             "research_id": outcome.research.research_id if outcome.research else None,
+            "produced": [
+                {"action": t.value, "entity": e} for t, e in produced
+            ],
+            "intentions": intention_summary,
+            "drew_on_memory_ids": used_memory_ids,
+            "normalized": normalize_notes or {},
+            "first_attempt_ok": first_attempt_ok,
+            "prompt_version": PROMPT_VERSION,
         },
         correlation_id=correlation_id,
         causation_id=woke.id,
@@ -1058,6 +1304,52 @@ def run_next_event(
     if context_conversation is not None:
         _after_turn(session, context_conversation, clock, settings, spoke=outcome.spoke)
     return outcome
+
+
+def _turns_offered_since_start(session: Session, conversation: Conversation) -> int:
+    """How many activations have been offered inside this conversation."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(Event)
+            .where(
+                Event.event_type == EventType.AGENT_WOKE,
+                Event.payload["conversation_id"].as_integer() == conversation.id,
+            )
+        )
+        or 0
+    )
+
+
+def _pause_for_provider_error(
+    session: Session,
+    clock: SimulationClock,
+    agent: Agent,
+    correlation_id: str,
+    causation_id: int | None,
+    exc: LLMError,
+    *,
+    conversation_id: int | None = None,
+) -> Event:
+    """Same checkpoint discipline as :func:`_pause_for_rate_limit`, for a
+    provider failure that is neither a quota nor a schema problem."""
+    clock.is_paused = True
+    clock.pause_reason = PauseReason.PROVIDER_ERROR.value
+    return record_event(
+        session,
+        event_type=EventType.SIMULATION_PAUSED_PROVIDER_ERROR,
+        agent_id=agent.agent_id,
+        payload={
+            "reason": str(exc)[:500],
+            "checkpoint_day": clock.current_day,
+            "checkpoint_period": clock.current_period,
+            "checkpoint_agent_id": agent.agent_id,
+            "checkpoint_conversation_id": conversation_id,
+        },
+        correlation_id=correlation_id,
+        causation_id=causation_id,
+        clock=clock,
+    )
 
 
 def _after_turn(
