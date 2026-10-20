@@ -399,3 +399,7 @@ class EventType(str, enum.Enum):
     # activation (app.services.turn_feedback), and whether it acted on them.
     TURN_FEEDBACK_RECORDED = "TURN_FEEDBACK_RECORDED"
     TURN_FEEDBACK_ADDRESSED = "TURN_FEEDBACK_ADDRESSED"
+    # One bounded trial session began (scripts/prove_cycle.py). Lets the cycle
+    # proof require that a memory survived into a *later session*, not just a
+    # later turn of the same run.
+    TRIAL_SESSION_STARTED = "TRIAL_SESSION_STARTED"

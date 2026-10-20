@@ -19,14 +19,20 @@ Read-only: nothing here writes to the database. Used by
 
 from __future__ import annotations
 
+import bisect
+import re
 from dataclasses import asdict, dataclass, field
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.conversations import Conversation, ConversationMessage
+from app.db.models.conversations import Message
 from app.db.models.events import Event
+from app.db.models.exposure import AgentExposure
 from app.db.models.intentions import AgentFeedback, Intention
+from app.db.models.rabbit_holes import RabbitHole
+from app.db.models.wall import ResearchWallPost
 from app.db.models.memory import Memory
 from app.db.models.research import ResearchFinding, ResearchSession
 from app.db.models.telemetry import LLMRun
@@ -113,6 +119,40 @@ def _clip(text: str | None, n: int = 160) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
+_WORD = re.compile(r"[a-z][a-z']{3,}")
+_STOP = {
+    "that", "this", "with", "have", "what", "about", "there", "their", "would", "could",
+    "should", "from", "just", "like", "they", "them", "then", "than", "been", "were", "will",
+    "into", "your", "also", "more", "some", "really", "think", "know", "want", "maybe", "after",
+    "fixture", "said", "going", "it's", "i'll", "let's", "we're", "you're", "does", "here",
+}
+
+
+def _content_words(text: str | None) -> set[str]:
+    """Crude, deliberately lenient overlap key: content words cut to 5
+    letters, so "recover"/"recovery" and "garden"/"gardening" still meet. A
+    mechanical proxy only — the report says when to check by eye."""
+    return {w[:5] for w in _WORD.findall((text or "").lower()) if w not in _STOP}
+
+
+def _norm(text: str | None) -> str:
+    return " ".join((text or "").split())
+
+
+def _session_starts(session: Session) -> list[int]:
+    return list(
+        session.scalars(
+            select(Event.id).where(Event.event_type == EventType.TRIAL_SESSION_STARTED).order_by(Event.id)
+        )
+    )
+
+
+def _session_of(starts: list[int], event_id: int | None) -> int | None:
+    if not starts or event_id is None:
+        return None
+    return bisect.bisect_right(starts, event_id)
+
+
 def _meeting(session: Session, conv: Conversation, owner: str) -> tuple[Link, list[Event]]:
     turns = list(
         session.scalars(
@@ -177,6 +217,26 @@ def _conversation(session: Session, conv: Conversation, intention: Intention) ->
     )
     speakers = {t.agent_id for t in turns}
     replies = sum(1 for a, b in zip(turns, turns[1:]) if a.agent_id != b.agent_id)
+    # Reciprocity, per the Healthy Village evidence rule: each response must
+    # have had access to what it answers (an exposure row for the previous
+    # line — a hard check) and should engage its content (shared words — a
+    # soft check, listed for review rather than failed, since a real reply
+    # can paraphrase).
+    reply_pairs = [(a, b) for a, b in zip(turns, turns[1:]) if a.agent_id != b.agent_id]
+    without_access = [
+        b.turn_number for a, b in reply_pairs
+        if session.scalars(
+            select(AgentExposure.id).where(
+                AgentExposure.agent_id == b.agent_id,
+                AgentExposure.entity_type == "conversation_message",
+                AgentExposure.entity_id == str(a.id),
+            ).limit(1)
+        ).first() is None
+    ]
+    to_review = [
+        b.turn_number for a, b in reply_pairs
+        if not (_content_words(a.content) & _content_words(b.content))
+    ]
     forming = [
         e for e in _acted(session, conv.correlation_id)
         if (e.payload.get("intentions") or {}).get("formed") == intention.id
@@ -186,8 +246,15 @@ def _conversation(session: Session, conv: Conversation, intention: Intention) ->
         "ended": conv.ending_reason, "intention_said": _clip(intention.description, 200),
         "intention_planned_action": intention.planned_action,
         "intention_to": intention.with_agent_id,
-        "transcript": [f"{t.agent_id}: {_clip(t.content, 220)}" for t in turns][:12],
+        "replies_without_access_to_what_they_answer": without_access,
+        "replies_sharing_no_words_with_what_they_answer (check by eye)": to_review,
+        "transcript": [f"{t.turn_number}. {t.agent_id}: {_clip(t.content, 220)}" for t in turns][:12],
     }
+    if without_access:
+        return Link(
+            "meaningful conversation", PARTIAL,
+            f"turn(s) {without_access} answered a line the speaker had no record of hearing", facts,
+        ), forming
     if len(turns) >= MIN_TURNS and len(speakers) >= MIN_SPEAKERS and replies >= MIN_REPLIES:
         return Link(
             "meaningful conversation", PROVEN,
@@ -227,17 +294,59 @@ def _memory(session: Session, conv: Conversation, intention: Intention) -> Link:
     shown_ids = set((woke.payload.get("shown_memory_ids") or []) if woke is not None else [])
     cited = [m for m in about if m.id in used_ids]
     shown = [m for m in about if m.id in shown_ids]
+
+    # Accuracy: every quotation in the memory must be something actually said
+    # in that conversation (or the promise / subject text itself) — the guard
+    # against invented memories.
+    sayable = [_norm(t.content) for t in session.scalars(
+        select(ConversationMessage).where(ConversationMessage.conversation_id == conv.id)
+    )]
+    sayable += [_norm(conv.current_subject)]
+    sayable += [_norm(i.description) for i in session.scalars(
+        select(Intention).where(Intention.source_conversation_id == conv.id)
+    )]
+    def _unverified(m: Memory) -> list[str]:
+        bad = []
+        for quote in re.findall(r'"([^"]+)"', m.content or ""):
+            q = _norm(quote).rstrip("…").strip()
+            if q and not any(q in s for s in sayable):
+                bad.append(_clip(quote, 80))
+        return bad
+    chosen = (cited or shown or carrying or about)[:1]
+    unverified = _unverified(chosen[0]) if chosen else []
+
+    # Survival: when the trial records sessions, the act must come in a later
+    # session than the conversation, so the memory provably outlived a break.
+    starts = _session_starts(session)
+    ended = session.scalars(
+        select(Event.id).where(
+            Event.event_type == EventType.CONVERSATION_ENDED, Event.entity_id == str(conv.id),
+        )
+    ).first()
+    talk_session = _session_of(starts, ended)
+    act_session = _session_of(starts, fulfilled.id if fulfilled is not None else None)
     facts = {
         "conversation_memory_ids": [m.id for m in about],
-        "memory_text": _clip((carrying or about)[0].content, 400) if about else None,
+        "memory_text": _clip(chosen[0].content, 400) if chosen else None,
+        "quotes_not_found_in_the_conversation": unverified,
         "shown_in_follow_through_turn": [m.id for m in shown],
         "cited_by_follow_through_decision": [m.id for m in cited],
         "all_memories_cited_that_turn": used_ids,
+        "conversation_session": talk_session,
+        "follow_through_session": act_session,
     }
+    if about and unverified:
+        return Link("remembered experience", PARTIAL,
+                    f"the memory quotes words that weren't said in the conversation: {unverified}", facts)
+    if cited and starts and (talk_session is None or act_session is None or act_session <= talk_session):
+        return Link("remembered experience", PARTIAL,
+                    "the memory was cited, but in the same session as the conversation — it hasn't been "
+                    "shown to survive into a later session", facts)
     if cited:
+        later = f" in session {act_session}, after the conversation in session {talk_session}" if starts else ""
         return Link("remembered experience", PROVEN,
-                    f"{intention.agent_id} kept a memory of the conversation [M{cited[0].id}] and its "
-                    "decision to act cited that memory", facts)
+                    f"{intention.agent_id} kept an accurate memory of the conversation [M{cited[0].id}] and "
+                    f"its decision to act cited it{later}", facts)
     if shown:
         return Link("remembered experience", PARTIAL,
                     "the memory was in front of the agent when it acted, but its decision didn't cite it",
@@ -293,11 +402,60 @@ def _action(session: Session, intention: Intention) -> tuple[Link, list[Event]]:
         return Link("executed action", PARTIAL,
                     "a matching action happened later, but the agent didn't say it was this intention",
                     facts), acting
+    # Effect matches the promise: the right recipient, and content about the
+    # same thing (Healthy Village evidence rule for an executed action).
+    produced_text, recipients = _produced(session, entity, facts)
+    facts["produced_text"] = _clip(produced_text, 240)
+    if recipients is not None:
+        facts["recipients"] = recipients
+    if intention.with_agent_id and recipients is not None and intention.with_agent_id not in recipients \
+            and intention.planned_action in ("SEND_MESSAGE", "ASK_QUESTION", "START_CONVERSATION"):
+        return Link("executed action", PARTIAL,
+                    f"promised to {intention.with_agent_id}, but it went to {', '.join(recipients) or 'no one'}",
+                    facts), acting
+    shared = sorted(_content_words(intention.description) & _content_words(produced_text))
+    facts["words_shared_with_the_promise"] = shared
+    if produced_text and not shared:
+        return Link("executed action", PARTIAL,
+                    "the action's content shares no words with what was promised — check by eye", facts), acting
     return Link(
         "executed action", PROVEN,
         f"in a later turn {intention.agent_id} did {intention.fulfilled_by_action} and linked it to "
         f"[I{intention.id}]", facts,
     ), acting
+
+
+def _produced(session: Session, entity: dict, facts: dict) -> tuple[str, list[str] | None]:
+    """The text the follow-through action actually put into the world, and
+    who received it (for directed actions)."""
+    kind, ident = entity.get("type"), entity.get("id")
+    if kind == "message" and ident:
+        msg = session.get(Message, int(ident))
+        if msg is not None:
+            return msg.content, [msg.recipient_agent_id] if msg.recipient_agent_id else []
+    if kind == "wall_post" and ident:
+        post = session.get(ResearchWallPost, int(ident))
+        if post is not None:
+            return post.content, None
+    if kind == "rabbit_hole" and ident:
+        hole = session.get(RabbitHole, int(ident))
+        if hole is not None:
+            return f"{hole.title} {hole.description or ''}", None
+    if kind == "conversation" and ident:
+        convo = session.get(Conversation, int(ident))
+        first = session.scalars(
+            select(ConversationMessage).where(ConversationMessage.conversation_id == int(ident))
+            .order_by(ConversationMessage.turn_number).limit(1)
+        ).first()
+        if convo is not None:
+            return (first.content if first else ""), list(convo.participant_ids or [])
+    if kind == "research_session":
+        return facts.get("research_question") or "", None
+    if kind == "memory" and ident:
+        mem = session.get(Memory, int(ident))
+        if mem is not None:
+            return mem.content, None
+    return "", None
 
 
 def evaluate(session: Session) -> list[Cycle]:
@@ -360,7 +518,38 @@ def village_metrics(session: Session) -> dict:
     tokens = session.execute(
         select(func.coalesce(func.sum(LLMRun.input_tokens), 0), func.coalesce(func.sum(LLMRun.output_tokens), 0))
     ).one()
+    # The explainer's "needs continued scrutiny" list, counted rather than
+    # eyeballed: repetitive dialogue, ignored refusals, invented memories.
+    lines: dict[tuple[str, str], int] = {}
+    for msg in session.scalars(select(ConversationMessage)):
+        key = (msg.agent_id, _norm(msg.content).lower())
+        lines[key] = lines.get(key, 0) + 1
+    repeated = sum(n - 1 for n in lines.values() if n > 1)
+    declined = 0
+    for left in session.scalars(select(Event).where(Event.event_type == EventType.CONVERSATION_LEFT)):
+        conv_id = left.payload.get("conversation_id")
+        spoke = session.scalars(
+            select(ConversationMessage.id).where(
+                ConversationMessage.conversation_id == conv_id, ConversationMessage.agent_id == left.agent_id,
+            ).limit(1)
+        ).first()
+        declined += 0 if spoke else 1
+    invented = 0
+    for mem in session.scalars(select(Memory).where(Memory.content.contains("Talked with"))):
+        for conv_id in mem.related_conversation_ids or []:
+            conv = session.get(Conversation, conv_id)
+            if conv is None:
+                continue
+            said = [_norm(t.content) for t in session.scalars(
+                select(ConversationMessage).where(ConversationMessage.conversation_id == conv_id))]
+            said += [_norm(conv.current_subject)] + [_norm(i.description) for i in session.scalars(
+                select(Intention).where(Intention.source_conversation_id == conv_id))]
+            quotes = [_norm(q).rstrip("…").strip() for q in re.findall(r'"([^"]+)"', mem.content or "")]
+            if any(q and not any(q in s for s in said) for q in quotes):
+                invented += 1
+                break
     return {
+        "trial_sessions": len(_session_starts(session)),
         "activations": count(EventType.AGENT_WOKE),
         "decisions_executed": count(EventType.AGENT_ACTED),
         "invalid_decisions": count(EventType.INVALID_AGENT_DECISION),
@@ -370,6 +559,9 @@ def village_metrics(session: Session) -> dict:
         "memory_used_events": count(EventType.MEMORY_USED),
         "feedback_notes": session.scalar(select(func.count()).select_from(AgentFeedback)) or 0,
         "feedback_judged": by_kind,
+        "repeated_lines": repeated,
+        "invitations_declined_without_speaking": declined,
+        "conversation_memories_with_unverified_quotes": invented,
         "provider_pauses": count(EventType.SIMULATION_PAUSED_PROVIDER_ERROR)
         + count(EventType.SIMULATION_PAUSED_RATE_LIMIT),
         "llm_runs_live": live_runs,

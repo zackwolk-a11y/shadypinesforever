@@ -23,11 +23,17 @@ def _env(**extra):
 
 
 def test_fixture_trial_proves_wiring_but_never_claims_genuine(tmp_path):
+    """Run as several bounded sessions, the way a real trial is scheduled:
+    the memory link only counts once the act comes in a later session."""
     workdir = tmp_path / "trial"
-    proc = subprocess.run(
-        [sys.executable, "scripts/prove_cycle.py", "--fresh", "--workdir", str(workdir), "--quiet"],
-        cwd=REPO, env=_env(), capture_output=True, text=True, timeout=600,
-    )
+    cmd = [sys.executable, "scripts/prove_cycle.py", "--fresh", "--workdir", str(workdir),
+           "--max-llm-calls", "10", "--quiet"]
+    for _ in range(25):
+        proc = subprocess.run(cmd, cwd=REPO, env=_env(), capture_output=True, text=True, timeout=600)
+        if proc.returncode == 0:
+            break
+        cmd = [sys.executable, "scripts/prove_cycle.py", "--continue", str(workdir),
+               "--max-llm-calls", "10", "--quiet"]
     assert proc.returncode == 0, proc.stdout + proc.stderr
     evidence = json.loads((workdir / "cycle_proof.json").read_text())
     assert evidence["best"]["verdict"].startswith("CYCLE WIRING PROVEN")

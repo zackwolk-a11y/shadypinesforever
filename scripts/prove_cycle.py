@@ -22,6 +22,12 @@ Usage::
     python scripts/resume_village.py --wait 6   # with DATABASE_URL pointed at the trial db
     LLM_PROVIDER=claude_cli python scripts/prove_cycle.py --continue .cycle_trials/<run>
 
+    # A tight allowance, e.g. 4 calls per scheduled session: each run of the
+    # script is one session (recorded as TRIAL_SESSION_STARTED), and the
+    # memory link only counts when the follow-through comes in a later one.
+    DAILY_REPORT=off LLM_PROVIDER=claude_cli python scripts/prove_cycle.py --fresh --max-llm-calls 4
+    DAILY_REPORT=off LLM_PROVIDER=claude_cli python scripts/prove_cycle.py --continue .cycle_trials/<run> --max-llm-calls 4
+
 Writes ``<workdir>/cycle_proof.md`` (human-readable, with real quotes and row
 ids) and ``<workdir>/cycle_proof.json``. Exit: 0 a complete cycle was found
 (GENUINE only if every decision in it was live), 1 none yet, 75 the provider
@@ -144,7 +150,11 @@ def main() -> int:
     from app.db.models.telemetry import LLMRun
     from app.db.session import SessionLocal
     from app.providers.llm import get_llm_provider
+    from app.db.models.events import Event
+    from app.db.models.world import SimulationClock
+    from app.domain.enums import EventType
     from app.services import cycle_proof
+    from app.services.events import record_event
     from app.services.orchestrator import run_next_event
 
     settings = get_settings()
@@ -152,6 +162,18 @@ def main() -> int:
     session = SessionLocal()
     log_path = workdir / "trial_log.jsonl"
     started_runs = session.scalar(select(func.count()).select_from(LLMRun)) or 0
+    # Each run of this script is one trial session. Marking it lets the proof
+    # require that a memory survived into a later session, not just a later turn.
+    session_number = 1 + (session.scalar(
+        select(func.count()).select_from(Event).where(Event.event_type == EventType.TRIAL_SESSION_STARTED)
+    ) or 0)
+    record_event(
+        session, event_type=EventType.TRIAL_SESSION_STARTED,
+        payload={"session": session_number, "max_llm_calls": args.max_llm_calls, "provider": provider.name},
+        clock=session.scalars(select(SimulationClock).limit(1)).first(),
+    )
+    session.commit()
+    print(f"Trial session {session_number}")
     status = "BUDGET_SPENT"
     print(f"Trial database: {db}")
     print(f"Provider: {provider.name}{'  [FIXTURE — wiring only, not real behaviour]' if provider.is_fixture else ''}")

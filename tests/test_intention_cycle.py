@@ -336,3 +336,86 @@ def test_feedback_control_arm_hides_notes_but_still_judges_them(db):
     assert "NOTES ON YOUR RECENT TURNS" not in provider.prompts[-1]
     note = db.scalars(select(AgentFeedback)).one()
     assert note.kind == "unrecorded_commitment" and note.addressed is True
+
+
+def _mark_session(db):
+    from app.services.events import record_event
+
+    record_event(db, event_type=EventType.TRIAL_SESSION_STARTED, payload={},
+                 clock=db.scalars(select(SimulationClock)).one())
+    db.commit()
+
+
+def _links(db):
+    return {link.name: link for link in cycle_proof.evaluate(db)[0].links}
+
+
+def test_memory_must_survive_into_a_later_session_when_sessions_are_recorded(db):
+    provider = Scripted()
+    _mark_session(db)
+    _run_conversation(db, provider)
+    provider.push(_follow_through())
+    _step(db, provider, agent="agent_b")
+    link = _links(db)["remembered experience"]
+    assert link.status == "PARTIAL" and "same session" in link.why
+
+
+def test_memory_cited_after_a_session_break_is_proven(db):
+    provider = Scripted()
+    _mark_session(db)
+    _run_conversation(db, provider)
+    _mark_session(db)
+    provider.push(_follow_through())
+    _step(db, provider, agent="agent_b")
+    link = _links(db)["remembered experience"]
+    assert link.status == "PROVEN" and "in session 2, after the conversation in session 1" in link.why
+
+
+def test_message_to_the_wrong_person_is_not_the_promised_action(db):
+    provider = Scripted()
+    _run_conversation(db, provider)
+    intention = db.scalars(select(Intention)).one()
+    intention.planned_action = "SEND_MESSAGE"
+    db.commit()
+
+    def wrong_recipient(user):
+        return _d("Following up.", AgentAction(type=ActionType.SEND_MESSAGE, target_agent_id="agent_c",
+                                               content="What I found on tide pools recovering after storms"),
+                  fulfills_intention_id=intention.id,
+                  drew_on_memory_ids=[int(m) for m in re.findall(r"\[M(\d+)\][^\n]*\[I\d+\]", user)])
+    provider.push(wrong_recipient)
+    _step(db, provider, agent="agent_b")
+    link = _links(db)["executed action"]
+    assert link.status == "PARTIAL" and "went to agent_c" in link.why
+
+
+def test_invented_quote_in_a_memory_is_caught(db):
+    provider = Scripted()
+    _run_conversation(db, provider)
+    provider.push(_follow_through())
+    _step(db, provider, agent="agent_b")
+    intention = db.scalars(select(Intention)).one()
+    mem = db.scalars(select(Memory).where(Memory.content.contains(f"[I{intention.id}]"),
+                                          Memory.agent_id == "agent_b")).one()
+    mem.content = mem.content.replace("Anemones might be the slowest", "Anemones are definitely immortal")
+    db.commit()
+    link = _links(db)["remembered experience"]
+    assert link.status == "PARTIAL" and "weren't said" in link.why
+    assert cycle_proof.village_metrics(db)["conversation_memories_with_unverified_quotes"] == 1
+
+
+def test_reply_without_hearing_the_previous_line_is_not_reciprocal(db):
+    from app.db.models.exposure import AgentExposure
+    from app.db.models.conversations import ConversationMessage
+
+    provider = Scripted()
+    conv = _run_conversation(db, provider)
+    first = db.scalars(select(ConversationMessage).where(ConversationMessage.conversation_id == conv.id,
+                                                         ConversationMessage.turn_number == 1)).one()
+    for row in db.scalars(select(AgentExposure).where(AgentExposure.agent_id == "agent_b",
+                                                      AgentExposure.entity_type == "conversation_message",
+                                                      AgentExposure.entity_id == str(first.id))):
+        db.delete(row)
+    db.commit()
+    link = _links(db)["meaningful conversation"]
+    assert link.status == "PARTIAL" and "no record of hearing" in link.why

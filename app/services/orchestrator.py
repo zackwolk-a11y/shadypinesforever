@@ -968,7 +968,7 @@ def run_next_event(
         if candidate is None:
             if auto_advance:
                 advance = clock_service.advance(session, clock)
-                if advance.crossed_day_boundary:
+                if advance.crossed_day_boundary and getattr(settings, "daily_report", "on") != "off":
                     daily_synthesis.generate_report(
                         session, advance.from_day, clock, settings, provider,
                     )

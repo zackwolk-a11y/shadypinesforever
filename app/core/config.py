@@ -137,6 +137,10 @@ class Settings:
     #: still records and judges them but hides them — the control arm for
     #: measuring whether feedback actually changes later turns.
     feedback_notes: str = "on"
+    #: "off" skips the model-written Founder Daily Field Report at day
+    #: boundaries — one model call a day that a tight trial allowance (a few
+    #: calls a session) can't spare. Residents are unaffected either way.
+    daily_report: str = "on"
 
     @property
     def uses_fixture_llm(self) -> bool:
@@ -214,6 +218,7 @@ def get_settings() -> Settings:
         max_period_agent_activations=_env_int("MAX_PERIOD_AGENT_ACTIVATIONS", 0),
         intention_window_periods=_env_int("INTENTION_WINDOW_PERIODS", 10),
         feedback_notes=_env("FEEDBACK_NOTES", "on").strip().lower(),
+        daily_report=_env("DAILY_REPORT", "on").strip().lower(),
     )
 
 
