@@ -307,7 +307,7 @@ def find_joiner(
         # scheduler or by next_speaker does — it must respect the same
         # day-wide budget (Packet 12's scheduler/conversation correctness
         # fix; see app.services.scheduler.activations_today).
-        if scheduler.activations_today(session, agent_id, clock) >= settings.max_daily_agent_activations:
+        if not scheduler.has_budget(session, agent_id, clock, settings):
             continue
         score = 0.0
         reasons: list[str] = []
@@ -406,6 +406,14 @@ def conversation_worthy(session: Session, conversation: Conversation) -> tuple[b
         or conversation.related_rabbit_hole_ids
     ):
         return True, "conversation connected to real research/wall/rabbit-hole activity"
+
+    from app.db.models.intentions import Intention
+
+    promised = session.scalars(
+        select(Intention.id).where(Intention.source_conversation_id == conversation.id).limit(1)
+    ).first()
+    if promised is not None:
+        return True, "someone committed to doing something because of it"
 
     moves = _moves_used(session, conversation)
     if moves & _SALIENT_MOVES:

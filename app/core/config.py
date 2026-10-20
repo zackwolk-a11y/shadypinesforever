@@ -117,6 +117,27 @@ class Settings:
     max_tokens_reflection: int
     max_tokens_daily_report: int
 
+    # Village-life mechanics (the intention -> action cycle). Every default
+    # reproduces the previous behaviour exactly; a trial profile opts in.
+    #: "all" (everyone is placed in one conversation each morning — the old
+    #: behaviour) or "off" (no compulsory gathering; meetings are only the
+    #: ones agents start themselves).
+    morning_gathering: str = "all"
+    #: While a conversation is open, every Nth activation goes to someone
+    #: *outside* it instead, so the rest of the Village keeps living rather
+    #: than freezing until the conversation ends. 0 = off (old behaviour).
+    conversation_interleave_every: int = 0
+    #: Per-period activation ceiling per agent, so the whole day's budget
+    #: can't be spent in the MORNING and leave nothing for follow-through
+    #: later. 0 = off (old behaviour: only the daily cap applies).
+    max_period_agent_activations: int = 0
+    #: How long an intention stays open before it expires, in periods.
+    intention_window_periods: int = 10
+    #: "on" shows residents the factual notes on their last turns; "off"
+    #: still records and judges them but hides them — the control arm for
+    #: measuring whether feedback actually changes later turns.
+    feedback_notes: str = "on"
+
     @property
     def uses_fixture_llm(self) -> bool:
         """True when decisions come from the fixture provider, not a live model."""
@@ -188,6 +209,11 @@ def get_settings() -> Settings:
         max_tokens_research_synthesis=_env_int("MAX_TOKENS_RESEARCH_SYNTHESIS", 8192),
         max_tokens_reflection=_env_int("MAX_TOKENS_REFLECTION", 1024),
         max_tokens_daily_report=_env_int("MAX_TOKENS_DAILY_REPORT", 4096),
+        morning_gathering=_env("MORNING_GATHERING", "all").strip().lower(),
+        conversation_interleave_every=_env_int("CONVERSATION_INTERLEAVE_EVERY", 0),
+        max_period_agent_activations=_env_int("MAX_PERIOD_AGENT_ACTIVATIONS", 0),
+        intention_window_periods=_env_int("INTENTION_WINDOW_PERIODS", 10),
+        feedback_notes=_env("FEEDBACK_NOTES", "on").strip().lower(),
     )
 
 

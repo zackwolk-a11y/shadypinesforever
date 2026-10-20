@@ -246,6 +246,22 @@ class AgentQuestionStatus(str, enum.Enum):
     ABANDONED = "ABANDONED"
 
 
+class IntentionStatus(str, enum.Enum):
+    """Lifecycle of something an agent said it would do (app.services.intentions).
+
+    OPEN is where every intention starts. FULFILLED is set only when a later,
+    separately validated and executed action is linked to it — never because
+    the agent *said* it was done. DROPPED is the agent changing its mind
+    (always legitimate). EXPIRED is set only by time — the window passed with
+    no follow-through — and is recorded honestly rather than hidden.
+    """
+
+    OPEN = "OPEN"
+    FULFILLED = "FULFILLED"
+    DROPPED = "DROPPED"
+    EXPIRED = "EXPIRED"
+
+
 class ExposureType(str, enum.Enum):
     """How an agent came to know about something.
 
@@ -278,6 +294,11 @@ class PauseReason(str, enum.Enum):
     """
 
     RATE_LIMIT = "PAUSED_RATE_LIMIT"
+    #: The provider failed for a reason that is neither a quota nor a schema
+    #: problem — a timeout, a dropped connection, a CLI that produced no
+    #: output. Recorded so a resume can probe the provider first instead of
+    #: burning every agent's daily activations on failed calls.
+    PROVIDER_ERROR = "PAUSED_PROVIDER_ERROR"
 
 
 class EventType(str, enum.Enum):
@@ -360,3 +381,21 @@ class EventType(str, enum.Enum):
     # degraded or ungrounded turn. See app.domain.enums.PauseReason and
     # app/services/orchestrator.py.
     SIMULATION_PAUSED_RATE_LIMIT = "SIMULATION_PAUSED_RATE_LIMIT"
+    # Any other provider-side failure (timeout, dropped connection, empty CLI
+    # output). The turn never happened; it is not an agent's invalid decision.
+    SIMULATION_PAUSED_PROVIDER_ERROR = "SIMULATION_PAUSED_PROVIDER_ERROR"
+    SIMULATION_RESUMED = "SIMULATION_RESUMED"
+    # The intention -> action bridge (app.services.intentions): what an agent
+    # said it would do, and whether a later executed action actually did it.
+    INTENTION_FORMED = "INTENTION_FORMED"
+    INTENTION_FULFILLED = "INTENTION_FULFILLED"
+    INTENTION_DROPPED = "INTENTION_DROPPED"
+    INTENTION_EXPIRED = "INTENTION_EXPIRED"
+    # A decision explicitly cited memories it was shown (drew_on_memory_ids).
+    # Distinct from MEMORY_RECALLED (which only says a memory was *displayed*
+    # after a gap): this is the agent saying a memory shaped what it did.
+    MEMORY_USED = "MEMORY_USED"
+    # Factual notes about an agent's own recent turns, shown on its next
+    # activation (app.services.turn_feedback), and whether it acted on them.
+    TURN_FEEDBACK_RECORDED = "TURN_FEEDBACK_RECORDED"
+    TURN_FEEDBACK_ADDRESSED = "TURN_FEEDBACK_ADDRESSED"

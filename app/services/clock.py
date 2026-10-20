@@ -79,6 +79,12 @@ def advance(session: Session, clock: SimulationClock) -> ClockAdvance:
         },
         clock=clock,
     )
+    # Intentions are measured in periods, so they age on every advance (not
+    # just daily). Local import, same reason as _daily_maintenance below.
+    from app.services import intentions
+
+    intentions.expire_stale(session, clock)
+
     if rolled:
         record_event(
             session,
