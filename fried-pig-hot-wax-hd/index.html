@@ -2461,6 +2461,107 @@ function drawPeace(x,y){rf(ctx,x-1,y+5,7,7,OUTC);rf(ctx,x,y+6,5,5,'#f0c090');rf(
 /* ================= blue horn ================= */
 function hornSpray(p,my){p.fireCd=16;p.mouth=10;stats.fires++;const mx=p.face>0?p.x+p.w:p.x-8;for(let k=-2;k<=2;k++)shots.push({kind:'ball',note:true,nc:pick(['#5aa0ff','#ffd23f','#ff5fa2','#3dff8a','#fff']),x:mx,y:my-2,w:8,h:8,vx:p.face*rand(3.4,4.4)+p.vx*0.3,vy:k*0.75+rand(-0.2,0.2),life:34,t:0});sfx.horn();}
 const BLUEHORN=sprite(16,10,(R)=>{R(0,4,6,2,'#3a7ae8');R(5,3,4,4,'#3a7ae8');R(9,1,3,8,'#5aa0ff');R(12,0,4,10,'#5aa0ff');R(14,2,2,6,'#1a3a8a');R(3,2,2,2,'#c8c8d0');});
+/* ================= HD Fried Pig: modular shaded sprite + animation states ================= */
+const PIGPAL={H:'#ffe4ec',L:'#fcc0cf',B:'#f39cb3',S:'#d97a94',D:'#ab5470',oT:'#6a2a42',o:'#2c0c18',sn:'#ffc4d2',snS:'#e58ca4',nos:'#5a1a2c',hoof:'#1e1218',hoofH:'#5c4450',tat:'#7a3a1e',tatH:'#9a5a32',inE:'#e0607e',blush:'#ff7f9e',w:'#ffffff',pu:'#160a10',mouth:'#3a0a14',tongue:'#ff5a6a',tooth:'#fff6e8'};
+const PIGC=new Map();
+const PG_W=44,PG_H=36,PG_OX=6,PG_OY=8; // buffer, sprite origin offset
+function pigFrame(k){const key=JSON.stringify(k);let c=PIGC.get(key);if(c)return c;
+  const buf=new Array(PG_W*PG_H).fill(null);const set=(x,y,col)=>{x+=PG_OX;y+=PG_OY;if(x>=0&&y>=0&&x<PG_W&&y<PG_H)buf[y*PG_W+x]=col;};const get=(x,y)=>{x+=PG_OX;y+=PG_OY;return(x>=0&&y>=0&&x<PG_W&&y<PG_H)?buf[y*PG_W+x]:null;};
+  const P=PIGPAL,bd=k.by||0,hd=k.hy||0;
+  const bx=14,by=12+bd,rx=10.5+(k.sx||0),ry=6.8+(k.sy||0);const hx=24+(k.hx||0),hy=9+hd+bd,hrx=6.2,hry=5.6;
+  // legs: [x, dx per row, len, near]
+  const leg=(x,dx,len,near)=>{if(len<=0)return;const col=near?P.B:P.S,colS=near?P.S:P.D;const top=by+Math.round(ry*0.55);for(let i=0;i<len;i++){const lx=Math.round(x+dx*i);set(lx,top+i,colS);set(lx+1,top+i,col);set(lx+2,top+i,i<2?col:colS);}
+    const hx0=Math.round(x+dx*len),hy0=top+len;set(hx0,hy0,P.hoofH);set(hx0+1,hy0,P.hoof);set(hx0+2,hy0,P.hoof);set(hx0,hy0+1,P.hoof);set(hx0+1,hy0+1,P.hoof);set(hx0+2,hy0+1,P.hoof);};
+  const L=k.legs;leg(...L[1],false);leg(...L[3],false);
+  // far ear
+  const ear=(ox,col,inner)=>{const E={up:[[0,0],[1,-1],[1,-2],[2,-3],[2,-2],[3,-1],[3,0],[2,-1],[1,0],[2,0]],flop:[[0,0],[1,0],[2,0],[3,0],[1,-1],[2,-1],[3,-1],[4,0],[4,1],[5,1]],back:[[0,0],[-1,-1],[-2,-1],[-3,-2],[-1,0],[-2,0],[0,-1],[-1,-2]],perk:[[0,0],[1,-1],[1,-2],[1,-3],[2,-4],[2,-3],[2,-2],[2,-1],[3,-1],[3,0],[1,0],[2,0]]}[k.ear||'up'];
+    for(const [x,y] of E)set(21+ox+x,3+hd+bd+y,col);for(const [x,y] of E)if(get(21+ox+x,2+hd+bd+y)===null)set(21+ox+x,2+hd+bd+y,col===P.B?P.L:col);if(inner)for(const [x,y] of E.slice(1,4))set(21+ox+x,3+hd+bd+y+1,P.inE);};
+  ear(-2,P.S,false);
+  // body + head with per-pixel lighting
+  const lx=-0.45,ly=-0.7,lz=0.55;
+  for(let y=Math.floor(Math.min(by-ry,hy-hry))-1;y<=Math.ceil(by+ry)+1;y++)for(let x=Math.floor(bx-rx)-1;x<=Math.ceil(hx+hrx)+1;x++){
+    const ex=(x+0.5-bx)/rx,ey=(y+0.5-by)/ry,eb=ex*ex+ey*ey;const fx=(x+0.5-hx)/hrx,fy=(y+0.5-hy)/hry,eh=fx*fx+fy*fy;if(eb>1&&eh>1)continue;
+    let nx,ny;if(eh<eb){nx=fx;ny=fy;}else{nx=ex;ny=ey;}const nz=Math.sqrt(Math.max(0,1-Math.min(1,nx*nx+ny*ny)));
+    let l=(nx*lx+ny*ly+nz*lz);if(y>by+ry*0.45)l-=0.25;const v=clamp(l*2.2+1.6,0,4)+(BAYER[((y+40)&3)*4+((x+40)&3)]-0.5)*0.32;const i=clamp(Math.floor(v),0,4);
+    set(x,y,[P.D,P.S,P.B,P.L,P.H][i]);}
+  // cheek puff
+  if(k.puff){for(const [x,y] of [[22,11],[23,12],[24,12],[25,12],[22,12],[23,13],[24,13]])set(x,y+hd+bd,P.B);set(23,11+hd+bd,P.L);}
+  // snout
+  const sy0=7+hd+bd+(k.snUp||0);for(let y=0;y<5;y++)for(let x=0;x<4;x++){if((x===3&&(y===0||y===4)))continue;set(28+x,sy0+y,y===0?P.H:y===4?P.snS:x===3?P.snS:P.sn);}set(31,sy0+1,P.snS);set(30,sy0+1,P.nos);set(30,sy0+3,P.nos);
+  // near ear
+  ear(0,P.B,true);
+  // eye
+  const ex=24,ey=5+hd+bd,ld=k.look||0;
+  switch(k.eye||'n'){
+    case 'n':set(ex,ey,P.pu);set(ex+1,ey,P.pu);set(ex,ey+1,P.pu);set(ex+1,ey+1,P.pu);set(ex,ey+2,P.pu);set(ex+1,ey+2,P.pu);set(ex+ (ld>0?1:0),ey,P.w);break;
+    case 'blink':set(ex,ey+2,P.pu);set(ex+1,ey+2,P.pu);set(ex-1,ey+1,P.S);break;
+    case 'wide':for(let y=-1;y<3;y++)for(let x=-1;x<2;x++)set(ex+x,ey+y,P.w);set(ex+ld,ey+1,P.pu);set(ex-2,ey,P.pu);set(ex-1,ey-2,P.pu);set(ex,ey-2,P.pu);set(ex+1,ey-2,P.pu);break;
+    case 'squint':set(ex-1,ey,P.pu);set(ex,ey+1,P.pu);set(ex+1,ey+1,P.pu);set(ex-1,ey+2,P.pu);break;
+    case 'happy':set(ex-1,ey+2,P.pu);set(ex,ey+1,P.pu);set(ex+1,ey+1,P.pu);set(ex+2,ey+2,P.pu);break;
+    case 'x':set(ex-1,ey,P.pu);set(ex+1,ey,P.pu);set(ex,ey+1,P.pu);set(ex-1,ey+2,P.pu);set(ex+1,ey+2,P.pu);break;
+    case 'fierce':set(ex,ey+1,P.pu);set(ex+1,ey+1,P.pu);set(ex,ey+2,P.pu);set(ex+1,ey+2,P.pu);set(ex+1,ey+1,P.w);set(ex-1,ey-1,P.pu);set(ex,ey,P.pu);set(ex+1,ey,P.D);break;}
+  if(k.brow==='up'){set(ex-1,ey-3,P.D);set(ex,ey-3,P.D);set(ex+1,ey-3,P.D);}
+  // blush
+  if(k.eye!=='x'){set(22,ey+5,P.blush);set(23,ey+5,P.blush);}
+  // mouth
+  const my=12+hd+bd;switch(k.mouth||'smile'){
+    case 'smile':set(26,my,P.mouth);set(27,my+1,P.mouth);set(28,my+1,P.mouth);set(29,my,P.mouth);break;
+    case 'grin':for(let x=26;x<=30;x++)set(x,my,P.mouth);for(let x=27;x<=29;x++)set(x,my+1,P.mouth);set(28,my+1,P.tongue);set(27,my,P.tooth);set(29,my,P.tooth);break;
+    case 'open':for(let x=27;x<=31;x++){set(x,my,P.mouth);set(x,my+1,P.mouth);}set(28,my+2,P.mouth);set(29,my+2,P.mouth);set(29,my+1,P.tongue);set(30,my+1,'#ffd23f');break;
+    case 'o':set(27,my,P.mouth);set(28,my,P.mouth);set(27,my+1,P.mouth);set(28,my+1,P.mouth);break;
+    case 'grit':for(let x=26;x<=29;x++){set(x,my,P.tooth);set(x,my+1,P.mouth);}set(27,my,P.mouth);break;
+    case 'flat':for(let x=26;x<=29;x++)set(x,my,P.mouth);break;}
+  // FPR tattoo
+  const T=P.tat,F=[[0,0,3,1],[0,1,1,4],[0,2,2,1]],PP=[[0,0,2,1],[0,1,1,4],[2,1,1,1],[0,2,2,1]],RR=[[0,0,2,1],[0,1,1,4],[2,1,1,1],[0,2,2,1],[2,3,1,2]];
+  const tat=(G0,ox)=>{for(const [x,y,w,h] of G0)for(let i=0;i<w;i++)for(let j=0;j<h;j++)set(ox+x+i,8+bd+y+j,T);};tat(F,7);tat(PP,11);tat(RR,15);set(7,8+bd,P.tatH);set(11,8+bd,P.tatH);set(15,8+bd,P.tatH);
+  // tail
+  const tl=k.tail==='up'?[[3,5],[2,4],[1,4],[0,5],[0,6],[1,7],[2,6]]:[[3,8],[2,7],[1,7],[0,8],[0,9],[1,10],[2,9]];for(const [x,y] of tl)set(x,y+bd,P.B);set(tl[1][0],tl[1][1]+bd,P.L);
+  // near legs
+  leg(...L[0],true);leg(...L[2],true);
+  // front hooves raised (celebrate/dance)
+  if(k.arms){for(const [x0,y0,dx,dy] of k.arms){for(let i=0;i<5;i++){const ax=x0+Math.round(dx*i),ay=y0+Math.round(dy*i);set(ax,ay,P.L);set(ax+1,ay,P.B);set(ax,ay+1,P.S);set(ax+1,ay+1,P.D);}const x1=x0+Math.round(dx*5),y1=y0+Math.round(dy*5);set(x1,y1,P.hoof);set(x1+1,y1,P.hoof);set(x1,y1-1,P.hoofH);set(x1+1,y1-1,P.hoof);}}
+  // outline (selective: warmer above the midline)
+  const out=new Array(PG_W*PG_H).fill(null);for(let y=0;y<PG_H;y++)for(let x=0;x<PG_W;x++){if(buf[y*PG_W+x])continue;const n=(xx,yy)=>xx>=0&&yy>=0&&xx<PG_W&&yy<PG_H&&buf[yy*PG_W+xx]&&buf[yy*PG_W+xx]!==P.blush;
+    if(n(x-1,y)||n(x+1,y)||n(x,y-1)||n(x,y+1))out[y*PG_W+x]=(y-PG_OY)<by-1?P.oT:P.o;}
+  const [cc,g]=mk(PG_W,PG_H);for(let y=0;y<PG_H;y++){let x=0;while(x<PG_W){const col=buf[y*PG_W+x]||out[y*PG_W+x];if(!col){x++;continue;}let e=x+1;while(e<PG_W&&(buf[y*PG_W+e]||out[y*PG_W+e])===col)e++;g.fillStyle=col;g.fillRect(x,y,e-x,1);x=e;}}
+  c={cv:cc,bx,by,rx,ry};PIGC.set(key,c);return c;}
+// leg sets: [nearFront, farFront, nearBack, farBack] each [x,dx,len]
+const LEGSETS={
+  stand:[[21,0,4],[18,0,4],[8,0,4],[5,0,4]],
+  breathe:[[21,0,4],[18,0,4],[8,0,4],[5,0,4]],
+  run0:[[23,0.6,4],[17,-0.4,4],[9,0.5,4],[3,-0.6,4]],run1:[[22,0.2,4],[19,0.1,3],[7,0.1,4],[5,-0.2,3]],run2:[[20,-0.5,4],[22,0.6,4],[5,-0.7,4],[9,0.5,4]],
+  run3:[[19,-0.8,3],[21,0.3,4],[4,-0.9,3],[8,0.2,4]],run4:[[21,-0.1,3],[20,0,4],[6,-0.2,3],[7,0,4]],run5:[[23,0.5,3],[18,-0.5,4],[9,0.6,3],[4,-0.6,4]],
+  jump:[[23,0.9,3],[20,0.7,3],[5,-1.1,3],[3,-1.2,3]],fall:[[21,0.2,5],[18,-0.2,5],[8,0.2,5],[5,-0.2,5]],
+  land:[[23,0.4,2],[17,-0.4,2],[9,0.4,2],[3,-0.4,2]],squat:[[22,0.3,2],[19,0,2],[7,-0.3,2],[4,-0.3,2]],
+  rear:[[0,0,0],[0,0,0],[8,0.2,4],[5,-0.1,4]]};
+LEGSETS.rear=[[21,0,0],[19,0.1,4],[8,0.2,4],[5,-0.1,4]];
+function pigState(p){const k={legs:LEGSETS.stand,eye:'n',mouth:'smile',ear:'up',look:1};const t=G.t;
+  // danger look
+  let danger=false;if(p&&!p.dead){for(const e of ents){if(!e.dead&&e.active&&Math.abs(e.x-p.x)<70&&Math.abs(e.y-p.y)<40&&sign(e.x-p.x)===p.face){danger=true;break;}}if(!danger)for(const q of eproj)if(Math.abs(q.x-p.x)<56&&Math.abs(q.y-p.y)<50){danger=true;break;}if(!danger&&boss&&boss.hittable&&Math.abs(boss.x+boss.w/2-p.x)<110)danger=true;}
+  const celebrate=G.mode==='finale'||G.mode==='clear'||G.mode==='victory'&&G.vt>200;
+  if(p.dead){k.legs=LEGSETS.fall;k.eye='x';k.mouth='open';k.ear='back';k.sy=-0.4;return k;}
+  if(G.mode==='dance'){const beat=songClock().beat||0;const a=beat%2===0;k.legs=LEGSETS.rear;k.arms=a?[[25,14,1.1,-0.9]]:[[24,15,1.3,0.3]];k.eye='happy';k.mouth='grin';k.ear=a?'perk':'flop';k.by=a?-1:0;k.tail='up';return k;}
+  if(celebrate&&p.onGround){const a=Math.floor(t/12)%2;k.legs=LEGSETS.rear;k.arms=[[24,14,1.2,-0.6+a*0.5]];k.eye='happy';k.mouth='grin';k.ear=a?'perk':'up';k.tail='up';k.hy=-1;return k;}
+  if(p.inv>72){k.eye='x';k.mouth='open';k.ear='back';k.legs=LEGSETS.fall;k.by=0;k.hx=-1;return k;}
+  if(p.poopCd>12){k.legs=LEGSETS.squat;k.by=2;k.hy=0;k.eye='squint';k.mouth='grit';k.ear='flop';k.tail='up';k.sx=0.6;k.sy=-0.5;return k;}
+  if(!p.onGround){if(p.vy<-1){k.legs=LEGSETS.jump;k.ear='back';k.eye=danger?'wide':'n';k.mouth='grin';k.sx=-0.6;k.sy=0.5;}else{k.legs=LEGSETS.fall;k.ear=Math.floor(t/5)%2?'perk':'up';k.eye=p.vy>4?'wide':'n';k.mouth=p.vy>4?'o':'smile';k.sx=-0.2;k.sy=0.2;}}
+  else if(p.squash>2){k.legs=LEGSETS.land;k.by=1;k.sx=1;k.sy=-1;k.ear='flop';k.eye='squint';k.mouth='flat';}
+  else if(Math.abs(p.vx)>0.3){const f=Math.floor(p.anim*3)%6;k.legs=LEGSETS['run'+f];k.by=[0,-1,-1,0,1,0][f];k.ear=['flop','flop','up','up','perk','up'][f];k.eye=danger?'wide':'n';k.mouth=Math.abs(p.vx)>2.5?'grin':'smile';k.tail=f<3?'up':'down';}
+  else{const br=Math.floor(t/36)%2;k.legs=LEGSETS.stand;k.by=0;k.sy=br?0.3:0;k.ear=(t%240)<12?'perk':'up';k.eye=(t%190)<6?'blink':danger?'wide':'n';if(danger)k.brow='up';}
+  if(p.mouth>0){k.mouth=p.mouth>6?'open':'o';k.eye=p.horn?'happy':'fierce';k.snUp=p.mouth>6?-1:0;k.hx=p.mouth>6?1:0;if(p.mouth>9)k.puff=true;}
+  if(p.yuck>0){k.eye='squint';k.mouth='grit';}
+  return k;}
+function drawPigFlame(g,fr,t,mult,hot,pulse,vx){const {bx,by,rx,ry}=fr;const ox=9,oy=27;// sprite origin in pigC (frame canvas drawn at (3,19))
+  const lean=clamp(-vx*0.35,-1.4,1.4);const cols=[];
+  for(let sx=4;sx<=20;sx++){const dx=(sx+0.5-bx)/rx;if(Math.abs(dx)>=1)continue;const yTop=by-ry*Math.sqrt(1-dx*dx);
+    const env=Math.pow(Math.sin(Math.PI*(sx-3)/18),0.8);const n=Math.sin(sx*1.7+t*0.31)*0.5+Math.sin(sx*0.9-t*0.53)*0.35+Math.sin(sx*3.1+t*0.9)*0.15;
+    const h=Math.max(2,Math.round((5+8*(0.55+0.45*n))*env*mult*(0.88+0.25*pulse)));cols.push([sx,Math.round(yTop)+1,h]);}
+  const Y=hot?'#fff8c8':'#ffd23f',O=hot?'#ffb02a':'#ff8a1f',RD=hot?'#ff4a1f':'#e8381f',CO=hot?'#ffffff':'#fff3a0',OL='#4a0e08';
+  const px=(x,y,c)=>{g.fillStyle=c;g.fillRect(x,y,1,1);};
+  for(const [sx,y0,h] of cols)for(let i=-1;i<=h;i++){const x=ox+sx+Math.round(lean*i/5),y=oy+y0-i;px(x-1,y,OL);px(x+1,y,OL);if(i===h)px(x,y-1,OL);}
+  for(const [sx,y0,h] of cols)for(let i=0;i<h;i++){const f=i/h;const x=ox+sx+Math.round(lean*i/5),y=oy+y0-i;const c=f<0.22&&sx>6&&sx<18?CO:f<0.5?Y:f<0.78?O:RD;px(x,y,c);}
+  if(hot)for(const [sx,y0] of cols)px(ox+sx,oy+y0,'#9ad8ff');
+  if(Math.random()<0.35){const c=cols[Math.floor(Math.random()*cols.length)];if(c){const x=ox+c[0]+Math.round(lean*c[2]/5),y=oy+c[1]-c[2]-2-Math.floor(Math.random()*3);px(x,y,Math.random()<0.5?O:Y);}}}
 /* ================= HD rendering pipeline: light, atmosphere, foreground, grade ================= */
 const HD={glow:new Map(),cut:new Map(),flashes:[],atm:[],atmKind:'',lastCam:0,fog:null,vig:null,vigW:0,fg:{},lc:null,lg:null,lw:0,shadow:null};
 const bucket=r=>Math.max(4,Math.round(r/4)*4);
@@ -2979,12 +3080,12 @@ function drawEnemy(e){const ox=-Math.round(G.cam);if(!e.active&&!e.dead)return;i
   if(e.type==='suit'&&e.state==='wind'&&G.t%8<4)text(ctx,'!',e.x+e.w/2-2+ox,e.y-12,'#e8283a',1,1);}
 function drawPig(){const p=P;if(!p)return;if(p.inv>0&&!p.dead&&Math.floor(p.inv/3)%2===0)return;
   pigG.clearRect(0,0,48,52);const {pulse}=songClock();
-  drawFlameOn(pigG,G.t*(1+Math.abs(p.vx)*0.25),(p.pepper>0?1.45:1)*(p.wet?0.4:1),p.pepper>0,pulse);
-  let pose='stand';if(p.dead)pose='jump';else if(!p.onGround)pose=p.vy<0?'jump':'fall';else if(Math.abs(p.vx)>0.3)pose=(Math.floor(p.anim*2)%2)?'run1':'run2';if(p.poopCd>12)pose='squat';
-  pigG.drawImage(PIG[pose],8,26);if(p.horn&&p.mouth>0)pigG.drawImage(BLUEHORN,35,33);
+  const k=pigState(p);const fr=pigFrame(k);
+  drawPigFlame(pigG,fr,G.t*(1+Math.abs(p.vx)*0.3),(p.pepper>0?1.45:1)*(p.wet?0.4:1),p.pepper>0,pulse,p.vx*(p.face||1));
+  pigG.drawImage(fr.cv,3,19);if(p.horn&&p.mouth>0)pigG.drawImage(BLUEHORN,36,33);
   if(p.yuck>0){pigG.globalCompositeOperation='source-atop';pigG.fillStyle='rgba(140,220,60,.45)';pigG.fillRect(0,26,48,26);pigG.globalCompositeOperation='source-over';}
-  if(p.mouth>0){rf(pigG,8+1+27,26+1+11,4,2,'#ff8a1f');rf(pigG,8+1+28,26+1+11,2,1,'#ffd23f');}
-  const sq=p.squash;const sw=48*(1+sq*0.02),sh=52*(1-sq*0.025);
+  if(p.onGround&&Math.abs(p.vx)>1.2&&!p.dead){const f=Math.floor(p.anim*3)%6;if(f!==p._lf&&(f===0||f===3)){for(let i=0;i<2;i++)part(p.x+p.w/2-p.face*8+rand(-3,3),p.y+p.h-1,-p.face*rand(0.2,0.8),-rand(0.1,0.5),rand(12,20),pick(['rgba(220,210,200,.7)','rgba(190,180,170,.6)']),2,-0.01,'smoke');}p._lf=f;}
+  const sw=48,sh=52;
   const bx=p.face>0?p.x+10-23:p.x+10-25;let x=Math.round(bx-G.cam-(sw-48)/2),y=Math.round(p.y+p.h-48-(sh-52)+((52-sh)>0?0:0));
   ctx.save();if(p.flip){ctx.translate(0,Math.round(2*(p.y+p.h/2)));ctx.scale(1,-1);}if(p.yuck>0)x+=Math.round(Math.sin(G.t*1.3));if(p.wig>0)x+=Math.round(Math.sin(G.t*1.2)*3);if(p.spin>0){ctx.translate(x+24,y+36);ctx.rotate((p.face)*(20-p.spin)/20*Math.PI*2);ctx.translate(-x-24,-y-36);}
   if(p.face<0){ctx.translate(x+sw,y);ctx.scale(-1,1);ctx.drawImage(pigC,0,0,sw,sh);}else ctx.drawImage(pigC,x,y,sw,sh);ctx.restore();
@@ -3160,6 +3261,6 @@ let last=performance.now(),acc=0;const STEP=1000/60;
 function frame(now){acc+=Math.min(250,now-last);last=now;let n=0;while(acc>=STEP&&n<5){update();acc-=STEP;n++;}if(n===5)acc=0;render();requestAnimationFrame(frame);}
 LV=buildLevel(LEVELS[0]);LV.def=LEVELS[0];P={x:0,y:0,w:20,h:15,hp:3,poop:3,vx:0,face:1,pepper:0,canDouble:false};ents=[];shots=[];eproj=[];poops=[];items=[];parts=[];pops=[];arena={x:0};stats={time:0};
 requestAnimationFrame(frame);
-window.__fp={G,get W(){return W;},get eproj(){return eproj;},get items(){return items;},get hazards(){return hazards;},get P(){return P;},get LV(){return LV;},get boss(){return boss;},get ents(){return ents;},newGame,startArena,IN,startCrank,get jas(){return G.jas;},bossHurtT:n=>bossHurt(n),setP:(x,y)=>{P.x=x;P.y=y;}};
+window.__fp={G,get W(){return W;},get eproj(){return eproj;},get items(){return items;},get hazards(){return hazards;},get P(){return P;},get LV(){return LV;},get boss(){return boss;},get ents(){return ents;},newGame,startArena,IN,startCrank,pigFrame,pigState,LEGSETS,drawPigFlame,get jas(){return G.jas;},bossHurtT:n=>bossHurt(n),setP:(x,y)=>{P.x=x;P.y=y;}};
 })();
 </script>
