@@ -920,7 +920,7 @@ const SEG4=[
 "................................",
 "................................",
 "................................",
-"##.......................#######",
+"TT.......................#######",
 "##.......................#######"]},
 {z:'meadow',r:[
 "................................",
@@ -1098,7 +1098,7 @@ function buildLevel(DEF){const SEGS=DEF.segs;const PINES=DEF.theme==='pines',CRA
   L.flipCol=flipCol;
   if(CRANK){const sp=L.props.find(p=>p.type==='sup');if(sp){for(let c=0;c<col;c++)if(zones[c]==='super'&&rows[5][c]==='g'){sp.gate=c;break;}}}
   if(PINES){const TC=['#e8283a','#3a7ae8','#ffd23f','#3dff8a'];for(let r=0;r<14;r++)for(let c=0;c<col;c++)if(rows[r][c]==='T'&&zones[c]==='camp')L.props.unshift({type:'tent',x:c*TS-16,y:r*TS,w:48,h:192-r*TS,c:TC[c%4]});
-    {const pads=[];for(let c=0;c<col;c++)if(rows[12][c]==='T'&&zones[c]==='cd')pads.push(c);if(pads.length)L.props.unshift({type:'sasq',x:pads[0]*TS,y:12*TS,w:pads.length*TS,h:64,glow:0});}
+    {const pads=[];for(let c=0;c<col;c++)if(rows[12][c]==='T'&&zones[c]==='cd')pads.push(c);for(let i=0;i<pads.length;){let j=i;while(j+1<pads.length&&pads[j+1]===pads[j]+1)j++;L.props.unshift({type:'sasq',x:pads[i]*TS,y:12*TS,w:(j-i+1)*TS,h:64,glow:0});i=j+1;}}
     L.props.filter(p=>p.type==='hook'&&zones[Math.floor(p.px/TS)]==='cd').forEach((p,k)=>{p.w=Math.PI*2/Math.max(92,150-k*6);});L.props.filter(p=>p.type==='cdspin').forEach((p,k)=>{p.spd=0.03+k*0.006;});}
   L.w=col;L.h=14;L.t=rows;L.zones=zones;L.dmg=rows.map(r=>r.map(()=>0));L.var=rows.map((r,ri)=>r.map((_,ci)=>(ci*7+ri*13+((ci*ci)%5))%8));
   L.hints.sort((a,b)=>a-b);
@@ -2155,7 +2155,7 @@ function updateFest(){const p=P;
       case 'cdspin':{const fast=1+clamp((pr.cx-G.cam)/600,0,0.6);pr.a+=pr.spd*fast;const hx=pr.cx+Math.cos(pr.a)*pr.r,hy=pr.cy+Math.sin(pr.a)*pr.r;pr.hb={x:hx-8,y:hy-8,w:16,h:16};if(!p.dead&&overlap(p,pr.hb))hurtPlayer(hx);break;}
       case 'lamp':{pr.t++;pr.a=pr.amp*Math.sin(pr.t*pr.w+pr.ph);const hx=pr.px+Math.sin(pr.a)*pr.L,hy=pr.py+Math.cos(pr.a)*pr.L;pr.hb={x:hx-7,y:hy-6,w:14,h:14};if(!p.dead&&overlap(p,pr.hb))hurtPlayer(hx);break;}}}
   hiddenUpdate();
-  if(LV.bounceT&&LV.bounceT.t===12&&LV.zones[LV.bounceT.c]==='cd'){for(const pr of LV.props)if(pr.type==='sasq'){pr.glow=30;P.glide=230;pop(pr.x-22,pr.y-62,pick(['SASQUATCH BOOST!','HIGH FIVE, BIGFOOT!','TROPHY LAUNCH!']),'#ffd23f');burst(pr.x+16,pr.y-4,14,['#ffd23f','#fff3a0','#fff'],2.2,24,2,0.05);}}
+  if(LV.bounceT&&LV.bounceT.t===12&&LV.zones[LV.bounceT.c]==='cd'){{const bx=LV.bounceT.c*TS+8;let pr=null,bd=1e9;for(const q of LV.props)if(q.type==='sasq'){const d=Math.abs(q.x+q.w/2-bx);if(d<bd){bd=d;pr=q;}}if(pr){pr.glow=30;P.glide=230;pop(pr.x-22,pr.y-62,pick(['SASQUATCH BOOST!','HIGH FIVE, BIGFOOT!','TROPHY LAUNCH!']),'#ffd23f');burst(pr.x+16,pr.y-4,14,['#ffd23f','#fff3a0','#fff'],2.2,24,2,0.05);}}}
   for(const pr of LV.props)if(pr.type==='sasq'&&pr.glow>0)pr.glow--;
   for(const q of poops)if(q.onGround&&!q.rx){q.rx=1;festPoopReact(q);}
   const bx=cdBeams();if(bx.length){for(const it of items)if(it.hidden&&bx.some(x=>Math.abs(it.x+6-x)<24)){it.hidden=false;burst(it.x+6,it.y+6,8,['#fff','#c8d8f0','#ff5fa2'],1.5,20,1,0);sfx.blip(1200,0.04);}
