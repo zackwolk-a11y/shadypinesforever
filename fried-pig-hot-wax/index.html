@@ -260,6 +260,7 @@ for(let i=0;i<8;i++){const a=i/8*Math.PI;const w=Math.max(2,Math.round(10*Math.a
 const GOLD=[];
 for(let i=0;i<8;i++){const a=i/8*Math.PI;const w=Math.max(2,Math.round(14*Math.abs(Math.cos(a))));
   GOLD.push(sprite(14,14,(R,E)=>{E(7,7,w/2,7,'#e0a020');if(w>4)E(7,7,w/2-1.5,5,'#ffd23f');if(w>3)E(7,7,Math.max(0.8,w/5),2,'#fff3c0');}));}
+const DJPEPPER=[0,1].map(f=>sprite(20,14,(R)=>{const wy=f?1:3;R(1,wy,5,2,'#fafafa');R(0,wy+1,3,2,'#e8e8f0');R(14,wy,5,2,'#fafafa');R(17,wy+1,3,2,'#e8e8f0');R(9,0,2,3,'#a8743a');R(8,2,4,1,'#2c7a20');R(7,3,6,4,'#3dbe3a');R(8,7,5,3,'#3dbe3a');R(9,10,4,2,'#2a9a2a');R(10,12,2,1,'#1a7a1a');R(8,4,1,3,'#9aff8a');R(11,5,1,1,'#ffd23f');}));
 const PEPPER=sprite(10,14,(R)=>{R(4,0,2,3,'#3a9a2a');R(3,2,4,1,'#2c7a20');R(2,3,6,4,'#e8283a');R(3,7,5,3,'#e8283a');R(4,10,4,2,'#d01a2a');R(5,12,2,1,'#b81020');R(3,4,1,3,'#ff8a8a');});
 const APPLE=sprite(12,12,(R,E)=>{E(6,7,5.5,4.8,'#f2b81e');E(6,6.5,4.5,3.8,'#ffd23f');R(5,0,1,3,'#6a3a1a');R(6,1,3,2,'#3a9a2a');R(3,4,2,2,'#fff3c0');});
 const TAPES=sprite(20,14,(R,E)=>{R(0,5,20,9,'#7a4a22');E(5,6,5,5.5,'#ffd23f');E(15,6,5,5.5,'#ffd23f');E(5,6,1.5,1.5,'#7a4a22');E(15,6,1.5,1.5,'#7a4a22');R(3,11,14,2,'#3a2210');R(6,9,8,1,'#fff3c0');});
@@ -859,7 +860,7 @@ const SEG4=[
 "........................",
 "......................A.",
 "........................",
-"....!...6...............",
+"..*.!...6...............",
 "########################",
 "########################"]},
 {z:'tavern',r:[
@@ -1079,7 +1080,7 @@ function buildLevel(DEF){const SEGS=DEF.segs;const PINES=DEF.theme==='pines',CRA
     L.zoneSpans.push({z:s.z,a:col*TS,b:(col+w)*TS});
     for(let r=0;r<14;r++){const src=RS[r];for(let c=0;c<w;c++){let ch=src[c]||'.';const wx=(col+c)*TS,wy=r*TS,gy=(r+1)*TS;
       if(CRANK&&'124567'.includes(ch)){crankProp(L,ch,wx,wy,gy);ch='.';}
-      else if(PINES&&'E23456789+?:l'.includes(ch)){if(ch==='?')L.items.push({type:'o',x:wx,y:wy,hidden:true});else if(ch===':')L.hidden.push({r,c:col+c});else if(ch==='l')L.spawns.push({type:'wolf',x:wx,y:wy});else festProp(L,ch,wx,wy,gy);ch='.';}
+      else if(PINES&&'E23456789+?:l*'.includes(ch)){if(ch==='*')L.items.push({type:'dp',x:wx,y:wy});else if(ch==='?')L.items.push({type:'o',x:wx,y:wy,hidden:true});else if(ch===':')L.hidden.push({r,c:col+c});else if(ch==='l')L.spawns.push({type:'wolf',x:wx,y:wy});else festProp(L,ch,wx,wy,gy);ch='.';}
       else if('scbkx'.includes(ch)){L.spawns.push({type:{s:'suit',c:'chicken',b:'bot',k:'cop',x:'guard'}[ch],x:wx,y:wy});ch='.';}
       else if('oRPAHn&'.includes(ch)){const it={type:ch,x:wx,y:wy};if(ch==='R')it.idx=L.rares++;L.items.push(it);if(ch==='n'){L.props.push({type:'cone',x:wx-16,y:gy-30,w:44,h:30});it.y=gy-46;}ch='.';}
       else if(ch==='!'){L.checkpoints.push({x:wx,y:wy,on:false});ch='.';}
@@ -1402,7 +1403,7 @@ function newGame(li=0,carry=false,def=null){
   G.level=li;const DEF=def||LEVELS[li];G.dlg=null;G.cut=null;G.jas=null;LV=buildLevel(DEF);LV.def=DEF;
   if(!carry){G.lives=3;G.score=0;G.vinyl=0;}G.records=0;G.layers=1;G.rareRun=[false,false,false];G.hintsShown=0;G.banner=null;G.cpIndex=-1;
   stats={time:0,kills:0,poops:0,deaths:0,fires:0};
-  items=LV.items.map(it=>({...it,w:it.type==='R'?14:it.type==='H'?18:it.type==='n'?10:it.type==='&'?16:12,h:it.type==='R'?14:it.type==='n'?14:it.type==='&'?10:12,t:Math.random()*10,taken:false}));
+  items=LV.items.map(it=>({...it,w:it.type==='dp'?14:it.type==='R'?14:it.type==='H'?18:it.type==='n'?10:it.type==='&'?16:12,h:it.type==='dp'?14:it.type==='R'?14:it.type==='n'?14:it.type==='&'?10:12,t:Math.random()*10,taken:false}));
   for(const it of items){it.x+=(TS-it.w)/2;it.y+=(TS-it.h)/2;it.by=it.y;}
   G.respawn={x:LV.start.x,y:LV.start.y};arena=null;boss=null;
   bb=DEF.end==='billboard'?{x:LV.bbCol*TS,y:0,burn:0,fall:0,angle:0,state:'stand'}:null;
@@ -1854,6 +1855,7 @@ function collect(it){const p=P;
     case 'P':{p.pepper=600;sfx.power();banner('HOT PEPPER!','HOLD FIRE FOR A FLAMETHROWER · HOT POOPS EXPLODE',170,'#ff3b1f');burst(it.x+6,it.y+6,16,['#ff3b1f','#ffd23f'],2.5,30,2,0.05);break;}
     case 'A':{p.poop=5;p.hp=Math.min(3,p.hp+1);sfx.power();pop(it.x-14,it.y-10,'GOLDEN APPLE!','#ffd23f');pop(it.x-14,it.y,'POOP RELOADED','#c8945a');burst(it.x+6,it.y+6,12,['#ffd23f','#fff3c0'],2,25,2,0.05);break;}
     case 'n':{p.yuck=150;sfx.gross();pop(it.x-12,it.y-12,'BLEGH!','#e8e040');burst(it.x+5,it.y+5,14,['#ffe94a','#fff8a0'],2,24,2);break;}
+    case 'dp':{p.canDouble=true;p.jumpsLeft=1;sfx.power();banner('DOUBLE JUMP PEPPER!','PRESS JUMP IN MID-AIR TO JUMP AGAIN',200,'#3dff8a');burst(it.x+7,it.y+7,20,['#3dff8a','#fafafa','#ffd23f'],2.5,30,2,0.05);break;}
     case 'H':{p.canDouble=true;p.jumpsLeft=1;sfx.power();banner('HOT WINGS!','PRESS JUMP IN MID-AIR TO DOUBLE JUMP',190,'#ff8a1f');burst(it.x+8,it.y+6,18,['#fafafa','#ff8a1f','#ffd23f'],2.5,30,2,0.05);break;}
   }}
 
@@ -2858,6 +2860,7 @@ function drawItems(){const ox=-Math.round(G.cam);
     if(it.type==='o'){const f=Math.floor(it.t*1.3)%8;const s=REC[f];ctx.drawImage(s,Math.round(x+6-s.width/2),Math.round(y));}
     else if(it.type==='R'){const f=Math.floor(it.t)%8;const s=GOLD[f];ctx.drawImage(s,Math.round(x+7-s.width/2),Math.round(y));if(G.t%10===0)part(it.x+rand(0,14),it.y+rand(0,14),0,-0.3,20,'#fff3c0',1,0);}
     else if(it.type==='P')ctx.drawImage(PEPPER,Math.round(x),Math.round(y));
+    else if(it.type==='dp'){const fl=Math.floor(G.t/6)%2;ctx.drawImage(DJPEPPER[fl],Math.round(x-3),Math.round(y));if(G.t%8===0)part(it.x+rand(0,14),it.y+rand(0,14),0,-0.4,22,pick(['#3dff8a','#fff']),1,0);}
     else if(it.type==='A')ctx.drawImage(APPLE,Math.round(x),Math.round(y));
     else if(it.type==='&'){ctx.drawImage(BLUEHORN,Math.round(x),Math.round(y));if(G.t%8===0)part(it.x+rand(0,16),it.y+rand(0,10),0,-0.4,22,'#5aa0ff',1,0,'note');}
     else if(it.type==='n')ctx.drawImage(SNOWCONE,Math.round(x),Math.round(y));
