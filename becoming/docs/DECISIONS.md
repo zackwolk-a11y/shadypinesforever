@@ -16,3 +16,5 @@ Format: ID · date · decision · rationale · reversibility. Founder decisions 
 | D-010 [B] | 2026-10-31 | Semantic retrieval starts with SQLite FTS5 (free, local); embeddings optional later | Cost and local-first | Yes |
 | D-011 [B] | 2026-10-31 | Pronouns for residents follow the Founder's character descriptions (he: Tony, Mark, Ralph, Bernie, Mao; she: Haize, Ashley, Pepper, Anna) | Stated in the master prompt | Founder may change |
 | D-012 [B] | 2026-10-31 | Recommended visual base: Golden Spring Commons + Riverstone touches; other directions become seasonal palettes | Seasonal variation is required anyway | **Awaiting [F]** |
+| D-013 [B] | 2026-10-31 | Pepper's song themes are recorded from the Founder's Oct 20 guide, with status `known_reference_pending_retrieval`, never as lyrics | Bandcamp unreachable here; copyright | Yes |
+| D-014 [B] | 2026-10-31 | Recommended provider configuration: Sonnet 5.5 dialogue + Sonnet 5.5 Batch reports, $10/day hard cap, pending a Haiku A/B | Estimated $36–$103 per 12-month experiment | **Awaiting [F]** |

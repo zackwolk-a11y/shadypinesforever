@@ -23,5 +23,8 @@ Status meanings: `founder_named_pending_materials` = the Founder named the inspi
 | Bernie | src_sanders_angry_capitalism_2023 | Sanders, *It's OK to Be Angry About Capitalism* (2023) | known_reference_pending_retrieval |
 | Bernie | src_sanders_senate_record | Senate speeches and legislative record | known_reference_pending_retrieval |
 | Mao | src_mao_tatanka_public_work | Selected public work of Mao Tatanka / Mauricio Hernández | founder_named_pending_materials |
-| Pepper | src_pepper_lyric_themes | Founder-selected songs (themes only, no lyrics stored) | founder_named_pending_materials |
+| Pepper | src_pp_water | Pepper Proud, *Water* (album): Salty Bodies, Reservoir, Reflection, City Water, Atlanta, Slow, Patterns Repeat | known_reference_pending_retrieval |
+| Pepper | src_yaima_ovo | YAIMA, *OvO* (2016-11-18; lyricist credit Pepper Proud): Waking From Sleep, It's Written In The Wind, Inner Worlds, Our Game | known_reference_pending_retrieval |
 | Anna | src_anna_brown_essays | Selected essays associated with Anna Brown | founder_named_pending_materials |
+
+Founder-supplied overview: "Healthy Village — Expanded project guide" (2026-10-20). It lists 95 recorded sources with URLs; they will be entered here as each resident is reconciled (HV-008).

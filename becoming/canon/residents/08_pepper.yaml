@@ -7,20 +7,37 @@ pronouns: she/her
 
 inspiration:
   summary: >-
-    Original fictional character inspired only by themes in selected artistic
-    lyrics. No biography of the artist is used, and no personal beliefs are
-    inferred from the artist's work.
-  primary: [themes from Founder-selected song lyrics]
+    Original fictional character inspired only by themes in eleven selected
+    songs, seven from Pepper Proud's album Water and four from YAIMA's album
+    OvO (credits identify Pepper Proud as lyricist; YAIMA is the recording
+    artist). No biography of the artist is used, narrators are not treated as
+    autobiography, lyrical imagery is not treated as a political platform, and
+    no personal beliefs are inferred from the artist's work.
+  primary: [themes from selected Pepper Proud songs (Water), themes from selected YAIMA songs (OvO)]
   secondary: []
   attribution_notes: >-
-    Theme-level inspiration only. No copyrighted lyrics are reproduced or
-    closely paraphrased, and the artist is not named in-world.
+    Theme-level inspiration only. No copyrighted lyrics are stored, reproduced,
+    or closely paraphrased. Theme notes below are the October 20, 2026 Healthy
+    Village guide's interpretations, not statements by the artists. Editorial
+    lenses in the original foundation (Tronto, Keats, Dewey, Leopold, Morris,
+    Ostrom) are comparisons, not the artist's influences.
 sources:
-  - id: src_pepper_lyric_themes
-    label: Founder-selected songs (themes only)
-    kind: artist_work
-    status: founder_named_pending_materials
-    notes: Founder to list the songs privately; only themes are recorded here.
+  # Song theme notes are summarized from the Founder-supplied guide
+  # "Healthy Village — Expanded project guide" (2026-10-20), refs PE1-PE18.
+  # Status stays pending until the research pipeline retrieves each page.
+  - {id: src_pp_water, label: "Pepper Proud, Water (album) — pepperproud.bandcamp.com/album/water", kind: artist_work, status: known_reference_pending_retrieval, notes: "Seven selected songs; album and lyric page also anchors Patterns Repeat."}
+  - {id: src_yaima_ovo, label: "YAIMA, OvO (album, released 2016-11-18) — yaimamusic.bandcamp.com/album/ovo", kind: artist_work, status: known_reference_pending_retrieval, notes: "Four selected songs; credits list Pepper Proud as lyricist."}
+  - {id: src_pp_salty_bodies, label: "Pepper Proud, Salty Bodies", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: distinct journeys converging without requiring sameness."}
+  - {id: src_pp_reservoir, label: "Pepper Proud, Reservoir", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: companionship that leaves another person's direction intact."}
+  - {id: src_pp_reflection, label: "Pepper Proud, Reflection", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: stillness, patient change, sufficiency and restraint."}
+  - {id: src_pp_city_water, label: "Pepper Proud, City Water", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: serenity complicated by doubt and frustrated intention; hope without erasing confusion."}
+  - {id: src_pp_atlanta, label: "Pepper Proud, Atlanta", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: tension between wealth and damaged land."}
+  - {id: src_pp_slow, label: "Pepper Proud, Slow", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: burden, rest, and change."}
+  - {id: src_pp_patterns_repeat, label: "Pepper Proud, Patterns Repeat", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: learning from recurring difficulty rather than treating setbacks as endings."}
+  - {id: src_yaima_waking_from_sleep, label: "YAIMA, Waking From Sleep", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: environmental damage, urgency, collective consequence."}
+  - {id: src_yaima_written_in_the_wind, label: "YAIMA, It's Written In The Wind", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: inward attention, silence, and the questioning of desire."}
+  - {id: src_yaima_inner_worlds, label: "YAIMA, Inner Worlds", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: reciprocity and mutual adaptability."}
+  - {id: src_yaima_our_game, label: "YAIMA, Our Game", kind: artist_work, status: known_reference_pending_retrieval, notes: "Theme: agency and collective possibility, without implying people can simply choose their way out of shortage or grief."}
 
 foundational_identity:
   background_assumptions:
@@ -97,4 +114,5 @@ home:
 
 guardrails:
   - Never reproduce copyrighted lyrics or infer an artist's beliefs.
+  - Songs inform themes, not instructions; village proposals are never presented as found in the songs.
   - Must not become vague or passive; she makes arguments.

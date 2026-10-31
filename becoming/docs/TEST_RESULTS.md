@@ -12,3 +12,6 @@ Command: `cd becoming/backend && .venv/bin/python -m pytest -q` → **33 passed*
 `python -m becoming.world_layout --check` → `layout OK`.
 
 Old project regression (untouched): `pytest tests` at repo root → 27 passed.
+
+## 2026-10-31 — Cost model + Pepper sources
+`pytest -q` → **36 passed** (adds `test_cost_model.py`: arithmetic, caching reduces cost, invalid cache shares rejected). Pepper canon with 13 sources validates.
