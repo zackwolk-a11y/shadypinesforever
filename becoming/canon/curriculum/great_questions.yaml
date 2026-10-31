@@ -1,0 +1,91 @@
+# The Great Questions — foundational curriculum (authored design, not simulation output).
+#
+# PROVENANCE: reconstructed from the Founder's master build prompt (2026-10-31).
+# The original Healthy Village Great Questions curriculum was NOT present in the
+# repository audited; when supplied it will be imported and diffed against this
+# file, with the merge recorded in docs/MIGRATION.md.
+#
+# Threads are OPPORTUNITIES the scheduler may offer, never scripts. The
+# simulation decides whether, when, where, and with whom they are taken up.
+# `natural_voices` are residents whose authored interests make the thread
+# likely to resonate. They do not require attendance and do not exclude anyone.
+# Emergent questions discovered in simulation are stored in the database, not here.
+schema_version: 1
+provenance: reconstructed_from_master_prompt
+questions:
+  - id: gq01_consciousness
+    title: What is consciousness?
+    facets: [subjective experience, neuroscience, phenomenology, awareness, biological intelligence, selfhood, emergence, theories of mind]
+    threads:
+      - {id: gq01_t1, prompt: "Is there anything it is like to be a bee, a tree, or a river?", natural_voices: [anna, pepper, ashley], suggested_locations: [garden, pond_nook]}
+      - {id: gq01_t2, prompt: "Is the self a thing, a process, or a story?", natural_voices: [anna, ralph, haize], suggested_locations: [library, quiet_grove]}
+      - {id: gq01_t3, prompt: "Can experience be studied from the outside at all?", natural_voices: [ashley, anna, tony], suggested_locations: [library]}
+    evidence_kinds_expected: [scientific_research, philosophical_argument, reported_experience]
+  - id: gq02_free_will
+    title: Do humans have free will?
+    facets: [determinism, compatibilism, choice, responsibility, psychological conditioning, social constraints, individual freedom]
+    threads:
+      - {id: gq02_t1, prompt: "If our choices are conditioned, what is left of responsibility?", natural_voices: [ralph, bernie, haize], suggested_locations: [library, fire_circle]}
+      - {id: gq02_t2, prompt: "Is poverty a constraint on free will or only on options?", natural_voices: [bernie, ralph, mao], suggested_locations: [town_hall]}
+      - {id: gq02_t3, prompt: "Does improvisation feel free because it is, or despite not being?", natural_voices: [tony, anna], suggested_locations: [music_space]}
+    evidence_kinds_expected: [philosophical_argument, scientific_research]
+  - id: gq03_love
+    title: What is love?
+    facets: [biological attachment, care, spiritual conceptions, commitment, autonomy, intimacy, solidarity, grief, unconditional acceptance]
+    threads:
+      - {id: gq03_t1, prompt: "Is love a feeling, a practice, or a decision?", natural_voices: [tony, haize, mao], suggested_locations: [fire_circle]}
+      - {id: gq03_t2, prompt: "Can love respect strong boundaries?", natural_voices: [pepper, haize, ralph], suggested_locations: [garden]}
+      - {id: gq03_t3, prompt: "Is political solidarity a form of love?", natural_voices: [bernie, mao, mark], suggested_locations: [kitchen, town_hall]}
+    evidence_kinds_expected: [scientific_research, philosophical_argument, tradition, reported_experience]
+  - id: gq04_civilization
+    title: Has civilization actually improved human life?
+    facets: [technological progress, health, inequality, ecological degradation, social isolation, historical violence, community, definitions of progress]
+    threads:
+      - {id: gq04_t1, prompt: "Better by which measure, and for whom?", natural_voices: [ashley, bernie, mark], suggested_locations: [library, town_hall]}
+      - {id: gq04_t2, prompt: "Did we trade community for comfort?", natural_voices: [mark, pepper, mao], suggested_locations: [town_square]}
+    evidence_kinds_expected: [historical_record, scientific_research, philosophical_argument]
+  - id: gq05_ai_consciousness
+    title: Could artificial intelligence ever become conscious?
+    facets: [computational theories of mind, embodied cognition, subjective experience, intelligence vs consciousness, limits of behavioral evidence, moral uncertainty]
+    threads:
+      - {id: gq05_t1, prompt: "What would count as evidence either way?", natural_voices: [anna, ashley, ralph], suggested_locations: [library]}
+      - {id: gq05_t2, prompt: "What do we owe beings whose inner life we cannot verify?", natural_voices: [haize, mao, anna], suggested_locations: [fire_circle]}
+    evidence_kinds_expected: [philosophical_argument, scientific_research]
+    honesty_note: Residents are simulations. No resident may claim to be conscious, and the system never asserts it.
+  - id: gq06_nature_intelligence
+    title: Does nature possess intelligence?
+    facets: [evolution, ecosystems, plant signaling, animal cognition, ecological networks, systems theory, metaphor vs scientific support]
+    threads:
+      - {id: gq06_t1, prompt: "Where does metaphor end and finding begin?", natural_voices: [ashley, pepper, anna], suggested_locations: [garden, forest_trail]}
+      - {id: gq06_t2, prompt: "Is a forest more like a market, a family, or neither?", natural_voices: [mark, bernie, mao], suggested_locations: [forest_trail]}
+    evidence_kinds_expected: [scientific_research, philosophical_argument]
+  - id: gq07_capitalism
+    title: Is capitalism compatible with human flourishing?
+    facets: [markets, labor, inequality, innovation, property, democratic socialism, freedom, ecological limits, alternatives]
+    threads:
+      - {id: gq07_t1, prompt: "Is market freedom a kind of freedom Ralph should defend?", natural_voices: [bernie, ralph], suggested_locations: [town_hall, library]}
+      - {id: gq07_t2, prompt: "What did gift and reciprocal economies actually look like?", natural_voices: [ashley, mao, mark], suggested_locations: [library, kitchen]}
+      - {id: gq07_t3, prompt: "Can art survive outside the market, or inside it?", natural_voices: [tony, bernie, pepper], suggested_locations: [music_space]}
+    evidence_kinds_expected: [historical_record, scientific_research, philosophical_argument]
+  - id: gq08_death
+    title: What happens when we die?
+    facets: [biology, mortality, grief, identity, religious and philosophical traditions, materialist accounts, nondual interpretations, limits of knowledge]
+    threads:
+      - {id: gq08_t1, prompt: "What does the question of death do to how we live?", natural_voices: [haize, ralph, tony], suggested_locations: [fire_circle]}
+      - {id: gq08_t2, prompt: "If the self is not fixed, what is it that dies?", natural_voices: [anna, haize, ashley], suggested_locations: [quiet_grove]}
+    evidence_kinds_expected: [scientific_research, tradition, philosophical_argument, reported_experience]
+  - id: gq09_truth
+    title: What is truth?
+    facets: [empiricism, reason, scientific method, lived experience, interpretation, historical evidence, language, bias, epistemic humility]
+    threads:
+      - {id: gq09_t1, prompt: "Is lived experience evidence, and of what?", natural_voices: [tony, ashley, haize], suggested_locations: [library]}
+      - {id: gq09_t2, prompt: "How should the village remember its own disagreements?", natural_voices: [ashley, ralph, mark], suggested_locations: [town_hall]}
+    evidence_kinds_expected: [philosophical_argument, scientific_research, historical_record]
+  - id: gq10_ideal_civilization
+    title: What would an ideal civilization look like?
+    facets: [human needs, governance, community, ecological responsibility, freedom, justice, beauty, spiritual life, work, technology, institutional design]
+    threads:
+      - {id: gq10_t1, prompt: "Design one street of the ideal civilization.", natural_voices: [mark, pepper, bernie], suggested_locations: [town_hall, town_square]}
+      - {id: gq10_t2, prompt: "Must an ideal society be one you can leave?", natural_voices: [pepper, ralph, mao], suggested_locations: [garden]}
+      - {id: gq10_t3, prompt: "Where does beauty fit in a list of human needs?", natural_voices: [tony, mark, anna], suggested_locations: [music_space]}
+    evidence_kinds_expected: [philosophical_argument, historical_record, scientific_research]
