@@ -15,3 +15,6 @@ Old project regression (untouched): `pytest tests` at repo root → 27 passed.
 
 ## 2026-10-31 — Cost model + Pepper sources
 `pytest -q` → **36 passed** (adds `test_cost_model.py`: arithmetic, caching reduces cost, invalid cache shares rejected). Pepper canon with 13 sources validates.
+
+## 2026-10-31 — Canon reconciliation with the Founder profiles
+`pytest -q` → **42 passed**. New checks: registry unique and unable to claim verification; every citation resolves and is assigned to its resident; unknown code rejected; foundations cite only listed codes; editorial sources stay labeled; Pepper's anchors are lyric texts only; ensemble scenes load.

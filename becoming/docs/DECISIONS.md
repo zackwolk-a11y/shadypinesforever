@@ -18,3 +18,6 @@ Format: ID · date · decision · rationale · reversibility. Founder decisions 
 | D-012 [B] | 2026-10-31 | Recommended visual base: Golden Spring Commons + Riverstone touches; other directions become seasonal palettes | Seasonal variation is required anyway | **Awaiting [F]** |
 | D-013 [B] | 2026-10-31 | Pepper's song themes are recorded from the Founder's Oct 20 guide, with status `known_reference_pending_retrieval`, never as lyrics | Bandcamp unreachable here; copyright | Yes |
 | D-014 [B] | 2026-10-31 | Recommended provider configuration: Sonnet 5.5 dialogue + Sonnet 5.5 Batch reports, $10/day hard cap, pending a Haiku A/B | Estimated $36–$103 per 12-month experiment | **Awaiting [F]** |
+| D-015 [B] | 2026-10-31 | Founder profiles supersede the builder's prompt-derived drafts for character content; master-prompt philosophical interests kept alongside | Founder-authored, source-grounded | Yes |
+| D-016 [B] | 2026-10-31 | One shared source registry with the Founder's codes; editorial scholarship is a distinct role | Single provenance store | Yes |
+| D-017 [B] | 2026-10-31 | "Scenes worth testing" stored as evaluation probes, never scripts | Part XXII | Yes |

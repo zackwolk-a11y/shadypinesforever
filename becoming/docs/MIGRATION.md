@@ -14,3 +14,4 @@
 | 2026-10-31 | Created canon from the master build prompt | Founder prompt | 9 residents, curriculum, world layout; all labeled authored |
 | 2026-10-31 | Received "Healthy Village — Expanded project guide" (PDF, 30 pp, dated 2026-10-20, sha256 prefix `740277d8a8667d3c`; not committed) | Founder upload | Read in full. Contains the authored foundations (summaries), 95-entry source record, and Oct 20 trial status. Applied so far: Pepper's 11 songs (themes only). Reconciliation of the other eight residents pending (HV-008) |
 | — | Import the raw resident foundations and the earlier codebase/DB | Pending HV-001 | — |
+| 2026-10-31 | Received "Healthy Village Complete Character Profiles" (PDF, 64 pp, sha256 prefix `6e619470e6a497f8`; not committed) | Founder upload | Canon reconciled locally: 9 resident specs rewritten, 142-entry source registry, ensemble scenes. See RECONCILIATION_2026-10-31.md |

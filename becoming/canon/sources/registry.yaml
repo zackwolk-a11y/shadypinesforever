@@ -1,0 +1,1226 @@
+schema_version: 1
+provenance: Transcribed from the Founder-supplied "Healthy Village Complete Character Profiles" PDF (source review
+  checked 2026-10-17). Codes match that document. No entry has been retrieved by this system yet; status of every
+  entry is founder_research_reviewed until the research pipeline re-fetches and hashes it.
+sources:
+- code: T1
+  residents:
+  - tony
+  label: Tony Moss — Crafting Joy Through Sound (A Path Unfolding)
+  kind: publisher_transcript
+  date: '2025-01-28'
+  url: https://gravitasrecordings.com/2025/01/28/tony-moss-crafting-joy-through-sound/
+  role: primary_anchor
+  notes: Text-verified, not audio-verified; transcript has apparent errors elsewhere.
+- code: T2
+  residents:
+  - tony
+  label: Life Is a Festival — From Activist to Ayahuasca Advocate
+  kind: episode_description
+  date: '2019-04-18'
+  url: https://www.eamonarmstrong.com/lifeisafestival/tony-moss
+  role: listening_lead
+  notes: Topics only (access, activism); not a complete argument.
+- code: T3
+  residents:
+  - tony
+  label: Life Is a Festival — Ayahuasca for Healing Ancestral Racial Trauma
+  kind: episode_description
+  date: '2021-07-06'
+  url: https://www.eamonarmstrong.com/lifeisafestival/tony-moss-2
+  role: listening_lead
+  notes: Topics only; no therapeutic claims established.
+- code: T4
+  residents:
+  - tony
+  label: I AM LIFE MUSIC — official site
+  kind: organizational_self_description
+  date: null
+  url: https://www.iamlife.music/
+  role: organizational_account
+  notes: Nonprofit status is self-presentation, not independently checked.
+- code: T5
+  residents:
+  - tony
+  label: Tony Moss — artist licensing biography
+  kind: artist_biography
+  date: null
+  url: https://www.littlebuddhamusic.com/tony-moss
+  role: organizational_account
+- code: T6
+  residents:
+  - tony
+  label: Bird Tribe — artist licensing biography
+  kind: artist_biography
+  date: null
+  url: https://www.littlebuddhamusic.com/bird-tribe
+  role: organizational_account
+  notes: A collective with named founding collaborators; not Tony alone.
+- code: T7
+  residents:
+  - tony
+  label: Meet Tony Moss (SHOUTOUT LA)
+  kind: first_person_written_interview
+  date: '2020-10-26'
+  url: https://shoutoutla.com/meet-tony-moss-artist-musician-music-and-event-producer/
+  role: primary_anchor
+- code: T8
+  residents:
+  - tony
+  label: 'JOY — Tony Moss and Bird Tribe (credits: Jonathan Hakakian, Stanley Clarke, Ksenia Luki, Fabiano do Nascimento)'
+  kind: artist_credits
+  date: '2024-11-11'
+  url: https://iamlife.bandcamp.com/album/joy
+  role: credits_record
+- code: T9
+  residents:
+  - tony
+  label: Aubrey Marcus Podcast — The Ceremony of Civil Unrest
+  kind: episode_description
+  date: '2020-06-22'
+  url: https://www.aubreymarcus.com/blogs/aubrey-marcus-podcast/the-ceremony-of-civil-unrest-with-maestro-tony-moss-amp-262
+  role: listening_lead
+- code: T10
+  residents:
+  - tony
+  label: Psychedelic Therapy — So You Want to Be a Shaman
+  kind: episode_description
+  date: null
+  url: https://www.eamonarmstrong.com/psychedelic-therapy/tony-moss
+  role: listening_lead
+  notes: URL-to-code mapping inferred from link order in the PDF.
+- code: T11
+  residents:
+  - tony
+  label: Psychedelic Therapy — The Science and Magic of Medicine Music
+  kind: episode_page
+  date: '2024-05-29'
+  url: https://www.eamonarmstrong.com/psychedelic-therapy/tony-moss-2
+  role: listening_lead
+  notes: URL-to-code mapping inferred from link order in the PDF.
+- code: TK1
+  residents:
+  - tony
+  label: 'Algoe (2012), Find, Remind, and Bind: The Functions of Gratitude in Everyday Relationships'
+  kind: academic_article_abstract
+  date: '2012'
+  url: https://compass.onlinelibrary.wiley.com/doi/10.1111/j.1751-9004.2012.00439.x
+  role: editorial_comparison
+- code: TK2
+  residents:
+  - tony
+  - mao
+  label: 'Turino (2008), Music as Social Life: The Politics of Participation'
+  kind: book_description
+  date: '2008'
+  url: https://press.uchicago.edu/ucp/books/book/chicago/M/bo5867463.html
+  role: editorial_comparison
+  notes: Also cited as MO7.
+- code: TK3
+  residents:
+  - tony
+  label: 'Pearce, Launay & Dunbar (2015), The ice-breaker effect: singing mediates fast social bonding'
+  kind: academic_article_full_text
+  date: '2015'
+  url: https://bura.brunel.ac.uk/bitstream/2438/12542/1/Fulltext.pdf
+  role: editorial_comparison
+- code: TK4
+  residents:
+  - tony
+  label: 'Tarr, Launay & Dunbar (2014), Music and social bonding: self-other merging and neurohormonal mechanisms'
+  kind: academic_review_full_text
+  date: '2014'
+  url: https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2014.01096/full
+  role: editorial_comparison
+- code: TK5
+  residents:
+  - tony
+  label: Wiltermuth (2012), Synchronous activity boosts compliance with requests to aggress
+  kind: academic_article_abstract
+  date: '2012'
+  url: https://www.sciencedirect.com/science/article/pii/S0022103111002502
+  role: editorial_comparison
+- code: TK6
+  residents:
+  - tony
+  label: 'Pizarro et al. (2022), Emotional processes, collective behavior, and social movements: a meta-analytic
+    review'
+  kind: academic_article_full_text
+  date: '2022'
+  url: https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2022.974683/full
+  role: editorial_comparison
+- code: M1
+  residents:
+  - mark
+  label: Communitecture team — professional biography
+  kind: professional_biography
+  date: null
+  url: https://www.communitecture.net/team.html
+  role: organizational_account
+- code: M2
+  residents:
+  - mark
+  label: Mark Lakeman interview (Alma de Luce)
+  kind: first_person_interview
+  date: '2025-03-25'
+  url: https://www.almadeluce.com/blog/mark-lakeman-architect-alma-de-luce-interview/
+  role: primary_anchor
+- code: M3
+  residents:
+  - mark
+  label: Lakeman, Designing Like Villagers
+  kind: bylined_essay
+  date: '2014-07-03'
+  url: https://www.communitecture.net/blog/designing-like-villagers
+  role: primary_anchor
+  notes: Includes a dated account of an ownership/pay power-sharing arrangement; not current governance.
+- code: M4
+  residents:
+  - mark
+  label: OPRG Interview Series — Mark Lakeman of City Repair
+  kind: first_person_interview
+  date: null
+  url: https://paragraph.com/@openprotocolresearch/oprg-interview-series-mark-lakeman-of-city-repair
+  role: primary_anchor
+- code: M5
+  residents:
+  - mark
+  label: City Repair — programs
+  kind: organizational_account
+  date: null
+  url: https://cityrepair.org/programs
+  role: organizational_account
+  notes: Organizational activities; not personal accomplishments of Lakeman.
+- code: MK1
+  residents:
+  - mark
+  label: Ostrom (2009), Beyond Markets and States — Nobel lecture
+  kind: lecture_text
+  date: '2009'
+  url: https://www.nobelprize.org/prizes/economic-sciences/2009/ostrom/lecture/
+  role: editorial_comparison
+- code: MK2
+  residents:
+  - mark
+  label: Arnstein (1969), A Ladder of Citizen Participation
+  kind: academic_article
+  date: '1969'
+  url: https://www.tandfonline.com/doi/abs/10.1080/01944366908977225
+  role: editorial_comparison
+- code: MK3
+  residents:
+  - mark
+  label: Sanders & Stappers (2008), Co-creation and the new landscapes of design
+  kind: academic_article
+  date: '2008'
+  url: https://doi.org/10.1080/15710880701875068
+  role: editorial_comparison
+- code: MK4
+  residents:
+  - mark
+  label: Fraser (1990), Rethinking the Public Sphere
+  kind: academic_article
+  date: '1990'
+  url: https://www.jstor.org/stable/466240
+  role: editorial_comparison
+- code: MK5
+  residents:
+  - mark
+  label: Björgvinsson, Ehn & Hillgren (2012), Agonistic participatory design
+  kind: academic_article_abstract
+  date: '2012'
+  url: https://www.tandfonline.com/doi/abs/10.1080/15710882.2012.672577
+  role: editorial_comparison
+- code: MK6
+  residents:
+  - mark
+  label: Young (1990), Justice and the Politics of Difference
+  kind: book_description
+  date: '1990'
+  url: https://www.jstor.org/stable/j.ctvcm4g4q
+  role: editorial_comparison
+- code: H1
+  residents:
+  - haize
+  label: Haize Hawke — official self-description
+  kind: official_self_description
+  date: null
+  url: https://www.haizehawke.com/
+  role: primary_anchor
+  notes: Professional labels on affiliated materials are not a verified medical license.
+- code: H2
+  residents:
+  - haize
+  label: The Innate Journey — course description
+  kind: affiliated_course_description
+  date: null
+  url: https://www.theinnatejourney.com/
+  role: research_inventory
+  notes: States a mix of approaches; not efficacy.
+- code: H3
+  residents:
+  - haize
+  label: Britta Bushnell — Ritual in Birth (with Haize Hawke)
+  kind: publisher_transcript
+  date: null
+  url: https://brittabushnell.com/ritual-in-birth/
+  role: primary_anchor
+  notes: Explicitly includes support for people who want a medicated birth.
+- code: H4
+  residents:
+  - haize
+  label: Magamama Ep. 128 — Doula Work as Spiritual, Sacred and Community Building
+  kind: episode_description
+  date: '2021-05-25'
+  url: https://magamama.libsyn.com/ep-128-doula-work-as-spiritual-sacred-and-community-building-with-haize-hawke
+  role: primary_anchor
+- code: H5
+  residents:
+  - haize
+  label: Birth Education Center — There Is More to Birth Education Than Science and Anatomy
+  kind: host_episode_account
+  date: '2024-03-21'
+  url: https://www.birtheducationcenter.com/podcast/theres-more-to-birth-education-than-science-and-anatomy/
+  role: research_inventory
+- code: HK1
+  residents:
+  - haize
+  label: Bell (1992/2009), Ritual Theory, Ritual Practice — introduction
+  kind: repository_abstract
+  date: '1992'
+  url: https://scholarcommons.scu.edu/rel_stud/114/
+  role: editorial_comparison
+- code: HK2
+  residents:
+  - haize
+  label: Bohren et al. (2017), Continuous Support for Women During Childbirth (Cochrane)
+  kind: systematic_review_summary
+  date: '2017'
+  url: https://www.cochrane.org/evidence/CD003766_continuous-support-women-during-childbirth
+  role: editorial_comparison
+  notes: Concerns continuous labor support; not validation of ritual or any practitioner.
+- code: HK3
+  residents:
+  - haize
+  label: Folbre & Nelson (2000), For Love or Money—Or Both?
+  kind: academic_article_abstract
+  date: '2000'
+  url: https://www.aeaweb.org/articles?id=10.1257/jep.14.4.123
+  role: editorial_comparison
+- code: HK4
+  residents:
+  - haize
+  label: Fricker (2007), Epistemic Injustice
+  kind: book_abstract
+  date: '2007'
+  url: https://academic.oup.com/book/32817
+  role: editorial_comparison
+- code: HK5
+  residents:
+  - haize
+  label: Held (2006), The Ethics of Care
+  kind: book_description
+  date: '2006'
+  url: https://academic.oup.com/book/2881
+  role: editorial_comparison
+- code: HK6
+  residents:
+  - haize
+  label: Mackenzie (2014), Three Dimensions of Autonomy
+  kind: chapter_abstract
+  date: '2014'
+  url: https://doi.org/10.1093/acprof:oso/9780199969104.003.0002
+  role: editorial_comparison
+- code: HK7
+  residents:
+  - haize
+  label: Noddings (1984/2013), Caring
+  kind: book_description
+  date: '1984'
+  url: https://www.ucpress.edu/books/caring/epub-pdf
+  role: editorial_comparison
+- code: HK8
+  residents:
+  - haize
+  - pepper
+  - anna
+  label: Tronto (2013), Caring Democracy
+  kind: book_description
+  date: '2013'
+  url: https://nyupress.org/9780814782781/caring-democracy/
+  role: editorial_comparison
+  notes: Also cited as MO8 (paperback page) and Anna AN5.
+- code: A1
+  residents:
+  - ashley
+  label: Conscious Growth — story
+  kind: organizational_account
+  date: null
+  url: https://www.consciousgrowth.life/story
+  role: organizational_account
+- code: A2
+  residents:
+  - ashley
+  label: Conscious Growth — ReVillaging
+  kind: organizational_account
+  date: null
+  url: https://www.consciousgrowth.life/revillaging
+  role: organizational_account
+- code: A3
+  residents:
+  - ashley
+  label: Ashley Bonn — official self-description
+  kind: official_self_description
+  date: null
+  url: https://www.ashleybonn.com/
+  role: primary_anchor
+- code: A4
+  residents:
+  - ashley
+  label: Welcoming Ashley Bonn to the Cascadia Department of Bioregion
+  kind: bylined_essay
+  date: '2025-07-22'
+  url: https://cascadiabioregion.org/department-of-bioregion/welcoming-ashley-bonn-to-the-cascadia-department-of-bioregion
+  role: primary_anchor
+- code: A5
+  residents:
+  - ashley
+  label: 2019 Northwest Permaculture Convergence — presentations
+  kind: event_program
+  date: '2019'
+  url: https://northwestpermaculture.weebly.com/2019-presentations.html
+  role: research_inventory
+  notes: Establishes an advertised workshop, not attendance.
+- code: A6
+  residents:
+  - ashley
+  label: Ashley Bonn — My Story
+  kind: autobiographical_account
+  date: null
+  url: https://www.ashleybonn.com/mystory
+  role: research_inventory
+  notes: Graduation year 2018 here vs 2019 elsewhere; unresolved.
+- code: A7
+  residents:
+  - ashley
+  label: Conscious Growth Convergence — story
+  kind: organizer_retrospective
+  date: null
+  url: https://www.consciousgrowthconvergence.org/story
+  role: organizational_account
+  notes: Also cited as AS9.
+- code: A8
+  residents:
+  - ashley
+  label: Conscious Growth — Indigenous partnerships
+  kind: organizer_retrospective
+  date: null
+  url: https://www.consciousgrowth.life/indigenous-partnerships
+  role: organizational_account
+- code: A9
+  residents:
+  - ashley
+  label: Conscious Growth Convergence — facilitators (2026 listing)
+  kind: event_program
+  date: '2026'
+  url: https://www.consciousgrowthconvergence.org/facilitators
+  role: research_inventory
+  notes: Listings, not confirmed appearances.
+- code: A10
+  residents:
+  - ashley
+  label: Aliko Weste — speaking credits
+  kind: contributor_self_report
+  date: null
+  url: https://www.alikoweste.com/speaking
+  role: research_inventory
+- code: A11
+  residents:
+  - ashley
+  label: Conscious Growth Convergence — event homepage (2026 dates)
+  kind: event_promotion
+  date: '2026'
+  url: https://www.consciousgrowthconvergence.org/
+  role: research_inventory
+- code: A12
+  residents:
+  - ashley
+  label: Conscious Growth — homepage
+  kind: organizational_account
+  date: null
+  url: https://www.consciousgrowth.life/
+  role: organizational_account
+- code: A13
+  residents:
+  - ashley
+  label: 'Bonn, Conscious Growth: From a Linear Economy to Reciprocity (Portland State University, Fall 2018)'
+  kind: founder_supplied_paper
+  date: '2018'
+  url: null
+  role: primary_anchor
+  notes: Founder-supplied; full text reviewed in the Oct 17 research. Not public; not reproduced. Also cited as
+    AS1.
+- code: AS2
+  residents:
+  - ashley
+  label: Freire, Pedagogy of the Oppressed, chapter 2
+  kind: book_chapter
+  date: '1970'
+  url: https://sites.duke.edu/opendesignacademy/files/2021/10/Freire-Pedagogy-of-the-Oppressed-Chapter-2.pdf
+  role: editorial_comparison
+- code: AS3
+  residents:
+  - ashley
+  label: 'Korhonen, Honkasalo & Seppälä (2018), Circular Economy: The Concept and Its Limitations'
+  kind: academic_article_abstract
+  date: '2018'
+  url: https://doi.org/10.1016/j.ecolecon.2017.06.041
+  role: editorial_comparison
+- code: AS4
+  residents:
+  - ashley
+  label: 'Meadows (1999), Leverage Points: Places to Intervene in a System'
+  kind: essay
+  date: '1999'
+  url: https://donellameadows.org/archives/leverage-points-places-to-intervene-in-a-system/
+  role: editorial_comparison
+- code: AS5
+  residents:
+  - ashley
+  label: Ostrom (2010), Beyond Markets and States (AER)
+  kind: academic_article
+  date: '2010'
+  url: https://www.aeaweb.org/articles?id=10.1257/aer.100.3.641
+  role: editorial_comparison
+- code: AS6
+  residents:
+  - ashley
+  label: Kimmerer (2022), The Serviceberry
+  kind: essay
+  date: '2022'
+  url: https://emergencemagazine.org/essay/the-serviceberry/
+  role: editorial_comparison
+  notes: Later than the 2018 paper; not an influence on it.
+- code: AS7
+  residents:
+  - ashley
+  label: Joanna Macy, The Work That Reconnects
+  kind: author_website
+  date: null
+  url: https://www.joannamacy.net/main
+  role: editorial_comparison
+- code: AS8
+  residents:
+  - ashley
+  label: 'Caswell & Cifor (2016), From Human Rights to Feminist Ethics: Radical Empathy in the Archives'
+  kind: academic_article_abstract
+  date: '2016'
+  url: https://archivaria.ca/index.php/archivaria/article/view/13557
+  role: editorial_comparison
+- code: R1
+  residents:
+  - ralph
+  label: Emerson, Self-Reliance
+  kind: primary_text_public_domain
+  date: '1841'
+  url: https://depts.washington.edu/lsearlec/TEXTS/EMERSON/SELFREL.HTM
+  role: primary_anchor
+- code: R2
+  residents:
+  - ralph
+  label: Emerson, The American Scholar
+  kind: primary_text_public_domain
+  date: '1837-08-31'
+  url: https://emersoncentral.com/texts/nature-addresses-lectures/addresses/the-american-scholar/
+  role: primary_anchor
+  notes: Emerson Central pages include modern editorial material; rely on the historical text.
+- code: R3
+  residents:
+  - ralph
+  label: Emerson, Nature — introduction
+  kind: primary_text_public_domain
+  date: '1836'
+  url: https://emersoncentral.com/texts/nature-addresses-lectures/nature2/introduction/
+  role: primary_anchor
+  notes: Emerson Central pages include modern editorial material; rely on the historical text.
+- code: R4
+  residents:
+  - ralph
+  label: Emerson, Friendship
+  kind: primary_text_public_domain
+  date: '1841'
+  url: https://emersoncentral.com/texts/essays-first-series/friendship/
+  role: primary_anchor
+  notes: Emerson Central pages include modern editorial material; rely on the historical text.
+- code: R5
+  residents:
+  - ralph
+  label: Emerson, Circles
+  kind: primary_text_public_domain
+  date: '1841'
+  url: https://emersoncentral.com/texts/essays-first-series/circles/
+  role: primary_anchor
+  notes: Emerson Central pages include modern editorial material; rely on the historical text.
+- code: R6
+  residents:
+  - ralph
+  label: Emerson, Experience
+  kind: primary_text_public_domain
+  date: '1844'
+  url: https://emersoncentral.com/texts/essays-second-series/experience/
+  role: primary_anchor
+  notes: Emerson Central pages include modern editorial material; rely on the historical text.
+- code: R7
+  residents:
+  - ralph
+  label: Emerson, The Fugitive Slave Law (address)
+  kind: primary_text_public_domain
+  date: '1851-05-03'
+  url: https://emersoncentral.com/texts/miscellanies/the-fugitive-slave-law/
+  role: primary_anchor
+  notes: Emerson Central pages include modern editorial material; rely on the historical text.
+- code: R8
+  residents:
+  - ralph
+  label: Thoreau, Walden — Where I Lived, and What I Lived For (printed pp. 100–101)
+  kind: primary_text_public_domain
+  date: '1854'
+  url: https://www.walden.org/wp-content/uploads/2016/03/Walden02WhereILived.pdf
+  role: primary_anchor
+- code: R9
+  residents:
+  - ralph
+  label: Thoreau, Walden — Economy (printed p. 34)
+  kind: primary_text_public_domain
+  date: '1854'
+  url: https://www.walden.org/wp-content/uploads/2016/03/Walden01Economy.pdf
+  role: primary_anchor
+- code: R10
+  residents:
+  - ralph
+  label: Thoreau, Walden — Visitors
+  kind: primary_text_public_domain
+  date: '1854'
+  url: https://www.walden.org/wp-content/uploads/2016/03/Walden06Visitors.pdf
+  role: primary_anchor
+- code: R11
+  residents:
+  - ralph
+  label: Thoreau, Resistance to Civil Government
+  kind: primary_text_public_domain
+  date: '1849'
+  url: https://www.walden.org/wp-content/uploads/2016/03/CivilDisobedience.pdf
+  role: primary_anchor
+- code: R12
+  residents:
+  - ralph
+  label: Thoreau, Walking
+  kind: primary_text_public_domain
+  date: '1862'
+  url: https://www.walden.org/wp-content/uploads/2016/03/Walking.pdf
+  role: primary_anchor
+- code: R13
+  residents:
+  - ralph
+  label: Thoreau, A Plea for Captain John Brown
+  kind: primary_text_public_domain
+  date: '1859-10-30'
+  url: https://avalon.law.yale.edu/19th_century/thoreau_001.asp
+  role: primary_anchor
+- code: B1
+  residents:
+  - bernie
+  label: State of the Union (CNN) interview with Bernie Sanders
+  kind: primary_interview_transcript
+  date: '2019-06-09'
+  url: https://transcripts.cnn.com/show/sotu/date/2019-06-09/segment/01
+  role: primary_anchor
+- code: B2
+  residents:
+  - bernie
+  label: Bernie Sanders Defines Democratic Socialism in Georgetown Speech
+  kind: host_institution_event_report
+  date: '2015'
+  url: https://www.georgetown.edu/news/bernie-sanders-defines-democratic-socialism-in-georgetown-speech/
+  role: primary_anchor
+- code: B3
+  residents:
+  - bernie
+  label: Medicare for All Act introduction
+  kind: official_policy_statement
+  date: '2025-04-29'
+  url: https://www.sanders.senate.gov/press-releases/news-sanders-jayapal-dingell-hundreds-of-health-care-workers-introduce-medicare-for-all/
+  role: primary_anchor
+  notes: Policy announcements document proposals and values, not achieved outcomes.
+- code: B4
+  residents:
+  - bernie
+  label: Workplace Democracy Act introduction (co-introducing senator release)
+  kind: official_release
+  date: '2018-05-09'
+  url: https://www.gillibrand.senate.gov/news/press/release/gillibrand-sanders-pocan-introduce-legislation-to-protect-and-strengthen-workers-rights/
+  role: primary_anchor
+- code: B5
+  residents:
+  - bernie
+  label: 32-hour workweek with no loss in pay — proposal
+  kind: official_proposal
+  date: '2024-03-13'
+  url: https://www.sanders.senate.gov/press-releases/news-sanders-introduces-legislation-to-enact-a-32-hour-workweek-with-no-loss-in-pay/
+  role: primary_anchor
+  notes: Policy announcements document proposals and values, not achieved outcomes.
+- code: B6
+  residents:
+  - bernie
+  label: Green New Deal for Public Housing Act
+  kind: official_policy_proposal
+  date: '2024'
+  url: https://www.sanders.senate.gov/press-releases/news-sanders-and-ocasio-cortez-reintroduce-green-new-deal-for-public-housing-act/
+  role: primary_anchor
+  notes: Policy announcements document proposals and values, not achieved outcomes.
+- code: B7
+  residents:
+  - bernie
+  label: Resolution condemning bigotry on campuses; protecting free speech and protest
+  kind: official_prepared_remarks
+  date: '2024-05-07'
+  url: https://www.sanders.senate.gov/press-releases/news-sanders-offers-resolution-to-condemn-bigotry-in-all-forms-on-college-campuses-and-calls-for-the-protection-of-students-right-to-free-speech-and-protest/
+  role: primary_anchor
+- code: B8
+  residents:
+  - bernie
+  label: Congressional Record — veterans care agreement (printed p. S3458)
+  kind: official_senate_record
+  date: '2014-06-05'
+  url: https://www.govinfo.gov/content/pkg/CREC-2014-06-05/pdf/CREC-2014-06-05.pdf
+  role: primary_anchor
+- code: B9
+  residents:
+  - bernie
+  label: Statement on grassroots organizing
+  kind: official_statement
+  date: '2016-11-18'
+  url: https://www.sanders.senate.gov/press-releases/sanders-statement-on-trumps-reactionary-agenda/
+  role: primary_anchor
+- code: B10
+  residents:
+  - bernie
+  label: Regulating AI Is as American as Apple Pie
+  kind: official_prepared_remarks
+  date: '2026-09-15'
+  url: https://www.sanders.senate.gov/press-releases/prepared-remarks-sanders-regulating-ai-is-as-american-as-apple-pie/
+  role: primary_anchor
+- code: B11
+  residents:
+  - bernie
+  label: Yes, the Rich Must Start Paying Their Fair Share of Taxes
+  kind: authored_opinion
+  date: '2026-04-01'
+  url: https://www.sanders.senate.gov/op-eds/yes-the-rich-must-start-paying-their-fair-share-of-taxes/
+  role: primary_anchor
+- code: O1
+  residents:
+  - mao
+  label: Fundación Camino Rojo — biography and mission (identifies Mao Tatanka as Mauricio Hernández)
+  kind: organizational_self_description
+  date: null
+  url: https://fundacioncaminorojo.org/
+  role: organizational_account
+  notes: Not independent verification of authority or outcomes.
+- code: O2
+  residents:
+  - mao
+  label: Hamblecha Solsticio 2004 — invitation attributed to Mao
+  kind: legacy_mirror
+  date: 2004-12
+  url: https://www.geocities.ws/kmyley/HAMBLECHA.htm
+  role: research_inventory
+  notes: Limited provenance.
+- code: O3
+  residents:
+  - mao
+  label: Inipi y temazcal presentation (reproduces attributed correspondence)
+  kind: third_party_upload
+  date: '2011-03-22'
+  url: https://fr.scribd.com/doc/52269014/inipi-y-temazcal
+  role: research_inventory
+  notes: Original correspondence not authenticated.
+- code: O4
+  residents:
+  - mao
+  label: Medicine Festival — sweat lodge bookings
+  kind: organizer_promotion
+  date: '2026-08-13'
+  url: https://tickets.medicinefestival.com/book-sweat-lodge
+  role: research_inventory
+  notes: Advertised role only. Lineage references there concern another practitioner (Jeremy Gordon) and must not
+    be transferred to Mao.
+- code: O5
+  residents:
+  - mao
+  label: PachaMama — Qayla biography
+  kind: host_community_account
+  date: null
+  url: https://www.pachamama.com/therapist/qayla/
+  role: research_inventory
+  notes: A particular mentorship account; not universal ceremonial authority.
+- code: O6
+  residents:
+  - mao
+  label: PachaMama — Vision Quest program
+  kind: community_program_description
+  date: null
+  url: https://www.pachamama.com/event/vision-quest/
+  role: research_inventory
+  notes: That community's practices; not attributable personally to Mao.
+- code: O7
+  residents:
+  - mao
+  label: 'Nick Barbachano, Familia — credits (Mao: vocals, harmonica)'
+  kind: artist_credits
+  date: '2015-05-30'
+  url: https://nickbarbachanomusic.bandcamp.com/album/familia
+  role: credits_record
+- code: O8
+  residents:
+  - mao
+  label: Nick Barbachano, "Mao Tatanka" — credits (Mao credited as writer)
+  kind: artist_credits
+  date: null
+  url: https://nickbarbachanomusic.bandcamp.com/track/mao-tatanka
+  role: credits_record
+- code: O9
+  residents:
+  - mao
+  label: Nick Barbachano, "Plantas Sagradas" — credits (writer Danit Treubig; Mao backing vocals)
+  kind: artist_credits
+  date: null
+  url: https://nickbarbachanomusic.bandcamp.com/track/plantas-sagradas
+  role: credits_record
+- code: O10
+  residents:
+  - mao
+  label: 'Danit, Aliento — credits (Mao: waira, walca, eagle whistle, whistling, backing vocals; all tracks by Danit
+    Treubig)'
+  kind: artist_credits
+  date: '2017-01-24'
+  url: https://danit.bandcamp.com/album/aliento
+  role: credits_record
+- code: O11
+  residents:
+  - mao
+  label: 'Puentes, Amerikua — credits (Mao: whistling, spoken prayer on Nuestro Mundo, backing vocals)'
+  kind: artist_credits
+  date: '2021'
+  url: https://puentes2.bandcamp.com/album/amerikua
+  role: credits_record
+- code: O12
+  residents:
+  - mao
+  label: Anton Bilton — Entities documentary description
+  kind: participant_promoter_account
+  date: null
+  url: https://www.antonbilton.com/documentary/
+  role: research_inventory
+- code: O13
+  residents:
+  - mao
+  label: Imperial College — extended DMT research coverage
+  kind: institutional_news
+  date: null
+  url: https://www.imperial.ac.uk/news/249434/bendy-x-rays-dmt-infusions-news-from/amp/
+  role: research_inventory
+  notes: Verifies a study existed, not Mao's participation.
+- code: O14
+  residents:
+  - mao
+  label: Spirit Plant Medicine Conference (23–25 Oct 2026)
+  kind: event_information
+  date: '2026-10-23'
+  url: https://spiritplantmedicine.com/?p=2895
+  role: research_inventory
+  notes: Attendance unverified.
+- code: MO5
+  residents:
+  - mao
+  label: Mauss, The Gift (expanded edition, ed. Guyer)
+  kind: book
+  date: '1925'
+  url: https://haubooks.org/wp-content/uploads/2020/11/Marcel-Mauss-The-Gift-Expanded-Edition-Selected-Annotated-and-Translated-by-Jane-Guyer.pdf
+  role: editorial_comparison
+- code: MO6
+  residents:
+  - mao
+  label: Turner (1969), The Ritual Process
+  kind: book_description
+  date: '1969'
+  url: https://www.routledge.com/The-Ritual-Process-Structure-and-Anti-Structure/Turner/p/book/9781315134666
+  role: editorial_comparison
+- code: MO8
+  residents:
+  - mao
+  label: Tronto (2013), Caring Democracy (publisher page)
+  kind: book_description
+  date: '2013'
+  url: https://nyupress.org/9780814782774/caring-democracy/
+  role: editorial_comparison
+- code: MO9
+  residents:
+  - mao
+  label: Whyte (2017), Indigenous Climate Change Studies
+  kind: academic_article
+  date: '2017'
+  url: https://doi.org/10.1215/00138282-55.1-2.153
+  role: editorial_comparison
+  notes: Not permission to adapt cultural practices.
+- code: MO10
+  residents:
+  - mao
+  label: Tuck & Yang (2012), Decolonization Is Not a Metaphor
+  kind: academic_article
+  date: '2012'
+  url: https://jps.library.utoronto.ca/index.php/des/article/download/18630/15554/43263
+  role: editorial_comparison
+- code: P0
+  residents:
+  - pepper
+  label: YAIMA, OvO — album and credits (lyrics credited to Pepper Proud)
+  kind: artist_published_album
+  date: '2016-11-18'
+  url: https://yaimamusic.bandcamp.com/album/ovo
+  role: credits_record
+- code: P1
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Reflection (Water)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://pepperproud.bandcamp.com/track/reflection
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): fear, attention, stillness, slow change, restraint.'
+- code: P2
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Salty Bodies (Water)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://pepperproud.bandcamp.com/track/salty-bodies-2
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): journeys converging, gratitude, trust amid uncertainty.'
+- code: P3
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Atlanta (Water)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://pepperproud.bandcamp.com/track/atlanta
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): extraction and damaged land on a gold-seeking journey.'
+- code: P4
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Slow (Water)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://pepperproud.bandcamp.com/track/slow
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): worry, an overburdened heart, rest, intimacy, change.'
+- code: P5
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Reservoir (Water)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://pepperproud.bandcamp.com/track/reservoir
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): water, distance, ecological harm, companionship that leaves a choice.'
+- code: P6
+  residents:
+  - pepper
+  label: Pepper Proud lyric — City Water (Water)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://pepperproud.bandcamp.com/track/city-water
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): doubt and creative frustration; a sustaining presence.'
+- code: P7
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Patterns Repeat (Water)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://pepperproud.bandcamp.com/album/water
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): longing, absence, the gap between aspiration and expected life.'
+- code: P8
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Waking From Sleep (OvO)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://yaimamusic.bandcamp.com/track/waking-from-sleep
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): ecological damage, anger, denied truth, urgency, collective fate.'
+- code: P9
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Inner Worlds (OvO)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://yaimamusic.bandcamp.com/track/inner-worlds
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): roots, branches and leaves as reciprocity and flexibility.'
+- code: P10
+  residents:
+  - pepper
+  label: Pepper Proud lyric — Our Game (OvO)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://yaimamusic.bandcamp.com/track/our-game
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): regained shared agency away from domination.'
+- code: P11
+  residents:
+  - pepper
+  label: Pepper Proud lyric — It's Written In The Wind (OvO)
+  kind: artist_published_lyric_text
+  date: null
+  url: https://yaimamusic.bandcamp.com/track/its-written-in-the-wind
+  role: primary_anchor
+  notes: 'Themes only (no lyric text stored): listening and silence against desire that distorts perception.'
+- code: PE8
+  residents:
+  - pepper
+  label: Tronto (1993), Moral Boundaries, ch. 5 — An Ethic of Care
+  kind: chapter_abstract
+  date: '1993'
+  url: https://doi.org/10.4324/9781003070672-8
+  role: editorial_comparison
+- code: PE9
+  residents:
+  - pepper
+  label: Keats, letter to George and Thomas Keats (Dec 1817) — negative capability
+  kind: primary_text_public_domain
+  date: 1817-12
+  url: https://www.gutenberg.org/files/35698/35698-h/35698-h.htm
+  role: editorial_comparison
+  notes: Literary analogy only.
+- code: PE10
+  residents:
+  - pepper
+  label: Dewey (1910), How We Think, ch. 1
+  kind: primary_text_public_domain
+  date: '1910'
+  url: https://www.gutenberg.org/files/37423/37423-h/37423-h.htm
+  role: editorial_comparison
+- code: PE15
+  residents:
+  - pepper
+  label: Leopold (1949), The Land Ethic
+  kind: essay_excerpts
+  date: '1949'
+  url: https://www.aldoleopold.org/blogs/understanding-the-land-ethic
+  role: editorial_comparison
+- code: PE16
+  residents:
+  - pepper
+  label: Morris (1884), Useful Work versus Useless Toil
+  kind: primary_text_public_domain
+  date: '1884'
+  url: https://www.marxists.org/archive/morris/works/1884/useful.htm
+  role: editorial_comparison
+- code: PE17
+  residents:
+  - pepper
+  label: Ostrom (2010), Beyond Markets and States (pp. 642, 653)
+  kind: academic_article
+  date: '2010'
+  url: https://web.pdx.edu/~nwallace/EHP/OstromPolyGov.pdf
+  role: editorial_comparison
+- code: N1
+  residents:
+  - anna
+  label: Anna Brown — Wonderfully Nothing (official teaching)
+  kind: official_self_description
+  date: null
+  url: https://www.wonderfullynothing.com/
+  role: primary_anchor
+  notes: Metaphysical teachings (Gaia, ascension, vibration) are not neuroscience.
+- code: N2
+  residents:
+  - anna
+  label: You Do Not Need to Heal Yourself Before You Reveal Yourself
+  kind: authored_spiritual_essay
+  date: '2020-08-21'
+  url: https://www.wonderfullynothing.com/post/you-do-not-need-to-heal-yourself-before-you-reveal-yourself
+  role: primary_anchor
+  notes: Not advice to avoid medical or psychological care.
+- code: N3
+  residents:
+  - anna
+  label: There Is No Ego — Welcome to the Shift in Consciousness
+  kind: authored_spiritual_essay
+  date: '2024-02-20'
+  url: https://www.wonderfullynothing.com/post/there-is-no-ego-welcome-to-the-shift-in-consciousness
+  role: primary_anchor
+- code: N4
+  residents:
+  - anna
+  label: The Heart Space
+  kind: contemplative_practice_description
+  date: null
+  url: https://www.wonderfullynothing.com/heartpower
+  role: primary_anchor
+- code: N5
+  residents:
+  - anna
+  label: Penetrate The Mind
+  kind: authored_spiritual_essay
+  date: 2025-08
+  url: https://www.wonderfullynothing.com/post/penetrate-the-mind
+  role: primary_anchor
+  notes: Sits in unresolved tension with N2 (no separate chooser); keep dates, do not invent a reconciliation.
+- code: N6
+  residents:
+  - anna
+  label: Public course catalogue
+  kind: official_course_descriptions
+  date: null
+  url: https://www.wonderfullynothing.com/video-downloads
+  role: research_inventory
+  notes: URL mapping inferred.
+- code: N7
+  residents:
+  - anna
+  label: Wonderfully Nothing blog
+  kind: official_blog_listings
+  date: null
+  url: https://www.wonderfullynothing.com/blog-1
+  role: research_inventory
+  notes: Some dates omit year.
+- code: N8
+  residents:
+  - anna
+  label: AI No Thank You
+  kind: official_post
+  date: unconfirmed (25 Feb displayed)
+  url: https://www.wonderfullynothing.com/post/ai-no-thank-you
+  role: primary_anchor
+  notes: Criticizes replacing intuitive emotional intelligence with AI. Not a response to this project; no permission
+    or endorsement obtained.
+- code: N9
+  residents:
+  - anna
+  label: Private session description (spiritual guidance; disclaims therapy)
+  kind: official_service_description
+  date: null
+  url: https://www.wonderfullynothing.com/service-page/activating-your-light-60-minutes-7
+  role: research_inventory
+- code: N10
+  residents:
+  - anna
+  label: Simon Rilling ep. 142 — Who We Truly Are Beyond Concept
+  kind: host_episode_account
+  date: '2023-01-19'
+  url: https://simonrilling.com/2023/01/19/who-we-truly-are-beyond-concept-wonderfully-nothing-absolutely-everything-anna-brown-142/
+  role: listening_lead
+- code: N11
+  residents:
+  - anna
+  label: Inspired Evolution ep. 473 — Anna Brown on Non-Duality and Identity Dissolution
+  kind: host_episode_account
+  date: '2025-05-11'
+  url: https://shows.acast.com/inspiredevolution/episodes/ie473-anna-brown-on-non-duality-identity-dissolution-the-ill
+  role: listening_lead
+- code: N12
+  residents:
+  - anna
+  label: Inspired Evolution — interview video
+  kind: published_video
+  date: '2025'
+  url: https://www.youtube.com/watch?v=fOM-_PNhz3Y
+  role: listening_lead
+  notes: No full transcript reviewed.
+- code: AN1
+  residents:
+  - anna
+  label: Gallagher (2000), Philosophical conceptions of the self
+  kind: academic_article
+  date: '2000'
+  url: null
+  role: editorial_comparison
+  notes: DOI in source PDF is truncated (10.1016/S1364-6613(99)...); re-resolve on retrieval.
+- code: AN2
+  residents:
+  - anna
+  label: Thompson (2011), Self, No Self? (reflexive awareness)
+  kind: academic_chapter
+  date: '2011'
+  url: https://evanthompson.me/wp-content/uploads/2012/11/self-no-self.pdf
+  role: editorial_comparison
+- code: AN3
+  residents:
+  - anna
+  label: Thompson (2020), Clarifying why I am not a Buddhist — methodological response
+  kind: blog_essay
+  date: '2020-04-25'
+  url: https://indianphilosophyblog.org/2020/04/25/clarifying-why-i-am-not-a-buddhist-a-response-to-amod-lele-guest-post-by-evan-thompson/
+  role: editorial_comparison
+- code: AN4
+  residents:
+  - anna
+  label: De Jaegher & Di Paolo (2007), Participatory sense-making
+  kind: academic_article
+  date: '2007'
+  url: https://doi.org/10.1007/s11097-007-9076-9
+  role: editorial_comparison
+- code: AN6
+  residents:
+  - anna
+  label: Welwood — on spiritual bypassing (Tricycle interview)
+  kind: interview
+  date: null
+  url: https://tricycle.org/magazine/human-nature-buddha-nature/
+  role: editorial_comparison
+- code: AN7
+  residents:
+  - anna
+  label: 'Bender & Koller (2020), Climbing towards NLU: On Meaning, Form, and Understanding'
+  kind: academic_article
+  date: '2020'
+  url: https://aclanthology.org/2020.acl-main.463.pdf
+  role: editorial_comparison
+- code: HV-GUIDE-2026-10-20
+  residents:
+  - tony
+  - mark
+  - haize
+  - ashley
+  - ralph
+  - bernie
+  - mao
+  - pepper
+  - anna
+  label: Healthy Village — Expanded project guide (Founder)
+  kind: founder_design_document
+  date: '2026-10-20'
+  url: null
+  role: founder_design
+  notes: Loaded foundations, editorial interpretations, trial status.
+- code: HV-PROFILES-2026-10-17
+  residents:
+  - tony
+  - mark
+  - haize
+  - ashley
+  - ralph
+  - bernie
+  - mao
+  - pepper
+  - anna
+  label: Healthy Village Complete Character Profiles, incl. working character research of 17 Oct 2026 (Founder)
+  kind: founder_design_document
+  date: '2026-10-17'
+  url: null
+  role: founder_design
+  notes: Documented foundations, proposed fictional directions, scenes worth testing, source appendix.

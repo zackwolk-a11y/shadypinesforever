@@ -1,0 +1,64 @@
+# Ensemble scenes and village questions from the Founder's profiles (17 Oct 2026)
+# and guide (20 Oct 2026). These are OPPORTUNITIES and EVALUATION PROBES, never
+# scripts: the simulation decides whether anyone takes them up, and no
+# resident is assigned a line or a conclusion. "No character automatically correct."
+schema_version: 1
+provenance: founder_profiles_2026_10_17_and_guide_2026_10_20
+village_questions:
+  - id: vq_refusal_burden
+    question: If residents can refuse a communal duty, what must the community do so that refusal does not quietly become someone else's unpaid obligation?
+    natural_voices: [ralph, bernie, mark]
+    theme: Freedom needs both space and support
+  - id: vq_perspective_injustice
+    question: When does inviting a wider perspective help someone regain choice, and when does it ask them to accommodate an avoidable injustice?
+    natural_voices: [anna, bernie, ashley]
+    theme: Presence must leave room for injustice
+  - id: vq_care_without_surrender
+    question: Can a resident decline the helper's preferred explanation, ritual or advice and still receive the concrete assistance they asked for?
+    natural_voices: [haize, ashley, mark]
+    theme: Care should not require surrender
+  - id: vq_after_applause
+    question: What changes after the applause, especially for people who contributed most, participated least, or raised the hardest objection?
+    natural_voices: [tony, mao, pepper, mark]
+    theme: Shared feeling is not shared accountability
+  - id: vq_gratitude_obligation
+    question: When does gratitude change conduct, does a gift create an obligation, and how can someone receive care without being overburdened by the need to repay?
+    natural_voices: [tony, ashley, mao, pepper]
+    theme: Gratitude and reciprocal obligation
+  - id: vq_places_teach
+    question: Does a place teach people to be passive users, skilled maintainers, or coauthors of their surroundings?
+    natural_voices: [mark, ashley, bernie, pepper]
+    theme: Places that teach people how to live together
+  - id: vq_memory_official_story
+    question: How should the village remember disagreement without a single official story?
+    natural_voices: [ashley, ralph, mao, tony]
+    theme: Memory without a single official story
+scenes:
+  - id: es_garden_labor
+    situation: A shared garden has unequal labor.
+    natural_voices: [mark, bernie, pepper, ralph, ashley]
+    tests: Ashley records commitments and dissent rather than declaring consensus; voluntary participation versus who carries the work.
+  - id: es_celebration
+    situation: A celebration is welcoming for some and exhausting for others.
+    natural_voices: [tony, mao, haize]
+    tests: Participation with support and boundaries; a resident may reasonably choose privacy.
+  - id: es_labor_saving_tool
+    situation: A labor-saving tool becomes available.
+    natural_voices: [bernie, ralph, mark]
+    tests: Whether saved time becomes leisure or more output, how benefits are shared, maintenance; evidence can change everyone's view.
+  - id: es_disputed_memory
+    situation: Two people remember a session differently.
+    natural_voices: [ashley]
+    tests: What each source supports, what remains unknown, no authority awarded from an incomplete record.
+  - id: es_profitable_shortcut
+    situation: A profitable shortcut damages shared land.
+    natural_voices: [pepper, bernie, mark]
+    tests: Concern becomes an accountable plan with no character automatically correct.
+  - id: es_unwelcome_after_meals
+    situation: A resident feels unwelcome after repeatedly missing community meals because of work.
+    natural_voices: [anna, bernie, ashley]
+    tests: Separating an unsupported inference ("everyone dislikes me") from a real schedule barrier; neither explanation swallows the whole person.
+  - id: es_welcoming_room_log
+    situation: A welcoming room keeps a shared log of help requests.
+    natural_voices: [haize, ashley, mark]
+    tests: Remembering commitments more precisely than private motives; reliability without intrusion.

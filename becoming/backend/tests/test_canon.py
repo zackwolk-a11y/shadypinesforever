@@ -7,7 +7,8 @@ from pydantic import ValidationError
 
 from becoming import CANON_DIR
 from becoming.canon import (
-    RESIDENT_IDS, ResidentSpec, load_curriculum, load_residents, load_style_paragraph,
+    RESIDENT_IDS, ResidentSpec, SourceRegistry, load_curriculum, load_ensemble,
+    load_residents, load_sources, load_style_paragraph,
 )
 
 
@@ -34,11 +35,59 @@ def test_forbidden_or_legacy_roster_rejected(bad_id):
         ResidentSpec.model_validate(raw)
 
 
+def _registry_raw():
+    return yaml.safe_load((CANON_DIR / "sources" / "registry.yaml").read_text())
+
+
 def test_canon_cannot_claim_a_verified_source():
-    raw = _raw()
+    raw = _registry_raw()
     raw["sources"][0]["status"] = "retrieved_verified"
     with pytest.raises(ValidationError, match="research pipeline"):
+        SourceRegistry.model_validate(raw)
+
+
+def test_every_cited_source_exists_and_is_assigned(residents):
+    known = load_sources().by_code()
+    for spec in residents.values():
+        for code in spec.source_codes:
+            assert spec.id in known[code].residents
+
+
+def test_unknown_source_code_is_rejected(tmp_path):
+    for f in (CANON_DIR / "residents").glob("*.yaml"):
+        raw = yaml.safe_load(f.read_text())
+        if raw["id"] == "tony":
+            raw["source_codes"].append("T999")
+        (tmp_path / f.name).write_text(yaml.safe_dump(raw))
+    with pytest.raises(ValueError, match="T999"):
+        load_residents(tmp_path)
+
+
+def test_foundations_cite_only_listed_sources():
+    raw = _raw()
+    raw["documented_foundations"][0]["sources"] = ["M3"]
+    with pytest.raises(ValidationError, match="not in source_codes"):
         ResidentSpec.model_validate(raw)
+
+
+def test_editorial_comparisons_are_labeled():
+    reg = load_sources().by_code()
+    for code in ("TK1", "MK2", "HK5", "AS4", "MO5", "PE15", "AN7"):
+        assert reg[code].role == "editorial_comparison"
+
+
+def test_pepper_sources_are_lyrics_and_editorial_only():
+    reg = load_sources().by_code()
+    spec = load_residents()["pepper"]
+    for code in spec.source_codes:
+        assert reg[code].role in {"primary_anchor", "credits_record", "editorial_comparison"}
+        if reg[code].role == "primary_anchor":
+            assert reg[code].kind == "artist_published_lyric_text"
+
+
+def test_ensemble_scenes_load():
+    ens = load_ensemble()
+    assert len(ens.village_questions) == 7 and len(ens.scenes) == 7
 
 
 @pytest.mark.parametrize("field", ["memories", "individual_memories", "shared_memories", "development_history", "relationship_history"])
@@ -71,7 +120,7 @@ def test_every_resident_names_the_real_inspiration_as_non_participant(residents)
         elif spec.id == "ralph":
             assert "emerson" in text and "thoreau" in text
         else:
-            assert "not a participant" in text or "is not a participant" in text
+            assert "not a participant" in text
 
 
 def test_relationship_seeds_point_at_residents(residents):
