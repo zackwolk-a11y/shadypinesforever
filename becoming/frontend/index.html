@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Healthy Village — The Village of Becoming</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <header>
+    <h1>The Village of Becoming</h1>
+    <p id="honesty" role="status">Simulation not running yet. Residents stand at home and will only move when the simulation records a real event.</p>
+  </header>
+  <main>
+    <section id="world" aria-label="Village map">
+      <div id="game"></div>
+      <div id="controls">
+        <button id="zoom-in" aria-label="Zoom in">+</button>
+        <button id="zoom-out" aria-label="Zoom out">−</button>
+      </div>
+      <div id="actions">
+        <button id="talk-btn" hidden>Talk</button>
+        <button id="enter" hidden>Enter</button>
+      </div>
+      <div id="dpad" aria-label="Movement pad">
+        <button data-dir="up" aria-label="Walk up">▲</button>
+        <button data-dir="left" aria-label="Walk left">◀</button>
+        <button data-dir="right" aria-label="Walk right">▶</button>
+        <button data-dir="down" aria-label="Walk down">▼</button>
+      </div>
+      <section id="talk" hidden aria-label="Conversation">
+        <header>
+          <img id="talk-portrait" alt="" />
+          <strong id="talk-name"></strong>
+          <button id="talk-close" aria-label="Close conversation">✕</button>
+        </header>
+        <p id="talk-status" class="muted"></p>
+        <div id="talk-log" aria-live="polite"></div>
+        <form id="talk-form">
+          <input id="talk-input" autocomplete="off" placeholder="Say something…" aria-label="Your message" />
+          <button id="talk-send" type="submit">Send</button>
+        </form>
+      </section>
+      <p id="hint">Move: arrow keys / WASD, the pad, or tap the map. Near a door: E or Enter. Near a resident: T or Talk.</p>
+    </section>
+    <aside id="panel" aria-live="polite">
+      <div id="detail"><p class="muted">Click a resident to see who they are.</p></div>
+      <nav aria-label="Text navigation">
+        <h2>Go to</h2>
+        <ul id="places"></ul>
+        <h2>Residents</h2>
+        <ul id="people"></ul>
+      </nav>
+    </aside>
+  </main>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

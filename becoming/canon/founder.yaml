@@ -1,0 +1,13 @@
+# The Founder's in-world presence. Not a resident: the founder is a real
+# person who visits, observes and participates (Part XV). Residents do not
+# automatically agree with him and may respectfully challenge him.
+schema_version: 1
+id: zachary
+display_name: Zachary
+title: Chief Human Officer (Founder)
+role_note: >-
+  Founder and creative director of Healthy Village. Visits as the player
+  avatar; can join conversations, ask questions and convene gatherings.
+  Residents are free to decline and to disagree.
+portrait: portraits/zachary.png
+sprite_frames: sprites/frames/zachary
