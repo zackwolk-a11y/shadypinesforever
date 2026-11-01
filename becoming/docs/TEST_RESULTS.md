@@ -37,3 +37,8 @@ Old project regression (untouched): `pytest tests` at repo root → 27 passed.
 - `backend pytest -q` → **43 passed** (adds the conversation-patterns check: labelled fiction, 12 types, 75 topics, voices are real residents).
 - Browser: buildings 12/12; talk/mobile/overhear **21/21 checks pass**: prompt carries the chosen type, a Days theme and the craft rules, and forbids invented memories; the cast comes from the type's voices; lines stream into the transcript and raise map bubbles; non-cast lines are ignored; it is labelled a demo; without Claude it says so.
 - Live generation by Claude in the artifact is not covered by an automated test.
+
+## 2026-11-01 — Research library
+- `tools/fetch_sources.py`: 0 fetched, 127 blocked (network policy, HTTP 403 at the gateway), 15 skipped (lyrics, no public URL, design docs); every attempt recorded in research/retrievals.json.
+- `tools/build_research_library.py`: 169 founder_note passages (all nine residents; 102 cite registry codes).
+- Browser: research checks pass. Bernie's search for the McCain veterans agreement returns passages citing [B8]; Ralph's search stays within his reading; Talk offers search_library, results are labelled Founder research notes, cited sources are shown first with links (govinfo.gov), the rest folded; Overhear prompts carry each resident's reading with codes. Buildings 12/12.

@@ -417,6 +417,25 @@
     "left": 4,
     "right": 4
    },
+   "source_codes": [
+    "T1",
+    "T2",
+    "T3",
+    "T4",
+    "T5",
+    "T6",
+    "T7",
+    "T8",
+    "T9",
+    "T10",
+    "T11",
+    "TK1",
+    "TK2",
+    "TK3",
+    "TK4",
+    "TK5",
+    "TK6"
+   ],
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -523,6 +542,19 @@
     "left": 4,
     "right": 4
    },
+   "source_codes": [
+    "M1",
+    "M2",
+    "M3",
+    "M4",
+    "M5",
+    "MK1",
+    "MK2",
+    "MK3",
+    "MK4",
+    "MK5",
+    "MK6"
+   ],
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -625,6 +657,21 @@
     "left": 4,
     "right": 4
    },
+   "source_codes": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "HK1",
+    "HK2",
+    "HK3",
+    "HK4",
+    "HK5",
+    "HK6",
+    "HK7",
+    "HK8"
+   ],
    "persona": {
     "pronouns": "she/her",
     "background": [
@@ -728,6 +775,28 @@
     "left": 4,
     "right": 4
    },
+   "source_codes": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "A9",
+    "A10",
+    "A11",
+    "A12",
+    "A13",
+    "AS2",
+    "AS3",
+    "AS4",
+    "AS5",
+    "AS6",
+    "AS7",
+    "AS8"
+   ],
    "persona": {
     "pronouns": "she/her",
     "background": [
@@ -833,6 +902,21 @@
     "left": 4,
     "right": 4
    },
+   "source_codes": [
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R8",
+    "R9",
+    "R10",
+    "R11",
+    "R12",
+    "R13"
+   ],
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -940,6 +1024,19 @@
     "left": 4,
     "right": 4
    },
+   "source_codes": [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11"
+   ],
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -1044,6 +1141,28 @@
     "left": 5,
     "right": 5
    },
+   "source_codes": [
+    "O1",
+    "O2",
+    "O3",
+    "O4",
+    "O5",
+    "O6",
+    "O7",
+    "O8",
+    "O9",
+    "O10",
+    "O11",
+    "O12",
+    "O13",
+    "O14",
+    "TK2",
+    "MO5",
+    "MO6",
+    "MO8",
+    "MO9",
+    "MO10"
+   ],
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -1143,6 +1262,27 @@
     "left": 4,
     "right": 4
    },
+   "source_codes": [
+    "P0",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P7",
+    "P8",
+    "P9",
+    "P10",
+    "P11",
+    "HK8",
+    "PE8",
+    "PE9",
+    "PE10",
+    "PE15",
+    "PE16",
+    "PE17"
+   ],
    "persona": {
     "pronouns": "she/her",
     "background": [
@@ -1246,6 +1386,27 @@
     "left": 5,
     "right": 5
    },
+   "source_codes": [
+    "N1",
+    "N2",
+    "N3",
+    "N4",
+    "N5",
+    "N6",
+    "N7",
+    "N8",
+    "N9",
+    "N10",
+    "N11",
+    "N12",
+    "AN1",
+    "AN2",
+    "AN3",
+    "AN4",
+    "AN6",
+    "AN7",
+    "HK8"
+   ],
    "persona": {
     "pronouns": "she/her",
     "background": [

@@ -1,6 +1,7 @@
 import { WORLD, zoneCenter, assetUrl, type Resident } from "./world";
 import { openTalk, initTalk } from "./talk";
 import { initOverhear } from "./overhear";
+import { search, residentById } from "./research";
 
 /** Held directions from the on-screen pad, read by the village scene each frame. */
 export const pad = { up: false, down: false, left: false, right: false };
@@ -61,6 +62,7 @@ export function setEnterButton(name: string | null, onEnter?: () => void) {
 
 export function initUi(getScene: () => any) {
   initTalk();
+  (window as any).villageResearch = { search: (q: string, id?: string) => search(q, id ? residentById(id) : undefined).map((p) => ({ id: p.id, codes: p.codes, kind: p.kind })) };
   initOverhear();
   $("enter").addEventListener("click", () => enterHandler?.());
   $("talk-btn").addEventListener("click", talkToNearby);

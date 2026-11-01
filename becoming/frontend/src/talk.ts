@@ -6,6 +6,7 @@
 // later. Outside the artifact viewer there is no model, and the panel says so
 // instead of inventing replies.
 import { WORLD, assetUrl, type Resident } from "./world";
+import { search, cite, sourceList, LIBRARY } from "./research";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Sample = ((input: string | Msg[], opts?: any) => Promise<{ text: string; truncated?: boolean }>) | null;
@@ -68,6 +69,12 @@ You avoid: ${p.avoids.join("; ")}
 Your boundaries:
 ${list(p.boundaries)}
 Your home: ${p.home}
+
+Research:
+- You have a search_library tool over what you have actually read: the Founder's research notes about your sources${LIBRARY.passages.some((p) => p.kind === "source_text") ? " and short excerpts from the sources themselves" : ""}. Use it before answering anything about your ideas, the real work behind your character, history, facts, numbers or other people's views. Search more than once if the first query misses.
+- When you use a passage, mention the source naturally and add its code in brackets once, like [B8].
+- A FOUNDER RESEARCH NOTE is a summary, not the source's own words: say "from what I've read" rather than quoting it. Only quote words that appear in quotation marks inside a passage, and attribute them to their author.
+- If the library has nothing on it, say plainly that you haven't read about that, instead of guessing.
 
 Rules for this conversation:
 - Speak only as ${r.name}, in first person, in natural spoken language. Usually 2 to 4 sentences. No stage directions, no narrating actions, no lists.
@@ -134,9 +141,22 @@ async function send(text: string) {
   bubble("you", text, r.name);
   const out = bubble("them", "…", r.name);
   busy = true; ($("talk-send") as HTMLButtonElement).disabled = true;
+  const consulted: string[] = [];
+  const tools = [{
+    name: "search_library",
+    description: `Search what ${r.name} has read: research notes and source excerpts, each with source codes. Returns up to 4 passages.`,
+    inputSchema: { type: "object", properties: { query: { type: "string", description: "What to look up, in a few words" } }, required: ["query"] },
+    execute: async ({ query }: { query: string }) => {
+      const found = search(String(query ?? ""), r, 4);
+      for (const p of found) consulted.push(...p.codes, p.kind === "founder_note" ? "__notes" : "__src");
+      (window as any).__lastSearch = { query, ids: found.map((p) => p.id) };
+      return found.length ? found.map(cite).join("\n\n---\n\n") : "Nothing in your library matches that.";
+    },
+  }];
   try {
-    const res = await sample(msgs, { modelTier: "default", cache: false, onText: ({ text }: { text: string }) => { out.textContent = text; $("talk-log").scrollTop = 1e9; } });
+    const res = await sample(msgs, { modelTier: "default", cache: false, tools, onText: ({ text }: { text: string }) => { out.textContent = text; $("talk-log").scrollTop = 1e9; } });
     out.textContent = res.text;
+    showSources(res.text, consulted);
     histories.set(r.id, [...msgs, { role: "assistant", content: res.text }]);
   } catch (e: any) {
     const why = e?.code === "rate_limited" ? "Claude is rate-limited right now; try again in a little while."
@@ -146,6 +166,35 @@ async function send(text: string) {
   } finally {
     busy = false; ($("talk-send") as HTMLButtonElement).disabled = false;
   }
+}
+
+/** Under a reply: the sources it cited (prominent) and the rest it consulted (folded). */
+export function showSources(reply: string, consulted: string[]) {
+  const citedCodes = [...reply.matchAll(/\[([A-Z]{1,3}\d{1,2})\]/g)].map((m) => m[1]);
+  const cited = sourceList(citedCodes);
+  const more = sourceList(consulted.filter((c) => !c.startsWith("__") && !citedCodes.includes(c)));
+  const notes = consulted.includes("__notes");
+  const box = document.createElement("div"); box.className = "sources";
+  const link = (s: ReturnType<typeof sourceList>[number]) => {
+    const a = document.createElement(s.url ? "a" : "span") as HTMLAnchorElement;
+    a.textContent = `[${s.code}] ${s.label}${s.date ? ` (${s.date})` : ""}`;
+    if (s.url) { a.href = s.url; a.target = "_blank"; a.rel = "noopener"; }
+    return a;
+  };
+  if (!cited.length && !more.length) { box.textContent = "No library sources consulted for this reply."; box.classList.add("muted"); }
+  if (cited.length) {
+    box.append(document.createTextNode("Cited: "));
+    cited.forEach((s, i) => { box.append(link(s)); if (i < cited.length - 1) box.append("; "); });
+  }
+  if (more.length) {
+    const d = document.createElement("details");
+    const sm = document.createElement("summary");
+    sm.textContent = `${cited.length ? "Also consulted" : "Consulted"} ${more.length} source${more.length > 1 ? "s" : ""}${notes ? " (via the Founder's research notes)" : ""}`;
+    d.append(sm);
+    more.forEach((s, i) => { d.append(link(s)); if (i < more.length - 1) d.append("; "); });
+    box.append(d);
+  }
+  $("talk-log").append(box); $("talk-log").scrollTop = 1e9;
 }
 
 export function initTalk() {

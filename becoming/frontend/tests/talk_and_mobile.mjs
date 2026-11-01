@@ -123,6 +123,7 @@ const browser = await chromium.launch();
   check((await p.evaluate(() => window.__said.length)) === 6, "each line raised a speech bubble on the map");
   check(!(await p.locator("#talk-form").isVisible()), "message box hidden while overhearing");
   check((await p.locator("#talk-status").textContent()).includes("Not part of the village's history"), "labelled as a demo, not history");
+  check(prompt.includes("What the residents have read") && /\[[A-Z]{1,3}\d{1,2}\]/.test(prompt), "overheard scene carries each resident's reading with source codes");
   if (shots) await p.screenshot({ path: `${shots}/overhear.png` });
   await ctx.close();
   const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -132,6 +133,46 @@ const browser = await chromium.launch();
   await p2.waitForSelector("#talk:not([hidden])");
   check((await p2.locator("#talk-status").textContent()).includes("Nothing is invented"), "without Claude, overhearing says so");
   await ctx2.close();
+}
+// 4) Research: the library tool is offered, used, and its sources shown.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(() => {
+    window.__tool = null;
+    const sample = async (input, opts) => {
+      const t = opts?.tools?.find((x) => x.name === "search_library");
+      window.__tool = !!t;
+      let found = "";
+      if (t) found = await t.execute({ query: "veterans care agreement McCain compromise" });
+      window.__found = found;
+      const code = (found.match(/\[(B\d+)\]/) || [])[1] || "none";
+      const text = `From what I've read about that agreement [${code}], an imperfect deal can still be progress.`;
+      opts?.onText?.({ text, delta: text });
+      return { text, truncated: false };
+    };
+    window.claude = { use: async (n) => (n === "sample" ? sample : null) };
+  });
+  const p = await ctx.newPage();
+  await p.goto(URL);
+  await p.waitForFunction(() => window.village?.scene?.() === "Village");
+  const hits = await p.evaluate(() => window.villageResearch.search("veterans care agreement McCain", "bernie"));
+  check(hits.length > 0 && hits.some((h) => h.codes.includes("B8")), `search finds Bernie's McCain passage [B8] (${hits.map((h) => h.id).join(", ")})`);
+  const ralph = await p.evaluate(() => window.villageResearch.search("Walden possessions deliberate living", "ralph"));
+  check(ralph.length > 0 && ralph.every((h) => h.id.includes("ralph") || h.codes.some((c) => c.startsWith("R"))), "Ralph's search stays within what Ralph has read");
+  await p.getByRole("button", { name: "Bernie", exact: true }).click();
+  await p.getByRole("button", { name: "Talk with Bernie" }).first().click();
+  await p.fill("#talk-input", "Was the veterans deal with McCain worth it?");
+  await p.press("#talk-input", "Enter");
+  await p.waitForSelector("#talk-log .sources", { timeout: 10000 });
+  check(await p.evaluate(() => window.__tool), "search_library tool offered to the resident");
+  check((await p.evaluate(() => window.__found)).includes("FOUNDER RESEARCH NOTE"), "tool results are labelled as Founder research notes");
+  const src = await p.locator("#talk-log .sources").innerText();
+  check(src.startsWith("Cited:") && (await p.locator("#talk-log .sources details").count()) === 1, `cited source shown first, the rest folded (${src.slice(0, 80)}…)`);
+  const all = await p.locator("#talk-log .sources").evaluate((e) => e.textContent);
+  check(all.includes("[B8]") && all.includes("Congressional Record"), "the McCain agreement source [B8] is among the sources");
+  check(await p.locator("#talk-log .sources a[href*='govinfo.gov']").count() > 0, "source links to the original document");
+  if (shots) await p.screenshot({ path: `${shots}/talk_research.png` });
+  await ctx.close();
 }
 await browser.close();
 console.log(failures ? `${failures} check(s) failed` : "all talk/mobile checks passed");

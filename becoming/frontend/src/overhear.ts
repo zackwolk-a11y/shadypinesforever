@@ -6,7 +6,8 @@
 // a button press"), not the persistent simulation. It is labelled as such, is not
 // stored, and is not remembered by anyone.
 import { WORLD, assetUrl, type Resident } from "./world";
-import { getSample } from "./talk";
+import { getSample, showSources } from "./talk";
+import { search, cite } from "./research";
 
 const $ = (id: string) => document.getElementById(id)!;
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
@@ -16,7 +17,7 @@ const PLACE = (id: string) => ZONE_NAMES[id] ?? ({ kitchen: "the Community Kitch
 const TIMES = ["Morning", "Late Morning", "Afternoon", "Late Afternoon", "Evening"];
 let busy = false;
 
-export interface ScenePlan { genre: (typeof WORLD.patterns.genres)[number]; cast: Resident[]; setting: string; time: string; theme: string }
+export interface ScenePlan { genre: (typeof WORLD.patterns.genres)[number]; cast: Resident[]; setting: string; time: string; theme: string; consulted: string[] }
 
 export function planScene(genreId?: string): ScenePlan {
   const genres = WORLD.patterns.genres;
@@ -26,7 +27,7 @@ export function planScene(genreId?: string): ScenePlan {
   const day = pick(genre.example_days);
   const theme = WORLD.patterns.topics.find((t) => t.day === day)!.title;
   const time = genre.id === "evening_reflection" ? "Evening" : pick(TIMES);
-  return { genre, cast, setting: PLACE(pick(genre.settings)), time, theme };
+  return { genre, cast, setting: PLACE(pick(genre.settings)), time, theme, consulted: [] };
 }
 
 export function scenePrompt(p: ScenePlan): string {
@@ -38,6 +39,11 @@ export function scenePrompt(p: ScenePlan): string {
   Current beliefs: ${r.persona.beliefs.slice(0, 3).map((b) => `${b.statement} (confidence ${b.confidence})`).join(" | ")}
   Boundaries: ${r.persona.boundaries.join(" ")}`).join("\n\n");
   const names = p.cast.map((r) => r.name).join(", ");
+  const reading = p.cast.map((r) => {
+    const found = search(`${p.theme} ${p.genre.name} ${p.genre.shape}`, r, 2);
+    p.consulted.push(...found.flatMap((f) => f.codes), ...(found.some((f) => f.kind === "founder_note") ? ["__notes"] : []));
+    return found.length ? `${r.name} has read:\n${found.map(cite).join("\n\n")}` : `${r.name}: nothing in the library on this theme.`;
+  }).join("\n\n");
   return `Write one short scene of dialogue between fictional residents of Healthy Village, a small ecological village of nine simulated AI residents. The residents are simulated characters, not real people and not the real people who inspired them; never quote real people.
 
 Scene: ${p.time}, at ${p.setting}.
@@ -46,6 +52,10 @@ Starting theme (one of the village's story titles, use only as loose inspiration
 
 Cast:
 ${who}
+
+What the residents have read (their research; use it where it genuinely helps, never as a lecture):
+${reading}
+When a resident draws on this, they mention the source naturally and add its code in brackets once, like [B8]. A FOUNDER RESEARCH NOTE is a summary, not the source's words: no quoting it. Do not state facts, numbers or quotations beyond these passages.
 
 Style (follow closely):
 - ${c.ordinary_hooks}
@@ -102,8 +112,10 @@ export async function startOverhear(genreId?: string) {
     }
   };
   try {
-    const res = await sample(scenePrompt(plan), { modelTier: "default", cache: false, onText: ({ text }: { text: string }) => render(text, false) });
+    const prompt = scenePrompt(plan);
+    const res = await sample(prompt, { modelTier: "default", cache: false, onText: ({ text }: { text: string }) => render(text, false) });
     render(res.text, true);
+    showSources(res.text, plan.consulted);
   } catch (e: any) {
     const p = document.createElement("p"); p.className = "muted";
     p.textContent = e?.code === "rate_limited" ? "(Claude is rate-limited right now; try again shortly.)"

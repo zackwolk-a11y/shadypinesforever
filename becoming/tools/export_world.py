@@ -48,6 +48,7 @@ def main() -> None:
             "interests": s.foundational_identity.central_interests[:4],
             "home": {"building": home["building"], "x": home["x"], "y": home["y"] + 1},
             "portrait": f"portraits/{rid}.png", "frames": counts,
+            "source_codes": s.source_codes,
             "persona": {
                 "pronouns": s.pronouns,
                 "background": s.foundational_identity.background_assumptions,
@@ -84,6 +85,15 @@ def main() -> None:
         "art": raw["art"], "walkable": walk, "doors": doors, "zones": zones, "residents": residents, "founder": founder, "patterns": patterns,
     }
     OUT.write_text(json.dumps(out, indent=1))
+    lib = json.loads((ROOT / "research" / "library.json").read_text())
+    reg = yaml.safe_load((ROOT / "canon" / "sources" / "registry.yaml").read_text())["sources"]
+    library = {
+        "built": lib["built"],
+        "passages": lib["passages"],
+        "sources": {e["code"]: {"label": e["label"], "url": e.get("url"), "date": e.get("date"), "role": e["role"]} for e in reg},
+    }
+    (OUT.parent / "library.json").write_text(json.dumps(library, ensure_ascii=False))
+    print(f"wrote library.json: {len(library['passages'])} passages")
     print(f"wrote {OUT.relative_to(ROOT)}: {len(doors)} doors, {len(residents)} residents")
 
 

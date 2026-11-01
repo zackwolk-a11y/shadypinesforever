@@ -1,0 +1,996 @@
+[
+ {
+  "code": "T1",
+  "url": "https://gravitasrecordings.com/2025/01/28/tony-moss-crafting-joy-through-sound/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T2",
+  "url": "https://www.eamonarmstrong.com/lifeisafestival/tony-moss",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T3",
+  "url": "https://www.eamonarmstrong.com/lifeisafestival/tony-moss-2",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T4",
+  "url": "https://www.iamlife.music/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T5",
+  "url": "https://www.littlebuddhamusic.com/tony-moss",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T6",
+  "url": "https://www.littlebuddhamusic.com/bird-tribe",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T7",
+  "url": "https://shoutoutla.com/meet-tony-moss-artist-musician-music-and-event-producer/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T8",
+  "url": "https://iamlife.bandcamp.com/album/joy",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T9",
+  "url": "https://www.aubreymarcus.com/blogs/aubrey-marcus-podcast/the-ceremony-of-civil-unrest-with-maestro-tony-moss-amp-262",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T10",
+  "url": "https://www.eamonarmstrong.com/psychedelic-therapy/tony-moss",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "T11",
+  "url": "https://www.eamonarmstrong.com/psychedelic-therapy/tony-moss-2",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "TK1",
+  "url": "https://compass.onlinelibrary.wiley.com/doi/10.1111/j.1751-9004.2012.00439.x",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "TK2",
+  "url": "https://press.uchicago.edu/ucp/books/book/chicago/M/bo5867463.html",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "TK3",
+  "url": "https://bura.brunel.ac.uk/bitstream/2438/12542/1/Fulltext.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "TK4",
+  "url": "https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2014.01096/full",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "TK5",
+  "url": "https://www.sciencedirect.com/science/article/pii/S0022103111002502",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "TK6",
+  "url": "https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2022.974683/full",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "M1",
+  "url": "https://www.communitecture.net/team.html",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "M2",
+  "url": "https://www.almadeluce.com/blog/mark-lakeman-architect-alma-de-luce-interview/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "M3",
+  "url": "https://www.communitecture.net/blog/designing-like-villagers",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "M4",
+  "url": "https://paragraph.com/@openprotocolresearch/oprg-interview-series-mark-lakeman-of-city-repair",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "M5",
+  "url": "https://cityrepair.org/programs",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MK1",
+  "url": "https://www.nobelprize.org/prizes/economic-sciences/2009/ostrom/lecture/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MK2",
+  "url": "https://www.tandfonline.com/doi/abs/10.1080/01944366908977225",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MK3",
+  "url": "https://doi.org/10.1080/15710880701875068",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MK4",
+  "url": "https://www.jstor.org/stable/466240",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MK5",
+  "url": "https://www.tandfonline.com/doi/abs/10.1080/15710882.2012.672577",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MK6",
+  "url": "https://www.jstor.org/stable/j.ctvcm4g4q",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "H1",
+  "url": "https://www.haizehawke.com/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "H2",
+  "url": "https://www.theinnatejourney.com/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "H3",
+  "url": "https://brittabushnell.com/ritual-in-birth/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "H4",
+  "url": "https://magamama.libsyn.com/ep-128-doula-work-as-spiritual-sacred-and-community-building-with-haize-hawke",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "H5",
+  "url": "https://www.birtheducationcenter.com/podcast/theres-more-to-birth-education-than-science-and-anatomy/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HK1",
+  "url": "https://scholarcommons.scu.edu/rel_stud/114/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HK2",
+  "url": "https://www.cochrane.org/evidence/CD003766_continuous-support-women-during-childbirth",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HK3",
+  "url": "https://www.aeaweb.org/articles?id=10.1257/jep.14.4.123",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HK4",
+  "url": "https://academic.oup.com/book/32817",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HK5",
+  "url": "https://academic.oup.com/book/2881",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HK6",
+  "url": "https://doi.org/10.1093/acprof:oso/9780199969104.003.0002",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HK7",
+  "url": "https://www.ucpress.edu/books/caring/epub-pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HK8",
+  "url": "https://nyupress.org/9780814782781/caring-democracy/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A1",
+  "url": "https://www.consciousgrowth.life/story",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A2",
+  "url": "https://www.consciousgrowth.life/revillaging",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A3",
+  "url": "https://www.ashleybonn.com/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A4",
+  "url": "https://cascadiabioregion.org/department-of-bioregion/welcoming-ashley-bonn-to-the-cascadia-department-of-bioregion",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A5",
+  "url": "https://northwestpermaculture.weebly.com/2019-presentations.html",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A6",
+  "url": "https://www.ashleybonn.com/mystory",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A7",
+  "url": "https://www.consciousgrowthconvergence.org/story",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A8",
+  "url": "https://www.consciousgrowth.life/indigenous-partnerships",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A9",
+  "url": "https://www.consciousgrowthconvergence.org/facilitators",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A10",
+  "url": "https://www.alikoweste.com/speaking",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A11",
+  "url": "https://www.consciousgrowthconvergence.org/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A12",
+  "url": "https://www.consciousgrowth.life/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "A13",
+  "url": null,
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "no public URL (e.g. Founder-supplied paper)"
+ },
+ {
+  "code": "AS2",
+  "url": "https://sites.duke.edu/opendesignacademy/files/2021/10/Freire-Pedagogy-of-the-Oppressed-Chapter-2.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AS3",
+  "url": "https://doi.org/10.1016/j.ecolecon.2017.06.041",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AS4",
+  "url": "https://donellameadows.org/archives/leverage-points-places-to-intervene-in-a-system/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AS5",
+  "url": "https://www.aeaweb.org/articles?id=10.1257/aer.100.3.641",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AS6",
+  "url": "https://emergencemagazine.org/essay/the-serviceberry/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AS7",
+  "url": "https://www.joannamacy.net/main",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AS8",
+  "url": "https://archivaria.ca/index.php/archivaria/article/view/13557",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R1",
+  "url": "https://depts.washington.edu/lsearlec/TEXTS/EMERSON/SELFREL.HTM",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R2",
+  "url": "https://emersoncentral.com/texts/nature-addresses-lectures/addresses/the-american-scholar/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R3",
+  "url": "https://emersoncentral.com/texts/nature-addresses-lectures/nature2/introduction/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R4",
+  "url": "https://emersoncentral.com/texts/essays-first-series/friendship/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R5",
+  "url": "https://emersoncentral.com/texts/essays-first-series/circles/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R6",
+  "url": "https://emersoncentral.com/texts/essays-second-series/experience/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R7",
+  "url": "https://emersoncentral.com/texts/miscellanies/the-fugitive-slave-law/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R8",
+  "url": "https://www.walden.org/wp-content/uploads/2016/03/Walden02WhereILived.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R9",
+  "url": "https://www.walden.org/wp-content/uploads/2016/03/Walden01Economy.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R10",
+  "url": "https://www.walden.org/wp-content/uploads/2016/03/Walden06Visitors.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R11",
+  "url": "https://www.walden.org/wp-content/uploads/2016/03/CivilDisobedience.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R12",
+  "url": "https://www.walden.org/wp-content/uploads/2016/03/Walking.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "R13",
+  "url": "https://avalon.law.yale.edu/19th_century/thoreau_001.asp",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B1",
+  "url": "https://transcripts.cnn.com/show/sotu/date/2019-06-09/segment/01",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B2",
+  "url": "https://www.georgetown.edu/news/bernie-sanders-defines-democratic-socialism-in-georgetown-speech/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B3",
+  "url": "https://www.sanders.senate.gov/press-releases/news-sanders-jayapal-dingell-hundreds-of-health-care-workers-introduce-medicare-for-all/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B4",
+  "url": "https://www.gillibrand.senate.gov/news/press/release/gillibrand-sanders-pocan-introduce-legislation-to-protect-and-strengthen-workers-rights/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B5",
+  "url": "https://www.sanders.senate.gov/press-releases/news-sanders-introduces-legislation-to-enact-a-32-hour-workweek-with-no-loss-in-pay/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B6",
+  "url": "https://www.sanders.senate.gov/press-releases/news-sanders-and-ocasio-cortez-reintroduce-green-new-deal-for-public-housing-act/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B7",
+  "url": "https://www.sanders.senate.gov/press-releases/news-sanders-offers-resolution-to-condemn-bigotry-in-all-forms-on-college-campuses-and-calls-for-the-protection-of-students-right-to-free-speech-and-protest/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B8",
+  "url": "https://www.govinfo.gov/content/pkg/CREC-2014-06-05/pdf/CREC-2014-06-05.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B9",
+  "url": "https://www.sanders.senate.gov/press-releases/sanders-statement-on-trumps-reactionary-agenda/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B10",
+  "url": "https://www.sanders.senate.gov/press-releases/prepared-remarks-sanders-regulating-ai-is-as-american-as-apple-pie/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "B11",
+  "url": "https://www.sanders.senate.gov/op-eds/yes-the-rich-must-start-paying-their-fair-share-of-taxes/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O1",
+  "url": "https://fundacioncaminorojo.org/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O2",
+  "url": "https://www.geocities.ws/kmyley/HAMBLECHA.htm",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O3",
+  "url": "https://fr.scribd.com/doc/52269014/inipi-y-temazcal",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O4",
+  "url": "https://tickets.medicinefestival.com/book-sweat-lodge",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O5",
+  "url": "https://www.pachamama.com/therapist/qayla/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O6",
+  "url": "https://www.pachamama.com/event/vision-quest/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O7",
+  "url": "https://nickbarbachanomusic.bandcamp.com/album/familia",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O8",
+  "url": "https://nickbarbachanomusic.bandcamp.com/track/mao-tatanka",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O9",
+  "url": "https://nickbarbachanomusic.bandcamp.com/track/plantas-sagradas",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O10",
+  "url": "https://danit.bandcamp.com/album/aliento",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O11",
+  "url": "https://puentes2.bandcamp.com/album/amerikua",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O12",
+  "url": "https://www.antonbilton.com/documentary/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O13",
+  "url": "https://www.imperial.ac.uk/news/249434/bendy-x-rays-dmt-infusions-news-from/amp/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "O14",
+  "url": "https://spiritplantmedicine.com/?p=2895",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MO5",
+  "url": "https://haubooks.org/wp-content/uploads/2020/11/Marcel-Mauss-The-Gift-Expanded-Edition-Selected-Annotated-and-Translated-by-Jane-Guyer.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MO6",
+  "url": "https://www.routledge.com/The-Ritual-Process-Structure-and-Anti-Structure/Turner/p/book/9781315134666",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MO8",
+  "url": "https://nyupress.org/9780814782774/caring-democracy/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MO9",
+  "url": "https://doi.org/10.1215/00138282-55.1-2.153",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "MO10",
+  "url": "https://jps.library.utoronto.ca/index.php/des/article/download/18630/15554/43263",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "P0",
+  "url": "https://yaimamusic.bandcamp.com/album/ovo",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "P1",
+  "url": "https://pepperproud.bandcamp.com/track/reflection",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P2",
+  "url": "https://pepperproud.bandcamp.com/track/salty-bodies-2",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P3",
+  "url": "https://pepperproud.bandcamp.com/track/atlanta",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P4",
+  "url": "https://pepperproud.bandcamp.com/track/slow",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P5",
+  "url": "https://pepperproud.bandcamp.com/track/reservoir",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P6",
+  "url": "https://pepperproud.bandcamp.com/track/city-water",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P7",
+  "url": "https://pepperproud.bandcamp.com/album/water",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P8",
+  "url": "https://yaimamusic.bandcamp.com/track/waking-from-sleep",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P9",
+  "url": "https://yaimamusic.bandcamp.com/track/inner-worlds",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P10",
+  "url": "https://yaimamusic.bandcamp.com/track/our-game",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "P11",
+  "url": "https://yaimamusic.bandcamp.com/track/its-written-in-the-wind",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "lyrics are never stored (theme-only policy)"
+ },
+ {
+  "code": "PE8",
+  "url": "https://doi.org/10.4324/9781003070672-8",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "PE9",
+  "url": "https://www.gutenberg.org/files/35698/35698-h/35698-h.htm",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "PE10",
+  "url": "https://www.gutenberg.org/files/37423/37423-h/37423-h.htm",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "PE15",
+  "url": "https://www.aldoleopold.org/blogs/understanding-the-land-ethic",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "PE16",
+  "url": "https://www.marxists.org/archive/morris/works/1884/useful.htm",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "PE17",
+  "url": "https://web.pdx.edu/~nwallace/EHP/OstromPolyGov.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N1",
+  "url": "https://www.wonderfullynothing.com/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N2",
+  "url": "https://www.wonderfullynothing.com/post/you-do-not-need-to-heal-yourself-before-you-reveal-yourself",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N3",
+  "url": "https://www.wonderfullynothing.com/post/there-is-no-ego-welcome-to-the-shift-in-consciousness",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N4",
+  "url": "https://www.wonderfullynothing.com/heartpower",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N5",
+  "url": "https://www.wonderfullynothing.com/post/penetrate-the-mind",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N6",
+  "url": "https://www.wonderfullynothing.com/video-downloads",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N7",
+  "url": "https://www.wonderfullynothing.com/blog-1",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N8",
+  "url": "https://www.wonderfullynothing.com/post/ai-no-thank-you",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N9",
+  "url": "https://www.wonderfullynothing.com/service-page/activating-your-light-60-minutes-7",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N10",
+  "url": "https://simonrilling.com/2023/01/19/who-we-truly-are-beyond-concept-wonderfully-nothing-absolutely-everything-anna-brown-142/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N11",
+  "url": "https://shows.acast.com/inspiredevolution/episodes/ie473-anna-brown-on-non-duality-identity-dissolution-the-ill",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "N12",
+  "url": "https://www.youtube.com/watch?v=fOM-_PNhz3Y",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AN1",
+  "url": null,
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "no public URL (e.g. Founder-supplied paper)"
+ },
+ {
+  "code": "AN2",
+  "url": "https://evanthompson.me/wp-content/uploads/2012/11/self-no-self.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AN3",
+  "url": "https://indianphilosophyblog.org/2020/04/25/clarifying-why-i-am-not-a-buddhist-a-response-to-amod-lele-guest-post-by-evan-thompson/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AN4",
+  "url": "https://doi.org/10.1007/s11097-007-9076-9",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AN6",
+  "url": "https://tricycle.org/magazine/human-nature-buddha-nature/",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "AN7",
+  "url": "https://aclanthology.org/2020.acl-main.463.pdf",
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "blocked",
+  "reason": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+ },
+ {
+  "code": "HV-GUIDE-2026-10-20",
+  "url": null,
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "no public URL (e.g. Founder-supplied paper)"
+ },
+ {
+  "code": "HV-PROFILES-2026-10-17",
+  "url": null,
+  "attempted_at": "2026-11-01T16:21:06+00:00",
+  "status": "skipped",
+  "reason": "no public URL (e.g. Founder-supplied paper)"
+ }
+]

@@ -80,3 +80,7 @@ main { display: flex; gap: 12px; padding: 0 12px 12px; }
 #overhear button { display: block; margin-top: 4px; }
 .small { font-size: 0.75rem; margin: 2px 0; }
 body.overhearing #talk-form { display: none; }
+
+.sources { font-size: 0.72rem; color: #5a3a1e; background: #f7f0de; border-left: 3px solid #b98545; padding: 4px 8px; border-radius: 4px; }
+.sources a { color: #9c4a2c; }
+.sources details { margin-top: 2px; } .sources summary { cursor: pointer; }
