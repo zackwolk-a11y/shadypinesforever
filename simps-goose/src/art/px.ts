@@ -170,6 +170,7 @@ export class Px {
         else this.set(tx, ty, ((v & 255) << 16) | (v & 0xff00) | ((v >> 16) & 255), a);
       }
   }
+  flipV(): Px { const o = new Px(this.w, this.h); for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) o.d[(this.h - 1 - y) * this.w + x] = this.d[y * this.w + x]; return o; }
   /** Draw dithered vertical gradient between colours. */
   vgrad(x: number, y: number, w: number, h: number, cols: number[]) {
     for (let j = 0; j < h; j++) {

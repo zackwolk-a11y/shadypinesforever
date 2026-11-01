@@ -11,6 +11,7 @@ import * as FX from './fx';
 import * as PR from './props';
 import * as BG from './backgrounds';
 import { buildFonts } from './font';
+import * as MO from './motifs';
 import { registerSheet } from './registry-sheets';
 
 export const FLAVOR_RAMPS = { cola: R.cola, cream: R.cream, cherry: R.cherry };
@@ -38,6 +39,7 @@ export const SINGLE: Record<string, () => Px> = {
   foam: FX.foamCloud, cherryShot: FX.cherryBubble,
   icon_cola: () => FX.flavorIcon('cola'), icon_cream: () => FX.flavorIcon('cream'), icon_cherry: () => FX.flavorIcon('cherry'), icon_none: () => FX.flavorIcon('none'),
   goldenBottle: FX.goldenBottle, splat: FX.splat, shadow16: () => FX.shadowBlob(16), shadow32: () => FX.shadowBlob(32), shadow64: () => FX.shadowBlob(64),
+  key_JUMP: () => FX.keycap('JUMP'), key_HONK: () => FX.keycap('HONK'), key_SIP: () => FX.keycap('SIP'), key_POWER: () => FX.keycap('POWER'), key_USE: () => FX.keycap('USE'), key_ARROWS: () => FX.keycap('< >'),
   key_X: () => FX.keycap('X'), key_C: () => FX.keycap('C'), key_E: () => FX.keycap('E'), key_SPACE: () => FX.keycap('SPACE'),
   crate: () => PR.crate(), crateTall: () => PR.crate(34, 52), crateTower: () => PR.crate(34, 78),
   box0: () => PR.cardboard(1), box1: () => PR.cardboard(2), box2: () => PR.cardboard(3),
@@ -55,6 +57,12 @@ export const SINGLE: Record<string, () => Px> = {
   streetSky: BG.streetSky, streetMountains: BG.streetMountains, streetTrees: BG.streetTrees, streetFront: BG.streetFront,
   lamp: BG.lampPost, sandwich: BG.sandwichBoard, planter: BG.planterTree, bird0: () => BG.bird(0), bird1: () => BG.bird(1),
   bigBottle: () => FX.bottle(R.blue, 12, 30),
+  trident13: () => MO.trident(13), trident22: () => MO.trident(22), trident44: () => MO.trident(44), tridentWhite13: () => MO.trident(13, C.wht),
+  leaf9: () => MO.maple(9), leaf15: () => MO.maple(15), leafWhite9: () => MO.maple(9, C.wht), leafConfetti: () => MO.maple(9, 0xffffff, 1, false),
+  goldenLeaf: MO.goldenLeaf, badge: () => MO.badge(20), badge28: () => MO.badge(28), bunting: MO.bunting,
+  flag0: () => MO.canadaFlag(0), flag1: () => MO.canadaFlag(1), flag2: () => MO.canadaFlag(2), flag3: () => MO.canadaFlag(3),
+  bigFlag0: () => MO.canadaFlag(0, 44, 22), bigFlag1: () => MO.canadaFlag(1, 44, 22), bigFlag2: () => MO.canadaFlag(2, 44, 22), bigFlag3: () => MO.canadaFlag(3, 44, 22),
+  tridentStand: MO.tridentStand, floorLeaf: () => MO.floorDecal('leaf'), floorTrident: () => MO.floorDecal('trident'), liftHead: MO.liftHead, piston: MO.pistonShaft,
 };
 SHELF_RAMPS.forEach((r, i) => { SINGLE['bottle' + i] = () => FX.bottle(r, 6, 16); });
 
@@ -79,5 +87,6 @@ export function generateAll(scene: Phaser.Scene, onProgress?: (t: number) => voi
     scene.anims.create({ key, frames: def.frames.map((_, i) => ({ key: 'p_' + k, frame: `${name}_${i}` })), frameRate: def.fps, repeat: def.loop ? -1 : 0 });
   }
   if (!scene.anims.exists('door_open')) scene.anims.create({ key: 'door_open', frames: [0, 1, 2, 3].map((i) => ({ key: 'door' + i })), frameRate: 10, repeat: 0 });
+  for (const [k, p] of [['flag', 'flag'], ['bigflag', 'bigFlag']]) if (!scene.anims.exists(k)) scene.anims.create({ key: k, frames: [0, 1, 2, 3].map((i) => ({ key: p + i })), frameRate: 6, repeat: -1 });
   if (!scene.anims.exists('bird_fly')) scene.anims.create({ key: 'bird_fly', frames: [{ key: 'bird1' }, { key: 'bird0' }], frameRate: 10, repeat: -1 });
 }

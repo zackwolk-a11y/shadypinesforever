@@ -3,6 +3,7 @@ import { C, R, type Ramp } from './palette';
 import { Px, rng } from './px';
 import { pxText, pxTextWidth } from './font';
 import { bottleInto } from './fx';
+import { tridentInto, leafInto } from './motifs';
 import { BG_W, WORLD_H, FLOOR, L, bgX } from '../gameplay/layout';
 
 const BOTTLE_RAMPS: Ramp[] = [R.cola, R.cream, R.cherry, R.blue, R.lime, R.mango, R.purple, R.rootbeer, R.red, [C.pink, C.chr0, C.chr1, C.chr2], R.gold];
@@ -13,7 +14,7 @@ function bottleShelf(g: Px, x0: number, x1: number, y: number, seed: number, pal
   g.rect(x0 - 3, y, x1 - x0 + 6, 4, C.wd1); g.hline(x0 - 3, x1 + 2, y, C.wd0); g.hline(x0 - 3, x1 + 2, y + 3, C.wd3);
   g.rect(x0 - 3, y + 4, x1 - x0 + 6, 2, C.ink, 90);
   // brackets
-  for (let x = x0 + 6; x < x1; x += 60) { g.rect(x, y + 4, 2, 5, C.blk1); }
+  for (let x = x0 + 6; x < x1; x += 60) { tridentInto(g, x + 1, y + 4, 8, C.blk1, C.blk1, C.blk0); }
   let x = x0;
   const pal = palette ?? BOTTLE_RAMPS;
   let group = Math.floor(r() * pal.length), left = 3 + Math.floor(r() * 4);
@@ -69,13 +70,18 @@ export function storeBackWall(): Px {
   bigWordmark(g, wmX, 48, 'SIMPS', 5, C.wht, C.ink);
   pxText(g, wmX + 2, 90, 'MODERN BEVERAGE', C.red0, 1);
   pxText(g, wmX + 2, 102, 'KELOWNA, B.C.', C.wl2, 1);
-  // bubble motif around wordmark
-  for (let i = 0; i < 14; i++) { const r = rng(i + 70); g.ring(wmX + 150 + r() * 110, 46 + r() * 60, 2 + r() * 5, C.blu1, 1); }
+  // the red trident beside the wordmark + Canadian pride line
+  tridentInto(g, wmX - 26, 42, 66, C.red1, C.red2, C.red0);
+  leafInto(g, wmX + 84, 101, C.red1, 9);
+  pxText(g, wmX + 96, 102, 'PROUDLY CANADIAN', C.wht, 1);
+  // bubble rings
+  for (let i = 0; i < 10; i++) { const r = rng(i + 70); g.ring(wmX + 190 + r() * 80, 46 + r() * 50, 2 + r() * 5, C.blu1, 1); }
   // section header boards
   const header = (wx: number, t: string, col: number) => {
     const x = bgX(wx), w = pxTextWidth(t) + 12;
     g.rect(x - w / 2, 70, w, 14, col); g.rect(x - w / 2 + 1, 71, w - 2, 12, C.blk2);
     pxText(g, x - w / 2 + 6, 73, t, col === C.wht ? C.wht : col);
+    tridentInto(g, x - w / 2 - 6, 70, 13, C.red1); tridentInto(g, x + w / 2 + 5, 70, 13, C.red1);
     g.vline(x - w / 2 + 8, 34, 70, C.st3); g.vline(x + w / 2 - 8, 34, 70, C.st3);
   };
   header(780, 'SODA CONCENTRATES', C.wht);
@@ -124,6 +130,13 @@ export function storeBackWall(): Px {
   g.rect(ldx + 6, 224, 44, 12, C.gold1); pxText(g, ldx + 8, 227, 'LAB', C.blk1); pxText(g, ldx + 28, 227, '->', C.blk1);
   g.rect(ldx + 6, 284, 44, 10, C.red1); pxText(g, ldx + 7, 286, 'STAFF', C.wht);
   g.rect(ldx + 44, 300, 3, 10, C.st0);
+  // mural behind the fountain/bubble zone: giant trident + bubbles + maple leaves
+  const mx = bgX(1990);
+  for (let i = 0; i < 26; i++) { const r = rng(i + 300); g.ring(mx - 160 + r() * 360, 140 + r() * 150, 3 + r() * 12, i % 3 ? C.blu1 : C.red0, 1); }
+  tridentInto(g, mx + 40, 130, 150, C.red1, C.red2, C.red0);
+  for (let i = 0; i < 6; i++) { const r = rng(i + 500); leafInto(g, mx - 120 + r() * 300, 150 + r() * 120, C.red0, 9); }
+  pxText(g, mx - 150, 300, 'GET FIZZY, CANADA!', C.red2, 1);
+  // welcome floor mat graphic by the door is a sprite; flag pole bracket by entrance
   // big window light patch near entrance + wainscot
   g.rect(0, FLOOR - 8, W, 8, C.blk1); g.hline(0, W - 1, FLOOR - 8, C.blk0);
   return g;
@@ -222,6 +235,8 @@ export function streetFront(): Px {
   g.rect(sx - 10, 112, sw + 20, 2, C.blk0);
   // sign band
   bigWordmark(g, sx + sw / 2 - pxTextWidth('SIMPS', 3) / 2, 116, 'SIMPS', 3, C.wht, C.red2);
+  tridentInto(g, sx + sw / 2 - pxTextWidth('SIMPS', 3) / 2 - 16, 114, 22, C.red1, C.red2, C.red0);
+  tridentInto(g, sx + sw / 2 + pxTextWidth('SIMPS', 3) / 2 + 14, 114, 22, C.red1, C.red2, C.red0);
   // awning
   for (let x = sx - 6; x < sx + sw + 6; x += 12) {
     g.poly([[x, 140], [x + 12, 140], [x + 12, 150], [x + 6, 154], [x, 150]], ((x - sx) / 12) % 2 ? C.wht : C.red1);
@@ -242,6 +257,7 @@ export function streetFront(): Px {
   win(sx + 210, 112, 90);
   g.rect(STOREFRONT.doorX - 4, 150, 48, 76, C.blk2);
   pxText(g, sx + 222, 160, 'SODA * SYRUPS', C.wht);
+  leafInto(g, sx + 20, 160, C.red1, 9);
   // sidewalk + road
   g.rect(0, GY, W, 22, C.side0);
   for (let x = 0; x < W; x += 24) g.vline(x, GY, GY + 21, C.side2);

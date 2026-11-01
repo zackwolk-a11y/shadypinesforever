@@ -17,7 +17,7 @@ export const GOOSE_TUNING = {
 };
 const T = GOOSE_TUNING;
 
-export type GooseMode = 'play' | 'locked' | 'dash' | 'hurt' | 'ride';
+export type GooseMode = 'play' | 'locked' | 'dash' | 'hurt' | 'ride' | 'script';
 
 export class Goose {
   scene: Phaser.Scene;
@@ -82,14 +82,16 @@ export class Goose {
   }
   get dashing() { return this.mode === 'dash'; }
 
-  update(dt: number, world: PhysicsWorld, allowInput = true) {
+  update(dt: number, world: PhysicsWorld, allowInput = true, edges = true) {
     const b = this.body;
+    const pressed = (a: 'jump' | 'honk') => edges && Controls.pressed(a);
+    const released = (a: 'jump') => edges && Controls.released(a);
     this.honkCd -= dt;
     const inp = allowInput && this.mode === 'play';
     const left = inp && Controls.down('left'), right = inp && Controls.down('right');
     const dir = (right ? 1 : 0) - (left ? 1 : 0);
 
-    if (this.mode === 'ride') {
+    if (this.mode === 'ride' || this.mode === 'script') {
       if (this.ride) { b.x = this.ride.x - b.w / 2; b.y = this.ride.y - b.h; }
       b.vx = 0; b.vy = 0;
       this.syncSprite(dt);
@@ -123,7 +125,7 @@ export class Goose {
 
     // ---------- jump ----------
     if (b.onGround) { this.coyote = T.coyote; this.flutter = T.flutterTime; this.airDashUsed = false; } else this.coyote -= dt;
-    if (inp && Controls.pressed('jump')) this.buffer = T.buffer; else this.buffer -= dt;
+    if (inp && pressed('jump')) this.buffer = T.buffer; else this.buffer -= dt;
     if (inp && !this.oneShotLock && this.buffer > 0 && this.coyote > 0) {
       if (Controls.down('down') && b.ground?.kind === 'oneway') { b.dropThrough = 0.2; b.onGround = false; }
       else {
@@ -134,7 +136,7 @@ export class Goose {
         this.oneShot = null; this.oneShotLock = false;
       }
     }
-    if (inp && Controls.released('jump') && b.vy < 0) b.vy *= T.jumpCut;
+    if (inp && released('jump') && b.vy < 0) b.vy *= T.jumpCut;
 
     // ---------- gravity ----------
     let flutter = false;
@@ -157,7 +159,7 @@ export class Goose {
     this.wasGround = b.onGround;
 
     // ---------- honk ----------
-    if (inp && Controls.pressed('honk') && this.honkCd <= 0) {
+    if (inp && pressed('honk') && this.honkCd <= 0) {
       this.honkCd = T.honkCooldown;
       this.playOnce('honk', b.onGround);
       this.scene.time.delayedCall(140, () => { SFX.honk(); this.events.emit('honk', this.beakPos()); });

@@ -3,6 +3,7 @@ import { C, R } from './palette';
 import { Px, rng } from './px';
 import { pxText, pxTextWidth } from './font';
 import { bottleInto } from './fx';
+import { tridentInto, leafInto } from './motifs';
 
 export function crate(w = 34, h = 26): Px {
   const g = new Px(w, h);
@@ -20,8 +21,8 @@ export function crate(w = 34, h = 26): Px {
   for (const yy of [2, h - 3]) { g.set(2, yy, C.st2); g.set(w - 3, yy, C.st2); }
   // brand stamp (original: red disc + white S)
   const cx = Math.round(w / 2), cy = Math.round(h / 2);
-  g.circle(cx, cy, 5, C.red2); g.circle(cx - 0.5, cy - 0.5, 4.5, C.red1);
-  pxText(g, cx - 2, cy - 4, 'S', C.wht);
+  g.circle(cx, cy, 6, C.red2); g.circle(cx - 0.5, cy - 0.5, 5.5, C.red1);
+  tridentInto(g, cx, cy - 4, 9, C.wht, C.wl1, C.wht);
   g.outline(C.ink);
   return g;
 }
@@ -36,7 +37,7 @@ export function cardboard(seed: number, w = 24, h = 22): Px {
   g.rect(Math.round(w / 2) - 2, 0, 4, h * 0.4, C.cb0); // tape
   g.hline(0, w - 1, 3, C.cb2);
   if (r() > 0.4) { g.vline(4, 9, 14, C.cb3); g.set(3, 10, C.cb3); g.set(5, 10, C.cb3); g.vline(8, 9, 14, C.cb3); g.set(7, 10, C.cb3); g.set(9, 10, C.cb3); }
-  else { g.rect(3, 10, 9, 6, C.wht); g.hline(4, 10, 12, C.blk1); g.hline(4, 8, 14, C.blk1); }
+  else { leafInto(g, 3, 8, C.red2, 9); }
   g.rect(w - 9, h - 7, 4, 3, C.red2);
   g.outline(C.ink);
   return g;
@@ -59,6 +60,7 @@ export function gondola(w = 112, h = 74): Px {
   g.rect(0, 0, 4, h, C.blk1); g.vline(1, 0, h, C.blk0); g.rect(w - 4, 0, 4, h, C.blk1); g.vline(w - 3, 0, h, C.blk0);
   // base kick plate
   g.rect(0, h - 8, w, 8, C.blk1); g.hline(0, w - 1, h - 8, C.blk0); g.rect(0, h - 5, w, 2, C.red1);
+  for (let x = 14; x < w - 8; x += 28) tridentInto(g, x, h - 8, 7, C.wht, C.wht, C.wht);
   g.outline(C.ink);
   return g;
 }
@@ -70,9 +72,10 @@ export function checkout(w = 112, h = 44): Px {
   g.rect(0, 0, w, 6, C.blk1); g.hline(0, w - 1, 0, C.blk0); g.hline(0, w - 1, 5, C.ink2);
   g.rect(0, h - 6, w, 6, C.blk1); g.rect(0, h - 4, w, 1, C.red1);
   // front sign panel
-  const tw = pxTextWidth('THANK YOU!');
+  const tw = pxTextWidth('THANKS, EH!');
   g.rect(w / 2 - tw / 2 - 4, 13, tw + 8, 13, C.blk1);
-  pxText(g, w / 2 - tw / 2, 16, 'THANK YOU!', C.wht);
+  pxText(g, w / 2 - tw / 2, 16, 'THANKS, EH!', C.wht);
+  tridentInto(g, 10, 12, 16, C.red1); tridentInto(g, w - 11, 12, 16, C.red1);
   g.outline(C.ink);
   return g;
 }
@@ -99,6 +102,7 @@ export function sampleCounter(w = 104, h = 40): Px {
   pxText(g, w / 2 - pxTextWidth(t) / 2, 14, t, C.wht);
   // flavor dots
   [C.cola1, C.crm1, C.chr1].forEach((c, i) => { g.circle(w / 2 - 16 + i * 16, 29, 3, c); g.set(w / 2 - 17 + i * 16, 28, C.wht); });
+  leafInto(g, 8, 22, C.red1, 9); leafInto(g, w - 17, 22, C.red1, 9);
   g.outline(C.ink);
   return g;
 }
@@ -112,6 +116,7 @@ export function chalkboard(): Px {
   g.hline(8, w - 9, 16, C.wl2);
   const items: [string, number][] = [['COLA', C.cola0], ['CREAM SODA', C.crm1], ['BLACK CHERRY', C.chr0]];
   items.forEach(([s, c], i) => { g.circle(9, 23 + i * 10, 2.5, c); pxText(g, 14, 20 + i * 10, s, C.wht); });
+  tridentInto(g, w - 10, 40, 13, C.red0, C.red1, C.red0);
   // legs
   g.rect(10, h - 10, 4, 10, C.wd3); g.rect(w - 14, h - 10, 4, 10, C.wd3);
   g.outline(C.ink);
@@ -137,6 +142,8 @@ export function sampleCup(col: number): Px {
   return g;
 }
 
+/** spout x positions (local) — bubbles spawn here */
+export const FOUNTAIN_SPOUTS = [30, 64, 98];
 /** FIZZ-O-MATIC 3000 — fictional soda fountain machine. 128x168 */
 export function fountain(): Px {
   const w = 128, h = 168;
@@ -169,12 +176,17 @@ export function fountain(): Px {
   pxText(g, 64 - pxTextWidth('FIZZ-O-MATIC') / 2, 99, 'FIZZ-O-MATIC', C.red0);
   // nozzle bar
   g.rect(6, 108, 116, 8, C.st2); g.hline(6, 121, 108, C.st0); g.hline(6, 121, 115, C.st3);
-  for (let i = 0; i < 4; i++) { const nx = 24 + i * 26; g.rect(nx, 116, 6, 6, C.st1); g.rect(nx + 1, 122, 4, 3, C.st3); g.rect(nx + 2, 125, 2, 1, C.blk1); }
+  for (const nx of FOUNTAIN_SPOUTS) {
+    const sp = new Px(20, 18); tridentInto(sp, 10, 0, 16, C.st1, C.st3, C.st0); const f = sp.flipV();
+    g.blit(f, nx - 10, 114);
+  }
+  g.rect(58, 2, 12, 4, C.st2);
   // drip tray / base cabinet
   g.rect(4, 132, 120, 6, C.st2); for (let x = 6; x < 122; x += 3) g.vline(x, 133, 136, C.st4);
   g.rect(8, 138, 112, 30, C.blk1);
   g.rect(8, 138, 112, 2, C.blk0);
   g.rect(8, 150, 112, 4, C.red1); g.hline(8, 119, 150, C.red0);
+  leafInto(g, 59, 155, C.red1, 9);
   for (let x = 14; x < 118; x += 16) { g.set(x, 143, C.st2); g.set(x, 162, C.st2); }
   g.outline(C.ink);
   return g;
@@ -198,8 +210,8 @@ export function beacon(): Px { const g = new Px(10, 8); g.shadedEllipse(5, 5, 4,
 export function valveWheel(): Px {
   const g = new Px(24, 24);
   g.ring(12, 12, 11, C.red1, 3); g.ring(12, 12, 11, C.red0, 1);
-  for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) g.line(12, 12, 12 + Math.cos(a) * 9, 12 + Math.sin(a) * 9, C.red2);
-  g.circle(12, 12, 3, C.st1); g.set(11, 11, C.wht);
+  g.circle(12, 12, 8, C.blk1);
+  tridentInto(g, 12, 4, 15, C.wht, C.wl1, C.wht);
   for (let a = Math.PI / 4; a < Math.PI * 2; a += Math.PI / 2) g.circle(12 + Math.cos(a) * 10.5, 12 + Math.sin(a) * 10.5, 1.5, C.red2);
   g.outline(C.ink);
   return g;
@@ -228,7 +240,7 @@ export function mezzanine(w = 236): Px {
   const g = new Px(w, h);
   // railing (behind deck)
   g.hline(0, w - 1, 2, C.blk1); g.hline(0, w - 1, 3, C.blk0);
-  for (let x = 4; x < w; x += 14) g.rect(x, 3, 2, 18, C.blk1);
+  for (let x = 6; x < w; x += 14) tridentInto(g, x, 4, 16, C.blk1, C.blk2, C.blk0);
   g.hline(0, w - 1, 11, C.blk1);
   // deck
   g.rect(0, 20, w, 5, C.wd1); g.hline(0, w - 1, 20, C.wd0);
@@ -288,7 +300,7 @@ export function doorInterior(): Px {
   g.rect(8, 30, 10, 30, C.brick1); g.rect(30, 26, 14, 34, C.leaf2);
   g.line(5, 5, 20, h - 6, 0xffffff, 60); g.line(10, 5, 25, h - 6, 0xffffff, 40);
   g.rect(w - 12, 40, 4, 10, C.st1);
-  g.rect(14, 12, 20, 9, C.red1); pxText(g, 15, 13, 'OPEN', C.wht);
+  g.rect(11, 12, 26, 9, C.red1); pxText(g, 13, 13, 'OPEN', C.wht);
   g.outline(C.ink);
   return g;
 }

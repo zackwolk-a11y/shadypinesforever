@@ -1,0 +1,21 @@
+// Drive the store scene with REAL keyboard input and report state at checkpoints.
+import { createRequire } from 'module';
+const { chromium } = createRequire(import.meta.url)('playwright');
+const base = process.env.BASE ?? 'http://localhost:5173';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 960, height: 540 } });
+const errs = [];
+p.on('pageerror', (e) => errs.push('pageerror: ' + e.message + '\n' + e.stack?.split('\n').slice(0, 4).join('\n')));
+p.on('console', (m) => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
+await p.goto(`${base}/?scene=store`);
+await p.waitForFunction(() => window.__SIMPS.store?.phase === 'play', null, { timeout: 15000 });
+const st = () => p.evaluate(() => { const s = window.__SIMPS.store; const g = s.goose; return { x: Math.round(g.x), y: Math.round(g.y), ground: g.body.onGround, mode: g.mode, phase: s.phase, power: s.power, drops: s.dropCount, fountain: s.fountain.stage, wall: s.boxWall.toppled }; });
+const hold = async (k, ms) => { await p.keyboard.down(k); await p.waitForTimeout(ms); await p.keyboard.up(k); };
+console.log('start', await st());
+await hold('ArrowRight', 1500); console.log('walk', await st());
+await p.keyboard.press('x'); await p.waitForTimeout(500); console.log('honk', await st());
+await p.keyboard.down('ArrowRight'); await p.keyboard.down('Space'); await p.waitForTimeout(300); await p.keyboard.up('Space'); await p.waitForTimeout(400); await p.keyboard.up('ArrowRight');
+await p.waitForTimeout(400); console.log('jump', await st());
+await p.screenshot({ path: '/tmp/claude-0/shots/play1.png' });
+console.log(errs.join('\n') || 'no errors');
+await b.close();

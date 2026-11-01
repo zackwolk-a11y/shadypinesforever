@@ -82,7 +82,8 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
       if (xx < -4.5 || xx > 4.5) return -1;
       return xx > 2.5 ? C.blk2 : C.blk1;
     });
-    g.hline(tx - 3 + lean, tx + 4 + lean, shY + 9, C.red1); // red brand band
+    g.hline(tx - 3 + lean, tx + 4 + lean, shY + 12, C.red1); // red brand band
+    const ax0 = Math.round(tx + lean + 0.5); g.vline(ax0, shY + 6, shY + 10, C.red1); g.set(ax0 - 2, shY + 6, C.red1); g.set(ax0 + 2, shY + 6, C.red1); g.hline(ax0 - 2, ax0 + 2, shY + 8, C.red1); g.set(ax0 - 2, shY + 7, C.red1); g.set(ax0 + 2, shY + 7, C.red1);
     g.set(tx - 4 + lean, shY + 3, C.blk1); g.set(tx + 4 + lean, shY + 3, C.blk1);
   }
   if (s.bag === 'tote') {

@@ -16,6 +16,9 @@ class ControlsImpl {
   private prev: Partial<Record<Action, boolean>> = {};
   private cur: Partial<Record<Action, boolean>> = {};
   touch: Partial<Record<Action, boolean>> = {};
+  /** taps latched between polls so a press+release inside one frame is never lost */
+  private latch: Partial<Record<Action, boolean>> = {};
+  private touchLatch: Partial<Record<Action, boolean>> = {};
   private scene: Phaser.Scene | null = null;
   usingTouch = false;
   anyPressed = false;
@@ -24,7 +27,10 @@ class ControlsImpl {
     if (this.scene === scene) return;
     this.scene = scene;
     const kb = scene.input.keyboard!;
-    for (const a of Object.keys(KEYMAP) as Action[]) this.keys[a] = KEYMAP[a].map((k) => kb.addKey(k, true, false));
+    for (const a of Object.keys(KEYMAP) as Action[]) {
+      this.keys[a] = KEYMAP[a].map((k) => kb.addKey(k, true, false));
+      for (const key of this.keys[a]!) key.on('down', () => { this.latch[a] = true; });
+    }
     kb.on('keydown', () => { this.usingTouch = false; });
   }
   /** Call exactly once per frame (from the persistent Input scene). */
@@ -34,7 +40,7 @@ class ControlsImpl {
     const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = pads && Array.from(pads).find((p) => p && p.connected);
     for (const a of Object.keys(KEYMAP) as Action[]) {
-      let v = !!this.keys[a]?.some((k) => k.isDown) || !!this.touch[a];
+      let v = !!this.keys[a]?.some((k) => k.isDown) || !!this.touch[a] || !!this.latch[a] || !!this.touchLatch[a];
       if (pad) {
         const ax = pad.axes[0] ?? 0, ay = pad.axes[1] ?? 0, b = (i: number) => !!pad.buttons[i]?.pressed;
         if (a === 'left') v ||= ax < -0.4 || b(14);
@@ -51,6 +57,7 @@ class ControlsImpl {
       n[a] = v;
     }
     this.cur = n;
+    this.latch = {}; this.touchLatch = {};
     this.anyPressed = (Object.keys(n) as Action[]).some((a) => n[a] && !this.prev[a]);
   }
   down(a: Action) { return !!this.cur[a]; }
@@ -60,5 +67,6 @@ class ControlsImpl {
   consume(a: Action) { this.prev[a] = true; }
   consumeAll() { for (const a of Object.keys(KEYMAP) as Action[]) this.prev[a] = !!this.cur[a]; this.anyPressed = false; }
   clearTouch() { this.touch = {}; }
+  setTouch(a: Action, v: boolean) { if (v && !this.touch[a]) this.touchLatch[a] = true; this.touch[a] = v; }
 }
 export const Controls = new ControlsImpl();

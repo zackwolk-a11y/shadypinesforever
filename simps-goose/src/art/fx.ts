@@ -2,6 +2,7 @@
 import { C, R, type Ramp } from './palette';
 import { Px } from './px';
 import { pxText } from './font';
+import { tridentInto } from './motifs';
 
 /** Soap/soda bubble with rim light, highlight crescent and faint rainbow sheen. */
 export function bubble(d: number, opts: { tint?: number; strained?: boolean } = {}): Px {
@@ -28,6 +29,10 @@ export function bubble(d: number, opts: { tint?: number; strained?: boolean } = 
   }
   g.rect(Math.round(c - r * 0.42), Math.round(c - r * 0.5), Math.max(1, Math.round(d / 16)), Math.max(1, Math.round(d / 16)), C.wht);
   g.set(Math.round(c + r * 0.45), Math.round(c + r * 0.45), C.wht, 200);
+  if (d >= 32) { // trident glint watermark in larger bubbles
+    const w = new Px(d, d); tridentInto(w, Math.round(c + r * 0.2), Math.round(c - r * 0.35), Math.round(r * 0.9), 0xffffff, 0xffffff, 0xffffff);
+    for (let i = 0; i < w.d.length; i++) if (w.d[i] >>> 24) g.set(i % d, Math.floor(i / d), 0xffffff, 70);
+  }
   if (opts.strained) for (let k = 0; k < 3; k++) g.line(c + 1 + k * 2, c - r + 2 + k, c + 3 + k, c - r + 5 + k * 2, C.wht, 200);
   return g;
 }
@@ -172,7 +177,8 @@ export function bottleInto(g: Px, x: number, y: number, ramp: Ramp, w = 7, h = 1
     g.rect(x, ly, w, lh, C.wht);
     g.rect(x, ly, w, 1, C.blk1);
     g.rect(x, ly + lh - 1, w, 1, C.blk1);
-    g.rect(x + Math.floor(w / 2) - 1, ly + 1 + Math.floor((lh - 2) / 2) - 1, 2, Math.max(1, Math.min(2, lh - 2)), C.red1);
+    if (w >= 9 && lh >= 7) tridentInto(g, x + Math.floor(w / 2), ly + 1, lh - 2, C.red1, C.red1, C.red1);
+    else g.rect(x + Math.floor(w / 2) - 1, ly + 1 + Math.floor((lh - 2) / 2) - 1, 2, Math.max(1, Math.min(2, lh - 2)), C.red1);
     if (w >= 9) g.hline(x + 2, x + w - 3, ly + lh - 2, ramp[1]);
     g.vline(x + w - 1, ly, ly + lh - 1, C.wl2);
   }
