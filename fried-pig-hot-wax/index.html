@@ -1708,6 +1708,8 @@ const SAVE_KEY='fried-pig-hot-wax-v1';
 let SV={rare:Array(12).fill(false),best:null,muted:false,level:1};
 try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(s)SV=Object.assign(SV,s);}catch(e){}
 if(!SV.v5){if((SV.level||1)>=4)SV.level=(SV.level||1)+1;SV.v5=true;try{localStorage.setItem(SAVE_KEY,JSON.stringify(SV));}catch(e){}}
+// link shortcut: #level1..#level5 unlocks up to that stage (this session only) and opens Stage Select on it
+let HASHLV=0;try{const m=/^#level([1-5])$/.exec(location.hash||'');if(m){HASHLV=+m[1];SV.level=Math.max(SV.level||1,HASHLV);}}catch(e){}
 while(SV.rare.length<12)SV.rare.push(false);SV.level=SV.level||1;
 function save(){SV.muted=G.muted;try{localStorage.setItem(SAVE_KEY,JSON.stringify(SV));}catch(e){}}
 
@@ -3627,7 +3629,7 @@ function updateVictory(){G.vt++;const p=P,t=G.vt;const stand=bb.x-110;
 function update(){pollInput();G.t++;if(G.flash>0)G.flash--;
   if(hit('mute')){setMute(!G.muted);}
   switch(G.mode){
-    case 'splash':G.splashT++;if(G.splashT>200||(G.splashT>20&&(confirmHit()||G.tap))){G.mode='title';G.tap=null;}break;
+    case 'splash':G.splashT++;if(G.splashT>200||(G.splashT>20&&(confirmHit()||G.tap))){G.mode='title';G.tap=null;if(HASHLV>=2){G.mode='stages';G.menuSel=HASHLV-1+(HASHLV>=3&&SV.level>=3?1:0);HASHLV=0;}}break;
     case 'title':{const tl=['START'];if(SV.level>=2)tl.push('STAGE SELECT');tl.push('JUKEBOX','HOW TO PLAY');if(G.menuSel>=tl.length)G.menuSel=0;
       menuUpdate(tl,i=>{const l=tl[i];if(l==='START')newGame(0);else if(l==='STAGE SELECT'){G.mode='stages';G.menuSel=0;}else if(l==='JUKEBOX'){G.mode='jukebox';G.menuSel=0;}else G.mode='howto';},110,12);if(gestured&&!MUS.song&&G.mode==='title')playSong(0,5);break;}
     case 'howto':if(confirmHit()||hit('pause')||G.tap){G.mode='title';G.tap=null;sfx.blip(440);}break;
