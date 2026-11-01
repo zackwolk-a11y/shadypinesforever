@@ -22,3 +22,5 @@ Format: ID · date · decision · rationale · reversibility. Founder decisions 
 | D-016 [B] | 2026-10-31 | One shared source registry with the Founder's codes; editorial scholarship is a distinct role | Single provenance store | Yes |
 | D-017 [B] | 2026-10-31 | "Scenes worth testing" stored as evaluation probes, never scripts | Part XXII | Yes |
 | D-018 [B] | 2026-11-01 | Mood and direction art via the Founder's ChatGPT subscription (manual copy, paste and upload); builder redraws game tiles and sprites to the 16 px grid | No extra cost; Founder controls each image; AI images are not grid-accurate pixel art | Yes |
+| D-019 [F] | 2026-11-01 | Resident portraits for Tony, Ashley and Pepper accepted; Founder confirms they are original fictional characters | Founder statement | Yes |
+| D-020 [B] | 2026-11-01 | Portraits are profile and dialogue art; small walking map sprites are drawn separately in matching colors | Portraits are too detailed for 16 px map sprites | Yes |
