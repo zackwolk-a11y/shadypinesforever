@@ -2,6 +2,7 @@
 
 | Asset | Path | Origin | Licence | Style guide version | Date |
 |---|---|---|---|---|---|
+| Village map concept v1 (mood/reference art, not yet a game layer) | assets/concept/village_map_concept_v1.png (1672×941, sha256 prefix c60354f32cc771a6) | Founder upload, 2026-11-01; generated in ChatGPT per Founder (exact prompt and direction to be confirmed) | Founder-generated; check the provider's current terms | Canonical paragraph v1 (assumed; prompt not recorded) | 2026-11-01 |
 | Layout blockout (planning diagram, not game art) | docs/world/layout_blockout.svg / .png | Generated from layout JSON by `world_layout.py` | Project-owned | n/a | 2026-10-31 |
 
 No game art exists yet. Art production begins after the Founder selects a direction (HV-003).
