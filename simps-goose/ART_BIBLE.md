@@ -1,4 +1,4 @@
-# SIMPS: GOOSE ON THE LOOSE! — Art Bible (v0.1, vertical slice)
+# SIMPS: GOOSE ON THE LOOSE! — Art Bible (v1.0, complete game)
 
 This is the visual rulebook for the whole game. Every texture in the slice is **authored in code**
 (`src/art/*`) and rasterised into Phaser textures at boot, so these rules are enforced by
@@ -68,3 +68,20 @@ No image-generation tool was available, so **all art is code-authored pixel art*
 - **Slice-complete (consistent, animated, shippable for a demo):** goose sheet (98 frames, 24 animations), motifs, props, store and street backgrounds, effects and UI.
 - **Recommended for a human artist pass before a commercial release:** people sprites (readable but simple), the goose's head and face detail, and the large backgrounds (more texture variety). Every generator can be swapped for hand-drawn PNGs without code changes elsewhere: replace the entry in `SINGLE` or the sheet builders.
 - **Brand:** simpsmb.com could not be reached from this environment. The store sign and wordmark use original lettering, and the trident is an original pixel interpretation of the mark the client supplied. Brand approval is needed before public distribution.
+
+## 8. Full-game additions (v1.0)
+All new art follows sections 1–6: same master palette, top-left key light, 1 px ink outline, 4×4 Bayer dithering only at ramp seams, and stepped ADD-blend glows.
+
+| Area | Generator | Palette and lighting notes |
+|---|---|---|
+| Goose extensions | `goose.ts` | New poses: burp, sipCup, holdCup, sit, sitCup, laugh, offer, growl (belly rumble), swim, frontHonk. The coffee cup is white with the red trident band. 24 animations, 98+ frames |
+| Soda Lab | `lab.ts` | Industrial teal ramp (`#6fb3b0 → #1d3c46`) plus steel. Glass tanks use the `gl` ramp at partial alpha with a white stripe. Syrup colours come from the flavour ramps. Hazard stripes in gold/black. Trident gear emblems, trident gate, trident levers, trident targets |
+| Soda Dimension | `dimension.ts` | Psychedelic dusk gradient (`#2a1450 → #ffc78a`) with low-contrast purple far layers, so gameplay islands (fully saturated, ink outlined) always read in front. Rainbow bridge uses all six flavour hues |
+| Enemies | `enemies.ts` | Each enemy has its own flavour ramp (blue, cola, cherry bottle, cream, strawberry) and big readable eyes. Hurt = X eyes. High-contrast mode adds a red glow |
+| Carbonator 3000 | `boss.ts` | Steel body, LED face screen in green (normal/angry), red (hurt), gold (panic). Tanks glow with the current flavour. A rotating red trident crest |
+| Café | `cafe.ts` | Warm plaster and wood ramps, sunlight shafts (ADD, gold). The chalk menu lists the real Simps Café Series names. Café syrup bottles use dedicated ramps |
+| Waterfront and Ogopogo | `waterfront.ts` | Bright afternoon sky ramp, plus a sunset ramp for the finale. Ogopogo uses its own green/turquoise ramp (`#9ff0c0 → #14504a`) with a pale belly ramp and blue fins. 9 expressions. Lake shimmer is a scrolling tile |
+
+**Motif rules applied across levels:** trident = interaction or architecture (stand ledges, valves, levers, targets, gates, lifts, checkpoints, boss crest, HUD crest). Maple leaf = Canadian identity and rewards (flags, bunting, golden leaves, floor graphics, decals, confetti, latte art).
+
+**Production status (honest):** every asset is code-authored pixel art. People sprites, Ogopogo's body animation (rigged from segments) and large backgrounds would benefit from a human artist pass before a commercial release. All generators can be swapped for PNGs.

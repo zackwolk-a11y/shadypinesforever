@@ -1,0 +1,38 @@
+[
+  {
+    "burp": "vanilla",
+    "result": "defeated → true ending",
+    "secs": 26,
+    "errors": 0
+  },
+  {
+    "burp": "saltedcaramel",
+    "result": "defeated → true ending",
+    "secs": 26,
+    "errors": 0
+  },
+  {
+    "burp": "hazelnut",
+    "result": "defeated → true ending",
+    "secs": 27,
+    "errors": 0
+  },
+  {
+    "burp": "peppermint",
+    "result": "defeated → true ending",
+    "secs": 28,
+    "errors": 0
+  },
+  {
+    "burp": "lavender",
+    "result": "defeated → true ending",
+    "secs": 28,
+    "errors": 0
+  },
+  {
+    "burp": "marshmallow",
+    "result": "defeated → true ending",
+    "secs": 25,
+    "errors": 0
+  }
+]

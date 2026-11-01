@@ -1,8 +1,8 @@
 {
   "name": "simps-goose-on-the-loose",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "SIMPS: GOOSE ON THE LOOSE! - vertical slice (first 60 seconds). Unofficial fan project.",
+  "description": "SIMPS: GOOSE ON THE LOOSE! - complete three-level browser platformer. Unofficial concept game.",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "node tests/e2e.mjs",
     "export:assets": "node tests/export-assets.mjs",
-    "zip": "node scripts/zip.mjs"
+    "zip": "node scripts/zip.mjs",
+    "test:full": "node tests/fullgame.mjs",
+    "test:ogopogo": "node tests/ogopogo.mjs",
+    "test:all": "node tests/e2e.mjs && node tests/fullgame.mjs && node tests/ogopogo.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

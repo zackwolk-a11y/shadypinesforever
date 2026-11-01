@@ -1,70 +1,81 @@
-# SIMPS: GOOSE ON THE LOOSE! — Vertical Slice ("The First 60 Seconds")
+# SIMPS: GOOSE ON THE LOOSE! — Complete Game (v1.0)
 
 *HONK. SIP. BURP. REPEAT.*
 
-A playable browser vertical slice: the Kelowna street cinematic → the Simps store → flavour
-sampling (Cola, Cream Soda, Black Cherry) → three flavour powers → **Bubble Trouble** → the giant
-bubble ride → **TO BE CONTINUED…**. TypeScript + Phaser 3.90 + Vite. All art and audio are original and generated in code.
+A complete three-level comedic 2D platformer for desktop and mobile browsers, set in Kelowna, B.C.
+TypeScript + Phaser 3.90 + Vite. All art (pixel art authored in code) and all audio (Web Audio synthesis) are original.
 
-> Unofficial concept demo. Simps flavour names, the red trident and the brand colours are used to
-> pitch the concept; get brand approval before public release. Flavour powers are fictional.
+> Unofficial concept game. Simps flavour names, the red trident and the brand colours are used to pitch the concept;
+> get brand approval before public release. Flavour powers, recipes and burp abilities are fictional.
+> Ogopogo here is an original cartoon creature inspired by the popular lake-monster legend. It does not depict the
+> syilx/Okanagan being nx̌aʔx̌ʔitkʷ.
 
 ## Run it
 ```bash
 npm install
-npm run dev          # http://localhost:5173  (add ?touch=1 to force touch controls)
+npm run dev          # http://localhost:5173   (?touch=1 forces touch controls)
 npm run build        # production build → dist/
 npm run preview      # serve dist/ at http://localhost:4173
 ```
-Debug URLs: `?scene=store` (skip to gameplay), `?scene=intro`, `/debug.html?sheet=goose&scale=4` (sheet viewer).
+Debug/jump URLs: `?scene=store|intro|lab|dimension|carb|fake|cafe|waterfront|ogopogo|trueend|journal`,
+plus `&mode=demo` (original vertical slice), `&skipintro=1` (lab), `&burp=vanilla|saltedcaramel|hazelnut|peppermint|lavender|marshmallow`.
 
 ## Host it
-`dist/` is a fully static site with relative paths (`base: './'`) and no external services.
-Upload it to any static host (Netlify drop, GitHub Pages, S3 + CloudFront, itch.io as an HTML5
-game: zip the *contents* of `dist/`). It works from a sub-folder.
+`dist/` is a static site with relative paths and no external services. Upload its contents to any static host
+(Netlify drop, GitHub Pages, S3/CloudFront, itch.io HTML5: zip the *contents* of `dist/`). It works from a sub-folder.
+
+## The game (25–35 min first playthrough)
+| Level | Stage | What happens |
+|---|---|---|
+| 1 Bubble Trouble | Simps store | Street cinematic; store aisles, Trident Display Stand, storage-shelf route above the coolers. Fridge doors and taste test: **Cola: Fizzy Dash**, **Cream Soda: Foam Float**, **Black Cherry: Cherry Blast**. Two honks erupt the FIZZ-O-MATIC. Bubbles, Trident Lift and **3 interconnected pressure valves**, then the giant bubble rides out through the skylight. |
+| 2 Honkin' Soda Lab | Lab | Landing on the console wakes every machine. **Mix-O-Matic** mini-game: base, primary syrup, optional second, carbonation, then 3 timed pumps for Perfect, Good or Overmixed. 5 recipes + 2 secrets + Mystery Fizz. Puzzles: fragile glass (dash), zap target gate (Electric Fizz homes in), steam corridor (time it or Foam Shield), lever-driven trident lift and carbonation jets, Cloud Nine and Tropical Launch secrets. **Super Soda 9000**, rainbow bubble, portal. |
+| 2 | Soda Dimension | Fruit islands, rainbow bridges, citrus wheels, collapsing foam, geysers, syrup-river current, bubble elevator, hidden recipe chamber, flavour taps at 3 checkpoints. Enemies: **Fizz Sprites, Syrup Slugs, Bottle Bots, Foam Monsters, Fruit Flyers**. |
+| 2 Boss | Carbonation Catastrophe | Carbonator 3000 with face, gauges, arms and a rotating trident. **P1** honk or stomp its bubbles into the switches. **P2** hit the flavour tap matching its colour. **P3** foam flood: jets and bubbles up to 3 valves. |
+| — | **Fake ending** | Store celebration, CONGRATULATIONS, credits… then the goose interrupts, stomach growls, empty cup, HONK, record scratch. |
+| 3 One Last Sip | Café | Stool, barista dialogue, **specialty coffee** (base, Simps café syrup, 2nd syrup, milk, intensity; extraction, pumps, pour, stir, latte art), then the first burp and **Bubble Burp** unlocked. |
+| 3 | Waterfront | Okanagan Lake park: burp targets, beach ball lift, branch reached by burp bubble platform (E), hedge target, bubble bell, joggers, cyclist, startled gulls. Sit on the dock, the lake ripples. |
+| 3 Boss | Ogopogo | Rising intro, "Honk?". **P1** jump waves and burp. **P2** dives and resurfaces high: climb buoys and bubbles. **P3** whirlpool, charge the glowing cup, **Super Burp**. All 6 coffees are viable. |
+| — | **True ending** | The last sip shared, Ogopogo's enormous burp, bubbles over the lake, sunset ride, fireworks, maple confetti, red trident, final stats. |
+
+Coffee burps: **Vanilla** Gentle Giant · **Salted Caramel** Heavy Burp · **Hazelnut** Ricochet · **Peppermint** Rapid Fizz ·
+**Lavender** Dream Bubble (pops waves, longer stun) · **Toasted Marshmallow** Warm Foam (shield).
 
 ## Controls
 | Action | Keyboard | Touch | Gamepad |
 |---|---|---|---|
-| Move | ← → / A D | ◀ ▶ | D-pad / left stick |
+| Move | ← → / A D | ◀ ▶ | D-pad / stick |
 | Jump (hold while falling to flutter) | Space / Z | JUMP | A |
 | Honk | X | HONK | X |
-| Flavour power | C | POWER | B / RB |
-| Sip / use | E | SIP | Y |
-| Pause | Esc / P | II button | Start |
-| Mute | M | SND button | — |
+| Power / burp | C | POWER | B / RB |
+| Sip / use / bubble platform (Lv3) | E | SIP | Y |
+| Pause (journal, a11y, restart) | Esc / P | II | Start |
+| Mute | M | SND | — |
 
-## What's in the minute
-1. **0–10 s, cinematic:** camera reveals the storefront (trident sign, Canadian flag, maple bunting). The goose waddles in, spots a glowing bottle, stretches its neck, tilts its head, eyes go wide → ENORMOUS HONK (birds scatter, pedestrians jump) → the door swings open. Skippable.
-2. **10–25 s, store:** run, jump, flutter and honk. Customers react (shock, laugh, flee, "A GOOSE?!"), bottles jiggle and topple, and a honk-loosened bottle can bonk the goose. Climb crates, a gondola and the **Trident Display Stand**. Collect syrup drops, 3 hidden **Golden Maple Leaves** and the **Simps Certified** badge.
-3. **25–40 s, sampling:** Sam at the TASTE TEST counter waves you over. Pick a flavour: the goose hops up, sips, swallows (a lump travels down the neck) and reacts. One power at a time, shown in the HUD slot with a 45 s timer (it ends in a BURP).
-   - **Cola, Fizzy Dash:** fast fizzy dash that smashes the delivery box wall.
-   - **Cream Soda, Foam Float:** a cream foam cloud that lifts you over the wall.
-   - **Black Cherry, Cherry Blast:** a bouncing cherry bubble that topples the wall.
-4. **40–60 s, Bubble Trouble:** a "PLEASE DO NOT HONK AT THE FOUNTAIN" sign. Honk → the FIZZ-O-MATIC rumbles. Honk again → the gauge goes wild → an enormous bubble erupts. Bubbles drift from the three trident spouts, rise from floor vents and hover as stepping stones; the Trident Lift pumps. Bubbles pop after repeated landings. Ride them up to the mezzanine and pull the trident valve → the goose rides a giant bubble to the skylight → wide shot → sepia freeze-frame → **TO BE CONTINUED…** → Replay Demo / Main Menu.
+## Systems
+Hearts (5 maple leaves) and trident checkpoints (resume from checkpoint). Score, time, best score.
+Persistent saves (`localStorage`: unlocked stages, completion, scores, flavours, recipes, cards, collectibles, achievements, coffee, checkpoint and run).
+Collectibles: syrup drops, golden maple leaves, Simps Certified badges, golden bottles, recipe cards, bubble stars, coffee beans, Golden Goose Token.
+14 achievements. Flavour and recipe journal. Level select (Level 3 hidden until revealed). Continue.
+Accessibility: music/SFX volume, mute, reduce flashing, reduce screen shake, high-contrast enemies, touch toggle.
 
 ## Project layout
 ```
-src/
-  main.ts                 Phaser config (480×270, pixelArt, FIT scaling)
-  scenes/                 Boot (texture generation) + Input (persistent controls), Title, Intro, Store, UI
-  entities/               Goose (controller + animation state machine), Person (AI), Bubbles (pooled moving platforms),
-                          Props (bottles, box wall), Abilities (foam, cherry shot, trident lift), Emote
-  gameplay/               layout.ts (data-driven level), flavors.ts, Sampling.ts, Fountain.ts, FxSystem.ts
-  systems/                physics.ts (fixed 120 Hz AABB + one-way + moving platforms), input.ts, settings.ts
-  art/                    palette, Px rasteriser, font, goose, people, props, fx, motifs, backgrounds, registry
-  audio/                  engine (buses, persisted volumes), sfx (synthesised), music (layered chiptune sequencer)
-  debug/                  sprite-sheet viewer + offline audio exporter
-assets/                   exported PNG sheets + WAV audio (generated from the code above)
-screenshots/              e2e screenshots + results.json
-tests/                    e2e.mjs (40 checks), perf.mjs, export-assets.mjs, smoke.mjs, play.mjs
+src/levels/LevelScene.ts  shared runtime: fixed 120 Hz physics, goose, powers, burps, hearts, checkpoints, pickups, enemies, switches, hazards
+src/scenes/               Boot/Input, Title, Intro, Store, Lab, Mixer, Dimension, BossCarb, FakeEnd, Cafe, Coffee, Waterfront, Ogopogo, TrueEnd, Journal, UI
+src/entities/             Goose, Person, Bubbles, Projectile, Enemies, Props, Abilities, Emote
+src/data/                 recipes (verified ingredients), coffee (burps), achievements
+src/systems/              physics, input, settings, save, gamestate, camfx
+src/art/                  palette, Px rasteriser, font, goose, people, props, fx, fx2, motifs, backgrounds, lab, enemies, dimension, boss, cafe, waterfront, registry
+src/audio/                engine, sfx (50+ synthesised effects), music (11 original songs, data-driven sequencer)
+assets/                   exported PNG sprite sheets + WAV audio (npm run export:assets)
+tests/                    e2e.mjs (vertical slice), fullgame.mjs, ogopogo.mjs (all 6 coffees), perf.mjs, export-assets.mjs
 ```
 
 ## Tests
 ```bash
-npm run dev &                 # or: npm run build && npm run preview &  then BASE=http://localhost:4173
-npm run test:e2e              # 40 browser checks, writes screenshots/ and screenshots/results.json
-node tests/perf.mjs           # FPS during Bubble Trouble + small-phone screenshots
-npm run export:assets         # regenerate assets/ (PNG + WAV)
+npm run dev &
+npm run test:e2e        # 40 original vertical-slice checks (demo mode)
+npm run test:full       # full-game checks across all 3 levels, endings, saves, menus, touch
+npm run test:ogopogo    # every coffee burp defeats Ogopogo
 ```
-See `TESTING.md` for the report and `ART_BIBLE.md` for the art rules.
+See `TESTING.md` for recorded results, and `ART_BIBLE.md` for art rules.

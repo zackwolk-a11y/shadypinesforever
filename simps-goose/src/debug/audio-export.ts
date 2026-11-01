@@ -1,7 +1,7 @@
 // Renders every SFX and music theme to WAV via OfflineAudioContext (used by tests/export-assets.mjs).
 import { AE, SFX_BUS } from '../audio/engine';
 import { SFX } from '../audio/sfx';
-import { MUSIC } from '../audio/music';
+import { MUSIC, Song } from '../audio/music';
 
 function wav(buf: AudioBuffer): string {
   const ch = buf.numberOfChannels, len = buf.length, sr = buf.sampleRate;
@@ -55,6 +55,11 @@ const SFX_LIST: [string, number, () => void][] = [
   await song('store_explore', 'store', 8, 0);
   await song('store_fountain_rumble', 'store', 8, 1);
   await song('store_bubble_trouble', 'store', 8, 2);
+  for (const [n, s, i, bpm] of [['lab', 'lab', 1, 136], ['soda_dimension', 'dimension', 0, 116], ['carbonation_boss', 'boss', 1, 164], ['fake_ending_fanfare', 'fake', 0, 120], ['cafe', 'cafe', 0, 88], ['waterfront', 'waterfront', 0, 96], ['ogopogo_battle', 'ogopogo', 1, 154], ['true_ending_finale', 'finale', 0, 126]] as [string, Song, number, number][]) {
+    out['music/' + n + '.wav'] = await render(60 / bpm * 4 * 4 + 1.2, () => { MUSIC.renderOffline(s, 4, i); });
+  }
+  const more: [string, number, () => void][] = [['syrup_pump', 0.4, () => SFX.pump()], ['mixer', 1.2, () => SFX.mixer(1)], ['soda_explosion', 1.6, () => SFX.explosion()], ['portal', 2, () => SFX.portal()], ['espresso', 1.8, () => SFX.espresso(1.5)], ['milk_froth', 1.4, () => SFX.froth(1.2)], ['grinder', 0.7, () => SFX.grind()], ['splash', 0.8, () => SFX.splash()], ['ogopogo_roar', 1.5, () => SFX.roar()], ['ogopogo_laugh', 1, () => SFX.ogLaugh()], ['ogopogo_hurt', 0.5, () => SFX.ogHurt()], ['stomp', 0.2, () => SFX.stomp()], ['enemy_defeat', 0.4, () => SFX.enemyDefeat()], ['fireworks', 1.4, () => SFX.fireworks()], ['stomach_growl', 1.1, () => SFX.growl()], ['record_scratch', 0.5, () => SFX.scratch()], ['chime', 0.8, () => SFX.chime()]];
+  for (const [n, d, f] of more) out['sfx/' + n + '.wav'] = await render(d, f);
   out['music/to_be_continued_stinger.wav'] = await render(3, () => { MUSIC.stinger(); });
   return out;
 };

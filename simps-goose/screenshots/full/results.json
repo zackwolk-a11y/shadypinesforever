@@ -1,0 +1,260 @@
+{
+  "results": [
+    {
+      "name": "L1 storage route golden bottle collectable",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "L1 two honks erupt the fountain (story)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "L1 main valve locked until pressure valves are open",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "L1 both pressure valves opened (honk)",
+      "pass": true,
+      "info": "[true,true]"
+    },
+    {
+      "name": "L1 final trident valve starts the finale",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "L1 transitions into Level 2 (Lab)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Lab arrival cutscene → play",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "no missing textures (store/lab)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Mixer: Cola + Black Cherry = Cherry Rocket",
+      "pass": true,
+      "info": "{\"recipe\":\"cherry_rocket\",\"q\":\"good\",\"power\":\"rocket\",\"isSuper\":false}"
+    },
+    {
+      "name": "Mixer: three green-zone pumps = PERFECT",
+      "pass": false,
+      "info": ""
+    },
+    {
+      "name": "Cherry Rocket power granted",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Lab: rocket dash smashes the fragile glass wall",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Mixer: Blue Raspberry + Lemon Lime = Electric Fizz",
+      "pass": true,
+      "info": "{\"recipe\":\"electric_fizz\",\"q\":\"good\",\"power\":\"electric\",\"isSuper\":false}"
+    },
+    {
+      "name": "Lab: Electric Fizz zaps the target and opens the gate",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Lab: pressure lever starts the trident lift",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Mixer: unknown combo still gives a power (Mystery Fizz)",
+      "pass": true,
+      "info": "{\"recipe\":null,\"q\":\"good\",\"power\":\"cream\",\"isSuper\":false}"
+    },
+    {
+      "name": "Super Soda (Cola + Cream Soda + Black Cherry + MAX)",
+      "pass": true,
+      "info": "{\"recipe\":null,\"q\":\"over\",\"power\":\"cola\",\"isSuper\":true}"
+    },
+    {
+      "name": "Portal accident → Soda Dimension",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Recipes saved to the journal",
+      "pass": true,
+      "info": "cherry_rocket,electric_fizz"
+    },
+    {
+      "name": "Dimension: stomping a Syrup Slug defeats it",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Dimension: all 5 enemy types present",
+      "pass": true,
+      "info": "BottleBot,FizzSprite,FoamMonster,FruitFlyer,SyrupSlug"
+    },
+    {
+      "name": "Dimension: collapsing foam pad gives way",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Dimension: checkpoint reached",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Dimension fps",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Dimension exit portal → Carbonation boss",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Boss phase 1: honked bubbles hit the pressure switches",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Boss phase 2: matching flavor taps",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Boss phase 3: all valves → Carbonator defeated",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Boss → fake ending",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Fake ending: credits interrupted → Level 3 café",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Level 3 revealed + unlocked (progress kept)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Café: barista dialogue → coffee mini-game",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Café: first burp → Bubble Burp unlocked (Peppermint)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Café: burp fires a bubble",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Café → waterfront",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Coffee power persisted in the save",
+      "pass": true,
+      "info": "{\"c\":\"peppermint\",\"r\":\"peppermint\"}"
+    },
+    {
+      "name": "Waterfront: burp targets popped",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Waterfront: burp lifts the beach ball",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Waterfront: E makes a bubble platform",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Waterfront: bubble bell opens the dock",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Waterfront: sit on the dock → ripples → Ogopogo",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "True ending → final stats screen",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Achievements saved (Friend of Ogopogo, Golden Goose)",
+      "pass": true,
+      "info": "first_honk,bubble_trouble,master_of_fizz,coffee_break,friend_of_ogopogo,golden_goose"
+    },
+    {
+      "name": "Golden Goose Token collected",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Title shows CONTINUE after progress",
+      "pass": true,
+      "info": "CONTINUE|NEW GAME|LEVEL SELECT|JOURNAL + ACHIEVEMENTS|SETTINGS|HOW TO PLAY|VERTICAL SLICE DEMO"
+    },
+    {
+      "name": "Level select lists Level 3 once revealed",
+      "pass": true,
+      "info": "LEVEL SELECT|~ L1  BUBBLE TROUBLE  *|L2  THE HONKIN' SODA LAB  *|L2  THE SODA DIMENSION  *|L2  CARBONATION CATASTROPHE  "
+    },
+    {
+      "name": "Journal opens from the title",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Pause works in Level 2",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Pause menu toggles Reduce Flashing (saved)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Resume works in Level 2",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Mobile touch: move + jump in the Soda Dimension",
+      "pass": true,
+      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":153,\"y\":368,\"power\":null,\"burp\":null,\"gtag\":null}"
+    }
+  ],
+  "errors": []
+}

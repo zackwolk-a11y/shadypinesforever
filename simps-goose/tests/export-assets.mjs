@@ -16,6 +16,13 @@ const sheets = {
   'fx/cherry_shot.png': 'cherryShot', 'ui/icon_cola.png': 'icon_cola', 'ui/icon_cream_soda.png': 'icon_cream', 'ui/icon_black_cherry.png': 'icon_cherry',
   'collectibles/golden_maple_leaf.png': 'goldenLeaf', 'collectibles/certified_badge.png': 'badge28', 'collectibles/golden_bottle.png': 'goldenBottle',
   'environment/canada_flag_frame0.png': 'bigFlag0', 'environment/bunting.png': 'bunting',
+  'sprites/enemies_soda_dimension.png': 'enemies', 'sprites/ogopogo_and_lake.png': 'ogopogo',
+  'level2/lab_back_wall.png': 'labWall', 'level2/mix_o_matic.png': 'mixer', 'level2/super_soda_9000.png': 'superMachine', 'level2/console.png': 'labConsole', 'level2/glass_block.png': 'glassBlock', 'level2/trident_gate.png': 'gate', 'level2/zap_target.png': 'target0', 'level2/lever.png': 'lever1',
+  'level2/dimension_sky.png': 'dimSky', 'level2/dimension_far.png': 'dimFar', 'level2/dimension_mid.png': 'dimMid', 'level2/strawberry_island.png': 'island140', 'level2/citrus_wheel.png': 'citrusWheel', 'level2/portal_bottle.png': 'portalBottle',
+  'level2/carbonator_3000.png': 'carbBody', 'level2/carbonator_eyes_angry.png': 'eyes_angry',
+  'level3/cafe_wall.png': 'cafeWall', 'level3/espresso_machine.png': 'espresso', 'level3/cafe_counter.png': 'cafeCounter', 'level3/pastry_case.png': 'pastryCase',
+  'level3/waterfront_sky.png': 'wfSky', 'level3/waterfront_hills.png': 'wfHills', 'level3/waterfront_trees.png': 'wfTrees', 'level3/sunset_panorama.png': 'panorama', 'level3/ogopogo_happy.png': 'og_happy',
+  'collectibles/recipe_card.png': 'recipeCard', 'collectibles/bubble_star.png': 'bubbleStar', 'collectibles/coffee_bean.png': 'coffeeBean', 'collectibles/golden_goose_token.png': 'goldenGoose', 'ui/checkpoint.png': 'checkpoint1',
 };
 for (const [out, key] of Object.entries(sheets)) {
   await p.goto(`${base}/debug.html?sheet=${key}&scale=1&bg=none`);

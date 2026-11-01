@@ -110,7 +110,7 @@ export class MixerScene extends Phaser.Scene {
     if (this.pumpLock > 0) return;
     this.pumpLock = 0.25;
     const d = Math.abs(this.needle - 0.5);
-    const sc = d < 0.045 ? 2 : d < 0.12 ? 1 : 0;
+    const sc = d < 0.06 ? 2 : d < 0.14 ? 1 : 0;
     this.pumpScores.push(sc);
     SFX.pump(); if (sc === 2) SFX.chime();
     this.cameras.main.shake(80, 0.003);
@@ -197,8 +197,8 @@ export class MixerScene extends Phaser.Scene {
     const x = 140, y = 196, w = 200;
     g.fillStyle(C.blk1).fillRect(x - 2, y - 2, w + 4, 14);
     g.fillStyle(C.red2).fillRect(x, y, w, 10);
-    g.fillStyle(C.gold2).fillRect(x + w * 0.38, y, w * 0.24, 10);
-    g.fillStyle(C.lim1).fillRect(x + w * (0.5 - 0.045), y, w * 0.09, 10);
+    g.fillStyle(C.gold2).fillRect(x + w * 0.36, y, w * 0.28, 10);
+    g.fillStyle(C.lim1).fillRect(x + w * (0.5 - 0.06), y, w * 0.12, 10);
     g.fillStyle(0xffffff).fillRect(x + this.needle * w - 1, y - 4, 3, 18);
     for (let i = 0; i < 3; i++) g.fillStyle(i < this.pumpScores.length ? [C.red1, C.lim1, C.gold1][this.pumpScores[i]] : C.st3).fillCircle(x + w + 16 + i * 10, y + 5, 4);
   }
