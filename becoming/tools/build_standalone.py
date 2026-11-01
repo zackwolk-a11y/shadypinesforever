@@ -32,7 +32,7 @@ def main() -> None:
     assets: dict[str, str] = {}
     map_path = WORLD["art"]["image"].replace("assets/", "", 1)
     assets[map_path] = data_uri(Image.open(ASSETS / map_path).convert("RGB"), "WEBP", quality=92, method=6)
-    for r in WORLD["residents"]:
+    for r in [*WORLD["residents"], WORLD["founder"]]:
         p = Image.open(ASSETS / r["portrait"]).convert("RGB")
         p.thumbnail((420, 620))
         assets[r["portrait"]] = data_uri(p, "WEBP", quality=86, method=6)

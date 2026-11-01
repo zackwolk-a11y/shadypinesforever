@@ -49,10 +49,17 @@ def main() -> None:
             "home": {"building": home["building"], "x": home["x"], "y": home["y"] + 1},
             "portrait": f"portraits/{rid}.png", "frames": counts,
         })
+    import yaml
+    f = yaml.safe_load((ROOT / "canon" / "founder.yaml").read_text())
+    founder = {
+        "id": f["id"], "name": f["display_name"], "title": f["title"],
+        "note": " ".join(f["role_note"].split()), "portrait": f["portrait"],
+        "frames": {d: len(list((frames_dir / f["id"]).glob(f"{d}_*.png"))) for d in ("down", "up", "left", "right")},
+    }
     out = {
         "source": "canon/world/village_layout.json + canon/residents (exported, do not edit)",
         "width": raw["width"], "height": raw["height"],
-        "art": raw["art"], "walkable": walk, "doors": doors, "zones": zones, "residents": residents,
+        "art": raw["art"], "walkable": walk, "doors": doors, "zones": zones, "residents": residents, "founder": founder,
     }
     OUT.write_text(json.dumps(out, indent=1))
     print(f"wrote {OUT.relative_to(ROOT)}: {len(doors)} doors, {len(residents)} residents")

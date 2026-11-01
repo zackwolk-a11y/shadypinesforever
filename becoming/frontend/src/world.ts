@@ -11,6 +11,7 @@ export interface Resident {
 export const WORLD = raw as unknown as {
   width: number; height: number; art: { image: string; px_per_tile: number };
   walkable: string[]; doors: Door[]; zones: Zone[]; residents: Resident[];
+  founder: { id: string; name: string; title: string; note: string; portrait: string; frames: Record<string, number> };
 };
 
 export const T = WORLD.art.px_per_tile;

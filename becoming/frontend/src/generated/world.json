@@ -626,5 +626,18 @@
     "right": 5
    }
   }
- ]
+ ],
+ "founder": {
+  "id": "zachary",
+  "name": "Zachary",
+  "title": "Chief Human Officer (Founder)",
+  "note": "Founder and creative director of Healthy Village. Visits as the player avatar; can join conversations, ask questions and convene gatherings. Residents are free to decline and to disagree.",
+  "portrait": "portraits/zachary.png",
+  "frames": {
+   "down": 4,
+   "up": 4,
+   "left": 4,
+   "right": 4
+  }
+ }
 }

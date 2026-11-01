@@ -20,6 +20,16 @@ export function showResident(r: Resident) {
   d.append(img, h, t, tags, ten, how, note, disc);
 }
 
+export function showFounder() {
+  const f = WORLD.founder, d = $("detail");
+  d.replaceChildren();
+  const img = document.createElement("img"); img.src = assetUrl(f.portrait); img.alt = `Portrait of ${f.name}`;
+  const h = document.createElement("h3"); h.textContent = `${f.name} (you)`;
+  const t = document.createElement("p"); t.className = "muted"; t.textContent = f.title;
+  const n = document.createElement("p"); n.textContent = f.note;
+  d.append(img, h, t, n);
+}
+
 let enterHandler: (() => void) | null = null;
 export function setEnterButton(name: string | null, onEnter?: () => void) {
   const b = $("enter") as HTMLButtonElement;
@@ -49,6 +59,7 @@ export function initUi(getScene: () => any) {
     const c = zoneCenter(z); places.append(item(z.name, () => go(c.x, c.y + 1)));
   }
   const people = $("people");
+  people.append(item(`${WORLD.founder.name} (you)`, () => showFounder()));
   // Stop two tiles in front of the resident so the avatar doesn't hide them.
   for (const r of WORLD.residents) people.append(item(r.name, () => {
     showResident(r);

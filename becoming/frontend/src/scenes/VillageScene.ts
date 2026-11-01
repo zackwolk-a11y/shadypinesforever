@@ -55,16 +55,32 @@ export class VillageScene extends Phaser.Scene {
     };
   }
 
+  facing = "down";
+  sprite!: Phaser.GameObjects.Sprite;
+
   makeAvatar(): Phaser.GameObjects.Container {
-    // Placeholder visitor marker until the Founder's avatar sprite exists.
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.25).fillEllipse(0, 0, 18, 6);
-    g.fillStyle(0x2d6a8a).fillRoundedRect(-7, -26, 14, 20, 4);
-    g.fillStyle(0xf1c27d).fillCircle(0, -32, 7);
-    g.lineStyle(1.5, 0x1d1a14).strokeRoundedRect(-7, -26, 14, 20, 4).strokeCircle(0, -32, 7);
-    const label = this.add.text(0, -50, "You", { fontFamily: "Georgia", fontSize: "10px", color: "#fff", stroke: "#000", strokeThickness: 3 })
+    const f = WORLD.founder;
+    for (const dir of ["down", "up", "left", "right"]) {
+      if (this.anims.exists(`${f.id}_walk_${dir}`)) continue;
+      this.anims.create({
+        key: `${f.id}_walk_${dir}`, frameRate: 8, repeat: -1,
+        frames: Array.from({ length: f.frames[dir] }, (_, i) => ({ key: `${f.id}_${dir}_${i}` })),
+      });
+    }
+    const shadow = this.add.ellipse(0, -1, 18, 6, 0x000000, 0.25);
+    this.sprite = this.add.sprite(0, 0, `${f.id}_down_0`).setOrigin(0.5, 1).setScale(SPRITE_SCALE);
+    const label = this.add.text(0, -54, f.name, { fontFamily: "Georgia", fontSize: "10px", color: "#fff", stroke: "#000", strokeThickness: 3 })
       .setOrigin(0.5).setResolution(3);
-    return this.add.container(0, 0, [g, label]);
+    return this.add.container(0, 0, [shadow, this.sprite, label]);
+  }
+
+  animateAvatar(vx: number, vy: number) {
+    const s = this.sprite;
+    const id = WORLD.founder.id;
+    if (!vx && !vy) { if (s.anims.isPlaying) { s.anims.stop(); s.setTexture(`${id}_${this.facing}_0`); } return; }
+    this.facing = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? "right" : "left") : (vy > 0 ? "down" : "up");
+    const key = `${id}_walk_${this.facing}`;
+    if (s.anims.currentAnim?.key !== key || !s.anims.isPlaying) s.anims.play(key);
   }
 
   placeResident(r: Resident) {
@@ -126,6 +142,7 @@ export class VillageScene extends Phaser.Scene {
       else if (walkable(Math.floor(nx / T), Math.floor((this.avatar.y - 1) / T))) this.avatar.x = nx;
       else if (walkable(Math.floor(this.avatar.x / T), Math.floor((ny - 1) / T))) this.avatar.y = ny;
     }
+    this.animateAvatar(vx, vy);
     this.avatar.setDepth(this.avatar.y);
 
     const { x, y } = this.avatarTile();
@@ -140,7 +157,7 @@ export class VillageScene extends Phaser.Scene {
 /** Every texture the village needs: [texture key, asset path]. */
 export function imageList(): [string, string][] {
   const out: [string, string][] = [["map", WORLD.art.image.replace(/^assets\//, "")]];
-  for (const r of WORLD.residents) {
+  for (const r of [...WORLD.residents, WORLD.founder]) {
     for (const [dir, n] of Object.entries(r.frames)) {
       for (let i = 0; i < n; i++) out.push([`${r.id}_${dir}_${i}`, `sprites/frames/${r.id}/${dir}_${i}.png`]);
     }
