@@ -1,0 +1,23 @@
+{
+  "name": "simps-goose-on-the-loose",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SIMPS: GOOSE ON THE LOOSE! - vertical slice (first 60 seconds). Unofficial fan project.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host --port 4173",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node tests/e2e.mjs",
+    "export:sheets": "node tests/export-sheets.mjs",
+    "zip": "node scripts/zip.mjs"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  }
+}
