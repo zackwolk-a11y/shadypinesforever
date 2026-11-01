@@ -11,6 +11,8 @@
 | Walk-cycle sheet v1 — Pepper, Ashley, Tony | assets/sprites/source/sheet_pepper_ashley_tony_v1.png (1536×1024, sha256 prefix c87e23371fedde60) | Founder upload, 2026-11-01; ChatGPT; Founder-confirmed fictional characters | Founder-generated | Pixel sprite style | 2026-11-01 |
 | Walk frames (48 × 96, transparent) | assets/sprites/frames/{pepper,ashley,tony}/{down,up,left,right}_{0-3}.png | Cut from sheet v1 by tools/extract_sprites.py (edge-aware background removal); pepper/left_2 is a mirror of right_2 because extraction damaged it | Project-owned processing | Pixel sprite style | 2026-11-01 |
 | Walk preview | docs/art/walk_preview.gif | Generated from the frames | Project-owned | n/a | 2026-11-01 |
+| Haize portrait + walk sheet v1 | assets/sprites/source/sheet_haize_v1.png (1536×1024, sha256 prefix 1a654ede96c4daf9) → assets/portraits/haize.png (left crop) | Founder upload, 2026-11-01; ChatGPT; treated as an original fictional character per the Founder's statement for the earlier portraits (D-019) | Founder-generated | Pixel portrait + sprite style | 2026-11-01 |
+| Haize walk frames (16) | assets/sprites/frames/haize/ | tools/extract_sprites.py --bg-max 160; this sheet's rows 3/4 were left/right (reversed vs sheet v1) and were renamed accordingly | Project-owned processing | Pixel sprite style | 2026-11-01 |
 | Layout blockout (planning diagram, not game art) | docs/world/layout_blockout.svg / .png | Generated from layout JSON by `world_layout.py` | Project-owned | n/a | 2026-10-31 |
 
 No game art exists yet. Art production begins after the Founder selects a direction (HV-003).

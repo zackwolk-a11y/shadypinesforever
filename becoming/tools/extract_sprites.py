@@ -15,9 +15,12 @@ from PIL import Image
 ROWS = ["down", "up", "right", "left"]
 
 
+BG_MAX = 112
+
+
 def is_bg(p, outline_max=42):
     r, g, b = p
-    return max(r, g, b) > outline_max and r >= g >= b - 6 and r - b < 90 and max(r, g, b) < 112
+    return max(r, g, b) > outline_max and r >= g >= b - 6 and r - b < 90 and max(r, g, b) < BG_MAX
 
 
 def smooth_step(a, b, limit=14):
@@ -79,7 +82,10 @@ def main():
     ap.add_argument("sheet"); ap.add_argument("outdir")
     ap.add_argument("--names", required=True)
     ap.add_argument("--frame", default="48x96", help="output frame size (fits sprite, keeps aspect)")
+    ap.add_argument("--bg-max", type=int, default=112, help="brightest channel value still treated as background")
     a = ap.parse_args()
+    global BG_MAX
+    BG_MAX = a.bg_max
     names = a.names.split(",")
     fw, fh = map(int, a.frame.split("x"))
     im = Image.open(a.sheet).convert("RGB")
