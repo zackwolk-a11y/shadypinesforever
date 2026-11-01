@@ -21,3 +21,4 @@ Format: ID · date · decision · rationale · reversibility. Founder decisions 
 | D-015 [B] | 2026-10-31 | Founder profiles supersede the builder's prompt-derived drafts for character content; master-prompt philosophical interests kept alongside | Founder-authored, source-grounded | Yes |
 | D-016 [B] | 2026-10-31 | One shared source registry with the Founder's codes; editorial scholarship is a distinct role | Single provenance store | Yes |
 | D-017 [B] | 2026-10-31 | "Scenes worth testing" stored as evaluation probes, never scripts | Part XXII | Yes |
+| D-018 [B] | 2026-11-01 | Mood and direction art via the Founder's ChatGPT subscription (manual copy, paste and upload); builder redraws game tiles and sprites to the 16 px grid | No extra cost; Founder controls each image; AI images are not grid-accurate pixel art | Yes |
