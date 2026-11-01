@@ -1708,8 +1708,6 @@ const SAVE_KEY='fried-pig-hot-wax-v1';
 let SV={rare:Array(12).fill(false),best:null,muted:false,level:1};
 try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(s)SV=Object.assign(SV,s);}catch(e){}
 if(!SV.v5){if((SV.level||1)>=4)SV.level=(SV.level||1)+1;SV.v5=true;try{localStorage.setItem(SAVE_KEY,JSON.stringify(SV));}catch(e){}}
-// link shortcut: #level1..#level5 unlocks up to that stage (this session only) and opens Stage Select on it
-let HASHLV=0;try{const m=/^#level([1-5])$/.exec(location.hash||'');if(m){HASHLV=+m[1];SV.level=Math.max(SV.level||1,HASHLV);}}catch(e){}
 while(SV.rare.length<12)SV.rare.push(false);SV.level=SV.level||1;
 function save(){SV.muted=G.muted;try{localStorage.setItem(SAVE_KEY,JSON.stringify(SV));}catch(e){}}
 
@@ -2844,6 +2842,7 @@ function coneSkyCols(z){const d=LV.coneDawn||0;switch(z){
   case 'tunnel':return['#1a0628','#3a0a4a'];case 'night':case 'mush':return['#0a0a26','#2a2a5a'];case 'carn':case 'boss':return['#120a2a','#3a1a4a'];
   case 'dawn':return[lerpC2('#141838','#7ab8e8',d),lerpC2('#3a2a5a','#ffc890',d)];}return['#000','#000'];}
 function lerpC2(a,b,t){const p=s=>[1,3,5].map(i=>parseInt(s.slice(i,i+2),16));const A=p(a),B=p(b);return'rgb('+A.map((v,i)=>Math.round(v+(B[i]-v)*clamp(t,0,1))).join(',')+')';}
+let coneSwayC=null;
 function drawConeBG(){const z=zoneAt(G.cam+W/2);const [c0,c1]=coneSkyCols(z);const gr=ctx.createLinearGradient(0,0,0,H);gr.addColorStop(0,c0);gr.addColorStop(1,c1);ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
   if(z==='tunnel')return drawTunnelBG();
   const night=z!=='snow'&&!(z==='dawn'&&(LV.coneDawn||0)>0.6);
@@ -2860,7 +2859,7 @@ function drawConeBG(){const z=zoneAt(G.cam+W/2);const [c0,c1]=coneSkyCols(z);con
   const N=coneLayer('firnear',960,(g,w,r)=>{for(let x=10;x<w;x+=40+Math.floor(r()*50))firTree(g,x,196,110+r()*60,'#1a3a2a','#e8f0ff');});
   const no=-Math.round(G.cam*0.5)%960;const sway=LV.cone&&z!=='dawn'?2+(z==='carn'&&LV.ride&&LV.ride.state==='run'?LV.ride.k*6:0):0;
   if(night)ctx.globalAlpha=0.75;
-  if(sway){for(let sx=0;sx<W;sx+=16){const off=Math.round(Math.sin(G.t*0.05+(sx+G.cam*0.5)*0.02)*sway);for(const base of [no,no+960]){const srcx=sx-base;if(srcx<0||srcx>944)continue;ctx.drawImage(N,srcx,0,16,H,sx+off,0,16,H);}}}
+  if(sway){if(!coneSwayC||coneSwayC.width!==W){coneSwayC=document.createElement('canvas');coneSwayC.width=W;coneSwayC.height=H;}const sg=coneSwayC.getContext('2d');sg.clearRect(0,0,W,H);const sw=16+Math.ceil(sway*0.4)+1;for(let sx=-16;sx<W+16;sx+=16){const off=Math.round(Math.sin(G.t*0.05+(sx+G.cam*0.5)*0.02)*sway);for(const base of [no,no+960]){const a=Math.max(0,sx-base),b=Math.min(960,sx-base+sw);if(b>a)sg.drawImage(N,a,0,b-a,H,base+a+off,0,b-a,H);}}ctx.drawImage(coneSwayC,0,0);}
   else{ctx.drawImage(N,no,0);ctx.drawImage(N,no+960,0);}ctx.globalAlpha=1;
   if(z==='snow'&&!LV.cone){ctx.globalCompositeOperation='lighter';for(let i=0;i<3;i++){const x=((i*170-G.cam*0.3)%600+600)%600-100;ctx.globalAlpha=0.07;ctx.fillStyle='#fff6c8';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+40,0);ctx.lineTo(x-30,192);ctx.lineTo(x-80,192);ctx.fill();}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';}
   if(z==='carn'||z==='boss'){const pu=songClock().pulse;for(let x=0;x<W;x+=6){const yy=40+Math.round(Math.abs(Math.sin((x+G.cam*0.3)*0.02))*14);rf(ctx,x,yy,1,1,'#2a1a2a');if(x%18===0)circ(ctx,x,yy+2,2,pick(['#ffd23f','#ff5fa2','#5ff','#3dff8a']));}
@@ -3629,7 +3628,7 @@ function updateVictory(){G.vt++;const p=P,t=G.vt;const stand=bb.x-110;
 function update(){pollInput();G.t++;if(G.flash>0)G.flash--;
   if(hit('mute')){setMute(!G.muted);}
   switch(G.mode){
-    case 'splash':G.splashT++;if(G.splashT>200||(G.splashT>20&&(confirmHit()||G.tap))){G.mode='title';G.tap=null;if(HASHLV>=2){G.mode='stages';G.menuSel=HASHLV-1+(HASHLV>=3&&SV.level>=3?1:0);HASHLV=0;}}break;
+    case 'splash':G.splashT++;if(G.splashT>200||(G.splashT>20&&(confirmHit()||G.tap))){G.mode='title';G.tap=null;}break;
     case 'title':{const tl=['START'];if(SV.level>=2)tl.push('STAGE SELECT');tl.push('JUKEBOX','HOW TO PLAY');if(G.menuSel>=tl.length)G.menuSel=0;
       menuUpdate(tl,i=>{const l=tl[i];if(l==='START')newGame(0);else if(l==='STAGE SELECT'){G.mode='stages';G.menuSel=0;}else if(l==='JUKEBOX'){G.mode='jukebox';G.menuSel=0;}else G.mode='howto';},110,12);if(gestured&&!MUS.song&&G.mode==='title')playSong(0,5);break;}
     case 'howto':if(confirmHit()||hit('pause')||G.tap){G.mode='title';G.tap=null;sfx.blip(440);}break;
