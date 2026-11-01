@@ -17,9 +17,31 @@
       <div id="controls">
         <button id="zoom-in" aria-label="Zoom in">+</button>
         <button id="zoom-out" aria-label="Zoom out">−</button>
+      </div>
+      <div id="actions">
+        <button id="talk-btn" hidden>Talk</button>
         <button id="enter" hidden>Enter</button>
       </div>
-      <p id="hint">Move: arrow keys / WASD, or tap the map. Enter a door: E or the Enter button.</p>
+      <div id="dpad" aria-label="Movement pad">
+        <button data-dir="up" aria-label="Walk up">▲</button>
+        <button data-dir="left" aria-label="Walk left">◀</button>
+        <button data-dir="right" aria-label="Walk right">▶</button>
+        <button data-dir="down" aria-label="Walk down">▼</button>
+      </div>
+      <section id="talk" hidden aria-label="Conversation">
+        <header>
+          <img id="talk-portrait" alt="" />
+          <strong id="talk-name"></strong>
+          <button id="talk-close" aria-label="Close conversation">✕</button>
+        </header>
+        <p id="talk-status" class="muted"></p>
+        <div id="talk-log" aria-live="polite"></div>
+        <form id="talk-form">
+          <input id="talk-input" autocomplete="off" placeholder="Say something…" aria-label="Your message" />
+          <button id="talk-send" type="submit">Send</button>
+        </form>
+      </section>
+      <p id="hint">Move: arrow keys / WASD, the pad, or tap the map. Near a door: E or Enter. Near a resident: T or Talk.</p>
     </section>
     <aside id="panel" aria-live="polite">
       <div id="detail"><p class="muted">Click a resident to see who they are.</p></div>

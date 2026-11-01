@@ -27,3 +27,8 @@ Old project regression (untouched): `pytest tests` at repo root → 27 passed.
 
 ## 2026-11-01 — Standalone single-file build
 `tools/build_standalone.py` → `standalone/healthy_village.html` (4.7 MB, 162 embedded images). Opened from disk in Chromium with **all network requests blocked**: 12/12 buildings entered and left, 0 network requests attempted, 0 page errors. Published as a private claude.ai artifact.
+
+## 2026-11-01 — Talk demo and mobile controls
+- `npm run test:e2e` → 12/12 buildings OK.
+- `node tests/talk_and_mobile.mjs` → **13/13 checks pass**: pad visible and moves the avatar on an emulated iPhone 13; Talk button appears near a resident and names them; without Claude, Talk states it is unavailable and disables input; with a test-only stand-in for `sample`, the first message carries the character prompt and Zachary's words, honesty rules are included, follow-ups send the conversation so far, the hidden prompt never appears in the transcript, and typing W/A/S/D/E/T goes into the chat without moving the avatar.
+- Standalone rebuilt (5.0 MB); offline test 12/12, no errors. Artifact republished with the `sample` capability declared. **Live replies from Claude have not been exercised by an automated test** (they require the artifact viewer and the Founder's consent).

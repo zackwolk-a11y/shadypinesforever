@@ -48,6 +48,23 @@ def main() -> None:
             "interests": s.foundational_identity.central_interests[:4],
             "home": {"building": home["building"], "x": home["x"], "y": home["y"] + 1},
             "portrait": f"portraits/{rid}.png", "frames": counts,
+            "persona": {
+                "pronouns": s.pronouns,
+                "background": s.foundational_identity.background_assumptions,
+                "interests": s.foundational_identity.central_interests,
+                "commitments": s.foundational_identity.philosophical_commitments,
+                "habits": s.foundational_identity.conversational_habits,
+                "avoids": s.foundational_identity.avoided_discussion_styles,
+                "boundaries": s.foundational_identity.personal_boundaries,
+                "beliefs": [{"statement": b.statement, "confidence": b.confidence} for b in s.revisable.beliefs],
+                "uncertainties": s.revisable.uncertainties,
+                "questions": s.revisable.exploring_questions,
+                "foundations": [f.statement for f in s.documented_foundations],
+                "contribution": s.fictional_direction.contribution,
+                "limitations": s.fictional_direction.possible_limitations,
+                "home": s.home.description,
+                "guardrails": s.guardrails,
+            },
         })
     import yaml
     f = yaml.safe_load((ROOT / "canon" / "founder.yaml").read_text())

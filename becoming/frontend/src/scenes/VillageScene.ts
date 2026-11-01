@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { WORLD, T, walkable, doorAt, findPath, assetUrl, type Door, type Resident } from "../world";
-import { showResident, setEnterButton } from "../ui";
+import { showResident, setEnterButton, setTalkButton, talkToNearby, pad, typing } from "../ui";
 
 const SPEED = 110; // art px per second
 const SPAWN = { x: 40, y: 33 }; // town square, south of the fountain
@@ -23,7 +23,7 @@ export class VillageScene extends Phaser.Scene {
   create(data: { tx?: number; ty?: number }) {
     const W = WORLD.width * T, H = WORLD.height * T;
     this.add.image(0, 0, "map").setOrigin(0, 0).setDisplaySize(W, H);
-    this.cameras.main.setBounds(0, 0, W, H).setZoom(this.registry.get("zoom") ?? 1.6).setRoundPixels(true);
+    this.cameras.main.setBounds(0, 0, W, H).setZoom(this.registry.get("zoom") ?? (window.innerWidth < 800 ? 1.15 : 1.6)).setRoundPixels(true);
 
     for (const r of WORLD.residents) this.placeResident(r);
     this.avatar = this.makeAvatar();
@@ -36,8 +36,10 @@ export class VillageScene extends Phaser.Scene {
     }).setDepth(10_000).setVisible(false).setResolution(3);
 
     const kb = this.input.keyboard!;
-    this.keys = kb.addKeys("UP,DOWN,LEFT,RIGHT,W,A,S,D,E") as Record<string, Phaser.Input.Keyboard.Key>;
-    this.keys.E.on("down", () => this.enterCurrentDoor());
+    // No key capture: the chat box must receive every letter.
+    this.keys = kb.addKeys("UP,DOWN,LEFT,RIGHT,W,A,S,D,E,T", false) as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys.E.on("down", () => { if (!typing()) this.enterCurrentDoor(); });
+    this.keys.T.on("down", () => { if (!typing()) talkToNearby(); });
 
     this.input.on("pointerdown", (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       if (over.length) return; // clicked a resident
@@ -83,6 +85,8 @@ export class VillageScene extends Phaser.Scene {
     if (s.anims.currentAnim?.key !== key || !s.anims.isPlaying) s.anims.play(key);
   }
 
+  residentSprites = new Map<string, Phaser.GameObjects.Image>();
+
   placeResident(r: Resident) {
     const x = (r.home.x + 0.5) * T, y = (r.home.y + 1) * T;
     const s = this.add.image(x, y, `${r.id}_down_0`).setOrigin(0.5, 1).setScale(SPRITE_SCALE).setDepth(y);
@@ -92,6 +96,21 @@ export class VillageScene extends Phaser.Scene {
     });
     s.on("pointerout", () => this.tooltip.setVisible(false));
     s.on("pointerdown", () => showResident(r));
+    this.residentSprites.set(r.id, s);
+  }
+
+  /** Nearby residents turn toward the visitor (they never follow). Returns the closest within talking range. */
+  noticeVisitor() {
+    let nearest: Resident | null = null, best = Infinity;
+    for (const r of WORLD.residents) {
+      const s = this.residentSprites.get(r.id)!;
+      const dx = this.avatar.x - s.x, dy = this.avatar.y - s.y, d = Math.hypot(dx, dy) / T;
+      const dir = d < 3.5 ? (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up")) : "down";
+      const key = `${r.id}_${dir}_0`;
+      if (s.texture.key !== key) s.setTexture(key);
+      if (d < 2.6 && d < best) { best = d; nearest = r; }
+    }
+    setTalkButton(nearest);
   }
 
   avatarTile() {
@@ -111,6 +130,7 @@ export class VillageScene extends Phaser.Scene {
     const d = this.currentDoor;
     this.registry.set("zoom", this.cameras.main.zoom);
     setEnterButton(null);
+    setTalkButton(null);
     this.scene.start("Interior", { door: d });
     return true;
   }
@@ -119,10 +139,11 @@ export class VillageScene extends Phaser.Scene {
     const dt = dtMs / 1000;
     const k = this.keys;
     let vx = 0, vy = 0;
-    if (k.LEFT.isDown || k.A.isDown) vx -= 1;
-    if (k.RIGHT.isDown || k.D.isDown) vx += 1;
-    if (k.UP.isDown || k.W.isDown) vy -= 1;
-    if (k.DOWN.isDown || k.S.isDown) vy += 1;
+    const kb = !typing();
+    if ((kb && (k.LEFT.isDown || k.A.isDown)) || pad.left) vx -= 1;
+    if ((kb && (k.RIGHT.isDown || k.D.isDown)) || pad.right) vx += 1;
+    if ((kb && (k.UP.isDown || k.W.isDown)) || pad.up) vy -= 1;
+    if ((kb && (k.DOWN.isDown || k.S.isDown)) || pad.down) vy += 1;
     if (vx || vy) this.route = []; // keyboard overrides tap-to-move
 
     if (!vx && !vy && this.route.length) {
@@ -143,6 +164,7 @@ export class VillageScene extends Phaser.Scene {
       else if (walkable(Math.floor(this.avatar.x / T), Math.floor((ny - 1) / T))) this.avatar.y = ny;
     }
     this.animateAvatar(vx, vy);
+    this.noticeVisitor();
     this.avatar.setDepth(this.avatar.y);
 
     const { x, y } = this.avatarTile();

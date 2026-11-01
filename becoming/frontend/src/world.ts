@@ -6,6 +6,12 @@ export interface Zone { id: string; name: string; kind: string; privacy: string;
 export interface Resident {
   id: string; name: string; title: string; tension: string; reasoning: string; disclaimer: string; interests: string[];
   home: { building: string; x: number; y: number }; portrait: string; frames: Record<string, number>;
+  persona: {
+    pronouns: string; background: string[]; interests: string[]; commitments: string[]; habits: string[];
+    avoids: string[]; boundaries: string[]; beliefs: { statement: string; confidence: number }[];
+    uncertainties: string[]; questions: string[]; foundations: string[]; contribution: string;
+    limitations: string[]; home: string; guardrails: string[];
+  };
 }
 
 export const WORLD = raw as unknown as {
