@@ -13,6 +13,10 @@ import * as BG from './backgrounds';
 import { buildFonts } from './font';
 import * as MO from './motifs';
 import * as F2 from './fx2';
+import * as LB from './lab';
+import { INGREDIENTS } from '../data/recipes';
+import { ENEMY_FRAMES } from './enemies';
+import * as DM from './dimension';
 import { registerSheet } from './registry-sheets';
 
 export const FLAVOR_RAMPS = { cola: R.cola, cream: R.cream, cherry: R.cherry };
@@ -67,9 +71,20 @@ export const SINGLE: Record<string, () => Px> = {
   foamBig: () => F2.foamCloudW(64), checkpoint0: () => F2.checkpoint(0), checkpoint1: () => F2.checkpoint(1), checkpoint2: () => F2.checkpoint(2),
   icon_rocket: () => F2.powerIcon('rocket'), icon_cloud9: () => F2.powerIcon('cloud9'), icon_tropical: () => F2.powerIcon('tropical'), icon_shield: () => F2.powerIcon('shield'),
   icon_electric: () => F2.powerIcon('electric'), icon_float: () => F2.powerIcon('float'), icon_pinkfizz: () => F2.powerIcon('pinkfizz'), icon_burp: () => F2.powerIcon('burp'),
+  labWall: LB.labBackWall, labFloor: LB.labFloor, labConsole: LB.console_, mixer: LB.mixerMachine, superMachine: LB.superMachine, glassBlock: LB.glassBlock,
+  syrup_cola: () => LB.syrupSurface(R.cola), syrup_cherry: () => LB.syrupSurface(R.cherry), syrup_mango: () => LB.syrupSurface(R.mango), syrup_blue: () => LB.syrupSurface(R.blue),
+  conveyor: LB.conveyor, ventSteam: () => LB.vent('steam'), ventJet: () => LB.vent('jet'), gate: LB.gate, target0: () => LB.target(false), target1: () => LB.target(true),
+  lever0: () => LB.lever(false), lever1: () => LB.lever(true), arm0: () => LB.armFrame(0), arm1: () => LB.armFrame(1), arm2: () => LB.armFrame(2), arm3: () => LB.armFrame(3),
+  fruit_cherry: () => LB.fruit('cherry'), fruit_lemon: () => LB.fruit('lemon'), fruit_mango: () => LB.fruit('mango'), fruit_coconut: () => LB.fruit('coconut'), fruit_strawberry: () => LB.fruit('strawberry'),
+  catwalk48: () => LB.catwalk(48), catwalk80: () => LB.catwalk(80),
+  dimSky: DM.dimSky, dimFar: DM.dimFar, dimMid: DM.dimMid, island64: () => DM.strawberryIsland(64), island96: () => DM.strawberryIsland(96), island140: () => DM.strawberryIsland(140),
+  cherryIsland: DM.cherryIsland, citrusWheel: DM.citrusWheel, citrusPad: DM.citrusPad, foamPad: DM.foamPad, rainbow: DM.rainbowTile, geyserBase: DM.geyserBase, geyserCol: DM.geyserCol,
+  syrupRiver: DM.syrupRiver, portalBottle: DM.portalBottle, dimTap: DM.dimTap,
   tridentStand: MO.tridentStand, floorLeaf: () => MO.floorDecal('leaf'), floorTrident: () => MO.floorDecal('trident'), liftHead: MO.liftHead, piston: MO.pistonShaft,
 };
 SHELF_RAMPS.forEach((r, i) => { SINGLE['bottle' + i] = () => FX.bottle(r, 6, 16); });
+Object.entries(ENEMY_FRAMES).forEach(([k, f]) => { SINGLE[k] = f; });
+INGREDIENTS.forEach((ing) => { SINGLE['ing_' + ing.id] = () => F2.syrupBottleBig(ing.ramp); });
 
 // expose to debug viewer
 for (const k of Object.keys(SINGLE)) registerSheet(k, () => SINGLE[k]().toCanvas());
@@ -93,6 +108,9 @@ export function generateAll(scene: Phaser.Scene, onProgress?: (t: number) => voi
   }
   if (!scene.anims.exists('door_open')) scene.anims.create({ key: 'door_open', frames: [0, 1, 2, 3].map((i) => ({ key: 'door' + i })), frameRate: 10, repeat: 0 });
   for (const [k, p] of [['flag', 'flag'], ['bigflag', 'bigFlag']]) if (!scene.anims.exists(k)) scene.anims.create({ key: k, frames: [0, 1, 2, 3].map((i) => ({ key: p + i })), frameRate: 6, repeat: -1 });
+  const A = (key: string, frames: string[], fps: number, repeat = -1) => { if (!scene.anims.exists(key)) scene.anims.create({ key, frames: frames.map((k) => ({ key: k })), frameRate: fps, repeat }); };
+  A('fs_idle', ['fs_idle0', 'fs_idle1'], 4); A('sl_crawl', ['sl_crawl0', 'sl_crawl1'], 3); A('bb_walk', ['bb_walk0', 'bb_walk1'], 6); A('fm_small', ['fm_small0', 'fm_small1'], 3); A('fm_big', ['fm_big0', 'fm_big1'], 5); A('ff_fly', ['ff_fly0', 'ff_fly1'], 12);
+  if (!scene.anims.exists('arm')) scene.anims.create({ key: 'arm', frames: [0, 1, 2, 3].map((i) => ({ key: 'arm' + i })), frameRate: 3, repeat: -1 });
   if (!scene.anims.exists('checkpoint_on')) scene.anims.create({ key: 'checkpoint_on', frames: [{ key: 'checkpoint1' }, { key: 'checkpoint2' }], frameRate: 5, repeat: -1 });
   if (!scene.anims.exists('bird_fly')) scene.anims.create({ key: 'bird_fly', frames: [{ key: 'bird1' }, { key: 'bird0' }], frameRate: 10, repeat: -1 });
 }

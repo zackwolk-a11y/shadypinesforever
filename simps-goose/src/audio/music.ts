@@ -44,7 +44,27 @@ const COUNTER = parse([
 ]);
 const BASS_PAT = 'R . O . 5 . O . R . O . 5 . O R'.split(' ');
 
-export type Song = 'title' | 'street' | 'store' | 'none';
+export type Song = 'title' | 'street' | 'store' | 'lab' | 'dimension' | 'boss' | 'fake' | 'cafe' | 'waterfront' | 'ogopogo' | 'finale' | 'none';
+interface SongDef { bpm: (i: number) => number; chords: [string, number[]][]; mel: Ev[]; counter?: Ev[]; bass: string[]; lead: 'sq' | 'pluck' | 'tri' | 'sq50'; leadGain: number; drums: 'full' | 'light' | 'march'; arp: (i: number) => boolean; pad?: boolean; swing?: number }
+const MAJ = [0, 4, 7], MIN = [0, 3, 7];
+const SONGS: Partial<Record<Song, SongDef>> = {
+  lab: { bpm: (i) => 128 + i * 8, chords: [['A1', MIN], ['F1', MAJ], ['G1', MAJ], ['E1', MAJ]], lead: 'sq', leadGain: 0.07, drums: 'full', arp: (i) => i >= 1, bass: 'R . R . O . R . 5 . R . O . 5 .'.split(' '),
+    mel: parse(['A4 . C5 . E5 . A5 . G5 . E5 . C5 . D5 .', 'F4 . A4 . C5 . F5 . E5 . C5 . A4 . C5 .', 'G4 . B4 . D5 . G5 . F5 . D5 . B4 . D5 .', 'E5 - - . G#4 . B4 . E5 . D5 . B4 . G#4 .']) },
+  dimension: { bpm: () => 116, chords: [['D2', MAJ], ['E2', MAJ], ['B1', MIN], ['A1', MAJ]], lead: 'tri', leadGain: 0.16, drums: 'light', arp: () => true, pad: true, bass: 'R . . . 5 . . . O . . . 5 . . .'.split(' '),
+    mel: parse(['F#5 - - - A5 - - - E5 - - - D5 - - -', 'G#5 - - - B5 - - - A5 - G#5 - E5 - - -', 'F#5 - - - D5 - - - B4 - - - D5 - F#5 -', 'E5 - - - - - - - A4 - C#5 - E5 - - -']) },
+  boss: { bpm: (i) => 156 + i * 8, chords: [['C2', MIN], ['Ab1', MAJ], ['Bb1', MAJ], ['G1', MAJ]], lead: 'sq', leadGain: 0.08, drums: 'full', arp: (i) => i >= 1, bass: 'R R O R 5 R O R R R O R 5 R O 5'.split(' '),
+    mel: parse(['C5 . C5 . Eb5 . C5 . G5 - F5 . Eb5 . D5 .', 'C5 . C5 . Eb5 . Ab5 - G5 . F5 . Eb5 . C5 .', 'D5 . D5 . F5 . D5 . Bb5 - Ab5 . G5 . F5 .', 'G5 - - . F5 . D5 . B4 - - . D5 . G5 .']) },
+  fake: { bpm: () => 120, chords: [['C2', MAJ], ['F2', MAJ], ['G2', MAJ], ['C2', MAJ]], lead: 'sq', leadGain: 0.08, drums: 'march', arp: () => false, pad: true, bass: 'R . . . 5 . . . O . . . 5 . . .'.split(' '),
+    mel: parse(['C5 - E5 - G5 - - - C6 - - - G5 - - -', 'A5 - - - F5 - - - A5 - C6 - A5 - - -', 'B5 - - - G5 - - - D5 - G5 - B5 - - -', 'C6 - - - - - - - G5 - E5 - C5 - - -']) },
+  cafe: { bpm: () => 88, chords: [['F2', [0, 4, 7, 11]], ['D2', [0, 3, 7, 10]], ['G1', [0, 3, 7, 10]], ['C2', [0, 4, 7, 10]]], lead: 'pluck', leadGain: 0.12, drums: 'light', arp: () => false, pad: true, swing: 0.18, bass: 'R . . . 5 . . . O . . . 5 . 3 .'.split(' '),
+    mel: parse(['A4 - - C5 E5 - - - D5 - C5 - A4 - - -', 'F4 - - A4 C5 - - - D5 - - - . . . .', 'Bb4 - - D5 F5 - - - E5 - D5 - Bb4 - - -', 'E5 - - - G5 - - - F5 - E5 - C5 - - -']) },
+  waterfront: { bpm: () => 96, chords: [['G1', MAJ], ['E1', MIN], ['C2', MAJ], ['D2', MAJ]], lead: 'pluck', leadGain: 0.13, drums: 'light', arp: () => false, pad: true, bass: 'R . . . 5 . . . O . . . 5 . . .'.split(' '),
+    mel: parse(['B4 - - - D5 - - - G5 - - - F#5 - E5 -', 'E5 - - - B4 - - - G4 - - - B4 - - -', 'C5 - - - E5 - - - G5 - - - E5 - C5 -', 'D5 - - - F#5 - - - A5 - - - F#5 - - -']) },
+  ogopogo: { bpm: (i) => 148 + i * 6, chords: [['E2', MIN], ['C2', MAJ], ['D2', MAJ], ['B1', MAJ]], lead: 'sq', leadGain: 0.08, drums: 'full', arp: (i) => i >= 1, pad: true, bass: 'R . O R 5 . O R R . O R 5 . O 5'.split(' '),
+    mel: parse(['E5 . E5 . G5 . E5 . B5 - A5 . G5 . F#5 .', 'E5 . E5 . G5 . E5 . C6 - B5 . A5 . G5 .', 'D5 . F#5 . A5 . D6 . C6 . A5 . F#5 . D5 .', 'D#5 - - . F#5 . B4 . D#5 - F#5 - B5 - - .']) },
+  finale: { bpm: () => 126, chords: [['D2', MAJ], ['G1', MAJ], ['A1', MAJ], ['D2', MAJ]], lead: 'sq', leadGain: 0.08, drums: 'full', arp: () => true, pad: true, bass: 'R . O . 5 . O . R . O . 5 . O R'.split(' '),
+    mel: parse(['F#5 . A5 . D6 - - . A5 . F#5 . A5 - - .', 'G5 . B5 . D6 - - . B5 . G5 . B5 - - .', 'A5 . C#6 . E6 - - . C#6 . A5 . G5 . F#5 .', 'D6 - - - A5 - - - F#5 - - - D5 - - -']) },
+};
 class Music {
   song: Song = 'none';
   intensity = 0;
@@ -90,6 +110,7 @@ class Music {
   }
   play(song: Song) {
     if (!AE.ensure()) return;
+    if (SONGS[song]) { if (song === this.song) return; this.stop(); this.song = song; const ctx = AE.ctx!; this.bus = ctx.createGain(); this.bus.gain.value = 0; this.bus.connect(AE.music); this.bus.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.4); this.step = 0; this.nextT = ctx.currentTime + 0.1; this.bpm = SONGS[song]!.bpm(this.intensity = 0); this.timer = window.setInterval(() => this.tick(), 25); return; }
     if (song === this.song) return;
     this.stop();
     this.song = song;
@@ -103,6 +124,7 @@ class Music {
   }
   setIntensity(i: number) {
     this.intensity = i;
+    const d = SONGS[this.song]; if (d) this.bpm = d.bpm(i);
     if (this.song === 'store') this.bpm = i >= 2 ? 150 : i === 1 ? 138 : 128;
   }
   stop(fade = 0.25) {
@@ -115,12 +137,15 @@ class Music {
   /** Render a song offline (for asset export): schedules `bars` bars into the current AE.ctx. */
   renderOffline(song: Song, bars: number, intensity = 0) {
     this.song = song; this.intensity = intensity;
-    this.bpm = song === 'title' ? 112 : song === 'street' ? 104 : intensity >= 2 ? 150 : intensity === 1 ? 138 : 128;
+    this.bpm = SONGS[song] ? SONGS[song]!.bpm(intensity) : song === 'title' ? 112 : song === 'street' ? 104 : intensity >= 2 ? 150 : intensity === 1 ? 138 : 128;
     this.bus = AE.ctx!.createGain(); this.bus.connect(AE.music);
     const spb = 60 / this.bpm / 4;
     for (let st = 0; st < bars * 16; st++) this.schedule(st, 0.05 + st * spb, spb);
+    this.song = song;
     return 0.05 + bars * 16 * spb + 1;
   }
+  /** Abrupt stop (record scratch). */
+  cut() { if (this.timer) clearInterval(this.timer); this.timer = null; if (this.bus) { this.bus.gain.cancelScheduledValues(AE.now); this.bus.gain.setValueAtTime(0, AE.now); const b = this.bus; setTimeout(() => b.disconnect(), 300); } this.bus = null; this.song = 'none'; }
   /** Freeze-frame "to be continued" stinger. */
   stinger() {
     if (!AE.ensure()) return;
@@ -143,7 +168,22 @@ class Music {
       this.step++;
     }
   }
+  private scheduleDef(d: SongDef, step: number, t: number, spb: number) {
+    const s16 = step % 16, pos = step % 64, bar = Math.floor(pos / 16), I = this.intensity;
+    if (d.swing && s16 % 2 === 1) t += spb * d.swing;
+    const [rootName, tri] = d.chords[bar];
+    const root = midi(rootName);
+    const bp = d.bass[s16];
+    if (bp !== '.') { const m = bp === 'R' ? root : bp === 'O' ? root + 12 : bp === '3' ? root + tri[1] : root + 7; this.voice('tri', mtof(m + 12), t, spb * 1.6, 0.28); }
+    if (d.pad && s16 === 0) for (const iv of tri.slice(0, 3)) this.voice('tri', mtof(root + 36 + iv), t, spb * 15, 0.035);
+    for (const e of d.mel) if (e.step === pos) this.voice(d.lead, mtof(e.midi), t, spb * e.len * 0.92, d.leadGain);
+    if (d.arp(I) && s16 % 2 === 0) { const ch = tri[(s16 / 2) % tri.length] + root + 36; this.voice('sq50', mtof(ch), t, spb * 0.8, 0.022); }
+    if (d.drums === 'full') { if (s16 % 8 === 0 || (I >= 2 && s16 === 10)) this.drum('k', t); if (s16 === 4 || s16 === 12) this.drum('s', t); if (s16 % 2 === 0) this.drum('h', t, s16 % 4 === 0 ? 0.9 : 0.5); if (I >= 1 && s16 % 2 === 1) this.drum('h', t, 0.35); if (I >= 2 && pos === 0) this.drum('c', t); }
+    else if (d.drums === 'light') { if (s16 === 0) this.drum('k', t, 0.6); if (s16 === 8) this.drum('s', t, 0.3); if (s16 % 4 === 2) this.drum('h', t, 0.4); }
+    else { if (s16 % 4 === 0) this.drum('k', t, 0.8); if (s16 === 4 || s16 === 12 || s16 === 14) this.drum('s', t, 0.6); if (pos === 0) this.drum('c', t, 0.8); }
+  }
   private schedule(step: number, t: number, spb: number) {
+    const d = SONGS[this.song]; if (d) return this.scheduleDef(d, step, t, spb);
     const s16 = step % 16;
     const total = this.song === 'store' ? 128 : 64; // store: 8 bars, others: first 4 bars
     const pos = step % total;

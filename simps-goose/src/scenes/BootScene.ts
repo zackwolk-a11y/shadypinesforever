@@ -24,7 +24,11 @@ export class BootScene extends Phaser.Scene {
       this.scene.launch('Input');
       GS.newRun(q.get('mode') === 'demo' ? 'demo' : 'story');
       const start = q.get('scene');
-      this.scene.start(start === 'store' ? 'Store' : start === 'intro' ? 'Intro' : 'Title');
+      const MAP: Record<string, string> = { store: 'Store', intro: 'Intro', lab: 'Lab', dimension: 'Dimension', carb: 'BossCarb', fake: 'FakeEnd', cafe: 'Cafe', waterfront: 'Waterfront', ogopogo: 'Ogopogo', trueend: 'TrueEnd', journal: 'Journal' };
+      if (q.get('burp')) GS.coffee = q.get('burp');
+      if (q.get('skipintro')) this.registry.set('skipIntro', true);
+      const key = (start && MAP[start]) || 'Title';
+      if (this.scene.get(key)) this.scene.start(key); else this.scene.start('Title');
     });
   }
 }

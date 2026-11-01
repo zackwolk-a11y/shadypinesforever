@@ -168,6 +168,10 @@ export const PEOPLE: Record<string, PersonSpec> = {
   cust_c: { skin: [C.sk0, C.sk1], hair: C.hr4, hairStyle: 'short', shirt: [C.pur0, C.pur1, C.pur2], pants: [C.blk0, C.blk1], shoes: C.cola2, glasses: true, tall: 1 },
   cust_d: { skin: [C.sk1, C.sk2], hair: C.hr2, hairStyle: 'bun', shirt: [C.mng0, C.mng1, C.mng2], pants: [C.blu1, C.blu2], shoes: C.red1, tall: -1 },
   cust_e: { skin: [C.sk3, C.sk4], hair: C.hr0, hairStyle: 'short', shirt: [C.blu0, C.blu1, C.blu2], pants: [C.st2, C.st3], shoes: C.wht, tall: 2 },
+  lab_tech: { skin: [C.sk1, C.sk2], hair: C.hr3, hairStyle: 'bun', shirt: [0xffffff, C.wl0, C.wl2], pants: [C.blk0, C.blk1], shoes: C.ink2, glasses: true },
+  barista: { skin: [C.sk2, C.sk3], hair: C.hr1, hairStyle: 'curly', shirt: [C.crm1, C.crm2, C.crm3], pants: [C.blk1, C.blk2], shoes: C.cola2, apron: true },
+  jogger: { skin: [C.sk0, C.sk1], hair: C.hr2, hairStyle: 'long', shirt: [C.pink, C.chr0, C.chr1], pants: [C.blk0, C.blk1], shoes: C.wht, tall: 1 },
+  cyclist: { skin: [C.sk3, C.sk4], hair: C.hr0, hairStyle: 'cap', capColor: C.blu1, shirt: [C.lim0, C.lim1, C.lim2], pants: [C.blu2, C.blu3], shoes: C.ink2 },
 };
 
 export function buildPeopleSheet(key: string) {

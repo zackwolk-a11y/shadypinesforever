@@ -4,6 +4,9 @@ import { TitleScene } from './scenes/TitleScene';
 import { IntroScene } from './scenes/IntroScene';
 import { StoreScene } from './scenes/StoreScene';
 import { UIScene } from './scenes/UIScene';
+import { MixerScene } from './scenes/MixerScene';
+import { LabScene } from './scenes/LabScene';
+import { DimensionScene } from './scenes/DimensionScene';
 
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS = {};
 const game = new Phaser.Game({
@@ -17,7 +20,7 @@ const game = new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   input: { activePointers: 5, gamepad: false },
   fps: { target: 60 },
-  scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, UIScene],
+  scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, LabScene, DimensionScene, UIScene, MixerScene],
 });
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.game = game;
 // Resume audio when tab regains focus on mobile
