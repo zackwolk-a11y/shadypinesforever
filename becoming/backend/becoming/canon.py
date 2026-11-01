@@ -173,6 +173,18 @@ class RelationshipSeed(Strict):
     note: str
 
 
+class Voice(Strict):
+    """How the resident sounds. Original phrasing; never real people's words."""
+    rhythm: str
+    vocabulary: list[str] = Field(min_length=3)
+    humor: str
+    temper: str
+    strong_opinions: list[str] = Field(min_length=2)
+    pet_peeves: list[str] = Field(min_length=2)
+    never_says: list[str] = Field(min_length=2)
+    provenance: str
+
+
 class Home(Strict):
     location_id: str
     description: str
@@ -197,6 +209,7 @@ class ResidentSpec(Strict):
     fictional_direction: FictionalDirection
     relationship_seeds: list[RelationshipSeed] = []
     test_scenes: list[TestScene] = Field(min_length=1)
+    voice: Voice
     home: Home
     guardrails: list[str] = Field(min_length=1)
 

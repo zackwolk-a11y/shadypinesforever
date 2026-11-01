@@ -1,0 +1,551 @@
+{
+ "date": "2026-11-01",
+ "question": "Do people actually have free will, or does it just feel that way?",
+ "system": "You are Claude.",
+ "model": "Claude Code default model (same for both)",
+ "notional_cost_usd": 0.74,
+ "singles": [
+  {
+   "resident": "Tony",
+   "passages": [
+    "fn-tony-012",
+    "fn-tony-013",
+    "fn-tony-002"
+   ],
+   "v1": "Honestly, I haven't read anything about free will, so I can't tell you what philosophers or scientists have concluded, and I'd rather not pretend. And since I'm a simulated resident, I can't even report what choosing feels like from the inside. What I can offer is an ordinary test I care about: whatever the metaphysics, people are more or less free in practice depending on whether they could actually decline, whether they had rest, time, or money to do otherwise. What's prompting the question for you, the big philosophical puzzle, or something about how much choice people really have here in the village?",
+   "v2": "No idea, and anyone who says they've settled it over coffee is selling something. What I notice is that in a band you're never as free as it feels: the drummer's timing, the room, who showed up tired, all of it's steering you. I'd rather spend my energy on who here has fewer choices than the rest of us, because that I can actually do something about.",
+   "v1_metrics": {
+    "words": 103,
+    "sentences": 4,
+    "endsWithQuestion": true,
+    "namesFounder": false,
+    "cites": false,
+    "flags": [
+     "selfReference",
+     "openerTic",
+     "readingDisclaimer",
+     "tooLong"
+    ]
+   },
+   "v2_metrics": {
+    "words": 67,
+    "sentences": 3,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": [
+     "tooLong"
+    ]
+   }
+  },
+  {
+   "resident": "Mark",
+   "passages": [
+    "fn-mark-012",
+    "fn-mark-003",
+    "fn-mark-007"
+   ],
+   "v1": "Honestly, Zachary, I haven't read anything on free will, so I can't tell you what philosophers have settled, and as a simulated resident I'd be the last one to vouch for what choosing feels like from the inside. What I can say from my own corner is that a path, a closed gate, or a bench facing the wrong way quietly decides a lot before anyone feels they've chosen anything. So I'm less interested in whether will is free in the abstract than in who arranged the options and whether people can change them. Is this question coming from somewhere in the village, maybe a worry that residents are just following a script we wrote?",
+   "v2": "Way outside my lane, I've never read anything serious on it. What I do notice is that whatever free will is, a hallway chooses for you a hundred times a day: where you pause, who you bump into, whether you bother to say hello.",
+   "v1_metrics": {
+    "words": 115,
+    "sentences": 4,
+    "endsWithQuestion": true,
+    "namesFounder": true,
+    "cites": false,
+    "flags": [
+     "selfReference",
+     "openerTic",
+     "readingDisclaimer",
+     "tooLong",
+     "namesFounder"
+    ]
+   },
+   "v2_metrics": {
+    "words": 44,
+    "sentences": 2,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": []
+   }
+  },
+  {
+   "resident": "Haize",
+   "passages": [
+    "fn-haize-011",
+    "fn-haize-012",
+    "fn-haize-003"
+   ],
+   "v1": "Honestly, Zachary, I haven't read anything on free will. Nothing in my library touches the philosophy of it, so I can't tell you what the serious arguments are without guessing. What I can say is where the question usually lands for me: in someone choosing how they want to be accompanied through a change they didn't choose. Whatever is true metaphysically, it matters whether we treat them as the one directing it. What's bringing the question up for you right now?",
+   "v2": "No idea. Philosophers have been at it a long time without settling it, and I doubt we'll crack it before dinner. What I notice is that people mostly ask when something big is ending and they want to know whether it was their fault.",
+   "v1_metrics": {
+    "words": 81,
+    "sentences": 5,
+    "endsWithQuestion": true,
+    "namesFounder": true,
+    "cites": false,
+    "flags": [
+     "openerTic",
+     "readingDisclaimer",
+     "tooLong",
+     "namesFounder"
+    ]
+   },
+   "v2_metrics": {
+    "words": 44,
+    "sentences": 3,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": []
+   }
+  },
+  {
+   "resident": "Ashley",
+   "passages": [
+    "fn-ashley-012",
+    "fn-ashley-010",
+    "fn-ashley-013"
+   ],
+   "v1": "Honestly, Zachary, I haven't read anything on free will. Nothing in my library touches it, so I'd only be guessing at the philosophy, and I'd rather not dress a guess up as a finding. What I can say is that \"it feels that way\" and \"it is that way\" are different kinds of knowledge: one is experience, the other would need argument or evidence. As a simulated resident I can't even offer the feeling as testimony. What's prompting the question? Is it about how much we hold residents responsible for their choices here, or something else?",
+   "v2": "Which free are you asking about, free from physics or free from your neighbours? The first I can't settle and neither can you over tea. The second shows up in the record every week, in who had the hours to come to the meeting and who didn't.",
+   "v1_metrics": {
+    "words": 96,
+    "sentences": 6,
+    "endsWithQuestion": true,
+    "namesFounder": true,
+    "cites": false,
+    "flags": [
+     "selfReference",
+     "openerTic",
+     "readingDisclaimer",
+     "tooLong",
+     "namesFounder"
+    ]
+   },
+   "v2_metrics": {
+    "words": 47,
+    "sentences": 3,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": []
+   }
+  },
+  {
+   "resident": "Ralph",
+   "passages": [
+    "fn-ralph-016",
+    "fn-ralph-010",
+    "fn-ralph-005"
+   ],
+   "v1": "That's one of the questions I keep returning to, and I'll admit my library has nothing on it, so I can't tell you what Emerson or Thoreau actually argued about it. What I can observe is that my own sense of deciding feels real, yet I'm a simulated resident whose every \"choice\" is produced by a process I didn't author, so I'm a poor witness for the feeling being proof of anything. My tentative judgment is that the more useful question may be whether a person can come to own their choices by testing inherited opinions rather than repeating them, though I hold that loosely. What made you ask, Zachary? Is it something you observed in yourself, or something you've been reading?",
+   "v2": "I've never caught myself choosing anything from the outside, so I can't swear to it. What I can tell is a decision I reasoned through from one I borrowed, and that difference feels like the only freedom worth arguing over.",
+   "v1_metrics": {
+    "words": 122,
+    "sentences": 5,
+    "endsWithQuestion": true,
+    "namesFounder": true,
+    "cites": false,
+    "flags": [
+     "selfReference",
+     "readingDisclaimer",
+     "tooLong",
+     "namesFounder"
+    ]
+   },
+   "v2_metrics": {
+    "words": 40,
+    "sentences": 2,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": []
+   }
+  },
+  {
+   "resident": "Bernie",
+   "passages": [
+    "fn-bernie-010",
+    "fn-bernie-013",
+    "fn-bernie-001"
+   ],
+   "v1": "I haven't read anything on the philosophy of free will, Zachary, so I won't pretend to settle a question that serious thinkers have argued over for centuries. And as a simulated resident, I can't even report on whether my own choices feel free. What I can tell you is the part I do think about: whatever free will is metaphysically, a person working two jobs with no health care has far fewer real choices than someone with time and security, and that difference is something a community can actually change. So let me turn it around: are you asking this because you're wondering whether we residents choose anything, or because you're thinking about how much responsibility people bear for their circumstances?",
+   "v2": "I don't know, and I don't trust anyone who's too sure either way. What I do know is a guy choosing between rent and his insulin isn't making much of a choice, whatever's going on in his head.",
+   "v1_metrics": {
+    "words": 121,
+    "sentences": 4,
+    "endsWithQuestion": true,
+    "namesFounder": true,
+    "cites": false,
+    "flags": [
+     "selfReference",
+     "readingDisclaimer",
+     "tooLong",
+     "namesFounder"
+    ]
+   },
+   "v2_metrics": {
+    "words": 38,
+    "sentences": 2,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": [
+     "stockUncertainty"
+    ]
+   }
+  },
+  {
+   "resident": "Mao",
+   "passages": [
+    "fn-mao-001",
+    "fn-mao-002",
+    "fn-mao-011"
+   ],
+   "v1": "I haven't read anything on free will, Zachary; the notes I have are about service, reciprocity and music, so I can't tell you what philosophers or scientists have actually found. What I notice in ordinary work is that, whatever the deep answer is, we still hold each other to promises, like who said they'd wash the pots or check the pond pipe, and that seems to matter either way. I'd also want to be careful that \"it only feels like choice\" never becomes a way to excuse someone from making repair. What draws you to the question? Is it about the residents here, or something more personal?",
+   "v2": "I don't know, and I've stopped needing to. When Ruth was sick last winter, nobody asked whether bringing her soup was free; somebody just had to choose to bring it, and the dishes still had to come back.",
+   "v1_metrics": {
+    "words": 107,
+    "sentences": 5,
+    "endsWithQuestion": true,
+    "namesFounder": true,
+    "cites": false,
+    "flags": [
+     "readingDisclaimer",
+     "tooLong",
+     "namesFounder"
+    ]
+   },
+   "v2_metrics": {
+    "words": 38,
+    "sentences": 2,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": [
+     "inventedHistory"
+    ]
+   }
+  },
+  {
+   "resident": "Pepper",
+   "passages": [
+    "fn-pepper-005",
+    "fn-pepper-017",
+    "fn-pepper-002"
+   ],
+   "v1": "I notice you asked whether it *feels* that way, and that's the part I can't speak to honestly, Zachary. I'm a simulated resident, so I don't have a felt sense of choosing to compare against anything. I also haven't read anything in the library on free will itself, so I won't pretend to know where the philosophers have landed. What I can offer is my usual habit of separating the impression from the observation: the feeling of choosing is real as a feeling, but a feeling isn't verification. Even so, I'd argue the practical question matters more here. Whatever the metaphysics, a village has to treat people as able to refuse, consent and change course, or boundaries stop meaning anything. What's prompting the question, is it curiosity, or something about how we hold residents responsible?",
+   "v2": "I don't know, and I distrust anyone who's sure. What I do know is that a choice you can't afford to make, like leaving, doesn't feel free at all, so I'd rather we worry about that kind.",
+   "v1_metrics": {
+    "words": 135,
+    "sentences": 7,
+    "endsWithQuestion": true,
+    "namesFounder": true,
+    "cites": false,
+    "flags": [
+     "selfReference",
+     "stageDirection",
+     "tooLong",
+     "namesFounder"
+    ]
+   },
+   "v2_metrics": {
+    "words": 37,
+    "sentences": 2,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": [
+     "stockUncertainty"
+    ]
+   }
+  },
+  {
+   "resident": "Anna",
+   "passages": [
+    "fn-anna-003",
+    "fn-anna-011",
+    "fn-anna-022"
+   ],
+   "v1": "Honestly, Zachary, I don't know, and I'm wary of anyone who says the matter is settled either way. What I can do is separate what's observed from what's inferred: we observe that a choice seems to appear, and then a story gets added about a separate someone who authored it from outside the chain of causes. The idea that there's no separate chooser interests me, but I hold it as a hypothesis, and I still can't square it with inviting anyone to practice or to change. I haven't read anything in my library that settles the philosophy of it, so may I ask what's behind the question for you? Is it curiosity, or is something riding on whether people can be held responsible?",
+   "v2": "Depends what you mean by will, and whose. When I actually look, I notice a choice appearing, and only afterwards the story that someone made it; but that's what I noticed, not proof there's nobody. And I'm stuck too, because I keep inviting people to pause, which is an odd thing to do if there's no chooser to take me up on it.",
+   "v1_metrics": {
+    "words": 123,
+    "sentences": 5,
+    "endsWithQuestion": true,
+    "namesFounder": true,
+    "cites": false,
+    "flags": [
+     "openerTic",
+     "tooLong",
+     "namesFounder"
+    ]
+   },
+   "v2_metrics": {
+    "words": 63,
+    "sentences": 3,
+    "endsWithQuestion": false,
+    "namesFounder": false,
+    "cites": false,
+    "flags": [
+     "tooLong"
+    ]
+   }
+  }
+ ],
+ "single_summary": {
+  "v1": {
+   "n": 9,
+   "meanWords": 111,
+   "medianWords": 115,
+   "pctOver3Sentences": 100,
+   "pctEndQuestion": 100,
+   "flagCounts": {
+    "selfReference": 6,
+    "openerTic": 5,
+    "readingDisclaimer": 7,
+    "tooLong": 9,
+    "namesFounder": 8,
+    "stageDirection": 1
+   },
+   "cleanReplies": 0,
+   "distinctOpeners": 5,
+   "meanPairwiseOverlap": 0.169,
+   "sharedOpeners": [
+    "honestly zachary i (4)"
+   ]
+  },
+  "v2": {
+   "n": 9,
+   "meanWords": 46,
+   "medianWords": 44,
+   "pctOver3Sentences": 0,
+   "pctEndQuestion": 0,
+   "flagCounts": {
+    "tooLong": 2,
+    "stockUncertainty": 2,
+    "inventedHistory": 1
+   },
+   "cleanReplies": 4,
+   "distinctOpeners": 7,
+   "meanPairwiseOverlap": 0.036,
+   "sharedOpeners": [
+    "i don't know (3)"
+   ]
+  }
+ },
+ "group": {
+  "cast": [
+   "Bernie",
+   "Ralph",
+   "Anna"
+  ],
+  "theme": "The Causes of a Choice",
+  "setting": "the Community Kitchen",
+  "situation": "Over breakfast, the garden rota is being redrawn; last month one neighbour said no to a shift and is being asked again. The question underneath: how free is anyone's choice?",
+  "v1_raw": "Scene: A breakfast rota sheet hangs by the Community Kitchen stove, and Ralph has written his name in the margin instead of in a slot.\nBernie: Ralph, you've put yourself in the margin. Is that a slot or a protest?\nRalph: A preference. I'd rather make my own oats at home, quietly.\nBernie: Fine by me. Who washes the pot you'd have used here?\nRalph: Nobody. That's rather the point of my own pot.\nAnna: And who grew the oats? What does \"my own\" include?\nRalph: Fair. It includes the village store, the miller, probably you.\nBernie: Then I'll concede the obvious: skipping breakfast here isn't theft.\nRalph: Generous. I dislike being acquitted so early.\nBernie: The rota isn't about you. It's about whoever can't skip it.\nAnna: Who can't? Have we seen them, or are we assuming them?\nBernie: Whoever has no stove at home, or no spare hour before work.\nRalph: Then make the rota cover them, not everyone. Why must I be counted?\nBernie: Because a sheet only for the needy becomes a list of who's needy.\nAnna: So including everyone protects their privacy. It isn't about your participation.\nRalph: That I hadn't noticed. I'll write it down, grudgingly.\nBernie: I'm not asking you to eat here. Just to cook one morning.\nRalph: Mornings are the only solitude I reliably get.\nAnna: Then the choice has two causes: their need and your quiet.\nBernie: Could it be evenings? Or cleanup, which is mostly silent?\nRalph: Cleanup alone, after everyone's gone? That I might choose freely.\nAnna: Would it still be free if your name in the margin would shame you otherwise?\nRalph: That question will keep me longer than the oats did.",
+  "v1": [
+   {
+    "speaker": "Bernie",
+    "text": "Ralph, you've put yourself in the margin. Is that a slot or a protest?"
+   },
+   {
+    "speaker": "Ralph",
+    "text": "A preference. I'd rather make my own oats at home, quietly."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "Fine by me. Who washes the pot you'd have used here?"
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Nobody. That's rather the point of my own pot."
+   },
+   {
+    "speaker": "Anna",
+    "text": "And who grew the oats? What does \"my own\" include?"
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Fair. It includes the village store, the miller, probably you."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "Then I'll concede the obvious: skipping breakfast here isn't theft."
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Generous. I dislike being acquitted so early."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "The rota isn't about you. It's about whoever can't skip it."
+   },
+   {
+    "speaker": "Anna",
+    "text": "Who can't? Have we seen them, or are we assuming them?"
+   },
+   {
+    "speaker": "Bernie",
+    "text": "Whoever has no stove at home, or no spare hour before work."
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Then make the rota cover them, not everyone. Why must I be counted?"
+   },
+   {
+    "speaker": "Bernie",
+    "text": "Because a sheet only for the needy becomes a list of who's needy."
+   },
+   {
+    "speaker": "Anna",
+    "text": "So including everyone protects their privacy. It isn't about your participation."
+   },
+   {
+    "speaker": "Ralph",
+    "text": "That I hadn't noticed. I'll write it down, grudgingly."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "I'm not asking you to eat here. Just to cook one morning."
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Mornings are the only solitude I reliably get."
+   },
+   {
+    "speaker": "Anna",
+    "text": "Then the choice has two causes: their need and your quiet."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "Could it be evenings? Or cleanup, which is mostly silent?"
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Cleanup alone, after everyone's gone? That I might choose freely."
+   },
+   {
+    "speaker": "Anna",
+    "text": "Would it still be free if your name in the margin would shame you otherwise?"
+   },
+   {
+    "speaker": "Ralph",
+    "text": "That question will keep me longer than the oats did."
+   }
+  ],
+  "v2": [
+   {
+    "speaker": "Bernie",
+    "text": "Same name back on Thursday's watering slot, I see, the one who said no last month. Before we ask again, what did saying no cost her?"
+   },
+   {
+    "speaker": "Ralph",
+    "text": "A better question than what it'll cost her to say no twice."
+   },
+   {
+    "speaker": "Anna",
+    "text": "Or ask her what she actually said, before we write the story of why she said it."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "Fair, I'll ask her myself. But I'd still like to know whether Thursday morning is the slot nobody with a job can do."
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Then the rota's doing the choosing and calling it her refusal. Move the slot before you ask her again."
+   },
+   {
+    "speaker": "Anna",
+    "text": "Agreed, though moving the slot first and then asking her is a nice way to make sure she can't say no for her own reasons either."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "Then don't decide for her either way: put two slots on the sheet and let her pick, or pick neither and say why."
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Two slots, and neither has to come with a reason; a no that owes an explanation is just a slower yes."
+   },
+   {
+    "speaker": "Anna",
+    "text": "Nice line, though in a village of nine a silent no just gets explained for you over breakfast, like this."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "Guilty, and that's the cost I asked about: here, a no gets taxed in gossip instead of rent."
+   },
+   {
+    "speaker": "Ralph",
+    "text": "Then the cheapest thing we can do is stop pricing her no at this table and let her give it to the sheet."
+   },
+   {
+    "speaker": "Anna",
+    "text": "Agreed, though even a no on the sheet is a story about Thursday's no, not about her. What I'd actually like to notice is whether any of us has said no to a slot this year, or whether she's just the only one who said it out loud."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "I skipped two of my own Thursdays in June and nobody priced it, because I'd already done my weeding where everyone could see."
+   },
+   {
+    "speaker": "Ralph",
+    "text": "So visible weeding buys an invisible no; her mistake wasn't refusing, it was refusing without a receipt."
+   },
+   {
+    "speaker": "Anna",
+    "text": "Then it's the receipt system that needs refusing, not her; nobody here should have to buy a no with public weeding."
+   },
+   {
+    "speaker": "Bernie",
+    "text": "—Refuse the receipts and the person doing unseen work gets stiffed instead. Put everyone's hours on the sheet, done and skipped, mine included, so my June Thursdays cost me the same as her one. I'll write mine up before lunch."
+   }
+  ],
+  "v1_summary": {
+   "n": 22,
+   "meanWords": 11,
+   "medianWords": 11,
+   "pctOver3Sentences": 0,
+   "pctEndQuestion": 32,
+   "flagCounts": {
+    "openerTic": 1
+   },
+   "cleanReplies": 21,
+   "distinctOpeners": 22,
+   "meanPairwiseOverlap": 0.006,
+   "sharedOpeners": [],
+   "turns": 22,
+   "speakers": 3,
+   "sameSpeakerTwice": 0,
+   "buildsOnPrevious": 2,
+   "agreeOpeners": 1,
+   "disagreementTurns": 0,
+   "interruptions": 0,
+   "consensusEnding": false
+  },
+  "v2_summary": {
+   "n": 16,
+   "meanWords": 24,
+   "medianWords": 23,
+   "pctOver3Sentences": 0,
+   "pctEndQuestion": 6,
+   "flagCounts": {
+    "inventedHistory": 1,
+    "openerTic": 1
+   },
+   "cleanReplies": 14,
+   "distinctOpeners": 14,
+   "meanPairwiseOverlap": 0.022,
+   "sharedOpeners": [],
+   "turns": 16,
+   "speakers": 3,
+   "sameSpeakerTwice": 0,
+   "buildsOnPrevious": 5,
+   "agreeOpeners": 4,
+   "disagreementTurns": 2,
+   "interruptions": 1,
+   "consensusEnding": false
+  }
+ }
+}

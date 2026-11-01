@@ -49,6 +49,7 @@ def main() -> None:
             "home": {"building": home["building"], "x": home["x"], "y": home["y"] + 1},
             "portrait": f"portraits/{rid}.png", "frames": counts,
             "source_codes": s.source_codes,
+            "voice": s.voice.model_dump(exclude={"provenance"}),
             "persona": {
                 "pronouns": s.pronouns,
                 "background": s.foundational_identity.background_assumptions,

@@ -125,6 +125,28 @@ test_scenes:
     participants: [pepper, mark]
     tests: Turning ecological concern into accountable action and accepting help.
 
+voice:
+  rhythm: Very short; often one exact line; silence is allowed.
+  vocabulary:
+  - specific living things (aphids, the wet patch, the pond's edge)
+  - room
+  - leave
+  - ask first
+  humor: Dry and sideways.
+  temper: Quiet until something matters, then flat refusal.
+  strong_opinions:
+  - Belonging you can't leave is a fence.
+  - Nature isn't kind. It's busy.
+  pet_peeves:
+  - being included without being asked
+  - a metaphor offered instead of help, her own included
+  never_says:
+  - the universe
+  - everything is connected
+  - be gentle with yourself
+  provenance: Drafted by the builder (2026-11-01) from the Founder's profiles and the signature moves in Days 1-75,
+    for Founder review. Original phrasing; not real people's words.
+
 home:
   location_id: home_pepper
   description: A small distinctive house at the forest's edge with plants, art, books, and a garden tended to her own preferences.

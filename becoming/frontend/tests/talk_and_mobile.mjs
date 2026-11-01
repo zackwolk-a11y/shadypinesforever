@@ -67,12 +67,15 @@ const browser = await chromium.launch();
   await p.waitForFunction(() => window.__calls.length === 2);
   const calls = await p.evaluate(() => window.__calls);
   const first = calls[0][0].content;
-  check(first.includes("You are voicing Ralph") && first.includes("Zachary says: What does self-reliance"), "first message carries Ralph's character and Zachary's words");
-  check(first.includes("You have no memories of earlier days") && first.includes("Never claim to be conscious"), "honesty rules included");
-  check(calls[1].length === 3 && calls[1][1].role === "assistant", "second turn sends the conversation so far");
+  check(first.includes("You are Ralph") && first.includes("He says: What does self-reliance"), "first message carries Ralph's character and the founder's words (v2)");
+  check(first.includes("No invented past") && first.includes("tell the truth briefly") && first.includes("one or two short sentences"), "v2 speech and honesty rules included");
+  check(!first.includes("Zachary"), "the founder's name is not fed to the resident");
+  check(calls[1].length === 3 && calls[1][1].role === "assistant" && calls[1][2].content.includes("notes for you, not said aloud"), "second turn sends the conversation so far plus fresh reading notes");
+  const statusLine = await p.locator("#talk-status").textContent();
+  check(statusLine.includes("fictional AI resident"), "AI disclosure shown in the interface");
   const log = await p.locator("#talk-log").innerText();
   check(log.includes("[test reply 2]") && log.includes("And what would change your mind?"), "transcript shows both sides");
-  check(!log.includes("You are voicing"), "hidden character prompt never shown in the transcript");
+  check(!log.includes("You are Ralph") && !log.includes("notes for you"), "hidden prompt and reading notes never shown in the transcript");
   // typing letters must not move the avatar or trigger doors
   await p.waitForFunction(() => window.village.arrived(), null, { timeout: 60000 });
   await p.waitForTimeout(300);
@@ -85,23 +88,17 @@ const browser = await chromium.launch();
   if (shots) await p.screenshot({ path: `${shots}/desktop_talk.png` });
   await ctx.close();
 }
-// 3) Overhear: generated demo scene with a stand-in that streams a fake scene.
+// 3) Overhear: turn-by-turn scene with a stand-in that writes one line per call.
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   await ctx.addInitScript(() => {
     window.__prompts = []; window.__said = [];
     window.addEventListener("resident-say", (e) => window.__said.push(e.detail.id));
-    const sample = async (input, opts) => {
+    const sample = async (input) => {
       window.__prompts.push(input);
-      const names = input.match(/using only these names: (.+)\./)[1].split(", ");
-      let text = "Scene: Two baskets wait by the kitchen door.\n";
-      for (let i = 0; i < 6; i++) {
-        text += `${names[i % names.length]}: test line ${i + 1}.\n`;
-        opts?.onText?.({ text, delta: "" });
-        await new Promise((r) => setTimeout(r, 30));
-      }
-      text += "Narrator: this must be ignored\n";
-      return { text, truncated: false };
+      const name = input.match(/Write only (\w+)'s next line/)[1];
+      await new Promise((r) => setTimeout(r, 10));
+      return { text: `${name}: *sighs* test line ${window.__prompts.length}.`, truncated: false };
     };
     window.claude = { use: async (n) => (n === "sample" ? sample : null) };
   });
@@ -110,20 +107,23 @@ const browser = await chromium.launch();
   await p.waitForFunction(() => window.village?.scene?.() === "Village");
   await p.selectOption("#overhear-genre", "friendly_dispute");
   await p.click("#overhear-btn");
-  await p.waitForFunction(() => document.querySelectorAll("#talk-log .bubble").length === 6, null, { timeout: 10000 });
-  const prompt = await p.evaluate(() => window.__prompts[0]);
-  check(prompt.includes("A friendly dispute between commitments") && prompt.includes("Starting theme"), "prompt carries the chosen conversation type and a Days theme");
-  check(prompt.includes("Concede specifically") && prompt.includes("No moral lesson"), "prompt carries the craft rules from Days 1-75");
-  check(prompt.includes("do not invent past events"), "prompt forbids invented shared memories");
+  await p.waitForSelector("#talk-log .sources", { timeout: 20000 });
+  const prompts = await p.evaluate(() => window.__prompts);
+  check(prompts.length >= 14 && prompts.length <= 20, `one call per line, 14-20 turns (${prompts.length})`);
+  check(prompts[0].includes("a friendly dispute between commitments") && prompts[0].includes("touches the village theme"), "prompt carries the chosen conversation type and a Days theme");
+  check(prompts[0].includes("Long answers kill a conversation") && prompts[0].includes("never force agreement") && prompts[0].includes("No invented past"), "v2 group rules included");
+  check(prompts[1].includes(": test line 1."), "each line sees the conversation so far");
+  const speakers = prompts.map((q) => q.match(/Write only (\w+)'s/)[1]);
+  check(speakers.every((s, k) => k === 0 || s !== speakers[k - 1]), "nobody speaks twice in a row");
   const header = await p.locator("#talk-name").textContent();
   const cast = header.split(" · ")[0].split(", ");
   check(cast.length >= 2 && cast.every((n) => ["Bernie", "Ralph", "Tony", "Mark"].includes(n)), `cast drawn from the genre's voices (${cast.join(", ")})`);
   const log = await p.locator("#talk-log").innerText();
-  check(log.includes("Two baskets wait") && !log.includes("must be ignored"), "scene line shown; non-cast lines ignored");
-  check((await p.evaluate(() => window.__said.length)) === 6, "each line raised a speech bubble on the map");
+  check(!log.includes("sighs") && !/\b\w+: \w+: /.test(log), "labels and stage directions cleaned from lines");
+  check((await p.evaluate(() => window.__said.length)) === prompts.length, "each line raised a speech bubble on the map");
   check(!(await p.locator("#talk-form").isVisible()), "message box hidden while overhearing");
-  check((await p.locator("#talk-status").textContent()).includes("Not part of the village's history"), "labelled as a demo, not history");
-  check(prompt.includes("What the residents have read") && /\[[A-Z]{1,3}\d{1,2}\]/.test(prompt), "overheard scene carries each resident's reading with source codes");
+  const st = await p.locator("#talk-status").textContent();
+  check(st.includes("Fictional AI residents") && st.includes("not part of the village's history"), "labelled as fictional AI residents and as a demo");
   if (shots) await p.screenshot({ path: `${shots}/overhear.png` });
   await ctx.close();
   const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -134,6 +134,7 @@ const browser = await chromium.launch();
   check((await p2.locator("#talk-status").textContent()).includes("Nothing is invented"), "without Claude, overhearing says so");
   await ctx2.close();
 }
+
 // 4) Research: the library tool is offered, used, and its sources shown.
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });

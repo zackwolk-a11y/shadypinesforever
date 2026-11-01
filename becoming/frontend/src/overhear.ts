@@ -7,7 +7,9 @@
 // stored, and is not remembered by anyone.
 import { WORLD, assetUrl, type Resident } from "./world";
 import { getSample, showSources } from "./talk";
-import { search, cite } from "./research";
+import { search } from "./research";
+import { groupTurn, type Line } from "./dialogue/prompts";
+import { nextSpeaker, cleanLine, sceneLength } from "./dialogue/engine";
 
 const $ = (id: string) => document.getElementById(id)!;
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
@@ -30,48 +32,7 @@ export function planScene(genreId?: string): ScenePlan {
   return { genre, cast, setting: PLACE(pick(genre.settings)), time, theme, consulted: [] };
 }
 
-export function scenePrompt(p: ScenePlan): string {
-  const c = WORLD.patterns.craft;
-  const who = p.cast.map((r) => `${r.name} (${r.persona.pronouns}), ${r.title}.
-  Tension: ${r.tension}
-  How they talk: ${r.persona.habits.join(" ")}
-  Signature move: ${WORLD.patterns.moves[r.id]}
-  Current beliefs: ${r.persona.beliefs.slice(0, 3).map((b) => `${b.statement} (confidence ${b.confidence})`).join(" | ")}
-  Boundaries: ${r.persona.boundaries.join(" ")}`).join("\n\n");
-  const names = p.cast.map((r) => r.name).join(", ");
-  const reading = p.cast.map((r) => {
-    const found = search(`${p.theme} ${p.genre.name} ${p.genre.shape}`, r, 2);
-    p.consulted.push(...found.flatMap((f) => f.codes), ...(found.some((f) => f.kind === "founder_note") ? ["__notes"] : []));
-    return found.length ? `${r.name} has read:\n${found.map(cite).join("\n\n")}` : `${r.name}: nothing in the library on this theme.`;
-  }).join("\n\n");
-  return `Write one short scene of dialogue between fictional residents of Healthy Village, a small ecological village of nine simulated AI residents. The residents are simulated characters, not real people and not the real people who inspired them; never quote real people.
-
-Scene: ${p.time}, at ${p.setting}.
-Conversation type: ${p.genre.name}. ${p.genre.shape}
-Starting theme (one of the village's story titles, use only as loose inspiration, do not retell any story): "${p.theme}"
-
-Cast:
-${who}
-
-What the residents have read (their research; use it where it genuinely helps, never as a lecture):
-${reading}
-When a resident draws on this, they mention the source naturally and add its code in brackets once, like [B8]. A FOUNDER RESEARCH NOTE is a summary, not the source's words: no quoting it. Do not state facts, numbers or quotations beyond these passages.
-
-Style (follow closely):
-- ${c.ordinary_hooks}
-- ${c.turn_length}
-- ${c.humor}
-- Use moves like: ${c.reasoning_moves.join(" ")}
-- ${c.endings}
-- Avoid: ${c.what_to_avoid.join("; ")}.
-- Each resident sounds distinct and stays true to their tension and boundaries. Someone should concede something specific; someone should push back.
-- They have no shared memories to cite: do not invent past events or earlier conversations.
-
-Output format, exactly:
-First line: "Scene: " followed by one plain sentence naming the ordinary situation.
-Then 14 to 22 lines, each "Name: words", using only these names: ${names}.
-No other narration, no stage directions, no headings, nothing after the last line.`;
-}
+/** The pre-revision one-call scene prompt is frozen in dialogue/prompts_v1.ts. */
 
 function bubble(name: string, text: string) {
   const el = document.createElement("div");
@@ -81,9 +42,13 @@ function bubble(name: string, text: string) {
   el.append(b, t); $("talk-log").append(el); $("talk-log").scrollTop = 1e9;
 }
 
+let runId = 0;
+
+/** Turn-by-turn scene: each line is written by one resident who sees the conversation so far. */
 export async function startOverhear(genreId?: string) {
   if (busy) return;
   const plan = planScene(genreId);
+  const my = ++runId;
   const log = $("talk-log"); log.replaceChildren();
   ($("talk-portrait") as HTMLImageElement).src = assetUrl(plan.cast[0].portrait);
   $("talk-name").textContent = `${plan.cast.map((r) => r.name).join(", ")} · ${plan.time}, ${plan.setting}`;
@@ -94,34 +59,37 @@ export async function startOverhear(genreId?: string) {
     status.textContent = "Overhearing needs the claude.ai artifact version (it asks Claude with your plan), or the simulation server that comes next. Nothing is invented here.";
     return;
   }
-  status.textContent = `Demo scene (${plan.genre.name}). Generated now from the residents' character files in the style you chose. Not part of the village's history; nobody will remember it.`;
+  status.textContent = `Fictional AI residents, voiced by Claude one line at a time from their character files and reading. Demo scene (${plan.genre.name}); not part of the village's history and not remembered. Close to stop.`;
   busy = true;
-  const shown = new Set<number>();
-  const names = new Map(plan.cast.map((r) => [r.name, r]));
-  const render = (full: string, final: boolean) => {
-    const lines = full.split("\n").map((l) => l.trim()).filter(Boolean);
-    const ready = final ? lines.length : lines.length - 1; // last line may still be streaming
-    for (let i = 0; i < ready; i++) {
-      if (shown.has(i)) continue; shown.add(i);
-      const m = lines[i].match(/^([A-Za-z]+):\s*(.+)$/);
-      if (!m) continue;
-      if (m[1] === "Scene") { const s = document.createElement("p"); s.className = "muted"; s.textContent = m[2]; log.append(s); continue; }
-      const r = names.get(m[1]); if (!r) continue;
-      bubble(r.name, m[2]);
-      window.dispatchEvent(new CustomEvent("resident-say", { detail: { id: r.id, text: m[2] } }));
-    }
-  };
+  const situation = `An ordinary ${plan.time.toLowerCase()} at ${plan.setting}. Something small and practical in front of you touches the village theme "${plan.theme}". The kind of conversation: ${plan.genre.name.toLowerCase()} (${plan.genre.shape})`;
+  const transcript: Line[] = [];
+  const maxTurns = sceneLength();
+  const typing = document.createElement("p"); typing.className = "muted small";
   try {
-    const prompt = scenePrompt(plan);
-    const res = await sample(prompt, { modelTier: "default", cache: false, onText: ({ text }: { text: string }) => render(text, false) });
-    render(res.text, true);
-    showSources(res.text, plan.consulted);
+    for (let turn = 0; turn < maxTurns; turn++) {
+      if (my !== runId || $("talk").hidden) break; // closed or restarted
+      const speaker = turn === 0 ? plan.cast[0] : nextSpeaker(plan.cast, transcript);
+      const reading = search(`${plan.theme} ${transcript[transcript.length - 1]?.text ?? plan.genre.shape}`, speaker, 2);
+      plan.consulted.push(...reading.flatMap((p) => p.codes));
+      if (reading.some((p) => p.kind === "founder_note")) plan.consulted.push("__notes");
+      typing.textContent = `${speaker.name} is speaking…`; log.append(typing);
+      const res = await sample(groupTurn({ speaker, cast: plan.cast, setting: plan.setting, time: plan.time, situation, transcript, passages: reading, turn, maxTurns }), { modelTier: "default", cache: false });
+      typing.remove();
+      if (my !== runId) break;
+      const text = cleanLine(res.text, speaker.name);
+      if (!text) continue;
+      transcript.push({ speaker: speaker.name, text });
+      bubble(speaker.name, text);
+      window.dispatchEvent(new CustomEvent("resident-say", { detail: { id: speaker.id, text } }));
+    }
+    if (my === runId && transcript.length) showSources(transcript.map((l) => l.text).join(" "), plan.consulted);
   } catch (e: any) {
+    typing.remove();
     const p = document.createElement("p"); p.className = "muted";
-    p.textContent = e?.code === "rate_limited" ? "(Claude is rate-limited right now; try again shortly.)"
-      : e?.code === "not_granted" ? "(Permission to ask Claude wasn't granted.)" : "(The scene failed to generate; nothing was invented.)";
+    p.textContent = e?.code === "rate_limited" ? "(Claude is rate-limited right now; the scene stopped. Try again shortly.)"
+      : e?.code === "not_granted" ? "(Permission to ask Claude wasn't granted.)" : "(The scene stopped: a line failed to generate. Nothing was invented.)";
     log.append(p);
-  } finally { busy = false; }
+  } finally { if (my === runId) busy = false; }
 }
 
 export function initOverhear() {

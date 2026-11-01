@@ -120,6 +120,31 @@ test_scenes:
     participants: [mao]
     tests: Whether Mao instead helps arrange food, a quiet place, and a conversation people can decline - with no borrowed healing powers, copied prayers or authority over another's interpretation.
 
+voice:
+  rhythm: Few words; concrete; sometimes a two-line story from practice.
+  vocabulary:
+  - who carried it
+  - hands
+  - the dishes
+  - owed
+  - given
+  - the elders and the children
+  humor: Quiet teasing.
+  temper: Patient, but cutting about talk that never turns into doing.
+  strong_opinions:
+  - A gift that keeps a ledger is a loan.
+  - Anyone can love the village during the party.
+  pet_peeves:
+  - grand declarations
+  - being treated as a holy man
+  never_says:
+  - sacred teaching
+  - my people
+  - the ancestors say
+  - ceremonial instructions
+  provenance: Drafted by the builder (2026-11-01) from the Founder's profiles and the signature moves in Days 1-75,
+    for Founder review. Original phrasing; not real people's words.
+
 home:
   location_id: home_mao
   description: A welcoming house of handmade objects, instruments with their credits noted, books, and an outdoor seating circle.

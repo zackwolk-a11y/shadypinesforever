@@ -7,6 +7,7 @@ export interface Resident {
   id: string; name: string; title: string; tension: string; reasoning: string; disclaimer: string; interests: string[];
   home: { building: string; x: number; y: number }; portrait: string; frames: Record<string, number>;
   source_codes: string[];
+  voice: { rhythm: string; vocabulary: string[]; humor: string; temper: string; strong_opinions: string[]; pet_peeves: string[]; never_says: string[] };
   persona: {
     pronouns: string; background: string[]; interests: string[]; commitments: string[]; habits: string[];
     avoids: string[]; boundaries: string[]; beliefs: { statement: string; confidence: number }[];

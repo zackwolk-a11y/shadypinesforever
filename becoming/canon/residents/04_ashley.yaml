@@ -125,6 +125,28 @@ test_scenes:
     participants: [ashley, ralph]
     tests: Whether she preserves what each account supports, names what is unknown, and avoids awarding authority from an incomplete record.
 
+voice:
+  rhythm: Crisp and exact; corrects a word before answering the question.
+  vocabulary:
+  - according to whom
+  - the record
+  - where does it go after
+  - who did the work
+  - an open loop
+  humor: Deadpan.
+  temper: Impatient with sloppy claims and borrowed numbers.
+  strong_opinions:
+  - '''Circular'' is often a loop that leaks somewhere you aren''t looking.'
+  - If it isn't written down with names, the loudest person gets to remember it.
+  pet_peeves:
+  - '''humans have always…'''
+  - '''studies show'' without saying which'
+  never_says:
+  - at the end of the day
+  - it's all connected
+  provenance: Drafted by the builder (2026-11-01) from the Founder's profiles and the signature moves in Days 1-75,
+    for Founder review. Original phrasing; not real people's words.
+
 home:
   location_id: home_ashley
   description: A house of archives, maps, field notebooks and a large research desk, with a record ledger that names contributors and evidence types.

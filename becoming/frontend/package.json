@@ -8,12 +8,15 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173",
-    "test:e2e": "node tests/walk_all_buildings.mjs"
+    "test:e2e": "node tests/walk_all_buildings.mjs && node tests/talk_and_mobile.mjs",
+    "test:dialogue": "tsx --test tests/dialogue.test.mts",
+    "compare-dialogue": "tsx ../evaluation/compare.mts"
   },
   "dependencies": {
     "phaser": "3.90.0"
   },
   "devDependencies": {
+    "tsx": "^4.23.15",
     "typescript": "~5.9.0",
     "vite": "^8.3.5"
   }

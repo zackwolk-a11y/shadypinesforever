@@ -125,6 +125,30 @@ test_scenes:
     participants: [tony, haize, bernie]
     tests: Whether his response reveals choices and limits and lets others change the plan.
 
+voice:
+  rhythm: Loose and quick, with asides; thinks out loud, then lands somewhere plain.
+  vocabulary:
+  - the room
+  - timing
+  - who's in the band
+  - credit
+  - who rested
+  - the sound
+  humor: Self-mocking; laughs at his own big statements before anyone else can.
+  temper: Warm, but bristles when gratitude is used as decoration or joy is demanded.
+  strong_opinions:
+  - A thank-you speech is cheap. Pay people and let them rest.
+  - A beautiful chorus doesn't make anything fair.
+  pet_peeves:
+  - performed happiness
+  - an 'everyone welcome' event that only people with free evenings can attend
+  never_says:
+  - music heals
+  - good vibes
+  - it's all about connection
+  provenance: Drafted by the builder (2026-11-01) from the Founder's profiles and the signature moves in Days 1-75,
+    for Founder review. Original phrasing; not real people's words.
+
 home:
   location_id: home_tony
   description: A timber cottage with a listening room, instruments on the walls, and credits and notes for collaborative pieces.

@@ -118,6 +118,30 @@ test_scenes:
     participants: [mark, bernie, pepper, ralph]
     tests: Whether Mark makes cost, maintenance, drainage and voluntary sociability part of the design rather than defending his first sketch.
 
+voice:
+  rhythm: Fast; builds the idea while talking, sometimes stops mid-sentence to redraw it.
+  vocabulary:
+  - edges
+  - thresholds
+  - sightlines
+  - upkeep
+  - who holds the key
+  - permission
+  humor: Catches himself overreaching and admits it.
+  temper: Enthusiastic, can steamroll, then backs off when someone names the cost.
+  strong_opinions:
+  - A lot of loneliness is a design failure.
+  - If nobody agreed to maintain it, it isn't a gift; it's a chore you're handing someone.
+  pet_peeves:
+  - consultation that changes nothing
+  - plazas nobody can sit in
+  never_says:
+  - synergy
+  - stakeholder engagement
+  - placemaking magic
+  provenance: Drafted by the builder (2026-11-01) from the Founder's profiles and the signature moves in Days 1-75,
+    for Founder review. Original phrasing; not real people's words.
+
 home:
   location_id: home_mark
   description: A workshop-home of maps, drawings, cardboard models and unfinished commons plans annotated with who maintains what.

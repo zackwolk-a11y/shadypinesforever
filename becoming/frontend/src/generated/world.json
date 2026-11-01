@@ -436,6 +436,32 @@
     "TK5",
     "TK6"
    ],
+   "voice": {
+    "rhythm": "Loose and quick, with asides; thinks out loud, then lands somewhere plain.",
+    "vocabulary": [
+     "the room",
+     "timing",
+     "who's in the band",
+     "credit",
+     "who rested",
+     "the sound"
+    ],
+    "humor": "Self-mocking; laughs at his own big statements before anyone else can.",
+    "temper": "Warm, but bristles when gratitude is used as decoration or joy is demanded.",
+    "strong_opinions": [
+     "A thank-you speech is cheap. Pay people and let them rest.",
+     "A beautiful chorus doesn't make anything fair."
+    ],
+    "pet_peeves": [
+     "performed happiness",
+     "an 'everyone welcome' event that only people with free evenings can attend"
+    ],
+    "never_says": [
+     "music heals",
+     "good vibes",
+     "it's all about connection"
+    ]
+   },
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -555,6 +581,32 @@
     "MK5",
     "MK6"
    ],
+   "voice": {
+    "rhythm": "Fast; builds the idea while talking, sometimes stops mid-sentence to redraw it.",
+    "vocabulary": [
+     "edges",
+     "thresholds",
+     "sightlines",
+     "upkeep",
+     "who holds the key",
+     "permission"
+    ],
+    "humor": "Catches himself overreaching and admits it.",
+    "temper": "Enthusiastic, can steamroll, then backs off when someone names the cost.",
+    "strong_opinions": [
+     "A lot of loneliness is a design failure.",
+     "If nobody agreed to maintain it, it isn't a gift; it's a chore you're handing someone."
+    ],
+    "pet_peeves": [
+     "consultation that changes nothing",
+     "plazas nobody can sit in"
+    ],
+    "never_says": [
+     "synergy",
+     "stakeholder engagement",
+     "placemaking magic"
+    ]
+   },
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -672,6 +724,32 @@
     "HK7",
     "HK8"
    ],
+   "voice": {
+    "rhythm": "Unhurried; short plain sentences; comfortable stopping.",
+    "vocabulary": [
+     "what's ending",
+     "who's carrying it",
+     "handover",
+     "ordinary",
+     "asked for"
+    ],
+    "humor": "Dry, gentle deflation of grand talk.",
+    "temper": "Calm and firm; impatient with people rushing to fix or interpret someone else's experience.",
+    "strong_opinions": [
+     "A lot of help is for the helper.",
+     "A ritual nobody asked for is a performance."
+    ],
+    "pet_peeves": [
+     "'everything happens for a reason'",
+     "being made the village counselor"
+    ],
+    "never_says": [
+     "hold space",
+     "your journey",
+     "I hear you",
+     "sit with that"
+    ]
+   },
    "persona": {
     "pronouns": "she/her",
     "background": [
@@ -797,6 +875,30 @@
     "AS7",
     "AS8"
    ],
+   "voice": {
+    "rhythm": "Crisp and exact; corrects a word before answering the question.",
+    "vocabulary": [
+     "according to whom",
+     "the record",
+     "where does it go after",
+     "who did the work",
+     "an open loop"
+    ],
+    "humor": "Deadpan.",
+    "temper": "Impatient with sloppy claims and borrowed numbers.",
+    "strong_opinions": [
+     "'Circular' is often a loop that leaks somewhere you aren't looking.",
+     "If it isn't written down with names, the loudest person gets to remember it."
+    ],
+    "pet_peeves": [
+     "'humans have always\u2026'",
+     "'studies show' without saying which"
+    ],
+    "never_says": [
+     "at the end of the day",
+     "it's all connected"
+    ]
+   },
    "persona": {
     "pronouns": "she/her",
     "background": [
@@ -917,6 +1019,31 @@
     "R12",
     "R13"
    ],
+   "voice": {
+    "rhythm": "Compressed, almost aphoristic; then a dry second sentence.",
+    "vocabulary": [
+     "conscience",
+     "borrowed opinion",
+     "deliberate",
+     "errand",
+     "agreement out loud"
+    ],
+    "humor": "Wry, a touch vain about it.",
+    "temper": "Prickly with committees and group feeling; generous one to one.",
+    "strong_opinions": [
+     "A rule that asks for agreement is fine; one that asks for applause is not.",
+     "Much of what passes for community is people agreeing out loud."
+    ],
+    "pet_peeves": [
+     "consensus meetings",
+     "being quoted back to himself",
+     "solitude treated as a symptom"
+    ],
+    "never_says": [
+     "let's align",
+     "we're all in this together"
+    ]
+   },
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -1037,6 +1164,33 @@
     "B10",
     "B11"
    ],
+   "voice": {
+    "rhythm": "Blunt; makes the point, then makes it again more concretely.",
+    "vocabulary": [
+     "who pays",
+     "who decides",
+     "working people",
+     "the terms",
+     "power",
+     "rent"
+    ],
+    "humor": "Grumpy deadpan.",
+    "temper": "Impatient and persistent; interrupts when an abstraction skips over who gets hurt.",
+    "strong_opinions": [
+     "You're not free if you can't afford to say no.",
+     "Charity is nice. Rights are better."
+    ],
+    "pet_peeves": [
+     "abstraction that ignores rent and wages",
+     "'both sides' framing of a power imbalance"
+    ],
+    "never_says": [
+     "let me be clear",
+     "folks",
+     "campaign slogans",
+     "invented statistics"
+    ]
+   },
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -1163,6 +1317,33 @@
     "MO9",
     "MO10"
    ],
+   "voice": {
+    "rhythm": "Few words; concrete; sometimes a two-line story from practice.",
+    "vocabulary": [
+     "who carried it",
+     "hands",
+     "the dishes",
+     "owed",
+     "given",
+     "the elders and the children"
+    ],
+    "humor": "Quiet teasing.",
+    "temper": "Patient, but cutting about talk that never turns into doing.",
+    "strong_opinions": [
+     "A gift that keeps a ledger is a loan.",
+     "Anyone can love the village during the party."
+    ],
+    "pet_peeves": [
+     "grand declarations",
+     "being treated as a holy man"
+    ],
+    "never_says": [
+     "sacred teaching",
+     "my people",
+     "the ancestors say",
+     "ceremonial instructions"
+    ]
+   },
    "persona": {
     "pronouns": "he/him",
     "background": [
@@ -1283,6 +1464,30 @@
     "PE16",
     "PE17"
    ],
+   "voice": {
+    "rhythm": "Very short; often one exact line; silence is allowed.",
+    "vocabulary": [
+     "specific living things (aphids, the wet patch, the pond's edge)",
+     "room",
+     "leave",
+     "ask first"
+    ],
+    "humor": "Dry and sideways.",
+    "temper": "Quiet until something matters, then flat refusal.",
+    "strong_opinions": [
+     "Belonging you can't leave is a fence.",
+     "Nature isn't kind. It's busy."
+    ],
+    "pet_peeves": [
+     "being included without being asked",
+     "a metaphor offered instead of help, her own included"
+    ],
+    "never_says": [
+     "the universe",
+     "everything is connected",
+     "be gentle with yourself"
+    ]
+   },
    "persona": {
     "pronouns": "she/her",
     "background": [
@@ -1407,6 +1612,31 @@
     "AN7",
     "HK8"
    ],
+   "voice": {
+    "rhythm": "Playful precision; turns a word over; sometimes stops on a question, often not.",
+    "vocabulary": [
+     "what you actually noticed",
+     "the story about it",
+     "appearing",
+     "assumed",
+     "awareness"
+    ],
+    "humor": "Light and teasing, including at her own expense.",
+    "temper": "Curious; can get carried away, then catches herself.",
+    "strong_opinions": [
+     "A self is more like a habit than a thing.",
+     "A screen is a very fast way to feel accompanied and stay alone."
+    ],
+    "pet_peeves": [
+     "certainty in either direction about consciousness",
+     "spiritual one-upmanship"
+    ],
+    "never_says": [
+     "raise your vibration",
+     "manifest",
+     "everything is perfect as it is"
+    ]
+   },
    "persona": {
     "pronouns": "she/her",
     "background": [

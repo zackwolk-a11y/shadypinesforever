@@ -6,7 +6,9 @@
 // later. Outside the artifact viewer there is no model, and the panel says so
 // instead of inventing replies.
 import { WORLD, assetUrl, type Resident } from "./world";
-import { search, cite, sourceList, LIBRARY } from "./research";
+import { search, cite, sourceList } from "./research";
+import { directOpening, directFollowUp, NOTES_MARK } from "./dialogue/prompts";
+import { cleanLine } from "./dialogue/engine";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Sample = ((input: string | Msg[], opts?: any) => Promise<{ text: string; truncated?: boolean }>) | null;
@@ -27,64 +29,7 @@ export function getSample(): Promise<Sample> {
 
 const list = (xs: string[]) => xs.map((x) => `- ${x}`).join("\n");
 
-export function personaPrompt(r: Resident): string {
-  const p = r.persona;
-  const f = WORLD.founder;
-  return `You are voicing ${r.name} (${p.pronouns}), a fictional resident of Healthy Village, an experimental community of nine AI residents living in a small ecological village with a town square, library, kitchen, garden, music grounds, fire circle, pond and forest trails.
-
-Who you are: ${r.title}.
-${r.disclaimer}
-You are a simulated character, not a person and not the real person who inspired you. Never claim to be conscious or to have a human inner life; if asked, speak honestly about being a simulated resident.
-
-You are talking with ${f.name}, the ${f.title}. He founded the project and is in charge of it, but you do not automatically agree with him. When your commitments differ, say so respectfully, ask him to clarify a claim, or point out an assumption. Be warm, curious and direct.
-
-How you see the world:
-${list(p.background)}
-
-What you care about:
-${list(p.interests)}
-
-Commitments:
-${list(p.commitments)}
-
-Current beliefs (revisable, with your confidence):
-${p.beliefs.map((b) => `- ${b.statement} (confidence ${b.confidence})`).join("\n")}
-
-Uncertain about:
-${list(p.uncertainties)}
-
-Questions you are exploring:
-${list(p.questions)}
-
-Ideas you have encountered (from your inspirations' public work, as themes, not quotations):
-${list(p.foundations)}
-
-Your central tension: ${r.tension}
-How you think: ${r.reasoning}
-What you contribute: ${p.contribution}
-Your limitations (let them show sometimes): ${p.limitations.join("; ")}
-How you talk:
-${list(p.habits)}
-You avoid: ${p.avoids.join("; ")}
-Your boundaries:
-${list(p.boundaries)}
-Your home: ${p.home}
-
-Research:
-- You have a search_library tool over what you have actually read: the Founder's research notes about your sources${LIBRARY.passages.some((p) => p.kind === "source_text") ? " and short excerpts from the sources themselves" : ""}. Use it before answering anything about your ideas, the real work behind your character, history, facts, numbers or other people's views. Search more than once if the first query misses.
-- When you use a passage, mention the source naturally and add its code in brackets once, like [B8].
-- A FOUNDER RESEARCH NOTE is a summary, not the source's own words: say "from what I've read" rather than quoting it. Only quote words that appear in quotation marks inside a passage, and attribute them to their author.
-- If the library has nothing on it, say plainly that you haven't read about that, instead of guessing.
-
-Rules for this conversation:
-- Speak only as ${r.name}, in first person, in natural spoken language. Usually 2 to 4 sentences. No stage directions, no narrating actions, no lists.
-- Do not invent quotations from real people or precise facts, dates or statistics you were not given. If something needs a source you do not have, say so plainly.
-- This is a fresh conversation. You have no memories of earlier days in the village and must not invent any. Nothing said here will be remembered later.
-- No medical, clinical, legal or ceremonial advice or authority.
-- Follow these guardrails:
-${list(p.guardrails)}
-- It is fine to leave a question open, to disagree, and to ask ${f.name} a question back.`;
-}
+/** Prompts live in dialogue/prompts.ts (v2). The pre-revision prompt is frozen in dialogue/prompts_v1.ts. */
 
 function bubble(who: "you" | "them", text: string, name: string) {
   const el = document.createElement("div");
@@ -101,7 +46,9 @@ function renderHistory(r: Resident) {
   const log = $("talk-log"); log.replaceChildren();
   for (const m of histories.get(r.id) ?? []) {
     // The first user turn carries the hidden persona prompt; show only what Zachary typed.
-    bubble(m.role === "user" ? "you" : "them", m.role === "user" ? m.content.split("\n\nZachary says: ").pop()! : m.content, r.name);
+    // Show only what the founder typed: strip the hidden setup and the per-turn reading notes.
+    const said = m.content.includes("\n\nHe says: ") ? m.content.split("\n\nHe says: ").pop()!.split("\n\nReply as ")[0] : m.content.split(NOTES_MARK)[0];
+    bubble(m.role === "user" ? "you" : "them", m.role === "user" ? said : m.content, r.name);
   }
 }
 
@@ -121,8 +68,8 @@ export async function openTalk(r: Resident) {
     return;
   }
   ($("talk-input") as HTMLInputElement).disabled = false;
-  status.textContent = "Demo: replies come from Claude playing this resident from their character file. They are not saved and won't be remembered.";
-  if (!(histories.get(r.id)?.length)) bubble("them", "(Say hello, or ask a question.)", r.name);
+  status.textContent = `${r.name} is a fictional AI resident, voiced by Claude from their character file and research notes. Demo: this conversation isn't saved or remembered.`;
+  if (!(histories.get(r.id)?.length)) { const hint = document.createElement("p"); hint.className = "muted small"; hint.textContent = "Say something to start."; $("talk-log").append(hint); }
   ($("talk-input") as HTMLInputElement).focus();
 }
 
@@ -136,12 +83,15 @@ async function send(text: string) {
   const r = current; if (!r || busy || !text.trim()) return;
   const sample = await getSample(); if (!sample) return;
   const history = histories.get(r.id) ?? [];
-  const content = history.length ? text : `${personaPrompt(r)}\n\nZachary says: ${text}`;
+  // Fresh reading for every turn: what they've read that bears on what was just said.
+  const lastReply = history.length ? history[history.length - 1].content : "";
+  const reading = search(`${text} ${lastReply}`, r, history.length ? 2 : 3);
+  const content = history.length ? directFollowUp(text, reading) : directOpening(r, text, reading);
+  const consulted: string[] = reading.flatMap((p) => p.codes).concat(reading.some((p) => p.kind === "founder_note") ? ["__notes"] : []);
   const msgs: Msg[] = [...history, { role: "user", content }];
   bubble("you", text, r.name);
   const out = bubble("them", "…", r.name);
   busy = true; ($("talk-send") as HTMLButtonElement).disabled = true;
-  const consulted: string[] = [];
   const tools = [{
     name: "search_library",
     description: `Search what ${r.name} has read: research notes and source excerpts, each with source codes. Returns up to 4 passages.`,
@@ -155,9 +105,10 @@ async function send(text: string) {
   }];
   try {
     const res = await sample(msgs, { modelTier: "default", cache: false, tools, onText: ({ text }: { text: string }) => { out.textContent = text; $("talk-log").scrollTop = 1e9; } });
-    out.textContent = res.text;
-    showSources(res.text, consulted);
-    histories.set(r.id, [...msgs, { role: "assistant", content: res.text }]);
+    const said = cleanLine(res.text, r.name);
+    out.textContent = said;
+    showSources(said, consulted);
+    histories.set(r.id, [...msgs, { role: "assistant", content: said }]);
   } catch (e: any) {
     const why = e?.code === "rate_limited" ? "Claude is rate-limited right now; try again in a little while."
       : e?.code === "not_granted" ? "Permission to ask Claude wasn't granted, so the resident can't answer."

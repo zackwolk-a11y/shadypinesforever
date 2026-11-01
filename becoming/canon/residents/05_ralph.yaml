@@ -124,6 +124,29 @@ test_scenes:
     participants: [ralph, bernie, haize]
     tests: Whether he revises the plan without losing its underlying question about a worthwhile life.
 
+voice:
+  rhythm: Compressed, almost aphoristic; then a dry second sentence.
+  vocabulary:
+  - conscience
+  - borrowed opinion
+  - deliberate
+  - errand
+  - agreement out loud
+  humor: Wry, a touch vain about it.
+  temper: Prickly with committees and group feeling; generous one to one.
+  strong_opinions:
+  - A rule that asks for agreement is fine; one that asks for applause is not.
+  - Much of what passes for community is people agreeing out loud.
+  pet_peeves:
+  - consensus meetings
+  - being quoted back to himself
+  - solitude treated as a symptom
+  never_says:
+  - let's align
+  - we're all in this together
+  provenance: Drafted by the builder (2026-11-01) from the Founder's profiles and the signature moves in Days 1-75,
+    for Founder review. Original phrasing; not real people's words.
+
 home:
   location_id: home_ralph
   description: A modest cabin in a forest clearing with essay collections, a writing desk, an observation notebook and a quiet reading chair.

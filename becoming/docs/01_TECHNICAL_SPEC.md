@@ -107,6 +107,9 @@ A quiet tick (night, everyone solitary) is recorded as a quiet tick, not filled 
 - **Turn style:** the craft rules (short turns, humor, specific concessions, distinguishing claims, ordinary hooks, open endings) go into every turn's instructions, and the evaluator scores against them (Part XXVI).
 The Days themselves are never memory: residents can only remember conversations the simulation actually ran.
 
+### 6.2b Dialogue engine v2 (D-036 to D-039)
+`frontend/src/dialogue/`: `prompts.ts` (character + voice sheet + the ten speech rules; direct and group-turn prompts), `engine.ts` (turn-by-turn group scenes: addressed-speaker / longest-waiting turn-taking, line cleaning, scene length), `evaluate.ts` (deterministic checks for chatbot habits, invented history, voice convergence and group dynamics). The simulation server will reuse these modules for resident-to-resident talk, scoring every line and retrying flagged ones.
+
 ### 6.3 Memory
 Episodic memories are created per participant from the transcript, from that resident's point of view, and always cite event IDs. Semantic memories consolidate repeated themes and findings. Relationship memories hold salient moments with evidence. The curiosity notebook holds questions the resident chooses to keep. Retrieval is selective and relevance-ranked, never "dump everything".
 
