@@ -44,6 +44,7 @@ def main() -> None:
             "id": rid, "name": s.display_name, "title": s.title,
             "tension": " ".join(s.foundational_identity.recurring_tension.split()),
             "reasoning": s.fictional_direction.reasoning_style,
+            "disclaimer": " ".join(s.inspiration.summary.split()),
             "interests": s.foundational_identity.central_interests[:4],
             "home": {"building": home["building"], "x": home["x"], "y": home["y"] + 1},
             "portrait": f"portraits/{rid}.png", "frames": counts,

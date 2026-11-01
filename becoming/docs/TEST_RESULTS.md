@@ -24,3 +24,6 @@ Old project regression (untouched): `pytest tests` at repo root → 27 passed.
 - `frontend npm run build` → TypeScript check and production build succeed.
 - `frontend npm run test:e2e` (Playwright, Chromium, against `vite preview`) → **12/12 buildings OK**: from the town square the avatar pathfinds to every door, enters, sees the interior, and leaves; no page errors.
 - Manual check by screenshot: map renders, avatar spawns at the fountain, clicking a resident shows the canon profile with portrait (docs/world/play_*.png).
+
+## 2026-11-01 — Standalone single-file build
+`tools/build_standalone.py` → `standalone/healthy_village.html` (4.7 MB, 162 embedded images). Opened from disk in Chromium with **all network requests blocked**: 12/12 buildings entered and left, 0 network requests attempted, 0 page errors. Published as a private claude.ai artifact.

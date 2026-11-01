@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { WORLD, T, walkable, doorAt, findPath, type Door, type Resident } from "../world";
+import { WORLD, T, walkable, doorAt, findPath, assetUrl, type Door, type Resident } from "../world";
 import { showResident, setEnterButton } from "../ui";
 
 const SPEED = 110; // art px per second
@@ -16,12 +16,8 @@ export class VillageScene extends Phaser.Scene {
   constructor() { super("Village"); }
 
   preload() {
-    this.load.image("map", WORLD.art.image.replace(/^assets\//, ""));
-    for (const r of WORLD.residents) {
-      for (const [dir, n] of Object.entries(r.frames)) {
-        for (let i = 0; i < n; i++) this.load.image(`${r.id}_${dir}_${i}`, `sprites/frames/${r.id}/${dir}_${i}.png`);
-      }
-    }
+    if ((window as any).__ASSETS) return; // standalone: BootScene already added every texture
+    for (const [key, path] of imageList()) this.load.image(key, assetUrl(path));
   }
 
   create(data: { tx?: number; ty?: number }) {
@@ -139,4 +135,15 @@ export class VillageScene extends Phaser.Scene {
       setEnterButton(door ? door.name : null, () => this.enterCurrentDoor());
     }
   }
+}
+
+/** Every texture the village needs: [texture key, asset path]. */
+export function imageList(): [string, string][] {
+  const out: [string, string][] = [["map", WORLD.art.image.replace(/^assets\//, "")]];
+  for (const r of WORLD.residents) {
+    for (const [dir, n] of Object.entries(r.frames)) {
+      for (let i = 0; i < n; i++) out.push([`${r.id}_${dir}_${i}`, `sprites/frames/${r.id}/${dir}_${i}.png`]);
+    }
+  }
+  return out;
 }

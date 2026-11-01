@@ -4,7 +4,7 @@ import raw from "./generated/world.json";
 export interface Door { building: string; name: string; kind: string; owner: string | null; x: number; y: number; interior: string }
 export interface Zone { id: string; name: string; kind: string; privacy: string; rects: number[][] }
 export interface Resident {
-  id: string; name: string; title: string; tension: string; reasoning: string; interests: string[];
+  id: string; name: string; title: string; tension: string; reasoning: string; disclaimer: string; interests: string[];
   home: { building: string; x: number; y: number }; portrait: string; frames: Record<string, number>;
 }
 
@@ -14,6 +14,12 @@ export const WORLD = raw as unknown as {
 };
 
 export const T = WORLD.art.px_per_tile;
+
+/** Standalone builds embed every image as a data: URI in window.__ASSETS. */
+export function assetUrl(path: string): string {
+  const embedded = (window as any).__ASSETS as Record<string, string> | undefined;
+  return embedded?.[path] ?? path;
+}
 
 export function walkable(tx: number, ty: number): boolean {
   return ty >= 0 && ty < WORLD.height && tx >= 0 && tx < WORLD.width && WORLD.walkable[ty][tx] === "1";

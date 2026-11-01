@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { VillageScene } from "./scenes/VillageScene";
 import { InteriorScene } from "./scenes/InteriorScene";
+import { BootScene } from "./scenes/BootScene";
 import { initUi } from "./ui";
 
 const game = new Phaser.Game({
@@ -9,7 +10,7 @@ const game = new Phaser.Game({
   pixelArt: true,
   backgroundColor: "#2b1d12",
   scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" },
-  scene: [VillageScene, InteriorScene],
+  scene: [BootScene, VillageScene, InteriorScene],
 });
 
 initUi(() => game.scene.getScenes(true)[0]);

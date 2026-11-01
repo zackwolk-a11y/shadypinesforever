@@ -1,4 +1,4 @@
-import { WORLD, zoneCenter, type Resident } from "./world";
+import { WORLD, zoneCenter, assetUrl, type Resident } from "./world";
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -6,7 +6,7 @@ export function showResident(r: Resident) {
   const d = $("detail");
   d.replaceChildren();
   const img = document.createElement("img");
-  img.src = r.portrait; img.alt = `Portrait of ${r.name}`;
+  img.src = assetUrl(r.portrait); img.alt = `Portrait of ${r.name}`;
   const h = document.createElement("h3"); h.textContent = r.name;
   const t = document.createElement("p"); t.className = "muted"; t.textContent = r.title;
   const tags = document.createElement("p");
@@ -15,7 +15,9 @@ export function showResident(r: Resident) {
   const how = document.createElement("p"); how.innerHTML = "<strong>How they think:</strong> "; how.append(r.reasoning);
   const note = document.createElement("p"); note.className = "muted";
   note.textContent = "Activity: none recorded. The simulation is not running yet, so nothing here is invented.";
-  d.append(img, h, t, tags, ten, how, note);
+  const disc = document.createElement("p"); disc.className = "muted"; disc.style.fontSize = "0.75rem";
+  disc.textContent = r.disclaimer;
+  d.append(img, h, t, tags, ten, how, note, disc);
 }
 
 let enterHandler: (() => void) | null = null;

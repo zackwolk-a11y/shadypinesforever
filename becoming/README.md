@@ -31,4 +31,10 @@ npm run dev            # open the printed http://localhost:5173 link
 ```
 Walk with arrow keys/WASD or tap the map; press E (or the Enter button) at a door. The side panel lists every place and resident for keyboard and screen-reader navigation. Browser test: `npm run build && (npm run preview &) && npm run test:e2e`.
 
+## Standalone version (no install)
+`standalone/healthy_village.html` is the whole village in one file (game engine, code and art embedded, about 4.7 MB). Open it in any modern browser, even offline. Rebuild it with:
+```bash
+cd frontend && npm run export-world && npm run build && cd .. && backend/.venv/bin/python tools/build_standalone.py
+```
+
 The older Internal Village project at the repository root is not modified by this project.
