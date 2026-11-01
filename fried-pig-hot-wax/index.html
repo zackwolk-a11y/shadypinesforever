@@ -1268,11 +1268,11 @@ const SEGP=[
 "................................",
 "................................",
 "................................",
+"...........ooo..................",
+"..........=====.......o.o.o.....",
 "................................",
-"..................o.o.o.........",
 "................................",
-"................................",
-"..i......6...!............o.o...",
+"................!...........o.o.",
 "################################",
 "################################"]},
 {z:'mush',r:[
@@ -1283,11 +1283,11 @@ const SEGP=[
 "........................",
 "........................",
 "........................",
-"........ooo.............",
-".......=====............",
 "........................",
 "........................",
-"....................!...",
+"....o.o.................",
+"........................",
+"....i...........6.....!.",
 "########################",
 "########################"]},
 {z:'boss',r:[
@@ -2919,6 +2919,7 @@ function drawClown(x,y,k,f,st,fl){x=Math.round(x);y=Math.round(y);const [a,b,hai
   if(st==='juggle')for(let i=0;i<3;i++){const an=G.t*0.15+i*2.1;circ(ctx,x+7+Math.round(Math.cos(an)*7),Y-6+Math.round(Math.sin(an)*5),2,['#ffd23f','#5ff','#ff5fa2'][i]);}
   if(st==='ball'){circ(ctx,x+7,Y+31,8,OUTC);circ(ctx,x+7,Y+31,7,'#e8283a');rf(ctx,x+1,Y+30,13,2,'#fff');rf(ctx,x+4,Y+26,2,2,'#ff9a9a');}}
 /* glowing magic mushroom */
+function drawShroomBit(cx,cy,sz){const gl=0.5+0.5*Math.sin(G.t*0.2);ctx.globalAlpha=0.3+gl*0.2;circ(ctx,cx,cy-3,Math.round(6+8*sz),'#c89aff');ctx.globalAlpha=1;const sw=Math.max(2,Math.round(5*sz)),sh=Math.max(2,Math.round(9*sz));rf(ctx,cx-sw/2-1,cy-1,sw+2,sh+1,OUTC);rf(ctx,cx-sw/2,cy-1,sw,sh,'#f0e8f8');const rx=Math.max(2,10*sz),ry=Math.max(1.5,6*sz);pe(ctx,cx,cy-2,rx+1,ry+1,OUTC);pe(ctx,cx,cy-3,rx,ry,'#8a3ad8');pe(ctx,cx-rx*0.25,cy-3-ry*0.4,rx*0.5,ry*0.4,'#b87af0');}
 function drawMagicShroom(pr,ox){if(pr.eaten)return;const x=Math.round(pr.x+ox),gy=pr.y,gl=0.5+0.5*Math.sin(G.t*0.08);
   ctx.globalAlpha=0.25+gl*0.2;circ(ctx,x+10,gy-14,16,'#c89aff');ctx.globalAlpha=1;rf(ctx,x+6,gy-12,8,12,OUTC);rf(ctx,x+7,gy-12,6,12,'#f0e8f8');rf(ctx,x+7,gy-12,2,12,'#fff');
   pe(ctx,x+10,gy-14,12,8,OUTC);pe(ctx,x+10,gy-15,11,7,'#8a3ad8');pe(ctx,x+8,gy-18,6,3,'#b87af0');rf(ctx,x-1,gy-14,23,2,'#5a1a8a');
@@ -2980,7 +2981,8 @@ function coneUpdate(){const p=P;if(!LV.def.cone)return;coneMusic();
         if(pr.fire&&!p.dead&&overlap(p,{x:pr.x+2,y:pr.y-50,w:12,h:50}))hurtPlayer(pr.x+8);break;}
       case 'branch':if(pr.st==='idle'&&p.x>pr.x-80&&p.x<pr.x+8&&LV.alienMad){pr.st='shake';pr.t=0;sfx.crunch();}if(pr.st==='shake'&&++pr.t>34){pr.st='fell';eproj.push({kind:'brn',x:pr.x,y:pr.y+4,w:32,h:10,vx:0,vy:0,grav:0.32,life:300,t:0});}break;
       case 'wild':pr.t=(pr.t||0)+1;if(pr.k===1){const hop=(pr.t%90)<20;pr.hop=hop?Math.round(Math.sin((pr.t%90)/20*Math.PI)*6):0;if(hop)pr.x+=0.5;if(pr.x>pr.hx+60)pr.x=pr.hx;}if(Math.abs(p.x-pr.x)<50&&!pr.fled){pr.fled=true;}if(pr.fled){pr.x+=pr.k?2.5:1.8;}break;
-      case 'mshroom':if(!pr.eaten&&G.mode==='play'&&!p.dead&&overlap(p,{x:pr.x,y:pr.y-24,w:20,h:24})){pr.eaten=true;G.mode='cut';G.cut={kind:'coneShroom',t:0,pr};}break;
+      case 'mshroom':if(!pr.eaten&&!pr.seen&&G.mode==='play'&&!p.dead&&p.x>pr.x-130&&p.x<pr.x){pr.seen=true;sfx.chime();pop(p.x+2,p.y-22,'!','#ffd23f');pop(pr.x-14,pr.y-44,'OOH... SHINY','#c89aff');}
+      if(!pr.eaten&&G.mode==='play'&&!p.dead&&overlap(p,{x:pr.x,y:pr.y-24,w:20,h:24})){pr.eaten=true;G.mode='cut';G.cut={kind:'coneShroom',t:0,pr};}break;
       case 'camp7':if(pr.st==='wait'&&G.mode==='play'&&!p.dead&&p.x>pr.x-70&&arena.done){pr.st='go';G.mode='cut';G.cut={kind:'coneEnd',t:0,pr};}break;}}
   LV.props=LV.props.filter(q=>!q.dead);
   updateRide();
@@ -3009,7 +3011,7 @@ function updateRide(){const R=LV.ride;if(!R)return;const car=LV.props.find(q=>q.
     if(--R.spawn<=0&&ents.filter(e=>e.type==='clown'&&!e.dead).length<(R.k>0.5?4:3)){R.spawn=Math.round(260-R.k*140);const side=Math.random()<0.5;spawnClown(side?(R.gl+1.5)*TS:(R.gr-2)*TS,side?1:-1);}
     if(R.t>=R.dur){R.state='done';car.spd=0;G.camLock=null;coneGates(false);shake(10);sfx.boom();banner('RIDE OVER!','WHEEEEEEEE!',150,'#ffd23f');
       for(const e of ents)if(e.type==='clown'&&!e.dead){e.remove=true;burst(e.x+6,e.y+12,12,['#fff','#ff5fa2','#ffd23f'],2,20,2);}MUS.rate=1;
-      p.ride=null;p.vy=-9.5;p.vx=6;p.launch=70;p.onGround=false;p.spin=20;p.y=Math.min(p.y,150);sfx.launch();pop(p.x-8,p.y-16,'WHEEE!','#ffd23f');}}}
+      p.ride=null;p.vy=-9.5;p.vx=3.4;p.launch=70;p.onGround=false;p.spin=20;p.y=Math.min(p.y,150);sfx.launch();pop(p.x-8,p.y-16,'WHEEE!','#ffd23f');}}}
 function spawnClown(x,dir){const s={type:'clown',x,y:11*TS};const e=makeEnemy(s);e.active=true;e.sub=pick(['pie','pie','ball','juggle','dance']);e.k=Math.floor(Math.random()*4);e.face=dir;e.cd=60+Math.random()*60;ents.push(e);pop(x-10,150,pick(['HONK HONK!','TA-DAAA!','HYUK HYUK!']),'#ff5fa2');sfx.honk();return e;}
 /* enemies: demon birds + clowns */
 function coneEnemy(e,dx,dy,adx){const p=P;
@@ -3102,12 +3104,21 @@ function coneCut(C){const p=P;C.t++;updateDlg();
       if(C.t===1&&!C.step){sfx.alienHi();say([{who:'ALN',txt:'WELL, HOWDY THERE, LITTLE FELLA.'},{who:'ALN',txt:"BEAUTIFUL NIGHT FOR A WALK THROUGH THE WOODS, AIN'T IT?"},{who:'PIG',txt:'OINK!'}],true,()=>{C.step=1;C.t=0;a.st='stare';});}
       if(C.step===1&&C.t===40){say([{who:'ALN',txt:"HOLD ON JUST A COTTON-PICKIN' MINUTE."},{who:'ALN',txt:"THAT PINECONE DON'T BELONG TO YOU."},{who:'ALN',txt:'RETURN THE PINECONE!'}],true,()=>{C.step=2;C.t=0;a.st='angry';shake(8);sfx.screech();LV.alienMad=true;banner('RUN!','THE WOODS HAVE TURNED AGAINST YOU',160,'#e8283a');});}
       if(C.step===2&&C.t>50){a.st='chase';a.t=0;G.mode='play';G.cut=null;}break;}
-    case 'coneShroom':{const pr=C.pr;p.vx=0;p.lockT=5;
-      if(C.t===1){sfx.gulp();pop(p.x-6,p.y-16,'GULP!','#c89aff');p.face=1;}
-      if(C.t<70){p.bulge=1;p.squash=(C.t%16<8)?-6:6;P.rainbow=1;}
-      if(C.t>=60&&C.t<200){LV.wobble=Math.min(1,(C.t-60)/60);C.vort=Math.min(1,(C.t-60)/50);if(C.t%2===0){const a=rand(0,6.28),d=rand(60,140);parts.push({x:p.x+10+Math.cos(a)*d,y:p.y-60+Math.sin(a)*d*0.6,vx:-Math.cos(a)*2.4,vy:-Math.sin(a)*1.6,life:40,max:40,col:pick(['#5a8a3a','#8a6a4a','#6a4424','#a8a8b8','#c8d8f0']),size:2,grav:0});}if(C.t===62)sfx.wormhole();}
-      if(C.t>=150){p.y+=((p.y>40?-1.6:0));p.spin=20;}
-      if(C.t>=200){p.bulge=0;LV.wobble=0;C.vort=0;LV.wormRet={x:pr.x,y:pr.y};G.cut=null;startWorms();}break;}
+    case 'coneShroom':{const pr=C.pr,T=C.t;p.vx=0;p.lockT=5;
+      if(T===1){p.face=pr.x+10>=p.x+10?1:-1;C.sx=p.x;C.tx=pr.x+10-p.face*16-10;C.sz=1;C.held=0;}
+      if(T<=18){p.x=C.sx+(C.tx-C.sx)*(T/18);p.anim+=0.25;}
+      const mx=p.x+10+p.face*13,my=p.y+9;
+      if(T===10||T===26){sfx.snrk();if(T===10)pop(mx-12,my-22,'SNIFF SNIFF','#e8f0ff');for(let i=0;i<4;i++)part(mx,my-4,p.face*-rand(0.2,0.8),-rand(0.2,0.6),18,'#e8f0ff',1,0);p.squash=2;}
+      if(T===40){pop(p.x+2,p.y-8,'!','#ffd23f');sfx.blip(880,0.04);}
+      if(T>=46&&T<=56){C.held=(T-46)/10;if(T===46){p.squash=4;sfx.blip(300,0.05);}}
+      if(T===62||T===82||T===102){sfx.crunch();p.squash=5;C.sz-=0.28;pop(mx-12,my-24,pick(['CHOMP!','NOM!','MUNCH!']),'#c89aff');for(let i=0;i<7;i++)part(mx,my-6,rand(-1.2,1.2),-rand(0.4,1.6),24,pick(['#8a3ad8','#b87af0','#f0e8f8','#fff']),2,0.15);}
+      if(T===124){C.sz=0;sfx.gulp();pop(p.x-6,p.y-16,'GULP!','#c89aff');p.squash=-6;}
+      if(T===150){sfx.blip(1200,0.05);pop(mx-6,my-24,'*HIC*','#ff5fa2');for(let i=0;i<6;i++)part(mx,my-4,p.face*rand(0.3,1),-rand(0.6,1.4),40,`hsl(${i*60},90%,65%)`,2,-0.01);}
+      const K=T-170;
+      if(K>=0&&K<70){p.bulge=1;p.squash=(K%16<8)?-6:6;P.rainbow=1;if(K===0)pop(p.x-8,p.y-24,'...UH OH','#fff');}
+      if(K>=60&&K<200){LV.wobble=Math.min(1,(K-60)/60);C.vort=Math.min(1,(K-60)/50);if(K%2===0){const a=rand(0,6.28),d=rand(60,140);parts.push({x:p.x+10+Math.cos(a)*d,y:p.y-60+Math.sin(a)*d*0.6,vx:-Math.cos(a)*2.4,vy:-Math.sin(a)*1.6,life:40,max:40,col:pick(['#5a8a3a','#8a6a4a','#6a4424','#a8a8b8','#c8d8f0']),size:2,grav:0});}if(K===62)sfx.wormhole();}
+      if(K>=150){p.y+=((p.y>40?-1.6:0));p.spin=20;}
+      if(K>=200){p.bulge=0;LV.wobble=0;C.vort=0;LV.wormRet={x:pr.x,y:pr.y};G.cut=null;startWorms();}break;}
     case 'coneReturn':{if(C.t===1){p.x=C.x;p.y=-30;p.vy=2;p.vx=0;p.spin=20;p.rainbow=0;sfx.wormhole();G.flash=16;}
       if(!C.landed){p.vy=Math.min(p.vy+0.42,7.5);moveBody(p);p.spin=20;if(p.onGround){C.landed=C.t;p.plant=70;sfx.stomp();shake(6);burst(p.x+10,p.y+p.h,22,['#fff','#e8f0ff','#c8d8f0'],2.6,30,2,0.1);pop(p.x-6,p.y-16,'PFFFT!','#fff');}}
       else{const k=C.t-C.landed;if(k===50){C.worm={x:p.x+34,t:0};sfx.blip(700,0.05);}if(C.worm)C.worm.t++;if(k===110)p.wig=30;if(k>140){G.mode='play';G.cut=null;p.plant=0;banner('BACK IN THE FOREST','THAT WAS A WEIRD MUSHROOM',160,'#c89aff');}}
@@ -3115,6 +3126,7 @@ function coneCut(C){const p=P;C.t++;updateDlg();
     case 'coneEleEnd':coneEleFinish(C);break;
     case 'coneEnd':coneEnding(C);break;}}
 function drawConeCut(){const C=G.cut;if(!C)return;const ox=-Math.round(G.cam);
+  if(C.kind==='coneShroom'&&C.sz>0){const pr=C.pr,p=P;if(!C.held)drawMagicShroom({x:pr.x,y:pr.y,eaten:false},ox);else{const gx=pr.x+10,gy=pr.y-10,hx=p.x+10+p.face*13,hy=p.y+9,k=C.held;drawShroomBit(Math.round(gx+(hx-gx)*k+ox),Math.round(gy+(hy-gy)*k),C.sz);}}
   if(C.kind==='coneShroom'&&C.vort){const cx=Math.round(P.x+10+ox),cy=Math.round(P.y-60);for(let i=7;i>=0;i--){ctx.globalAlpha=C.vort*0.8;pe(ctx,cx,cy,(8+i*7)*C.vort,(5+i*4)*C.vort,`hsl(${(G.t*6+i*40)%360},90%,${30+i*5}%)`);}ctx.globalAlpha=1;pe(ctx,cx,cy,6*C.vort,4*C.vort,'#000');}
   if(C.kind==='coneReturn'&&C.worm&&C.worm.t<90){const w=C.worm,x=Math.round(w.x+ox),up=Math.min(10,w.t)-Math.max(0,w.t-80);rf(ctx,x-1,192-up,8,up,OUTC);rf(ctx,x,193-up,6,up,'#ff9aaa');if(up>6){rf(ctx,x+1,194-up,1,1,OUTC);rf(ctx,x+4,194-up,1,1,OUTC);rf(ctx,x-1,192-up,8,2,'#3a6a3a');if((w.t>>3)%2)rf(ctx,x+7,191-up,4,2,'#ff9aaa');else rf(ctx,x+7,188-up,2,4,'#ff9aaa');}rf(ctx,x-3,190,12,3,'#e8f0ff');}
   if(C.kind==='coneEleEnd')drawEleFinish(C);
@@ -3276,14 +3288,18 @@ function startWorms(){const FW=W,FH=H;const [tc,tg]=mk(FW,FH);const solid=new Ui
   log(Math.round(FW*0.22),26);log(Math.round(FW*0.74),24);
   const rock=(x,rr)=>{let gy=0;while(gy<FH&&!solid[gy*FW+x])gy++;for(let y=-rr;y<=0;y++)for(let i=-rr;i<=rr;i++)if(i*i+y*y<=rr*rr)set(x+i,gy+y,(i+y)%3?'#8a8a98':'#a8a8b8');};
   rock(Math.round(FW*0.42),6);rock(Math.round(FW*0.58),5);
-  const pigs=[['BACON BIT','band'],['HAMLET','hat'],['LIL SIZZLE','shades']].map(([n,acc],i)=>mkUnit('pig',n,acc,28+i*30,i));
-  const worms=[['GEN. DIRTBAG','general',FW-34],['PVT. WIGGLES','private',FW-66],['SGT. SLIME','sergeant',FW-98]].map(([n,role,x],i)=>{const u=mkUnit('worm',n,role,x,i);u.face=-1;return u;});
-  WG={FW,FH,tc,tg,solid,waterY,pigs,worms,proj:[],fx:[],pops:[],flash:0,banner:null,fired:false,after:0,t:0,phase:'intro',time:WORM_TIME,turnSide:'pig',turnIdx:[0,0],cur:null,turnT:0,wind:0,result:null,charge:0,rope:null,aimSweep:1,clouds:[0,1,2,3,4].map(i=>({x:rand(0,FW),y:rand(14,70),s:rand(0.1,0.3)}))};
-  for(const u of [...pigs,...worms])wSettle(u);
+  const island=(cx,cy,hw)=>{for(let x=cx-hw;x<=cx+hw;x++){const k=Math.abs(x-cx)/hw;const top=cy+Math.round(k*k*3);const bot=cy+3+Math.round(11*(1-k*k))+((x*7)%5===0?2:0);
+      for(let y=top;y<=bot;y++){const d=y-top;let col=d<2?`hsl(${(110+x*0.6)%360},70%,${d<1?55:42}%)`:d<4?'#4a8a2a':((x*7+y*13)%9===0?'#5a3a22':'#7a5032');if(d>5&&(x*3+y*5)%13===0)col='#8a8a98';set(x,y,col);}
+      if(x%4===1&&k<0.8){tg.fillStyle='#5a7a2a';tg.fillRect(x,bot+1,1,2+((x*5)%6));}}};
+  const isl=[[Math.round(FW*0.2),48,24],[FW-Math.round(FW*0.2),48,24],[Math.round(FW/2),82,16]];for(const [cx,cy,hw] of isl)island(cx,cy,hw);
+  const pigs=[['BACON BIT','band',28],['HAMLET','hat',58],['LIL SIZZLE','shades',isl[0][0]]].map(([n,acc,x],i)=>mkUnit('pig',n,acc,x,i));
+  const worms=[['GEN. DIRTBAG','general',FW-34],['PVT. WIGGLES','private',FW-66],['SGT. SLIME','sergeant',isl[1][0]]].map(([n,role,x],i)=>{const u=mkUnit('worm',n,role,x,i);u.face=-1;return u;});
+  WG={FW,FH,tc,tg,solid,waterY,pigs,worms,proj:[],fx:[],pops:[],flash:0,banner:null,fired:false,after:0,t:0,phase:'intro',time:WORM_TIME,turnSide:'pig',turnIdx:[0,0],cur:null,turnT:0,wind:0,result:null,charge:0,rope:null,weap:'poop',aimSweep:1,clouds:[0,1,2,3,4].map(i=>({x:rand(0,FW),y:rand(14,70),s:rand(0.1,0.3)}))};
+  for(const u of [...pigs,...worms])wSettle(u,(u===pigs[2]||u===worms[2])?0:100);
   G.mode='worms';stopSong();playSong(CS.songWorms,5);sfx.wormhole();}
-function mkUnit(team,name,acc,x,i){return{team,name,acc,x,y:20,vx:0,vy:0,hp:100,dead:false,face:1,aim:-0.6,w:team==='pig'?10:7,h:team==='pig'?8:11,i,onGround:false,hurtT:0,say:null,sayT:0,rise:team==='worm'?14:0};}
+function mkUnit(team,name,acc,x,i){return{team,name,acc,x,y:20,vx:0,vy:0,hp:100,dead:false,face:1,aim:-0.6,w:team==='pig'?10:9,h:team==='pig'?8:15,i,onGround:false,hurtT:0,say:null,sayT:0,rise:team==='worm'?14:0};}
 function wSolid(x,y){x=Math.round(x);y=Math.round(y);if(x<0||x>=WG.FW)return true;if(y<0)return false;if(y>=WG.FH)return false;return WG.solid[y*WG.FW+x]===1;}
-function wSettle(u){u.y=0;while(u.y<WG.FH&&!wSolid(u.x,u.y+1))u.y++;}
+function wSettle(u,y0=100){u.y=y0;while(u.y<WG.FH&&!wSolid(u.x,u.y+1))u.y++;}
 function wBoom(x,y,rad,dmg,src){const {FW,FH,solid,tg}=WG;tg.save();tg.globalCompositeOperation='destination-out';tg.beginPath();tg.arc(x,y,rad,0,Math.PI*2);tg.fill();tg.restore();
   for(let yy=Math.max(0,Math.floor(y-rad));yy<Math.min(FH,Math.ceil(y+rad));yy++)for(let xx=Math.max(0,Math.floor(x-rad));xx<Math.min(FW,Math.ceil(x+rad));xx++){const d=(xx-x)**2+(yy-y)**2;if(d<=rad*rad)solid[yy*FW+xx]=0;}
   tg.save();tg.globalCompositeOperation='source-atop';tg.globalAlpha=0.55;tg.fillStyle=src==='poop'?'#3a2210':'#2a1a14';tg.beginPath();tg.arc(x,y,rad+3,0,Math.PI*2);tg.fill();tg.restore();
@@ -3298,7 +3314,7 @@ function wAlive(t){return(t==='pig'?WG.pigs:WG.worms).filter(u=>!u.dead);}
 function wNextTurn(){WG.rope=null;WG.charge=0;WG.fired=false;WG.after=0;WG.wind=Math.round(rand(-1,1)*10)/10;
   const side=WG.turnSide==='pig'?'worm':'pig';const team=side==='pig'?WG.pigs:WG.worms;const ti=side==='pig'?0:1;
   if(!wAlive(side).length)return wEnd();let k=WG.turnIdx[ti];for(let n=0;n<3;n++){const u=team[(k+n)%3];if(!u.dead){WG.cur=u;WG.turnIdx[ti]=(k+n+1)%3;break;}}
-  WG.turnSide=side;WG.turnT=side==='pig'?9*60:0;WG.ai=null;WG.banner={t:(side==='pig'?'YOUR TURN: ':'WORM TURN: ')+WG.cur.name,l:70};}
+  WG.turnSide=side;WG.turnT=side==='pig'?14*60:0;WG.ai=null;WG.banner={t:(side==='pig'?'YOUR TURN: ':'WORM TURN: ')+WG.cur.name,l:70};}
 function wEnd(){if(WG.phase==='result'||WG.phase==='exit')return;const ph=WG.pigs.reduce((a,u)=>a+u.hp,0),wh=WG.worms.reduce((a,u)=>a+u.hp,0);
   let res;if(!wAlive('worm').length)res='win';else if(!wAlive('pig').length)res='lose';else res=ph>wh?'win':ph<wh?'lose':'draw';WG.result=res;WG.phase='result';WG.t=0;WG.rope=null;
   if(res==='win'){const fresh=!SV.goldPoop;SV.goldPoop=true;save();sfx.fanfare();WG.resSub=fresh?'GOLDEN POOP BOMB UNLOCKED!':'GOLDEN POOP BOMB (ALREADY YOURS)';}else{sfx.blip(220,0.2);WG.resSub=res==='draw'?'NOBODY WINS. EVERYBODY SMELLS.':'THE WORMS DO A LITTLE DANCE.';}}
@@ -3326,25 +3342,27 @@ function wUpdate(){if(!WG)return;const g=WG;g.t++;if(hit('pause')){G.mode='pause
   if(g.fired){if(!g.proj.length&&++g.after>50)wNextTurn();return;}
   if(g.turnSide==='pig')wPigControl(u);else wWormAI(u);}
 function wPigControl(u){const g=WG;if(--g.turnT<=0){g.banner={t:'OUT OF TIME!',l:50};return wNextTurn();}
-  const L=down('left'),R=down('right');const roped=g.rope&&g.rope.u===u;
-  if(roped){const rp=g.rope;const shorten=down('up')||(G.touchUI&&down('down')),lengthen=!G.touchUI&&down('down');if(shorten)rp.len=Math.max(10,rp.len-0.9);if(lengthen)rp.len=Math.min(130,rp.len+0.9);
-    u.vx+=(R?0.08:0)-(L?0.08:0);u.vy+=0.22;u.vx*=0.995;u.vy*=0.995;if(R)u.face=1;if(L)u.face=-1;
+  const L=down('left'),R=down('right');let roped=g.rope&&g.rope.u===u;
+  if(hit('poop')&&g.charge===0){g.weap=g.weap==='poop'?'rope':'poop';sfx.blip(g.weap==='rope'?900:500,0.05);g.pops.push({x:u.x-22,y:u.y-u.h-30,t:g.weap==='rope'?'NINJA ROPE':'POOP BOMB',c:'#ffd23f',l:34});}
+  if(roped){const rp=g.rope;if(rp.reel!=null){if(rp.len>rp.reel)rp.len=Math.max(rp.reel,rp.len-2.2);else rp.reel=null;}const up=down('up')||(G.touchUI&&down('down')),dn=!G.touchUI&&down('down');if(up){rp.len=Math.max(10,rp.len-1.1);rp.reel=null;}if(dn){rp.len=Math.min(170,rp.len+1.1);rp.reel=null;}
+    u.vx+=(R?0.09:0)-(L?0.09:0);u.vy+=0.22;u.vx*=0.996;u.vy*=0.996;if(R)u.face=1;if(L)u.face=-1;
     let bx=u.x+u.vx,by=u.y-u.h/2+u.vy;const dx=bx-rp.ax,dy=by-rp.ay,d=Math.hypot(dx,dy)||1;
     if(d>rp.len){const k=rp.len/d;bx=rp.ax+dx*k;by=rp.ay+dy*k;const nx=dx/d,ny=dy/d,vr=u.vx*nx+u.vy*ny;if(vr>0){u.vx-=vr*nx;u.vy-=vr*ny;}}
-    if(!wSolid(bx,by)&&!wSolid(bx,by+u.h/2-1)){u.x=clamp(bx,2,g.FW-3);u.y=by+u.h/2;}else if(!wSolid(bx,u.y-u.h/2)&&!wSolid(bx,u.y-1)){u.x=clamp(bx,2,g.FW-3);u.vy=Math.min(0,u.vy);}else if(!wSolid(u.x,by)){u.y=by+u.h/2;u.vx*=-0.3;}else{u.vx*=-0.3;u.vy*=-0.3;}
-    if(hit('poop')||hit('jump')){g.rope=null;u.vx=clamp(u.vx,-4,4);u.vy=clamp(u.vy-1,-5,3);sfx.blip(500,0.05);}}
+    if(!wSolid(bx,by)&&!wSolid(bx,by+u.h/2-1)&&!wSolid(bx,by-u.h/2)){u.x=clamp(bx,2,g.FW-3);u.y=by+u.h/2;}else if(!wSolid(bx,u.y-u.h/2)&&!wSolid(bx,u.y-1)){u.x=clamp(bx,2,g.FW-3);u.vy=Math.min(0,u.vy);}else if(!wSolid(u.x,by)&&!wSolid(u.x,by-u.h/2)){u.y=by+u.h/2;u.vx*=-0.3;}else{u.vx*=-0.3;u.vy*=-0.3;}
+    if(hit('jump')){g.rope=null;roped=false;u.vx=clamp(u.vx,-4.5,4.5);u.vy=clamp(u.vy-0.6,-5,3);u.onGround=false;sfx.blip(500,0.05);g.pops.push({x:u.x-8,y:u.y-u.h-18,t:'WHEE!',c:'#e8d890',l:24});}}
   else{if(u.onGround){if(L){u.vx=-0.9;u.face=-1;}else if(R){u.vx=0.9;u.face=1;}else u.vx=0;if(hit('jump')){u.vy=-3.8;u.vx=u.face*1.4;u.onGround=false;sfx.jump();}}
+    else{if(L)u.face=-1;if(R)u.face=1;}
     // aim: up/down on keyboard; the touch ▼ button sweeps
-    if(down('up'))u.aim=Math.max(-1.45,u.aim-0.035);if(down('down')){if(G.touchUI){u.aim+=0.035*g.aimSweep;if(u.aim>1.2||u.aim<-1.45)g.aimSweep*=-1;}else u.aim=Math.min(1.2,u.aim+0.035);}
-    if(hit('poop')){const a=u.aim,dx=Math.cos(a)*u.face,dy=Math.sin(a);let hitp=null;for(let d=6;d<130;d+=2){const x=u.x+dx*d,y=u.y-u.h/2+dy*d;if(wSolid(x,y)){hitp={x,y};break;}}
-      if(hitp){const ang=Math.atan2(u.x-hitp.x,(u.y-u.h/2)-hitp.y);g.rope={u,ax:hitp.x,ay:hitp.y,len:Math.max(10,Math.hypot(u.x-hitp.x,u.y-u.h/2-hitp.y)-8),a:ang,av:0};u.y-=2;u.onGround=false;sfx.blip(1200,0.04);}else{g.ropeMiss={x0:u.x,y0:u.y-u.h/2,x1:u.x+dx*130,y1:u.y-u.h/2+dy*130,l:12};}}}
-  // fire: tap = flame breath, hold = charge a poop bomb
-  if(down('fire')){g.charge++;if(g.charge>10&&g.charge%6===0)sfx.blip(300+g.charge*8,0.02);}
-  else if(g.charge>0){const c=g.charge;g.charge=0;if(c<=10)wFlame(u);else wThrow(u,Math.min(1,(c-10)/60));}}
-function wFlame(u){const g=WG;g.fired=true;g.after=10;sfx.fire();const a=u.aim,dx=Math.cos(a)*u.face,dy=Math.sin(a);
-  for(let i=0;i<24;i++)g.fx.push({x:u.x+dx*6,y:u.y-u.h/2+dy*6,vx:dx*rand(1.5,3)+rand(-0.4,0.4),vy:dy*rand(1.5,3)+rand(-0.4,0.4),l:rand(10,18),c:pick(['#ff3b1f','#ff8a1f','#ffd23f']),sz:2});
-  for(const w of wAlive('worm')){const ex=w.x-u.x,ey=(w.y-w.h/2)-(u.y-u.h/2);const d=Math.hypot(ex,ey);if(d<30&&(ex*dx+ey*dy)>0){wHurt(w,20);w.vx+=u.face*1.5;w.vy-=1.5;w.say='HOT HOT HOT!';w.sayT=50;}}}
-function wThrow(u,pw){const g=WG;g.fired=true;const a=u.aim,s=2.2+pw*5.2;g.proj.push({kind:'poop',x:u.x+Math.cos(a)*u.face*6,y:u.y-u.h/2+Math.sin(a)*6,vx:Math.cos(a)*u.face*s,vy:Math.sin(a)*s,t:0,own:u});sfx.throwit();}
+    if(down('up'))u.aim=Math.max(-1.45,u.aim-0.035);if(down('down')){if(G.touchUI){u.aim+=0.035*g.aimSweep;if(u.aim>1.2||u.aim<-1.45)g.aimSweep*=-1;}else u.aim=Math.min(1.2,u.aim+0.035);}}
+  if(g.weap==='rope'){if(hit('fire')&&!roped)wFireRope(u);}
+  else{// poop bomb: hold to charge, release to throw (ends the turn; lets go of the rope first)
+    if(down('fire')){g.charge++;if(g.charge%6===0)sfx.blip(300+g.charge*8,0.02);}
+    else if(g.charge>0){const c=g.charge;g.charge=0;if(roped){g.rope=null;}wThrow(u,Math.min(1,c/60));}}}
+function wFireRope(u){const g=WG;const a=u.aim,dx=Math.cos(a)*u.face,dy=Math.sin(a);const x0=u.x,y0=u.y-u.h/2;let hitp=null;
+  for(let d=5;d<170;d+=1.5){const x=x0+dx*d,y=y0+dy*d;if(x<0||x>=g.FW||y<0)break;if(wSolid(x,y)){hitp={x,y,d};break;}}
+  if(hitp){g.rope={u,ax:hitp.x,ay:hitp.y,len:Math.max(10,hitp.d-4),reel:Math.max(12,hitp.d*(u.onGround?0.72:0.92))};g.ropeShot={x0,y0,x1:hitp.x,y1:hitp.y,l:6,hit:true};if(u.onGround){u.y-=2;u.vy=-0.5;}u.onGround=false;sfx.blip(1200,0.04);}
+  else{g.ropeShot={x0,y0,x1:x0+dx*170,y1:y0+dy*170,l:12,hit:false};sfx.blip(260,0.04);}}
+function wThrow(u,pw){const g=WG;g.fired=true;const a=u.aim,s=1.8+pw*5.6;g.proj.push({kind:'poop',x:u.x+Math.cos(a)*u.face*6,y:u.y-u.h/2+Math.sin(a)*6,vx:Math.cos(a)*u.face*s,vy:Math.sin(a)*s,t:0,own:u});sfx.throwit();}
 function wProj(){const g=WG;for(const q of g.proj){q.t++;q.vx+=g.wind*0.015;q.vy+=q.kind==='poop'?0.16:0.12;q.x+=q.vx;q.y+=q.vy;
     if(q.kind==='rocket'&&q.t%2===0)g.fx.push({x:q.x,y:q.y,vx:rand(-0.2,0.2),vy:-rand(0.1,0.3),l:30,c:'rgba(200,200,200,.6)',sz:3,smoke:true});
     let boom=wSolid(q.x,q.y)||q.y>g.waterY+4;if(!boom)for(const u of [...g.pigs,...g.worms])if(!u.dead&&u!==q.own&&Math.abs(u.x-q.x)<u.w/2+2&&q.y>u.y-u.h-2&&q.y<u.y+1){boom=true;break;}
@@ -3355,7 +3373,7 @@ function wSim(u,a,s){const g=WG;let x=u.x+Math.cos(a)*u.face*6,y=u.y-u.h/2+Math.
 function wWormAI(u){const g=WG;if(!g.ai){const targets=wAlive('pig');let tgt=targets[0];if(u.acc==='general')tgt=targets.reduce((a,b)=>a.hp<b.hp?a:b);else if(u.acc==='private')tgt=pick(targets);else tgt=targets.reduce((a,b)=>Math.abs(a.x-u.x)<Math.abs(b.x-u.x)?a:b);
     u.face=tgt.x<u.x?-1:1;let best=null,bd=1e9;for(let a=-1.4;a<=0.2;a+=0.1)for(let s=2.4;s<=7.4;s+=0.4){const r=wSim(u,a,s);const d=Math.hypot(r.x-tgt.x,r.y-(tgt.y-4));if(d<bd){bd=d;best={a,s};}}
     let err=u.acc==='general'?0.04:u.acc==='private'?(Math.random()<0.4?0.5:0.12):0.08;best.a+=rand(-err,err);best.s*=1+rand(-err,err)*0.6;
-    g.ai={t:0,a:best.a,s:best.s,move:u.acc==='sergeant'?(Math.random()<0.6?-u.face:0):0};
+    g.ai={t:0,a:best.a,s:best.s,move:u.acc==='sergeant'&&u.y>110?(Math.random()<0.6?-u.face:0):0};
     u.say=pick(u.acc==='general'?['FOR THE DIRT!','LOCK AND LOAD!','TARGET ACQUIRED.']:u.acc==='private'?['UM... OKAY...','IS THIS THING ON?','SORRY IN ADVANCE!']:['HOLD THE LINE.','DIGGING IN.','STEADY...']);u.sayT=70;}
   const ai=g.ai;ai.t++;if(ai.t<34&&ai.move){u.vx=ai.move*0.5;}else if(u.onGround)u.vx=0;
   if(ai.t>=30&&ai.t<75)u.aim+=(ai.a-u.aim)*0.12;
@@ -3367,25 +3385,43 @@ function drawMiniPig(x,y,u,f){x=Math.round(x);y=Math.round(y);const fl=u.hurtT>0
   rf(ctx,x-6,y-8,12,7,OUTC);rf(ctx,x-5,y-7,10,5,P2);rf(ctx,x+4,y-6,3,3,'#f7b6c6');rf(ctx,x+6,y-5,1,1,OUTC);rf(ctx,x+2,y-7,1,1,OUTC);rf(ctx,x-4,y-1,2,1,OUTC);rf(ctx,x+2,y-1,2,1,OUTC);
   if(u.acc==='band')rf(ctx,x-5,y-8,10,1,'#e8283a');else if(u.acc==='hat'){rf(ctx,x-1,y-12,5,4,'#14101a');rf(ctx,x-2,y-9,7,1,'#14101a');}else{rf(ctx,x+1,y-7,5,2,'#14101a');}
   ctx.restore();}
-function drawWorm(x,y,u){x=Math.round(x);y=Math.round(y-(u.rise||0));const fl=u.hurtT>0&&u.hurtT%4<2;const C=fl?'#fff':'#ff9aaa';const wob=Math.round(Math.sin(G.t*0.15+u.i)*1);
-  rf(ctx,x-3,y-11,6,11,OUTC);rf(ctx,x-2,y-10+wob,4,10,C);for(let i=0;i<3;i++)rf(ctx,x-2,y-7+i*3,4,1,'#e87a8a');rf(ctx,x+(u.face>0?0:-2),y-9+wob,1,1,OUTC);rf(ctx,x+(u.face>0?1:-1),y-9+wob,1,1,'#fff');
-  const hc=u.acc==='general'?'#4a5a2a':u.acc==='private'?'#6a7a3a':'#3a4a3a';rf(ctx,x-4,y-13+wob,8,3,hc);rf(ctx,x-3,y-14+wob,6,1,hc);if(u.acc==='general')rf(ctx,x-1,y-13+wob,2,1,'#ffd23f');if(u.acc==='sergeant')rf(ctx,x-2,y-12+wob,1,1,'#ffd23f');
-  const a=u.aim,bx=x+Math.cos(a)*u.face*3,by=y-6+Math.sin(a)*3;ctx.save();ctx.translate(Math.round(bx),Math.round(by));ctx.rotate(u.face>0?a:Math.PI-a);rf(ctx,-2,-2,10,4,'#3a4a3a');rf(ctx,6,-2,2,4,'#14101a');ctx.restore();}
+function drawWorm(x,y,u){x=Math.round(x);y=Math.round(y-(u.rise||0));const fl=u.hurtT>0&&u.hurtT%4<2;const B=fl?'#fff':'#f08aa0',D=fl?'#fff':'#c8587a',Lt='#ffc8d4';
+  ctx.save();if(u.face<0){ctx.translate(x*2,0);ctx.scale(-1,1);}
+  const t=G.t*0.12+u.i*2.1,pts=[];
+  for(let i=0;i<10;i++){const k=i/9;let px,py;
+    if(k<0.5){const kk=k*2;px=x-11+kk*10;py=y-2-Math.max(0,Math.sin(t*1.3-i*0.9))*1.4;}
+    else{const kk=(k-0.5)*2;px=x-1+Math.sin(kk*1.7)*3+Math.sin(t+i*0.8)*0.9*kk;py=y-3-kk*8.5;}
+    pts.push([px,py,1.4+k*1.9]);}
+  for(const [px,py,r] of pts)circ(ctx,px,py,Math.round(r)+1,OUTC);
+  for(let i=0;i<pts.length;i++){const [px,py,r]=pts[i];circ(ctx,px,py,Math.round(r),B);}
+  for(let i=2;i<pts.length-1;i+=2){const [px,py,r]=pts[i];const rr=Math.round(r);if(i<5)rf(ctx,px,py-rr,1,rr*2,D);else rf(ctx,px-rr,py,rr*2+1,1,D);}
+  {const [px,py,r]=pts[6];rf(ctx,px-Math.round(r),py-1,Math.round(r)*2+1,2,'#e0607e');}
+  for(let i=1;i<pts.length-1;i++){const [px,py,r]=pts[i];rf(ctx,px-1,py-Math.round(r)+1,1,1,Lt);}
+  const [hx0,hy0]=pts[pts.length-1];const hx=Math.round(hx0)+1,hy=Math.round(hy0)-3;
+  if(!u.dead){ctx.save();ctx.translate(hx-4,hy+4);ctx.rotate(u.aim);rf(ctx,-4,-2,12,3,OUTC);rf(ctx,-3,-1,10,1,'#5a6a3a');rf(ctx,7,-2,2,3,'#14101a');ctx.restore();}
+  circ(ctx,hx,hy,5,OUTC);circ(ctx,hx,hy,4,B);rf(ctx,hx-2,hy-3,2,1,Lt);
+  const blink=((G.t+u.i*53)%170)<6;
+  if(blink){rf(ctx,hx-1,hy-1,3,1,OUTC);rf(ctx,hx+3,hy-1,3,1,OUTC);}
+  else{circ(ctx,hx,hy-1,2,'#fff');circ(ctx,hx+4,hy-1,2,'#fff');const look=u.acc==='private'?Math.round(Math.sin(G.t*0.07+u.i)):1;rf(ctx,hx+look,hy-1,1,2,OUTC);rf(ctx,hx+4+look,hy-1,1,2,OUTC);}
+  if(u.acc==='general'){rf(ctx,hx,hy+2,6,1,'#6a4424');rf(ctx,hx+1,hy+3,4,1,'#6a4424');pe(ctx,hx+1,hy-4,6,3,OUTC);pe(ctx,hx+1,hy-5,5,2.5,'#4a5a2a');rf(ctx,hx-5,hy-3,12,1,'#3a4a1a');rf(ctx,hx,hy-6,2,2,'#ffd23f');}
+  else if(u.acc==='private'){rf(ctx,hx+1,hy+3,3,1,OUTC);rf(ctx,hx+4,hy+2,1,1,OUTC);const tilt=Math.round(Math.sin(G.t*0.05+1));pe(ctx,hx+tilt,hy-3,7,3.5,OUTC);pe(ctx,hx+tilt,hy-4,6,3,'#6a7a3a');rf(ctx,hx-6+tilt,hy-2,13,1,'#4a5a2a');if((G.t>>4)%3===0)rf(ctx,hx-5,hy+((G.t>>1)%6),1,2,'#9ad8ff');}
+  else{rf(ctx,hx+1,hy+3,4,1,OUTC);rf(ctx,hx-2,hy-2,9,2,'#14101a');rf(ctx,hx-1,hy-2,2,1,'#5a5a6a');pe(ctx,hx,hy-5,6,2.5,OUTC);pe(ctx,hx,hy-5,5,2,'#8a1a2a');rf(ctx,hx-5,hy-6,2,2,'#ff5fa2');}
+  ctx.restore();}
 function drawWorms(){const g=WG;if(!g)return;const ox=Math.round((W-g.FW)/2);ctx.save();ctx.translate(ox,0);
   const hue=(G.t*0.5)%360;const gr=ctx.createLinearGradient(0,0,0,g.FH);gr.addColorStop(0,`hsl(${hue},60%,30%)`);gr.addColorStop(0.6,`hsl(${(hue+80)%360},70%,55%)`);gr.addColorStop(1,`hsl(${(hue+150)%360},80%,70%)`);ctx.fillStyle=gr;ctx.fillRect(-ox,0,W,g.FH);
   ctx.globalAlpha=0.12;for(let i=0;i<5;i++)ring(ctx,g.FW*0.7,50,20+i*16+((G.t*0.4)%16),'#fff');ctx.globalAlpha=1;
   for(const c of g.clouds){pe(ctx,c.x,c.y,18,6,'rgba(255,255,255,.7)');pe(ctx,c.x+10,c.y-3,10,5,'rgba(255,255,255,.8)');}
   ctx.drawImage(g.tc,0,0);
   rf(ctx,0,g.waterY,g.FW,g.FH-g.waterY,'#2a6ac8');for(let x=0;x<g.FW;x+=8)rf(ctx,x+((G.t>>2)%8),g.waterY+Math.round(Math.sin(G.t*0.08+x*0.1)*1),5,1,'#9ad8ff');
-  if(g.rope){const rp=g.rope,u=rp.u;line(ctx,Math.round(rp.ax),Math.round(rp.ay),Math.round(u.x),Math.round(u.y-u.h/2),'#e8d890');rf(ctx,Math.round(rp.ax)-1,Math.round(rp.ay)-1,3,3,'#ffd23f');}
-  if(g.ropeMiss&&g.ropeMiss.l-->0){ctx.globalAlpha=g.ropeMiss.l/12;line(ctx,Math.round(g.ropeMiss.x0),Math.round(g.ropeMiss.y0),Math.round(g.ropeMiss.x1),Math.round(g.ropeMiss.y1),'#e8d890');ctx.globalAlpha=1;}
+  if(g.rope){const rp=g.rope,u=rp.u;line(ctx,Math.round(rp.ax),Math.round(rp.ay)+1,Math.round(u.x),Math.round(u.y-u.h/2)+1,'#5a4a2a');line(ctx,Math.round(rp.ax),Math.round(rp.ay),Math.round(u.x),Math.round(u.y-u.h/2),'#e8d890');rf(ctx,Math.round(rp.ax)-2,Math.round(rp.ay)-2,5,5,OUTC);rf(ctx,Math.round(rp.ax)-1,Math.round(rp.ay)-1,3,3,'#c8c8d8');}
+  if(g.ropeShot&&g.ropeShot.l>0){const r=g.ropeShot;r.l--;if(!r.hit){ctx.globalAlpha=r.l/12;line(ctx,Math.round(r.x0),Math.round(r.y0),Math.round(r.x1),Math.round(r.y1),'#e8d890');ctx.globalAlpha=1;}else{ring(ctx,Math.round(r.x1),Math.round(r.y1),7-r.l,'#fff3a0');}}
   for(const u of g.worms)if(!(u.dead&&u.y>g.FH))drawWorm(u.x,u.y,u);
   for(const u of g.pigs)if(!(u.dead&&u.y>g.FH)&&!(g.phase==='intro'&&g.t<40&&u.i>0))drawMiniPig(g.phase==='intro'&&g.t<60?g.pigs[1].x+(u.x-g.pigs[1].x)*Math.max(0,(g.t-40)/20):u.x,u.y,u,0);
   for(const u of [...g.pigs,...g.worms]){if(u.dead)continue;const lx=Math.round(u.x);const c=u.team==='pig'?'#f4a7b9':'#ff9aaa';rf(ctx,lx-8,u.y-u.h-12,16,3,OUTC);rf(ctx,lx-7,u.y-u.h-11,Math.round(14*u.hp/100),1,c);
     if(u.sayT>0&&u.say){const tw=textW(u.say);rf(ctx,lx-tw/2-2,u.y-u.h-24,tw+4,9,'rgba(255,255,255,.9)');text(ctx,u.say,lx-tw/2,u.y-u.h-23,'#14101a',1,0);}}
   const u=g.cur;if(g.phase==='play'&&u&&!u.dead){const bob=Math.round(Math.sin(G.t*0.2)*2);ptri(ctx,u.x-3,u.y-u.h-20+bob,u.x+3,u.y-u.h-20+bob,u.x,u.y-u.h-16+bob,'#ffd23f');
-    if(g.turnSide==='pig'&&!g.fired){const a=u.aim,dx=Math.cos(a)*u.face,dy=Math.sin(a);for(let d=10;d<34;d+=4)rf(ctx,Math.round(u.x+dx*d),Math.round(u.y-u.h/2+dy*d),1,1,'#fff');const cx=Math.round(u.x+dx*36),cy=Math.round(u.y-u.h/2+dy*36);ring(ctx,cx,cy,3,'#ff5fa2');
-      if(g.charge>10){const k=Math.min(1,(g.charge-10)/60);rf(ctx,u.x-12,u.y+3,24,4,OUTC);rf(ctx,u.x-11,u.y+4,Math.round(22*k),2,k<0.5?'#3dff8a':k<0.85?'#ffd23f':'#e8283a');}}}
+    if(g.turnSide==='pig'&&!g.fired&&!(g.rope&&g.rope.u===u)){const a=u.aim,dx=Math.cos(a)*u.face,dy=Math.sin(a);for(let d=10;d<34;d+=4)rf(ctx,Math.round(u.x+dx*d),Math.round(u.y-u.h/2+dy*d),1,1,'#fff');const cx=Math.round(u.x+dx*36),cy=Math.round(u.y-u.h/2+dy*36);ring(ctx,cx,cy,3,'#ff5fa2');
+      if(g.charge>0&&g.weap==='poop'){const k=Math.min(1,g.charge/60);rf(ctx,u.x-12,u.y+3,24,4,OUTC);rf(ctx,u.x-11,u.y+4,Math.round(22*k),2,k<0.5?'#3dff8a':k<0.85?'#ffd23f':'#e8283a');}}}
   for(const q of g.proj){if(q.kind==='poop')ctx.drawImage(POOP,Math.round(q.x-5),Math.round(q.y-4));else{rf(ctx,Math.round(q.x)-2,Math.round(q.y)-1,5,3,'#3a4a3a');rf(ctx,Math.round(q.x)+2,Math.round(q.y)-1,1,3,'#e8283a');}}
   for(const f of g.fx){ctx.globalAlpha=Math.min(1,f.l/20);rf(ctx,Math.round(f.x),Math.round(f.y),f.sz,f.sz,f.c);}ctx.globalAlpha=1;
   for(const q of g.pops)text(ctx,q.t,Math.round(q.x),Math.round(q.y),q.c,1,1);
@@ -3400,7 +3436,10 @@ function drawWorms(){const g=WG;if(!g)return;const ox=Math.round((W-g.FW)/2);ctx
   if(g.phase==='play'&&g.turnSide==='pig'&&g.cur)text(ctx,'TURN '+Math.ceil(g.turnT/60),W/2-74,4,'#cfc2d0',1,0);
   if(g.banner){const tw=textW(g.banner.t,1)+12;rf(ctx,W/2-tw/2,22,tw,14,'rgba(18,10,13,.85)');textC(ctx,g.banner.t,W/2,26,'#ffd23f',1,0);}
   if(g.phase==='intro')textC(ctx,'PIGGIES VS. WORMS',W/2,80,'#f4a7b9',2,2);
-  if(g.phase==='play'&&g.t<400)textC(ctx,G.touchUI?'▼ AIM · HOLD FIRE: BOMB · TAP: FLAME · POOP: ROPE':'↑↓ AIM · HOLD X: BOMB · TAP X: FLAME · C: ROPE · SPACE: JUMP',W/2,H-10,'#f2e2b0',1,1);
+  if(g.phase==='play'&&g.turnSide==='pig'&&g.cur&&!g.fired){const bx=6,by=H-38;rf(ctx,bx,by,92,18,'rgba(18,10,13,.82)');rf(ctx,bx,by,92,1,'#ffd23f');
+    if(g.weap==='poop')ctx.drawImage(POOP,bx+4,by+4);else{line(ctx,bx+5,by+14,bx+13,by+4,'#e8d890');rf(ctx,bx+12,by+3,3,3,'#c8c8d8');}
+    text(ctx,g.weap==='poop'?'POOP BOMB':'NINJA ROPE',bx+20,by+3,'#ffd23f',1,0);text(ctx,G.touchUI?'POOP: SWITCH':'C: SWITCH',bx+20,by+11,'#cfc2d0',1,0);}
+  if(g.phase==='play'&&g.t<600)textC(ctx,G.touchUI?'▼ AIM/CLIMB · FIRE: USE · POOP: SWITCH · JUMP: LET GO':'↑↓ AIM/CLIMB · X: USE · C: SWITCH · SPACE: JUMP/LET GO',W/2,H-10,'#f2e2b0',1,1);
   if(g.phase==='result'||g.phase==='exit'){const msg=g.result==='win'?'PIGGIES WIN!':g.result==='lose'?'WORMS WIN!':'DRAW!';textC(ctx,msg,W/2,70,g.result==='win'?'#ffd23f':'#ff9aaa',3,2);textC(ctx,g.resSub,W/2,104,'#f2e2b0',1,1);
     if(g.result==='win'){const x=W/2-8,y=118+Math.round(Math.sin(G.t*0.1)*2);drawGoldPoop(x-6,y);drawGoldPoop(x+6,y+2);}}}
 

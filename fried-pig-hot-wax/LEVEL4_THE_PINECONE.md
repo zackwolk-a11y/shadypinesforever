@@ -27,8 +27,8 @@ Pig-Out (Level 3) and Shady Pines Festival, which is now **Level 5**.
 | **4A The Snowy Forest** | Peaceful trail through snowy firs: falling snow, distant mountains, sun rays, fallen logs with icicles, shallow creeks, a deer and a rabbit. The glowing pinecone pulses as the pig nears it. Picking it up changes the music, makes the trees sway, and sends rainbow particles up from the ground. A pinecone icon in the HUD shows it's carried, and it rides on the pig's back. |
 | **4B The Pinecone Portal** | A giant hollow pinecone pulls the pig in. Inside is a rainbow tunnel with pinecone scales, floating eyes, faces in the walls and drifting needles. Hazards: pine-needle spikes, burning sap drips that leave sticky puddles (they slow the pig), warning-then-burst flame vents, moving platforms and collapsing scale platforms. Ends in a bright flash out into a moonlit clearing. |
 | **4C The Alien's Warning** | A long-armed alien in a straw hat, holding a pitchfork, greets the pig in a Southern drawl. Then he spots the pinecone: "Return the pinecone!" Demon birds wake (glowing eyes, a "!" warning, then a dive), branches fall with a shake warning first, and the alien chases the pig to the carnival lights, then gives up. |
-| **4D The Haunted Carousel** | A dark carousel lights up when the pig arrives. The gates close and it runs for 32 seconds, speeding up the whole time. It has six painted animals (horse, unicorn, sea serpent, griffin, flying pig, owl), a colour-cycling canopy and flashing bulbs. Clowns arrive juggling, throwing pies, bouncing on rubber balls and dancing. The background swirls more as it speeds up, and the music speeds up too. At the end it stops dead and launches the pig into the forest. |
-| **4E The Wormhole** | Eating the glowing mushroom bulges the pig's eyes, turns his flame rainbow, makes the screen wobble and opens a wormhole. Then a 60-second **Piggies vs. Worms** mini-game (below). Afterwards the pig drops back where he ate the mushroom and lands face-first in the snow. A tiny worm pops up and waves, and he shakes it off. |
+| **4D The Haunted Carousel** | A dark carousel lights up when the pig arrives. The gates close and it runs for 32 seconds, speeding up the whole time. It has six painted animals (horse, unicorn, sea serpent, griffin, flying pig, owl), a colour-cycling canopy and flashing bulbs. Clowns arrive juggling, throwing pies, bouncing on rubber balls and dancing. The background swirls more as it speeds up, and the music speeds up too. At the end it stops dead and launches the pig into the mushroom woods. |
+| **4E The Wormhole** | After the launch the pig walks a stretch of glowing-mushroom woods (about 40 tiles, with records and a ledge) before he spots the magic mushroom ("OOH... SHINY"). Touching it plays an eating scene: he sniffs it, plucks it, takes three chomps (it shrinks with each bite and crumbs fly), gulps, hiccups rainbow bubbles, then "...uh oh". His eyes bulge, his flame turns rainbow, the screen wobbles and a wormhole opens. Then a 60-second **Piggies vs. Worms** mini-game (below). Afterwards the pig drops back where he ate the mushroom and lands face-first in the snow. A tiny worm pops up and waves, and he shakes it off. |
 | **4F The Jacuzzi Elephant** | Boss fight; see below. |
 | **4G Return the Pinecone** | At a campfire the alien waits, now friendly. The pig sets the pinecone down; it glows, burns with a gentle rainbow flame and turns to sparkling ash. "Embrace love, little pig. Just don't hold on too tight." The pig nods, the alien fades away, the snow stops and the sun rises. The pig walks to a Shady Pines Festival banner, and the screen fades into Level 5. |
 
@@ -43,19 +43,30 @@ campfire trail.
   The mushroom only works once per playthrough.
 * **Battlefield:** hills, trees, logs and rocks you can blow holes in, a
   water hazard in the middle, a colour-cycling sky and drifting clouds.
-  Explosions blow craters and knock characters back.
+  Three floating islands (one over each team, one over the water) are
+  destructible and work as rope anchors. Lil Sizzle starts on the pig-side
+  island and Sgt. Slime on the worm-side island. Explosions blow craters
+  and knock characters back.
 * **Pigs:** Bacon Bit (headband), Hamlet (top hat) and Lil Sizzle (shades),
-  100 HP each. You control them one at a time.
-  * **Hold Fire:** charge a poop bomb with a power meter. It flies in an arc,
-    blows a crater and splatters brown everywhere.
-  * **Tap Fire:** short-range flame breath.
-  * **Poop button:** fire or release the ninja rope. It's a real pendulum:
-    swing, climb up or down, and keep your momentum when you let go.
-* **Worms:** General Dirtbag (aims well, targets the weakest pig), Private
-  Wiggles (nervous, often misses) and Sergeant Slime (moves to cover,
-  steady aim). Each fires bazooka rockets with smoke trails, and each has
+  100 HP each. You control them one at a time. Each pig has two weapons,
+  and the POOP button switches between them (the current one is shown in
+  the bottom-left box):
+  * **Poop bomb:** hold Fire to charge, release to throw. It flies in an
+    arc, blows a crater and splatters brown everywhere. Throwing it ends
+    the turn.
+  * **Ninja rope:** Fire shoots the rope along your aim. It hooks onto any
+    terrain, tree or island and gives a short tug that lifts you into a
+    swing. Left/right pump the swing, up/down climb, and Jump lets go with
+    your momentum. You can fire it again in mid-air to chain swings and
+    cross to the other side. Using the rope never ends the turn.
+* **Worms:** segmented, wiggling worms with their tails on the ground and
+  heads raised, big blinking eyes and a shoulder bazooka. General Dirtbag
+  (helmet with a gold star and a moustache; aims well, targets the weakest
+  pig), Private Wiggles (oversized helmet that slips, darting eyes and a
+  sweat drop; nervous, often misses) and Sergeant Slime (red beret and
+  shades; steady aim, holds his island). Each fires bazooka rockets with smoke trails, and each has
   its own one-liners.
-* **Turns and wind:** turns alternate, with 9 seconds per pig turn. Wind
+* **Turns and wind:** turns alternate, with 14 seconds per pig turn (ended early only by throwing a bomb). Wind
   changes each turn and is shown by an indicator.
 * **Timer:** exactly 60 seconds, starting when you get control. It freezes
   while paused.
@@ -64,10 +75,10 @@ campfire trail.
   collectible, which appears on the title screen. Losing or drawing costs
   nothing.
 * **Controls:**
-  * **Keyboard:** ←→ move, ↑↓ aim, hold X for a bomb, tap X for flame, C for
-    the rope, Space to jump.
-  * **Touch:** ◀▶ move, ▼ sweeps the aim (or shortens the rope), FIRE, POOP
-    for the rope, JUMP.
+  * **Keyboard:** ←→ move or swing, ↑↓ aim or climb, X to use the weapon,
+    C to switch weapon, Space to jump or let go of the rope.
+  * **Touch:** ◀▶ move or swing, ▼ sweeps the aim (or climbs the rope),
+    FIRE to use, POOP to switch, JUMP to jump or let go.
 
 ## The Jacuzzi Elephant
 * **Look:** a huge elephant in a bubbling jacuzzi, wearing sunglasses and a
@@ -118,8 +129,9 @@ campfire trail.
 * **Mini-game:**
   * The clock starts at exactly 60.0 seconds.
   * Pausing freezes it.
-  * Bombs, flame and rockets all deal damage.
-  * The rope swings ±34 px and holds its length.
+  * Bombs and rockets deal damage.
+  * Rope: hooks the island, swings about 85 px, climbs, lets go with momentum, re-fires in mid-air, and never ends the turn. Only the bomb throw does.
+  * One pig and one worm start on the floating islands.
   * Win, lose and draw all resolve.
   * Golden poop bomb unlocks on a win.
 * **Boss:** all three phases, clowns in phase 2, foam in phase 3, trap
