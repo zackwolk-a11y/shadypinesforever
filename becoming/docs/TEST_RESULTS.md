@@ -18,3 +18,9 @@ Old project regression (untouched): `pytest tests` at repo root → 27 passed.
 
 ## 2026-10-31 — Canon reconciliation with the Founder profiles
 `pytest -q` → **42 passed**. New checks: registry unique and unable to claim verification; every citation resolves and is assigned to its resident; unknown code rejected; foundations cite only listed codes; editorial sources stay labeled; Pepper's anchors are lyric texts only; ensemble scenes load.
+
+## 2026-11-01 — First playable village (Phase 3)
+- `backend pytest -q` → **42 passed**; `python -m becoming.world_layout --check` → `layout OK` (layout aligned to the official map v2).
+- `frontend npm run build` → TypeScript check and production build succeed.
+- `frontend npm run test:e2e` (Playwright, Chromium, against `vite preview`) → **12/12 buildings OK**: from the town square the avatar pathfinds to every door, enters, sees the interior, and leaves; no page errors.
+- Manual check by screenshot: map renders, avatar spawns at the fountain, clicking a resident shows the canon profile with portrait (docs/world/play_*.png).

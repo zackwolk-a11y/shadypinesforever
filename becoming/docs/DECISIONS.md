@@ -28,3 +28,6 @@ Format: ID · date · decision · rationale · reversibility. Founder decisions 
 | D-022 [F] | 2026-11-01 | Concept map v2 is the official village map; the layout data is aligned to it | Founder decision | Yes |
 | D-023 [F] | 2026-11-01 | Keep the crystals in the Quiet Grove (decorative only; no spiritual claims attached) | Founder decision | Yes |
 | D-024 [F] | 2026-11-01 | Tony has two outfits (portrait: blue tee and striped strap; sprite: cream shirt and rust trousers) as a wardrobe | Founder decision | Yes |
+| D-025 [B] | 2026-11-01 | First playable client uses Phaser 3.90 + Vite + TypeScript with a plain HTML side panel; React shell deferred to the dashboard phase; Phaser 4 (now released) noted as a later upgrade | Smallest working client; Phaser 3 API is the one the plan assumed | Yes |
+| D-026 [B] | 2026-11-01 | The game reads geometry only from tools/export_world.py output (validated layout); the client never re-implements geometry | Single source of truth (Part V) | Yes |
+| D-027 [B] | 2026-11-01 | Residents are shown standing at home, labelled "not simulated yet", until the simulation records events | Part XXII honesty: no animation unrelated to agent decisions | Yes |

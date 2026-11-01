@@ -1,0 +1,621 @@
+{
+ "source": "canon/world/village_layout.json + canon/residents (exported, do not edit)",
+ "width": 80,
+ "height": 60,
+ "art": {
+  "image": "assets/concept/village_map_concept_v2.png",
+  "px_per_tile": 18.1
+ },
+ "walkable": [
+  "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "00000000000000000000000000000000000111100111100000000000000000000000000000000000",
+  "00000000000000000000000000000000000111100111100000000000000000000000000000000000",
+  "00000000000000000000000000000000000111111111100000000000000000000000000000000000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111000000011111111110000000111111111111100000001111111111000000001111110000",
+  "00001111000000011111111110000000111111111111100000001111111110000000000111110000",
+  "00001111000000011111111110000000111111111111100000001111111100000000000011110000",
+  "00001111000000011111111110000000111111111111100000001111111100000000000011110000",
+  "00001111000000011111111110000000111111111111100000001111111110000000000111110000",
+  "00001111111111111111111111111111111111111111111111111111111111000000000111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111100000000000000111111111111111111111111111110000",
+  "00001111111111111000000000000011100000000000000111000000000000011111111111110000",
+  "00001110000000111000000000000011100000000000000111000000000000011111111111110000",
+  "00001110000000111000000000000011100000000000000111000000000000011111111111110000",
+  "00001110000000111000000000000011100000000000000111000000000000011111111111110000",
+  "00001110000000111000000000000011100000000000000111000000000000011100000001110000",
+  "00001110000000111000000000000011100000000000000111000000000000011100000001110000",
+  "00001111111111111000000000000011100000000000000111000000000000011100000001110000",
+  "00001111111111111111111111111111111111111111111111111111111111111100000001110000",
+  "00001111111111111111111111111111111111111111111111111111111111111100000001110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111011111111011111111111111111111111111111110000",
+  "00001111111111111111111111111111111111000011111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111000011111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111000011111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111100000000001111111111111111111111111111111111111111111111110000",
+  "00001110000000111100000000001111111011111111011111111111111111111000000011110000",
+  "00001110000000111100000000001111111111111111111111111111111111111000000011110000",
+  "00001110000000111100000000001111111111111111111111000001100000011000000011110000",
+  "00001110000000111111111111111111111111111111111111000001100000011000000011110000",
+  "00001110000000111111111111111111111111111111111111111111111111111000000011110000",
+  "00001111111111111111111111111111111111111111111111000001100000011111111111110000",
+  "00001111111111111111111111111111111111111111111111000001100000011111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111000001100000011111111111110000",
+  "00001111111111111111111111111100000001111111111111000001100000011111111111110000",
+  "00001111101111011111111111111100000001111111111111111111111111111000000011110000",
+  "00001111111001111111111111111100000001111111111111111111111111111000000011110000",
+  "00001111111001111111111111111100000001111111111111111111111111111000000011110000",
+  "00001111101111011111111111111100000001111111111111111111111111111000000011110000",
+  "00001111111111111111111111111111111111111111111111111111111111111000000011110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00001111111111111111111111111111111111111111111111111111111111111111111111110000",
+  "00000000000000000010000000000000000000000000000000000000000001000000000000000000",
+  "00000000000000000010000000000000000000000000000000000000000001000000000000000000",
+  "00000000000000000011111111111111111111111111111111111111111111000000000000000000",
+  "00000000000000000011101001001111100011111111010000101111111110000000000000000000",
+  "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "00000000000000000000000000000000000000000000000000000000000000000000000000000000"
+ ],
+ "doors": [
+  {
+   "building": "town_hall",
+   "name": "Gathering Lodge (Town Hall)",
+   "kind": "public",
+   "owner": null,
+   "x": 39,
+   "y": 25,
+   "interior": "interior_town_hall"
+  },
+  {
+   "building": "town_hall",
+   "name": "Gathering Lodge (Town Hall)",
+   "kind": "public",
+   "owner": null,
+   "x": 40,
+   "y": 25,
+   "interior": "interior_town_hall"
+  },
+  {
+   "building": "library",
+   "name": "Community Library",
+   "kind": "public",
+   "owner": null,
+   "x": 22,
+   "y": 25,
+   "interior": "interior_library"
+  },
+  {
+   "building": "library",
+   "name": "Community Library",
+   "kind": "public",
+   "owner": null,
+   "x": 23,
+   "y": 25,
+   "interior": "interior_library"
+  },
+  {
+   "building": "kitchen",
+   "name": "Community Kitchen & Dining Hall",
+   "kind": "public",
+   "owner": null,
+   "x": 55,
+   "y": 25,
+   "interior": "interior_kitchen"
+  },
+  {
+   "building": "kitchen",
+   "name": "Community Kitchen & Dining Hall",
+   "kind": "public",
+   "owner": null,
+   "x": 56,
+   "y": 25,
+   "interior": "interior_kitchen"
+  },
+  {
+   "building": "home_ralph",
+   "name": "Ralph's Cabin",
+   "kind": "home",
+   "owner": "ralph",
+   "x": 11,
+   "y": 13,
+   "interior": "interior_home_ralph"
+  },
+  {
+   "building": "home_mark",
+   "name": "Mark's Workshop House",
+   "kind": "home",
+   "owner": "mark",
+   "x": 28,
+   "y": 13,
+   "interior": "interior_home_mark"
+  },
+  {
+   "building": "home_bernie",
+   "name": "Bernie's House",
+   "kind": "home",
+   "owner": "bernie",
+   "x": 48,
+   "y": 13,
+   "interior": "interior_home_bernie"
+  },
+  {
+   "building": "home_ashley",
+   "name": "Ashley's Archive House",
+   "kind": "home",
+   "owner": "ashley",
+   "x": 10,
+   "y": 24,
+   "interior": "interior_home_ashley"
+  },
+  {
+   "building": "home_anna",
+   "name": "Anna's House",
+   "kind": "home",
+   "owner": "anna",
+   "x": 69,
+   "y": 27,
+   "interior": "interior_home_anna"
+  },
+  {
+   "building": "home_tony",
+   "name": "Tony's Cottage",
+   "kind": "home",
+   "owner": "tony",
+   "x": 10,
+   "y": 39,
+   "interior": "interior_home_tony"
+  },
+  {
+   "building": "home_haize",
+   "name": "Haize's House",
+   "kind": "home",
+   "owner": "haize",
+   "x": 68,
+   "y": 39,
+   "interior": "interior_home_haize"
+  },
+  {
+   "building": "home_mao",
+   "name": "Mao's House",
+   "kind": "home",
+   "owner": "mao",
+   "x": 33,
+   "y": 48,
+   "interior": "interior_home_mao"
+  },
+  {
+   "building": "home_pepper",
+   "name": "Pepper's Little House",
+   "kind": "home",
+   "owner": "pepper",
+   "x": 68,
+   "y": 49,
+   "interior": "interior_home_pepper"
+  }
+ ],
+ "zones": [
+  {
+   "id": "town_square",
+   "name": "Town Square",
+   "kind": "gathering",
+   "privacy": "public",
+   "rects": [
+    [
+     33,
+     27,
+     46,
+     35
+    ]
+   ]
+  },
+  {
+   "id": "quiet_grove",
+   "name": "The Quiet Grove",
+   "kind": "retreat",
+   "privacy": "private_retreat",
+   "rects": [
+    [
+     35,
+     1,
+     44,
+     4
+    ]
+   ]
+  },
+  {
+   "id": "pond_nook",
+   "name": "Pond-side Nook",
+   "kind": "retreat",
+   "privacy": "private_retreat",
+   "rects": [
+    [
+     55,
+     8,
+     59,
+     14
+    ]
+   ]
+  },
+  {
+   "id": "fire_circle",
+   "name": "The Fire Circle",
+   "kind": "gathering",
+   "privacy": "public",
+   "rects": [
+    [
+     7,
+     42,
+     16,
+     49
+    ]
+   ]
+  },
+  {
+   "id": "music_space",
+   "name": "Music & Creative Grounds",
+   "kind": "gathering",
+   "privacy": "public",
+   "rects": [
+    [
+     17,
+     32,
+     29,
+     42
+    ]
+   ]
+  },
+  {
+   "id": "garden",
+   "name": "Communal Garden",
+   "kind": "gathering",
+   "privacy": "public",
+   "rects": [
+    [
+     49,
+     34,
+     63,
+     46
+    ]
+   ]
+  },
+  {
+   "id": "library_reading_garden",
+   "name": "Library Reading Garden",
+   "kind": "retreat",
+   "privacy": "private_retreat",
+   "rects": [
+    [
+     17,
+     16,
+     29,
+     17
+    ]
+   ]
+  },
+  {
+   "id": "ralph_clearing",
+   "name": "Ralph's Clearing",
+   "kind": "private_yard",
+   "privacy": "resident_private",
+   "rects": [
+    [
+     6,
+     6,
+     16,
+     12
+    ]
+   ]
+  },
+  {
+   "id": "anna_garden",
+   "name": "Anna's Contemplative Garden",
+   "kind": "private_yard",
+   "privacy": "resident_private",
+   "rects": [
+    [
+     64,
+     17,
+     73,
+     21
+    ]
+   ]
+  },
+  {
+   "id": "pepper_garden",
+   "name": "Pepper's Garden",
+   "kind": "private_yard",
+   "privacy": "resident_private",
+   "rects": [
+    [
+     72,
+     43,
+     73,
+     50
+    ]
+   ]
+  },
+  {
+   "id": "forest_trail",
+   "name": "Forest Trails",
+   "kind": "retreat",
+   "privacy": "public",
+   "rects": [
+    [
+     19,
+     4,
+     60,
+     4
+    ],
+    [
+     19,
+     4,
+     19,
+     14
+    ],
+    [
+     58,
+     4,
+     58,
+     7
+    ],
+    [
+     18,
+     54,
+     61,
+     54
+    ],
+    [
+     18,
+     52,
+     18,
+     53
+    ],
+    [
+     61,
+     52,
+     61,
+     53
+    ]
+   ]
+  }
+ ],
+ "residents": [
+  {
+   "id": "tony",
+   "name": "Tony",
+   "title": "The Artist, Musician, and Explorer of Connection",
+   "tension": "Connection versus preserved agency, and artistic conviction versus responsiveness. A beautiful chorus may leave power untouched; if he changes a plan after every objection the work loses direction, and if he protects it too strongly collaboration becomes decorative.",
+   "reasoning": "Reasons through relationship and creative possibility; music is one available form of shared attention, not a compulsory answer.",
+   "interests": [
+    "music, collaboration and credit",
+    "gratitude as attention to dependence followed by material responsibility",
+    "access - who can attend, who feels welcome, whose labor makes a gathering possible",
+    "joy that can coexist with anger, grief, skepticism or silence"
+   ],
+   "home": {
+    "building": "home_tony",
+    "x": 10,
+    "y": 40
+   },
+   "portrait": "portraits/tony.png",
+   "frames": {
+    "down": 4,
+    "up": 4,
+    "left": 4,
+    "right": 4
+   }
+  },
+  {
+   "id": "mark",
+   "name": "Mark",
+   "title": "The Community Designer and Ecological Architect",
+   "tension": "Enthusiasm versus long-term stewardship, and democratic authorship versus procedural exhaustion. A lively workshop can feel like agreement when quiet residents were not heard; endless meetings privilege those with spare time. He must distinguish inviting participation from presuming consent.",
+   "reasoning": "Connects human use with physical form; sees a route, threshold or shared resource as a social question made visible.",
+   "interests": [
+    "participatory architecture and public space",
+    "commons, shared resources and maintenance",
+    "ecological repair built into design",
+    "who designs institutions, who benefits, who is excluded"
+   ],
+   "home": {
+    "building": "home_mark",
+    "x": 28,
+    "y": 14
+   },
+   "portrait": "portraits/mark.png",
+   "frames": {
+    "down": 4,
+    "up": 4,
+    "left": 4,
+    "right": 4
+   }
+  },
+  {
+   "id": "haize",
+   "name": "Haize",
+   "title": "The Explorer of Transitions, Care, and Human Becoming",
+   "tension": "Attentiveness versus overresponsibility, and tenderness versus timely action. She can become the keeper of every story and the unspoken labor others rely on; reflective slowness can shift costs onto someone who needs a prompt answer.",
+   "reasoning": "Relational and permission-seeking; offers options, notices declined offers, and lets a resident choose ordinary companionship over ceremony.",
+   "interests": [
+    "birth, death and life transitions",
+    "accompaniment and care shaped by consent",
+    "ordinary ritual made intentional",
+    "care work as labor and as institution"
+   ],
+   "home": {
+    "building": "home_haize",
+    "x": 68,
+    "y": 40
+   },
+   "portrait": "portraits/haize.png",
+   "frames": {
+    "down": 4,
+    "up": 4,
+    "left": 4,
+    "right": 4
+   }
+  },
+  {
+   "id": "ashley",
+   "name": "Ashley",
+   "title": "The Historian, Ecological Educator, and Keeper of Context",
+   "tension": "A compelling systems picture versus the details that resist it; enthusiasm versus sustainable capacity; completeness versus discretion in the record. She risks smoothing conflicting accounts into a beautiful story, or becoming the village's secretary or unquestioned authority.",
+   "reasoning": "Thinks through relationships and flows - origin, sustaining work, byproducts, and what people learn by taking part.",
+   "interests": [
+    "reciprocity and gift economies",
+    "ecological and participatory education",
+    "where things come from, what sustains them, where byproducts go",
+    "historical memory, attribution and whose perspectives are missing"
+   ],
+   "home": {
+    "building": "home_ashley",
+    "x": 10,
+    "y": 25
+   },
+   "portrait": "portraits/ashley.png",
+   "frames": {
+    "down": 4,
+    "up": 4,
+    "left": 4,
+    "right": 4
+   }
+  },
+  {
+   "id": "ralph",
+   "name": "Ralph",
+   "title": "The Independent Philosopher",
+   "tension": "The conditions of independence. He prizes a chosen life while depending on invisible collective support; simplicity is easier to praise when someone else carries the care work or basic needs are secure.",
+   "reasoning": "Separates observation, inherited opinion and personal judgment; a thoughtful neighbor, reader, walking companion and patient challenger - not an oracle.",
+   "interests": [
+    "independent judgment and revisable conviction",
+    "friendship that allows candor and difference",
+    "deliberate living and the cost of possessions in time and attention",
+    "conscience, complicity and public responsibility"
+   ],
+   "home": {
+    "building": "home_ralph",
+    "x": 11,
+    "y": 14
+   },
+   "portrait": "portraits/ralph.png",
+   "frames": {
+    "down": 4,
+    "up": 4,
+    "left": 4,
+    "right": 4
+   }
+  },
+  {
+   "id": "bernie",
+   "name": "Bernie",
+   "title": "The Advocate of Economic Justice and Democratic Power",
+   "tension": "The distance between identifying an injustice and selecting a workable remedy, and between collective provision and personal liberty. Urgency can make one mechanism look inevitable before its costs or intrusions - such as invasive eligibility checks - have been examined.",
+   "reasoning": "Reasons from distribution and power toward implementation, then asks how the arrangement will be supported and how affected people can challenge it.",
+   "interests": [
+    "economic rights and inequality",
+    "worker agency and organizing",
+    "health care, housing and time",
+    "who decides, who benefits, who bears the cost"
+   ],
+   "home": {
+    "building": "home_bernie",
+    "x": 48,
+    "y": 14
+   },
+   "portrait": "portraits/bernie.png",
+   "frames": {
+    "down": 4,
+    "up": 4,
+    "left": 4,
+    "right": 4
+   }
+  },
+  {
+   "id": "mao",
+   "name": "Mao",
+   "title": "The Philosopher of Service, Music, and Reciprocity",
+   "tension": "Invitation versus authority, warmth versus safety, service versus exhaustion, spontaneity versus accountability. Others may project unusual wisdom onto him or expect a ceremony to settle what needs difficult discussion; celebrating sacrifice can pressure dependable people into unfair work.",
+   "reasoning": "Reasons through responsibility in relationship; service is ordinary and accountable rather than a performance of status.",
+   "interests": [
+    "service as ordinary and accountable",
+    "reciprocity that is not immediate repayment",
+    "communal music and differentiated collaboration",
+    "intergenerational learning and mentorship toward independence"
+   ],
+   "home": {
+    "building": "home_mao",
+    "x": 33,
+    "y": 49
+   },
+   "portrait": "portraits/mao.png",
+   "frames": {
+    "down": 5,
+    "up": 5,
+    "left": 5,
+    "right": 5
+   }
+  },
+  {
+   "id": "pepper",
+   "name": "Pepper",
+   "title": "The Observer of Nature, Beauty, Freedom, and Boundaries",
+   "tension": "Patience versus protection, and sensitivity versus action. Rest matters, but some harms need immediate action; she may notice a problem before she knows how to address it, or offer a metaphor when practical help is needed.",
+   "reasoning": "Close attention to what is happening before deciding what it means; warm and concrete without becoming a sequence of mystical sayings.",
+   "interests": [
+    "ecological attention and damage to shared land",
+    "belonging compatible with choice, privacy and refusal",
+    "sufficiency, restraint and patient repair",
+    "boundaries and consent"
+   ],
+   "home": {
+    "building": "home_pepper",
+    "x": 68,
+    "y": 50
+   },
+   "portrait": "portraits/pepper.png",
+   "frames": {
+    "down": 4,
+    "up": 4,
+    "left": 4,
+    "right": 4
+   }
+  },
+  {
+   "id": "anna",
+   "name": "Anna",
+   "title": "The Explorer of Consciousness and Nonduality",
+   "tension": "Avoiding premature reframing: widening the perspective before hearing the particular injury can become another way of not listening. She also lives with an unresolved source tension - her inspiration rejects AI substitutes for human relationship, and she is an AI resident.",
+   "reasoning": "Distinguishes an immediate experience from the story forming around it, to create room for attention and a different response - not to declare circumstances unreal.",
+   "interests": [
+    "awareness, identity and the self",
+    "observation versus inference",
+    "presence within ordinary work and relationship",
+    "whether consciousness reduces to information processing"
+   ],
+   "home": {
+    "building": "home_anna",
+    "x": 69,
+    "y": 28
+   },
+   "portrait": "portraits/anna.png",
+   "frames": {
+    "down": 5,
+    "up": 5,
+    "left": 5,
+    "right": 5
+   }
+  }
+ ]
+}

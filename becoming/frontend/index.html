@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Healthy Village — The Village of Becoming</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <header>
+    <h1>The Village of Becoming</h1>
+    <p id="honesty" role="status">Simulation not running yet. Residents stand at home and will only move when the simulation records a real event.</p>
+  </header>
+  <main>
+    <section id="world" aria-label="Village map">
+      <div id="game"></div>
+      <div id="controls">
+        <button id="zoom-in" aria-label="Zoom in">+</button>
+        <button id="zoom-out" aria-label="Zoom out">−</button>
+        <button id="enter" hidden>Enter</button>
+      </div>
+      <p id="hint">Move: arrow keys / WASD, or tap the map. Enter a door: E or the Enter button.</p>
+    </section>
+    <aside id="panel" aria-live="polite">
+      <div id="detail"><p class="muted">Click a resident to see who they are.</p></div>
+      <nav aria-label="Text navigation">
+        <h2>Go to</h2>
+        <ul id="places"></ul>
+        <h2>Residents</h2>
+        <ul id="people"></ul>
+      </nav>
+    </aside>
+  </main>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

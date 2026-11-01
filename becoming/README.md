@@ -22,4 +22,13 @@ cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m becoming.world_layout --check --ascii
 ```
 
+## Play the village (first playable version)
+```bash
+cd frontend
+npm install
+npm run export-world   # regenerates src/generated/world.json from the validated canon
+npm run dev            # open the printed http://localhost:5173 link
+```
+Walk with arrow keys/WASD or tap the map; press E (or the Enter button) at a door. The side panel lists every place and resident for keyboard and screen-reader navigation. Browser test: `npm run build && (npm run preview &) && npm run test:e2e`.
+
 The older Internal Village project at the repository root is not modified by this project.
