@@ -18,12 +18,19 @@ ROWS = ["down", "up", "right", "left"]
 BG_MAX = 112
 
 
+LIGHT = False
+STEP = 14
+
+
 def is_bg(p, outline_max=42):
     r, g, b = p
+    if LIGHT:  # pale, unsaturated checkerboard "fake transparency"
+        return min(r, g, b) > 200 and max(r, g, b) - min(r, g, b) < 18
     return max(r, g, b) > outline_max and r >= g >= b - 6 and r - b < 90 and max(r, g, b) < BG_MAX
 
 
-def smooth_step(a, b, limit=14):
+def smooth_step(a, b, limit=None):
+    limit = STEP if limit is None else limit
     """Background is a soft gradient; sprites have hard pixel edges."""
     return max(abs(a[0] - b[0]), abs(a[1] - b[1]), abs(a[2] - b[2])) <= limit
 
@@ -82,26 +89,34 @@ def main():
     ap.add_argument("sheet"); ap.add_argument("outdir")
     ap.add_argument("--names", required=True)
     ap.add_argument("--frame", default="48x96", help="output frame size (fits sprite, keeps aspect)")
+    ap.add_argument("--light-bg", action="store_true", help="pale checkerboard background")
+    ap.add_argument("--per", type=int, default=4, help="frames per resident per row")
+    ap.add_argument("--rows", default="down,up,right,left", help="direction of each row, top to bottom")
     ap.add_argument("--bg-max", type=int, default=112, help="brightest channel value still treated as background")
     a = ap.parse_args()
-    global BG_MAX
+    global BG_MAX, LIGHT, STEP
     BG_MAX = a.bg_max
+    LIGHT = a.light_bg
+    STEP = 40 if LIGHT else 14
     names = a.names.split(",")
+    rows_names = a.rows.split(",")
     fw, fh = map(int, a.frame.split("x"))
     im = Image.open(a.sheet).convert("RGB")
     rgba, bg = remove_background(im)
-    boxes = components(bg)
+    Wd, Hd = im.size
+    # Real sprites never touch the sheet edge; edge blobs are vignette or glow.
+    boxes = [b for b in components(bg) if b[0] > 0 and b[1] > 0 and b[2] < Wd - 1 and b[3] < Hd - 1]
     rows = sorted(boxes, key=lambda b: (b[1] + b[3]) / 2)
     H = im.size[1]
-    grid = [[] for _ in ROWS]
+    grid = [[] for _ in rows_names]
     for b in boxes:
-        grid[min(int(((b[1] + b[3]) / 2) / (H / len(ROWS))), len(ROWS) - 1)].append(b)
+        grid[min(int(((b[1] + b[3]) / 2) / (H / len(rows_names))), len(rows_names) - 1)].append(b)
     out = Path(a.outdir); out.mkdir(parents=True, exist_ok=True)
-    per = 4
+    per = a.per
     report = []
     for r, row in enumerate(grid):
         row.sort(key=lambda b: b[0])
-        report.append(f"{ROWS[r]}: {len(row)} frames")
+        report.append(f"{rows_names[r]}: {len(row)} frames")
         for i, (x0, y0, x1, y1, _) in enumerate(row):
             who = names[min(i // per, len(names) - 1)]
             crop = rgba.crop((x0, y0, x1 + 1, y1 + 1))
@@ -110,7 +125,7 @@ def main():
             frame = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
             frame.paste(small, ((fw - small.width) // 2, fh - small.height), small)
             d = out / who; d.mkdir(exist_ok=True)
-            frame.save(d / f"{ROWS[r]}_{i % per}.png")
+            frame.save(d / f"{rows_names[r]}_{i % per}.png")
     print("\n".join(report))
 
 
