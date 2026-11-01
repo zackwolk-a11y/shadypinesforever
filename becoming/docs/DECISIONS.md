@@ -25,3 +25,6 @@ Format: ID · date · decision · rationale · reversibility. Founder decisions 
 | D-019 [F] | 2026-11-01 | Resident portraits for Tony, Ashley and Pepper accepted; Founder confirms they are original fictional characters | Founder statement | Yes |
 | D-020 [B] | 2026-11-01 | Portraits are profile and dialogue art; small walking map sprites are drawn separately in matching colors | Portraits are too detailed for 16 px map sprites | Yes |
 | D-021 [F] | 2026-11-01 | Keep Mao v1 and Bernie v1 art as provisional; edits to come later | Founder decision after the builder flagged concerns (HV-020, HV-021) | Yes |
+| D-022 [F] | 2026-11-01 | Concept map v2 is the official village map; the layout data is aligned to it | Founder decision | Yes |
+| D-023 [F] | 2026-11-01 | Keep the crystals in the Quiet Grove (decorative only; no spiritual claims attached) | Founder decision | Yes |
+| D-024 [F] | 2026-11-01 | Tony has two outfits (portrait: blue tee and striped strap; sprite: cream shirt and rust trousers) as a wardrobe | Founder decision | Yes |

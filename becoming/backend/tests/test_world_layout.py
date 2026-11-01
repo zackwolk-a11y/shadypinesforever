@@ -36,23 +36,37 @@ def test_water_and_forest_block(raw):
     assert not lay.walkable((0, 0))
 
 
+def _anna_door(raw):
+    return next(b for b in raw["buildings"] if b["id"] == "home_anna")["doors"][0]
+
+
 def test_removing_a_path_is_detected(raw):
     broken = copy.deepcopy(raw)
-    broken["paths"] = [p for p in broken["paths"] if p["id"] != "anna_spur"]
-    # Anna's door now opens onto grass: still reachable on foot, but not by path.
+    dx, dy = _anna_door(broken)
+    # Erase every path tile and spur directly below Anna's door.
+    broken["paths"] = [p for p in broken["paths"] if not p["id"].startswith("home_anna")]
+    mask = [list(r) for r in broken["path_mask"]]
+    for y in range(dy + 1, dy + 4):
+        for x in range(dx - 1, dx + 2):
+            mask[y][x] = "."
+    broken["path_mask"] = ["".join(r) for r in mask]
     problems = validate(broken)
+    # Her door is still reachable across grass, but no longer by path.
     assert any("home_anna" in p and "not connected" in p for p in problems)
     assert not any("home_anna" in p and "on foot" in p for p in problems)
 
 
 def test_walling_off_a_house_is_detected(raw):
     broken = copy.deepcopy(raw)
-    # Paths paint over forest, so remove Haize's spurs and ring her in trees.
-    broken["paths"] = [p for p in broken["paths"] if not p["id"].startswith("haize_spur")]
-    broken["forest"] += [[62, 37, 69, 37], [62, 37, 62, 45], [69, 37, 69, 45], [62, 44, 69, 45]]
+    hx, hy = next(b for b in broken["buildings"] if b["id"] == "home_haize")["doors"][0]
+    # Obstacles are painted after paths, so they truly wall the doorstep in.
+    broken["zone_obstacles"] += [
+        {"id": "wall_s", "zone": "garden", "kind": "test", "rect": [hx - 1, hy + 1, hx + 1, hy + 1]},
+        {"id": "wall_w", "zone": "garden", "kind": "test", "rect": [hx - 1, hy, hx - 1, hy]},
+        {"id": "wall_e", "zone": "garden", "kind": "test", "rect": [hx + 1, hy, hx + 1, hy]},
+    ]
     problems = validate(broken)
-    assert any("home_haize" in p and "unreachable on foot" in p for p in problems)
-    assert any("home_haize" in p for p in problems)
+    assert any("home_haize" in p and ("no walkable approach" in p or "unreachable on foot" in p) for p in problems)
 
 
 def test_door_off_south_wall_is_detected(raw):
@@ -69,8 +83,8 @@ def test_overlapping_buildings_detected(raw):
 
 def test_decor_on_path_detected(raw):
     broken = copy.deepcopy(raw)
-    broken["decor"].append({"kind": "tree", "at": [[20, 16]]})
-    assert any("tree at (20, 16)" in p for p in validate(broken))
+    broken["decor"].append({"kind": "tree", "at": [[20, 15]]})
+    assert any("tree at (20, 15)" in p for p in validate(broken))
 
 
 def test_gathering_spaces_have_open_room(raw):

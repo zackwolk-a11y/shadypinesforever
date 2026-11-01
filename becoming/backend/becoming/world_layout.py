@@ -134,6 +134,10 @@ def rasterize(raw: dict) -> Layout:
                 lay.zone_of.setdefault(c, zone["id"])
     for p in raw["paths"]:
         paint(p["rect"], Tile.PATH)
+    for y, row in enumerate(raw.get("path_mask", [])):
+        for x, ch in enumerate(row):
+            if ch == "=":
+                grid[y][x] = Tile.PATH
     for b in raw["buildings"]:
         paint(b["rect"], Tile.BUILDING)
         for c in _cells(b["rect"]):
