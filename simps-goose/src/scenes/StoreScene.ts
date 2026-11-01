@@ -171,9 +171,6 @@ export class StoreScene extends Phaser.Scene {
     this.add.sprite(L.mezz.x + 40, L.mezz.y - 22, 'flag0').setOrigin(0, 1).setDepth(29).play('flag');
     this.add.image(L.plantB.x, FLOOR, 'plant').setOrigin(0.5, 1).setDepth(27);
     // foreground silhouettes (parallax 1.2) for depth
-    for (const [x, key, s] of [[330, 'plant', 1.3], [1260, 'plant', 1.2], [2050, 'plant', 1.3]] as [number, string, number][]) {
-      this.add.image(x * 1.2, WORLD_H + 34, key).setOrigin(0.5, 1).setScale(s).setTint(C.ink).setAlpha(0.8).setScrollFactor(1.2, 1).setDepth(90);
-    }
     // dust motes in the light
     this.add.particles(0, 0, 'px1', { x: { min: 0, max: WORLD_W }, y: { min: 60, max: FLOOR - 10 }, lifespan: 5000, speedX: { min: -4, max: 4 }, speedY: { min: -6, max: 2 }, alpha: { start: 0.6, end: 0 }, frequency: 120, tint: 0xfff1c8, blendMode: Phaser.BlendModes.ADD }).setDepth(61);
   }

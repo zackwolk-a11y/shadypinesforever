@@ -110,6 +110,8 @@ function build(scene: Phaser.Scene, key: string, outlined: boolean) {
     'spacing.y': 0,
     lineSpacing: 2,
   } as unknown as Phaser.Types.GameObjects.BitmapText.RetroFontConfig);
+  // RetroFont uses the cell *width* as the base size; use the cell height so fontSize 9/11 = exact 1:1 pixels
+  (data as unknown as { data: { size: number } }).data.size = ch;
   scene.cache.bitmapFont.add(key, data);
 }
 

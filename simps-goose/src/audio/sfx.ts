@@ -23,7 +23,7 @@ export const SFX = {
     const p = R(0.95, 1.06) / Math.max(0.8, Math.min(1.3, size * 0.9));
     const shaper = ctx.createWaveShaper();
     const curve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 4); } shaper.curve = curve;
-    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.32 * Math.min(1.4, size), t + 0.015); g.gain.setValueAtTime(0.3 * Math.min(1.4, size), t + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.15 * Math.min(1.5, size), t + 0.015); g.gain.setValueAtTime(0.14 * Math.min(1.5, size), t + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = 1150; f1.Q.value = 3;
     const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 2500; f2.Q.value = 4;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3800;
@@ -40,7 +40,7 @@ export const SFX = {
   },
   step(alt = false) { const o = out(); if (!o) return; const t = AE.now; noise(t, 0.04, o, { type: 'lowpass', f: alt ? 900 : 700, gain: 0.07 }); osc('sine', alt ? 150 : 130, t, 0.05, o, { f1: 70, gain: 0.08 }); },
   jump() { const o = out(); if (!o) return; const t = AE.now; osc('square', 260, t, 0.13, o, { f1: 560, gain: 0.07 }); noise(t, 0.12, o, { f: 1400, f1: 600, gain: 0.05 }); },
-  flap() { const o = out(); if (!o) return; const t = AE.now; noise(t, 0.07, o, { f: 900, f1: 400, q: 0.7, gain: 0.05 }); },
+  flap() { const o = out(); if (!o) return; const t = AE.now; noise(t, 0.08, o, { f: 900, f1: 400, q: 0.7, gain: 0.16 }); },
   land() { const o = out(); if (!o) return; const t = AE.now; osc('sine', 110, t, 0.12, o, { f1: 45, gain: 0.18 }); noise(t, 0.06, o, { type: 'lowpass', f: 600, gain: 0.08 }); },
   clink(pitch = 1) { const o = out(); if (!o) return; const t = AE.now; for (const [f, g] of [[2400, 0.08], [3170, 0.05], [4430, 0.04], [5900, 0.02]]) osc('sine', f * pitch * R(0.98, 1.02), t, 0.35, o, { gain: g }); },
   slurp() { const o = out(); if (!o) return; const t = AE.now; const n = noise(t, 0.7, o, { f: 600, f1: 1800, q: 4, gain: 0.12 }); const ctx = AE.ctx!; const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 16; lg.gain.value = 0.1; l.connect(lg); lg.connect(n.g.gain); l.start(t); l.stop(t + 0.75); },

@@ -1,0 +1,21 @@
+// Measures frame rate in the heaviest moment (Bubble Trouble) and captures small-phone screenshots.
+import { createRequire } from 'module';
+const { chromium } = createRequire(import.meta.url)('playwright');
+const base = process.env.BASE ?? 'http://localhost:5173';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 960, height: 540 } });
+await p.goto(base + '/?scene=store');
+await p.waitForFunction(() => window.__SIMPS.store?.phase === 'play');
+await p.evaluate(() => { const s = window.__SIMPS.store; window.__SIMPS.teleport(1820, 330); s.fountain.onHonk(1830); s.fountain.onHonk(1830); });
+await p.waitForTimeout(4000);
+const fps = await p.evaluate(() => new Promise((res) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(f); else res({ fps: Math.round(n / 3), bubbles: window.__SIMPS.store.bubbles.activeCount(), objects: window.__SIMPS.store.children.length, renderer: window.__SIMPS.game.renderer.type === 2 ? 'WebGL' : 'Canvas' }); }; requestAnimationFrame(f); }));
+console.log('bubble trouble:', JSON.stringify(fps));
+const m = await b.newPage({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+await m.goto(base + '/?touch=1');
+await m.waitForFunction(() => window.__SIMPS.scene === 'Title'); await m.waitForTimeout(800);
+await m.screenshot({ path: 'screenshots/21-mobile-title-667x375.png' });
+await m.goto(base + '/?scene=store&touch=1');
+await m.waitForFunction(() => window.__SIMPS.store?.phase === 'play'); await m.waitForTimeout(600);
+await m.evaluate(() => window.__SIMPS.teleport(1380, 330)); await m.waitForTimeout(400);
+await m.screenshot({ path: 'screenshots/22-mobile-store-667x375.png' });
+await b.close();

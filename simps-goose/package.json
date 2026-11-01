@@ -10,7 +10,7 @@
     "preview": "vite preview --host --port 4173",
     "typecheck": "tsc --noEmit",
     "test:e2e": "node tests/e2e.mjs",
-    "export:sheets": "node tests/export-sheets.mjs",
+    "export:assets": "node tests/export-assets.mjs",
     "zip": "node scripts/zip.mjs"
   },
   "dependencies": {

@@ -112,6 +112,15 @@ class Music {
     this.bus = null;
     this.song = 'none';
   }
+  /** Render a song offline (for asset export): schedules `bars` bars into the current AE.ctx. */
+  renderOffline(song: Song, bars: number, intensity = 0) {
+    this.song = song; this.intensity = intensity;
+    this.bpm = song === 'title' ? 112 : song === 'street' ? 104 : intensity >= 2 ? 150 : intensity === 1 ? 138 : 128;
+    this.bus = AE.ctx!.createGain(); this.bus.connect(AE.music);
+    const spb = 60 / this.bpm / 4;
+    for (let st = 0; st < bars * 16; st++) this.schedule(st, 0.05 + st * spb, spb);
+    return 0.05 + bars * 16 * spb + 1;
+  }
   /** Freeze-frame "to be continued" stinger. */
   stinger() {
     if (!AE.ensure()) return;

@@ -1,13 +1,15 @@
 /** Web Audio engine: master / music / sfx buses with persisted volumes. */
 import { settings, onSettings } from '../systems/settings';
 
+/** SFX are authored quiet; this bus gain balances them against the music. */
+export const SFX_BUS = 2.6;
 class Engine {
   ctx: AudioContext | null = null;
   master!: GainNode; music!: GainNode; sfx!: GainNode;
   noise!: AudioBuffer;
   comp!: DynamicsCompressorNode;
   ensure() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return this.ctx; }
+    if (this.ctx) { if (this.ctx.state === 'suspended' && !(typeof OfflineAudioContext !== 'undefined' && this.ctx instanceof OfflineAudioContext)) this.ctx.resume().catch(() => {}); return this.ctx; }
     const AC = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
     if (!AC) return null;
     this.ctx = new AC();
@@ -31,7 +33,7 @@ class Engine {
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(s.muted ? 0 : 0.9, t, 0.02);
     this.music.gain.setTargetAtTime(s.music * 0.55, t, 0.02);
-    this.sfx.gain.setTargetAtTime(s.sfx, t, 0.02);
+    this.sfx.gain.setTargetAtTime(s.sfx * SFX_BUS, t, 0.02);
   }
   get now() { return this.ctx ? this.ctx.currentTime : 0; }
 }

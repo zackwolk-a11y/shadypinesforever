@@ -48,23 +48,20 @@ export class TitleScene extends Phaser.Scene {
     this.add.particles(0, 0, 'bubble16', { x: { min: 0, max: 480 }, y: 290, lifespan: 7000, speedY: { min: -50, max: -20 }, speedX: { min: -8, max: 8 }, scale: { min: 0.3, max: 1.2 }, frequency: 260, alpha: { start: 0.9, end: 0.2 } }).setDepth(3);
     this.add.particles(0, 0, 'leafConfetti', { x: { min: 0, max: 480 }, y: -10, lifespan: 9000, speedY: { min: 14, max: 30 }, speedX: { min: -14, max: 6 }, rotate: { start: 0, end: 360 }, frequency: 700, tint: [C.red1, C.red0, C.wht], alpha: 0.85 }).setDepth(3);
 
+    this.add.rectangle(0, 82, 480, 62, C.ink, 0.55).setOrigin(0).setDepth(9);
     const logo = this.add.image(240, 52, 'logo').setDepth(10);
     this.tweens.add({ targets: logo, y: 56, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     this.add.image(240, 92, 'logoLeaves').setDepth(10);
     this.add.existing(txt(this, 240, 86, 'MODERN BEVERAGE PRESENTS', { align: 'center', outline: false, color: C.wl1 }).setDepth(10));
-    const title = 'GOOSE ON THE LOOSE!';
-    const size = 2;
-    const cw = 6 * size * 1.0;
-    title.split('').forEach((ch, i) => {
-      const t = txt(this, 240 - (title.length * cw) / 2 + i * cw + cw / 2, 104, ch, { size, align: 'center', color: i % 2 ? C.wht : C.crm0 }).setDepth(10);
-      this.letters.push(t);
-    });
+    const dt = this.add.dynamicBitmapText(240, 102, 'pxo', 'GOOSE ON THE LOOSE!', 22).setOrigin(0.5, 0).setLetterSpacing(-1).setDepth(10);
+    dt.setDisplayCallback((d: Phaser.Types.GameObjects.BitmapText.DisplayCallbackConfig) => { d.y += Math.round(Math.sin(this.time.now * 0.004 + d.index * 0.45) * 2); d.tint.topLeft = d.tint.topRight = d.index % 2 ? 0xffffff : C.crm0; d.tint.bottomLeft = d.tint.bottomRight = d.index % 2 ? C.crm0 : C.gold0; return d; });
     this.add.existing(txt(this, 240, 132, 'HONK. SIP. BURP. REPEAT.', { align: 'center', color: C.red0 }).setDepth(10));
     this.goose = this.add.sprite(96, 236, 'goose', 'idle_0').setOrigin(22 / 48, 46 / 48).setScale(2).setDepth(9).play('g_idle');
     this.add.image(96, 238, 'shadow32').setScale(1.5).setDepth(8);
     this.time.addEvent({ delay: 3800, loop: true, callback: () => this.gooseHonk() });
     this.press = txt(this, 240, 190, this.registry.get('touch') ? 'TAP TO START' : 'PRESS ANY KEY', { align: 'center', color: C.gold1 }).setDepth(10);
     this.tweens.add({ targets: this.press, alpha: 0.2, duration: 500, yoyo: true, repeat: -1 });
+    this.add.rectangle(0, 252, 480, 18, C.ink, 0.75).setOrigin(0).setDepth(9);
     this.add.existing(txt(this, 474, 258, 'UNOFFICIAL CONCEPT DEMO - V0.1', { align: 'right', outline: false, color: C.st2 }).setDepth(10));
     this.add.existing(txt(this, 6, 258, 'KELOWNA, B.C.', { outline: false, color: C.st2 }).setDepth(10));
     this.menuC = this.add.container(0, 0).setDepth(11);
@@ -138,7 +135,6 @@ export class TitleScene extends Phaser.Scene {
     this.layers[0].tilePositionX = t * 0.004;
     this.layers[1].tilePositionX = t * 0.01;
     this.layers[2].tilePositionX = 330 + Math.sin(t * 0.0002) * 120;
-    this.letters.forEach((l, i) => { l.y = 104 + Math.round(Math.sin(t * 0.005 + i * 0.5) * 3); });
     if (!this.started) { if (Controls.anyPressed) this.begin(); return; }
     if (this.panel) { if (Controls.anyPressed) this.closePanel(); return; }
     if (!this.menuOn) return;

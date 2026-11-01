@@ -131,17 +131,17 @@ export class UIScene extends Phaser.Scene {
     const g = this.add.graphics().fillStyle(C.ink, 0.9).fillRoundedRect(-w / 2, 0, w, h, 4).lineStyle(2, C.red1).strokeRoundedRect(-w / 2 + 1, 1, w - 2, h - 2, 4);
     c.add([g, this.add.image(-w / 2 + 9, 10, 'trident13').setScale(0.8), this.add.image(w / 2 - 9, 10, 'leaf9'), txt(this, 0, 4, s, { align: 'center', color })]);
     if (sub) c.add(txt(this, 0, 16, sub, { align: 'center', outline: false, color: C.wl1 }));
-    this.tweens.chain({ targets: c, tweens: [{ y: 32, duration: 260, ease: 'Back.Out' }, { y: 32, duration: 2000 }, { y: -40, duration: 220, ease: 'Quad.In', onComplete: () => { c.destroy(); this.nextToast(); } }] });
+    this.tweens.chain({ targets: c, tweens: [{ y: 40, duration: 260, ease: 'Back.Out' }, { y: 40, duration: 2000 }, { y: -40, duration: 220, ease: 'Quad.In', onComplete: () => { c.destroy(); this.nextToast(); } }] });
   }
 
   // ------------------------------------------------------------ picker
   buildPicker() {
-    this.picker = this.add.container(240, 200).setDepth(15).setVisible(false);
-    const bg = this.add.graphics().fillStyle(C.ink, 0.85).fillRoundedRect(-150, -38, 300, 74, 6).lineStyle(2, C.red1).strokeRoundedRect(-149, -37, 298, 72, 6);
-    this.picker.add([bg, txt(this, 0, -34, 'PICK A SAMPLE', { align: 'center', color: C.gold1 })]);
+    this.picker = this.add.container(240, 206).setDepth(15).setVisible(false);
+    const bg = this.add.graphics().fillStyle(C.ink, 0.9).fillRoundedRect(-152, -46, 304, 100, 6).lineStyle(2, C.red1).strokeRoundedRect(-151, -45, 302, 98, 6);
+    this.picker.add([bg, this.add.image(-138, -36, 'trident13'), this.add.image(138, -36, 'leaf9'), txt(this, 0, -42, 'PICK A SAMPLE', { align: 'center', color: C.gold1 })]);
     FLAVOR_ORDER.forEach((id, i) => {
       const f = FLAVORS[id];
-      const c = this.add.container(-96 + i * 96, 6);
+      const c = this.add.container(-98 + i * 98, 2);
       const g = this.add.graphics();
       c.add([g, this.add.image(0, -10, f.icon).setScale(1.5), txt(this, 0, 4, f.name, { align: 'center', outline: false, color: f.light }), txt(this, 0, 14, f.power, { align: 'center', outline: false, color: C.wl1 })]);
       c.setData('g', g);
@@ -150,7 +150,7 @@ export class UIScene extends Phaser.Scene {
       this.picker.add(c);
       this.pickerCards.push(c);
     });
-    this.picker.add(txt(this, 0, 26, '', { align: 'center', outline: false, color: C.st1 }).setName('help'));
+    this.picker.add(txt(this, 0, 37, '', { align: 'center', outline: false, color: C.st1 }).setName('help'));
   }
   showPicker(open: boolean, idx: number) {
     this.picker.setVisible(open);
@@ -220,7 +220,7 @@ export class UIScene extends Phaser.Scene {
         .on('pointerdown', (p: Phaser.Input.Pointer) => { this.menuSel = i; const dir = p.x < 200 ? -1 : p.x > 280 ? 1 : 0; it.act(dir); this.refreshMenu(); });
       c.add([t, z]);
     });
-    if (footer) c.add(txt(this, 240, y + h / 2 + 6, footer, { align: 'center', outline: false, color: C.st1 }));
+    if (footer) { const fw = footer.length * 6 + 12; c.add(this.add.graphics().fillStyle(C.ink, 0.85).fillRoundedRect(240 - fw / 2, y + h / 2 + 2, fw, 15, 3)); c.add(txt(this, 240, y + h / 2 + 5, footer, { align: 'center', outline: false, color: C.wl1 })); }
     this.menu = c;
     this.refreshMenu();
   }
