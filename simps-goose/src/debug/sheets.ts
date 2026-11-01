@@ -10,6 +10,7 @@ SHEETS['people'] = () => { const ks = Object.keys(PEOPLE); const parts = ks.map(
 import { SINGLE } from '../art/registry';
 SHEETS['motifs'] = () => { const ks = ['trident13','trident22','trident44','badge','badge28','leaf9','leaf15','goldenLeaf','flag0','flag2','bigFlag1','bunting','tridentStand']; const parts = ks.map((k) => SINGLE[k]()); const W = parts.reduce((s, p) => s + p.w + 4, 0); const H = Math.max(...parts.map((p) => p.h)); const out = new Px(W, H); let x = 0; for (const p of parts) { out.blit(p, x, H - p.h); x += p.w + 4; } return out.toCanvas(); };
 SHEETS['enemies'] = () => { const ks = Object.keys(SINGLE).filter((k) => /^(fs|sl|bb|fm|ff)_/.test(k)); const parts = ks.map((k) => SINGLE[k]()); const W = parts.reduce((s, p) => s + p.w + 4, 0); const H = Math.max(...parts.map((p) => p.h)); const out = new Px(W, H); let x = 0; for (const p of parts) { out.blit(p, x, H - p.h); x += p.w + 4; } return out.toCanvas(); };
+SHEETS['ogopogo'] = () => { const ks = Object.keys(SINGLE).filter((k) => k.startsWith('og')).concat(['wave', 'splash', 'sailboat', 'bench', 'bike']); const parts = ks.map((k) => SINGLE[k]()); const W = parts.reduce((s, p) => s + p.w + 4, 0); const H = Math.max(...parts.map((p) => p.h)); const out = new Px(W, H); let x = 0; for (const p of parts) { out.blit(p, x, H - p.h); x += p.w + 4; } return out.toCanvas(); };
 const q = new URLSearchParams(location.search);
 const which = q.get('sheet') ?? 'goose';
 const scale = +(q.get('scale') ?? 4);

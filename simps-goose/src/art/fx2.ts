@@ -83,4 +83,5 @@ export function powerIcon(kind: string): Px {
   g.outline(C.ink);
   return g;
 }
+export function buoy(): Px { const g = new Px(30, 12); for (let x = 0; x < 30; x++) for (let y = 0; y < 12; y++) { const d = ((x - 14.5) / 14.5) ** 2 + ((y - 5.5) / 5.5) ** 2; if (d <= 1 && d > 0.3) g.set(x, y, Math.floor((Math.atan2(y - 5.5, x - 14.5) + Math.PI) / (Math.PI / 3)) % 2 ? C.red1 : C.wht); } g.hline(4, 25, 1, 0xffffff); g.outline(C.ink); return g; }
 export function syrupBottleBig(ramp: typeof R.cola): Px { const g = new Px(14, 30); bottleInto(g, 2, 1, ramp, 10, 27); g.outline(C.ink); return g; }

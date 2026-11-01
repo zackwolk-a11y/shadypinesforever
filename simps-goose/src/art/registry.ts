@@ -17,6 +17,9 @@ import * as LB from './lab';
 import { INGREDIENTS } from '../data/recipes';
 import { ENEMY_FRAMES } from './enemies';
 import * as DM from './dimension';
+import * as BS from './boss';
+import * as CF from './cafe';
+import * as WFA from './waterfront';
 import { registerSheet } from './registry-sheets';
 
 export const FLAVOR_RAMPS = { cola: R.cola, cream: R.cream, cherry: R.cherry };
@@ -68,7 +71,7 @@ export const SINGLE: Record<string, () => Px> = {
   flag0: () => MO.canadaFlag(0), flag1: () => MO.canadaFlag(1), flag2: () => MO.canadaFlag(2), flag3: () => MO.canadaFlag(3),
   bigFlag0: () => MO.canadaFlag(0, 44, 22), bigFlag1: () => MO.canadaFlag(1, 44, 22), bigFlag2: () => MO.canadaFlag(2, 44, 22), bigFlag3: () => MO.canadaFlag(3, 44, 22),
   recipeCard: F2.recipeCard, bubbleStar: F2.bubbleStar, coffeeBean: F2.coffeeBean, goldenGoose: F2.goldenGoose, electricShot: F2.electricShot,
-  foamBig: () => F2.foamCloudW(64), checkpoint0: () => F2.checkpoint(0), checkpoint1: () => F2.checkpoint(1), checkpoint2: () => F2.checkpoint(2),
+  foamBig: () => F2.foamCloudW(64), buoy: F2.buoy, checkpoint0: () => F2.checkpoint(0), checkpoint1: () => F2.checkpoint(1), checkpoint2: () => F2.checkpoint(2),
   icon_rocket: () => F2.powerIcon('rocket'), icon_cloud9: () => F2.powerIcon('cloud9'), icon_tropical: () => F2.powerIcon('tropical'), icon_shield: () => F2.powerIcon('shield'),
   icon_electric: () => F2.powerIcon('electric'), icon_float: () => F2.powerIcon('float'), icon_pinkfizz: () => F2.powerIcon('pinkfizz'), icon_burp: () => F2.powerIcon('burp'),
   labWall: LB.labBackWall, labFloor: LB.labFloor, labConsole: LB.console_, mixer: LB.mixerMachine, superMachine: LB.superMachine, glassBlock: LB.glassBlock,
@@ -80,10 +83,20 @@ export const SINGLE: Record<string, () => Px> = {
   dimSky: DM.dimSky, dimFar: DM.dimFar, dimMid: DM.dimMid, island64: () => DM.strawberryIsland(64), island96: () => DM.strawberryIsland(96), island140: () => DM.strawberryIsland(140),
   cherryIsland: DM.cherryIsland, citrusWheel: DM.citrusWheel, citrusPad: DM.citrusPad, foamPad: DM.foamPad, rainbow: DM.rainbowTile, geyserBase: DM.geyserBase, geyserCol: DM.geyserCol,
   syrupRiver: DM.syrupRiver, portalBottle: DM.portalBottle, dimTap: DM.dimTap,
+  carbBody: BS.carbBody, eyes_normal: () => BS.bossEyes('normal'), eyes_angry: () => BS.bossEyes('angry'), eyes_hurt: () => BS.bossEyes('hurt'), eyes_panic: () => BS.bossEyes('panic'), eyes_dizzy: () => BS.bossEyes('dizzy'),
+  tap_cola0: () => BS.flavorTap(C.cola1, false), tap_cola1: () => BS.flavorTap(C.cola1, true), tap_cream0: () => BS.flavorTap(C.crm1, false), tap_cream1: () => BS.flavorTap(C.crm1, true), tap_cherry0: () => BS.flavorTap(C.chr1, false), tap_cherry1: () => BS.flavorTap(C.chr1, true),
+  fizzWave: BS.fizzWave, foamBlob: BS.foamBlob, foamFlood: BS.foamFlood,
+  cafeWall: CF.cafeWall, cafeFloor: CF.cafeFloor, cafeCounter: () => CF.cafeCounter(300), espresso: CF.espressoMachine, pastryCase: CF.pastryCase, stool: CF.stool, cafeTable: CF.cafeTable,
+  mug_a: () => CF.mug(C.cola1), mug_b: () => CF.mug(C.crm1), cafeDoor: CF.cafeDoor,
+  wfSky: () => WFA.wfSky(false), wfSkySunset: () => WFA.wfSky(true), wfHills: () => WFA.wfHills(false), wfHillsSunset: () => WFA.wfHills(true), wfLake: () => WFA.wfLake(false), wfLakeSunset: () => WFA.wfLake(true),
+  wfTrees: WFA.wfTrees, wfPath: WFA.path, bench: WFA.bench, picnic: WFA.picnic, flowers: WFA.flowers, dock160: () => WFA.dock(160), dock80: () => WFA.dock(80), sailboat: WFA.sailboat, flagPole: WFA.flagPole, bike: WFA.bike,
+  ripple: WFA.ripple, wave: WFA.wave, splash: WFA.splash, ogNeck: WFA.ogNeck, ogHump: WFA.ogHump, ogTail: WFA.ogTail, panorama: WFA.panorama,
   tridentStand: MO.tridentStand, floorLeaf: () => MO.floorDecal('leaf'), floorTrident: () => MO.floorDecal('trident'), liftHead: MO.liftHead, piston: MO.pistonShaft,
 };
 SHELF_RAMPS.forEach((r, i) => { SINGLE['bottle' + i] = () => FX.bottle(r, 6, 16); });
+(['normal', 'roar', 'hurt', 'dizzy', 'sad', 'happy', 'drink', 'burp', 'surprised'] as const).forEach((f) => { SINGLE['og_' + f] = () => WFA.ogHead(f); });
 Object.entries(ENEMY_FRAMES).forEach(([k, f]) => { SINGLE[k] = f; });
+Object.entries(CF.CAFE_SYRUP_RAMPS).forEach(([k, r]) => { SINGLE['csy_' + k] = () => F2.syrupBottleBig(r); });
 INGREDIENTS.forEach((ing) => { SINGLE['ing_' + ing.id] = () => F2.syrupBottleBig(ing.ramp); });
 
 // expose to debug viewer

@@ -7,6 +7,14 @@ import { UIScene } from './scenes/UIScene';
 import { MixerScene } from './scenes/MixerScene';
 import { LabScene } from './scenes/LabScene';
 import { DimensionScene } from './scenes/DimensionScene';
+import { BossCarbScene } from './scenes/BossCarbScene';
+import { FakeEndScene } from './scenes/FakeEndScene';
+import { CafeScene } from './scenes/CafeScene';
+import { CoffeeScene } from './scenes/CoffeeScene';
+import { WaterfrontScene } from './scenes/WaterfrontScene';
+import { OgopogoScene } from './scenes/OgopogoScene';
+import { TrueEndScene } from './scenes/TrueEndScene';
+import { JournalScene } from './scenes/JournalScene';
 
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS = {};
 const game = new Phaser.Game({
@@ -20,7 +28,7 @@ const game = new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   input: { activePointers: 5, gamepad: false },
   fps: { target: 60 },
-  scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, LabScene, DimensionScene, UIScene, MixerScene],
+  scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, LabScene, DimensionScene, BossCarbScene, FakeEndScene, CafeScene, WaterfrontScene, OgopogoScene, TrueEndScene, UIScene, MixerScene, CoffeeScene, JournalScene],
 });
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.game = game;
 // Resume audio when tab regains focus on mobile

@@ -146,6 +146,7 @@ export class UIScene extends Phaser.Scene {
     this.toastBusy = true;
     const [s, color, sub] = n;
     const c = this.add.container(240, -30).setDepth(20);
+    if (this.bossBar) c.setDepth(20);
     const w = Math.max(s.length, sub?.length ?? 0) * 6 + 34;
     const h = sub ? 30 : 20;
     const g = this.add.graphics().fillStyle(C.ink, 0.9).fillRoundedRect(-w / 2, 0, w, h, 4).lineStyle(2, C.red1).strokeRoundedRect(-w / 2 + 1, 1, w - 2, h - 2, 4);
@@ -167,14 +168,15 @@ export class UIScene extends Phaser.Scene {
   setBoss(name: string | null, frac: number) {
     if (!name) { this.bossBar?.destroy(); this.bossBar = null; return; }
     if (!this.bossBar) {
-      const c = this.add.container(240, 250).setDepth(12);
-      const g = this.add.graphics().fillStyle(C.ink, 0.85).fillRoundedRect(-120, -8, 240, 18, 4).lineStyle(2, C.red1).strokeRoundedRect(-119, -7, 238, 16, 4);
+      const c = this.add.container(222, 6).setDepth(12);
+      const g = this.add.graphics().fillStyle(C.ink, 0.85).fillRoundedRect(-104, 0, 208, 24, 4).lineStyle(2, C.red1).strokeRoundedRect(-103, 1, 206, 22, 4);
       this.bossFill = this.add.graphics();
-      c.add([g, this.bossFill, txt(this, 0, -18, name, { align: 'center', color: C.red0 }), this.add.image(-112, 1, 'trident13').setScale(0.8), this.add.image(112, 1, 'trident13').setScale(0.8)]);
+      c.add([g, this.bossFill, txt(this, 0, 2, name, { align: 'center', outline: false, color: C.red0 }), this.add.image(-94, 12, 'trident13').setScale(0.8), this.add.image(94, 12, 'trident13').setScale(0.8)]);
       this.bossBar = c;
+      this.pressure.setAlpha(0);
     }
-    const w = Math.max(0, Math.round(200 * frac));
-    this.bossFill.clear().fillStyle(C.blk1).fillRect(-100, -2, 200, 6).fillStyle(frac > 0.5 ? C.red1 : frac > 0.25 ? C.gold1 : C.red0).fillRect(-100, -2, w, 6).fillStyle(0xffffff, 0.45).fillRect(-100, -2, w, 1);
+    const w = Math.max(0, Math.round(170 * frac));
+    this.bossFill.clear().fillStyle(C.blk1).fillRect(-85, 14, 170, 5).fillStyle(frac > 0.5 ? C.red1 : frac > 0.25 ? C.gold1 : C.red0).fillRect(-85, 14, w, 5).fillStyle(0xffffff, 0.45).fillRect(-85, 14, w, 1);
   }
   levelBanner(name: string) {
     const c = this.add.container(240, 120).setDepth(18).setAlpha(0);

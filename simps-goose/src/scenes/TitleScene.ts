@@ -11,6 +11,8 @@ import { AE } from '../audio/engine';
 import { MUSIC } from '../audio/music';
 import { SFX } from '../audio/sfx';
 import { FxSystem } from '../gameplay/FxSystem';
+import { GS } from '../systems/gamestate';
+import { save, update, resetSave, STAGES, level3Revealed } from '../systems/save';
 
 function logoTexture(scene: Phaser.Scene) {
   if (scene.textures.exists('logo')) return;
@@ -81,21 +83,27 @@ export class TitleScene extends Phaser.Scene {
     MUSIC.play('title');
     SFX.ui('ok');
     this.press.destroy();
+    const sv = save();
+    const canContinue = !!sv.run && sv.unlocked.length > 0 && (sv.unlocked.length > 1 || !!sv.checkpoint);
     this.items = [
-      { label: () => 'START DEMO', act: () => this.startDemo() },
+      ...(canContinue ? [{ label: () => 'CONTINUE', act: () => this.continueGame() }] : []),
+      { label: () => 'NEW GAME', act: () => this.startDemo('story') },
+      { label: () => 'LEVEL SELECT', act: () => this.levelSelect() },
+      { label: () => 'JOURNAL + ACHIEVEMENTS', act: () => { this.scene.launch('Journal', { from: 'Title' }); this.scene.bringToTop('Journal'); } },
+      { label: () => 'SETTINGS', act: () => this.settingsPanel() },
       { label: () => 'HOW TO PLAY', act: () => this.howTo() },
-      { label: () => `SOUND: ${settings().muted ? 'OFF' : 'ON'}`, act: () => { saveSettings({ muted: !settings().muted }); } },
-      { label: () => `TOUCH CONTROLS: ${this.registry.get('touch') ? 'ON' : 'OFF'}`, act: () => { const v = !this.registry.get('touch'); this.registry.set('touch', v); saveSettings({ touch: v ? 'on' : 'off' }); } },
+      { label: () => 'VERTICAL SLICE DEMO', act: () => this.startDemo('demo') },
     ];
     this.items.forEach((it, i) => {
-      const t = txt(this, 240, 160 + i * 16, it.label(), { align: 'center', color: C.wht });
+      const t = txt(this, 240, 146 + i * 14, it.label(), { align: 'center', color: C.wht });
       it.t = t;
-      const z = this.add.zone(160, 157 + i * 16, 160, 15).setOrigin(0).setInteractive({ useHandCursor: true }).on('pointerdown', () => { if (this.panel) return; this.sel = i; SFX.ui('ok'); it.act(); this.refresh(); });
+      const z = this.add.zone(150, 144 + i * 14, 180, 13).setOrigin(0).setInteractive({ useHandCursor: true }).on('pointerdown', () => { if (this.panel) return; this.sel = i; SFX.ui('ok'); it.act(); this.refresh(); });
       this.menuC.add([t, z]);
     });
     this.menuOn = true;
     this.refresh();
     Controls.consumeAll();
+    if (this.registry.get('titleMenu') === 'levels') { this.registry.set('titleMenu', null); this.levelSelect(); }
   }
   refresh() { this.items.forEach((it, i) => it.t?.setText((i === this.sel ? '~ ' : '') + it.label()).setTint(i === this.sel ? C.gold1 : C.wht)); }
   howTo() {
@@ -108,13 +116,13 @@ export class TitleScene extends Phaser.Scene {
       'SPACE         JUMP     JUMP',
       '  (HOLD IN AIR TO FLUTTER)',
       'X             HONK     HONK',
-      'C             POWER    POWER',
-      'E             SIP/USE  SIP',
+      'C             POWER    POWER  (BURP IN LV3)',
+      'E             SIP/USE  SIP    (BUBBLE PLATFORM)',
       'ESC           PAUSE    II',
       'M             MUTE     SND',
       '',
-      'SIP A SIMPS SAMPLE TO GET A POWER.',
-      'HONK AT THINGS. SEE WHAT HAPPENS.',
+      'SIP SAMPLES + MIX RECIPES FOR POWERS.',
+      'STOMP OR HONK AT FIZZ CREATURES.',
     ];
     c.add([this.add.rectangle(0, 0, 480, 270, C.ink, 0.5).setOrigin(0).setInteractive(), g, this.add.image(80, 46, 'trident22'), this.add.image(400, 46, 'leaf15'), txt(this, 240, 40, 'HOW TO PLAY', { align: 'center', color: C.gold1 })]);
     lines.forEach((l, i) => c.add(txt(this, 84, 62 + i * 13, l, { outline: false, color: i === 0 ? C.red0 : C.wl1 })));
@@ -124,19 +132,76 @@ export class TitleScene extends Phaser.Scene {
     this.time.delayedCall(200, () => this.input.once('pointerdown', () => this.closePanel()));
   }
   closePanel() { this.panel?.destroy(); this.panel = null; SFX.ui('back'); Controls.consumeAll(); }
-  startDemo() {
+  startDemo(mode: 'story' | 'demo' = 'story') {
     if (!this.menuOn) return;
     this.menuOn = false;
+    GS.newRun(mode);
+    if (mode === 'story') update((s) => { s.checkpoint = null; });
     SFX.honk(1.1);
     this.cameras.main.fadeOut(450, 20, 12, 24);
     this.time.delayedCall(470, () => { MUSIC.stop(0.3); this.scene.start('Intro'); });
+  }
+  go(scene: string) { this.menuOn = false; this.cameras.main.fadeOut(400, 20, 12, 24); this.time.delayedCall(420, () => { MUSIC.stop(0.3); this.scene.start(scene); }); }
+  continueGame() {
+    const sv = save(); GS.resume();
+    const cp = sv.checkpoint;
+    const furthest = [...STAGES].reverse().find((st) => sv.unlocked.includes(st.id))!;
+    const target = cp ? STAGES.find((st) => st.id === cp.stage)! : furthest;
+    if (cp) this.registry.set('resumeCheckpoint', true);
+    if (target.id === 'lab') this.registry.set('skipIntro', !!cp);
+    this.go(target.id === 'store' ? 'Store' : target.scene);
+  }
+  /** generic list panel used by level select + settings */
+  listPanel(title: string, rows: { label: () => string; act: (d: number) => void; dim?: boolean }[]) {
+    if (this.panel) return;
+    const c = this.add.container(0, 0).setDepth(30);
+    const h = 40 + rows.length * 15;
+    c.add([this.add.rectangle(0, 0, 480, 270, C.ink, 0.6).setOrigin(0).setInteractive(), this.add.graphics().fillStyle(C.blk2, 0.97).fillRoundedRect(70, 135 - h / 2, 340, h, 8).lineStyle(2, C.red1).strokeRoundedRect(71, 136 - h / 2, 338, h - 2, 8),
+      this.add.image(88, 147 - h / 2, 'trident13'), this.add.image(392, 147 - h / 2, 'leaf9'), txt(this, 240, 141 - h / 2, title, { align: 'center', color: C.gold1 })]);
+    let sel = 0;
+    const ts = rows.map((r, i) => { const t = txt(this, 240, 160 - h / 2 + i * 15, '', { align: 'center', outline: false, color: C.wht }); t.setInteractive({ useHandCursor: true }).on('pointerdown', (pp: Phaser.Input.Pointer) => { sel = i; r.act(pp.x < 200 ? -1 : pp.x > 280 ? 1 : 0); refresh(); }); c.add(t); return t; });
+    const refresh = () => ts.forEach((t, i) => t.setText((i === sel ? '~ ' : '') + rows[i].label()).setTint(rows[i].dim ? C.st3 : i === sel ? C.gold1 : C.wht));
+    refresh();
+    this.panel = c;
+    c.setData('nav', (a: string) => { if (a === 'up') sel = (sel + rows.length - 1) % rows.length; if (a === 'down') sel = (sel + 1) % rows.length; if (a === 'left') rows[sel].act(-1); if (a === 'right') rows[sel].act(1); if (a === 'ok') rows[sel].act(0); refresh(); });
+    Controls.consumeAll();
+  }
+  levelSelect() {
+    const sv = save();
+    const rows = STAGES.map((st) => {
+      const open = sv.unlocked.includes(st.id) || (st.id === 'store');
+      const hidden = st.level === 3 && !level3Revealed();
+      return { label: () => hidden ? 'LEVEL 3: ???' : `L${st.level}  ${st.name}${open ? '' : '  (LOCKED)'}${sv.completed.includes(st.id) ? '  *' : ''}`, dim: !open || hidden,
+        act: (d: number) => { if (d !== 0 || !open || hidden) { if (d === 0) SFX.ui('back'); return; } this.closePanel(); GS.newRun('stage'); if (!GS.coffee && st.level === 3 && st.id !== 'cafe') GS.coffee = 'vanilla'; this.registry.set('skipIntro', false); this.go(st.id === 'store' ? 'Intro' : st.scene); } };
+    });
+    rows.push({ label: () => 'BACK', act: (d: number) => { if (d === 0) this.closePanel(); }, dim: false });
+    this.listPanel('LEVEL SELECT', rows);
+  }
+  settingsPanel() {
+    const vol = (k: 'music' | 'sfx', n: string) => ({ label: () => `${n} < ${Math.round(settings()[k] * 10)} >`, act: (d: number) => { saveSettings({ [k]: Math.max(0, Math.min(1, Math.round(settings()[k] * 10 + (d || 1)) / 10)) } as never); SFX.ui('move'); } });
+    const tog = (k: 'muted' | 'reduceFlash' | 'reduceShake' | 'highContrast', n: string) => ({ label: () => `${n}: ${settings()[k] ? 'ON' : 'OFF'}`, act: () => { saveSettings({ [k]: !settings()[k] } as never); SFX.ui('move'); } });
+    let confirm = false;
+    this.listPanel('SETTINGS', [
+      vol('music', 'MUSIC'), vol('sfx', 'SOUND FX'), tog('muted', 'MUTE'), tog('reduceFlash', 'REDUCE FLASHING'), tog('reduceShake', 'REDUCE SCREEN SHAKE'), tog('highContrast', 'HIGH CONTRAST ENEMIES'),
+      { label: () => `TOUCH CONTROLS: ${this.registry.get('touch') ? 'ON' : 'OFF'}`, act: () => { const v = !this.registry.get('touch'); this.registry.set('touch', v); saveSettings({ touch: v ? 'on' : 'off' }); } },
+      { label: () => (confirm ? 'REALLY ERASE ALL PROGRESS? (E)' : 'RESET SAVE DATA'), act: (d: number) => { if (d !== 0) return; if (confirm) { resetSave(); confirm = false; SFX.explosion(); } else confirm = true; } },
+      { label: () => 'BACK', act: (d: number) => { if (d === 0) this.closePanel(); } },
+    ]);
   }
   update(t: number) {
     this.layers[0].tilePositionX = t * 0.004;
     this.layers[1].tilePositionX = t * 0.01;
     this.layers[2].tilePositionX = 330 + Math.sin(t * 0.0002) * 120;
     if (!this.started) { if (Controls.anyPressed) this.begin(); return; }
-    if (this.panel) { if (Controls.anyPressed) this.closePanel(); return; }
+    if (this.panel) {
+      const nav = this.panel.getData('nav') as ((a: string) => void) | undefined;
+      if (!nav) { if (Controls.anyPressed) this.closePanel(); return; }
+      if (Controls.pressed('back') || Controls.pressed('pause')) { this.closePanel(); return; }
+      for (const a of ['up', 'down', 'left', 'right'] as const) if (Controls.pressed(a)) { SFX.ui('move'); nav(a); }
+      if (Controls.pressed('confirm')) { SFX.ui('ok'); nav('ok'); }
+      return;
+    }
+    if (this.scene.isActive('Journal')) return;
     if (!this.menuOn) return;
     const n = this.items.length;
     if (Controls.pressed('up')) { this.sel = (this.sel + n - 1) % n; SFX.ui('move'); this.refresh(); }
