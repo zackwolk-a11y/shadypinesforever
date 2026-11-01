@@ -59,7 +59,7 @@ const missingTextures = (p) => p.evaluate(() => { let n = 0; for (const sc of wi
 
 // ---------------------------------------------------------------- 2. store gameplay
 const p = await page();
-await p.goto(base + '/?scene=store');
+await p.goto(base + '/?scene=store&mode=demo');
 await wait(p, () => window.__SIMPS.store?.phase === 'play');
 await p.waitForTimeout(300);
 let s0 = await st(p);
@@ -210,7 +210,7 @@ await p.close();
 // ---------------------------------------------------------------- 5. mobile / touch
 {
   const m = await page({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
-  await m.goto(base + '/?scene=store&touch=1');
+  await m.goto(base + '/?scene=store&mode=demo&touch=1');
   await wait(m, () => window.__SIMPS.store?.phase === 'play');
   await m.waitForTimeout(300);
   const cdp = await m.context().newCDPSession(m);

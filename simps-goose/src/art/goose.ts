@@ -33,6 +33,8 @@ export interface Pose {
   lump: number; // -1 none, else 0..1 along the neck (swallowing)
   brow: number; // 0 none, + mischievous, - worried
   front: boolean; // head turned to camera
+  cup: number; // 0 none, 1 cup held in beak / under wing
+  bellyRumble: number;
 }
 
 const BASE: Pose = {
@@ -41,7 +43,7 @@ const BASE: Pose = {
   beak: 0, eye: 'normal', pdx: 0, pdy: 0,
   wing: 0, wingFar: -1,
   legA: [2, 0], legB: [-2, 0], tuck: false,
-  tail: 0, puff: 0, cheeks: 0, blush: 0, lump: -1, brow: 0, front: false,
+  tail: 0, puff: 0, cheeks: 0, blush: 0, lump: -1, brow: 0, front: false, cup: 0, bellyRumble: 0,
 };
 
 const rotp = (x: number, y: number, a: number) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
@@ -220,6 +222,14 @@ export function drawGoose(pp: Partial<Pose>): Px {
     drawEye(hcx + 2, hcy - 2, 1);
   } else if (eyeOff) drawEye(eyeOff[0] - (dir < 0 ? 1 : 0), eyeOff[1], dir);
 
+  if (p.cup > 0) {
+    // little white Simps coffee cup (red trident band), held by the near wing tip
+    const cx = Math.round(bcx + 7), cy = Math.round(bcy - 2);
+    g.rect(cx - 3, cy - 5, 7, 8, C.ink); g.rect(cx - 2, cy - 4, 5, 6, C.wht); g.rect(cx - 2, cy - 2, 5, 2, C.red1); g.set(cx, cy - 2, C.wht);
+    g.rect(cx + 3, cy - 3, 2, 3, C.ink); g.set(cx + 3, cy - 2, C.wht);
+    if (p.cup > 1) { g.rect(cx - 2, cy - 6, 5, 1, C.cola1); }
+  }
+  if (p.bellyRumble > 0) { for (let k = 0; k < 3; k++) g.set(bcx - 4 + k * 3, bcy + 3 + (k % 2), C.gw3); }
   if (p.blush > 0) {
     const bp = p.front ? [hcx - 4, hcy + 1] : B(0, 1.8);
     g.set(bp[0], bp[1], C.pink); g.set(bp[0] + 1, bp[1], C.pink);
@@ -309,6 +319,16 @@ export const GOOSE_ANIMS: Record<string, AnimDef> = {
   hurt: { fps: 10, loop: true, frames: [{ eye: 'spiral', sy: 0.85, sx: 1.12, hx: 4, hy: -15, tilt: 0.6, wing: 0.8, wingFar: 0.6, beak: 0.5, puff: 0.6 }, { eye: 'spiral', sy: 0.88, sx: 1.1, hx: 3, hy: -16, tilt: 0.4, wing: 0.6, wingFar: 0.5, beak: 0.4, puff: 0.6 }] },
   celebrate: { fps: 12, loop: true, frames: range(6, (_i, t) => ({ eye: 'happy', beak: 0.7, hx: 10, hy: -23 - S(t * 2 * PI) * 1.5, tilt: -0.3, wing: 0.6 + S(t * 4 * PI) * 0.4, wingFar: 0.5 + S(t * 4 * PI + 0.5) * 0.4, sy: 1 + S(t * 2 * PI) * 0.05, tail: S(t * 4 * PI) * 2, legA: [2, 0], legB: [-2, 0] })) },
   dash: { fps: 20, loop: true, frames: [{ sx: 1.25, sy: 0.82, rot: 0.15, by: -10, hx: 18, hy: -13, bend: 0, tilt: 0.2, wing: 0.15, wingFar: 0.1, legA: [-4, 2], legB: [-7, 3], eye: 'mischief', brow: 1, tail: -2 }, { sx: 1.22, sy: 0.84, rot: 0.15, by: -10, hx: 18, hy: -13, bend: 0, tilt: 0.2, wing: 0.2, wingFar: 0.15, legA: [-5, 3], legB: [-6, 2], eye: 'mischief', brow: 1, tail: 2 }] },
+  burp: { fps: 12, loop: false, frames: [{ cheeks: 0.8, hx: 10, hy: -21, eye: 'closed', puff: 0.3 }, { cheeks: 1, hx: 12, hy: -22, eye: 'closed', puff: 0.5 }, { hx: 14, hy: -22, beak: 1, eye: 'wide', tilt: -0.2, wing: 0.4 }, { hx: 12, hy: -21, beak: 0.5, eye: 'happy' }] },
+  sipCup: { fps: 6, loop: false, frames: [{ cup: 2, hx: 10, hy: -16, tilt: 0.7, eye: 'look', pdy: 1 }, { cup: 2, hx: 9, hy: -12, bend: -2, tilt: 1.0, eye: 'closed' }, { cup: 2, hx: 9, hy: -12, bend: -2, tilt: 1.05, eye: 'closed', sy: 0.97 }, { cup: 2, hx: 9, hy: -13, tilt: 0.9, eye: 'closed' }, { cup: 1, hx: 9, hy: -20, eye: 'happy', blush: 1 }] },
+  holdCup: { fps: 4, loop: true, frames: [{ cup: 1, eye: 'normal' }, { cup: 1, hy: -20, eye: 'normal' }, { cup: 1, eye: 'closed' }] },
+  sit: { fps: 3, loop: true, frames: [{ tuck: true, by: -8, hx: 9, hy: -18, eye: 'normal' }, { tuck: true, by: -8, hx: 9, hy: -19, eye: 'normal' }, { tuck: true, by: -8, hx: 9, hy: -18, eye: 'closed' }] },
+  sitCup: { fps: 3, loop: true, frames: [{ tuck: true, by: -8, hx: 9, hy: -18, cup: 1 }, { tuck: true, by: -8, hx: 9, hy: -19, cup: 1 }, { tuck: true, by: -8, hx: 9, hy: -18, cup: 1, eye: 'closed' }] },
+  laugh: { fps: 10, loop: true, frames: [{ eye: 'happy', beak: 0.8, hx: 11, hy: -21, tilt: -0.3, wing: 0.3, sy: 1.04 }, { eye: 'happy', beak: 0.4, hx: 10, hy: -19, tilt: -0.1, wing: 0.15, sy: 0.96 }] },
+  offer: { fps: 4, loop: true, frames: [{ cup: 1, hx: 14, hy: -18, bend: 1, eye: 'happy', wing: 0.35 }, { cup: 1, hx: 15, hy: -18, bend: 1, eye: 'happy', wing: 0.4, blush: 1 }] },
+  growl: { fps: 10, loop: false, frames: [{ bellyRumble: 1, sx: 1.05, sy: 0.95, hx: 7, hy: -16, tilt: 0.6, eye: 'look', pdy: 1 }, { bellyRumble: 1, sx: 0.96, sy: 1.04, hx: 7, hy: -16, tilt: 0.6, eye: 'look', pdy: 1 }, { bellyRumble: 1, sx: 1.05, sy: 0.95, hx: 7, hy: -16, tilt: 0.6, eye: 'wide', pdy: 1 }, { hx: 9, hy: -20, eye: 'wide', brow: -1 }] },
+  swim: { fps: 6, loop: true, frames: [{ tuck: true, by: -6, hx: 10, hy: -16, eye: 'wide', wing: 0.5, wingFar: 0.4, beak: 0.3 }, { tuck: true, by: -5, hx: 10, hy: -15, eye: 'wide', wing: 0.8, wingFar: 0.7 }] },
+  frontHonk: { fps: 8, loop: false, frames: [{ front: true, hx: 4, hy: -21, eye: 'closed' }, { front: true, hx: 4, hy: -24, eye: 'wide', beak: 1 }, { front: true, hx: 4, hy: -24, eye: 'wide', beak: 1 }, { front: true, hx: 4, hy: -21, eye: 'normal' }] },
   front: { fps: 3, loop: true, frames: [{ front: true, hx: 4, hy: -21, eye: 'normal' }, { front: true, hx: 4, hy: -21, eye: 'normal' }, { front: true, hx: 4, hy: -21, eye: 'closed' }] },
   lookUp: { fps: 6, loop: false, frames: [{ hx: 7, hy: -24, tilt: -0.5, eye: 'look', pdy: -1 }, { hx: 6, hy: -28, tilt: -0.7, eye: 'look', pdy: -1, sy: 1.04 }, { hx: 6, hy: -30, tilt: -0.75, eye: 'wide', pdy: -1, pdx: 1, sy: 1.06, bend: 1 }] },
   tilt: { fps: 4, loop: false, frames: [{ hx: 6, hy: -30, tilt: -0.3, eye: 'wide', pdx: 1 }, { hx: 5, hy: -29, tilt: 0.25, eye: 'wide', pdx: 1, pdy: -1, bend: 3 }] },

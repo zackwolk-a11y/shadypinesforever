@@ -4,11 +4,15 @@ import { C } from '../art/palette';
 import { txt } from '../art/font';
 import { Controls, Action } from '../systems/input';
 import { settings, saveSettings } from '../systems/settings';
-import { FLAVORS, FLAVOR_ORDER, FlavorId } from '../gameplay/flavors';
+import { FLAVORS, FLAVOR_ORDER } from '../gameplay/flavors';
 import { SFX } from '../audio/sfx';
 import { MUSIC } from '../audio/music';
 import { AE } from '../audio/engine';
 import type { StoreScene } from './StoreScene';
+import type { LevelScene } from '../levels/LevelScene';
+import { POWERS, PowerId } from '../data/recipes';
+import { BURPS, BurpId } from '../data/coffee';
+import { GS } from '../systems/gamestate';
 
 interface MenuItem { label: () => string; act: (dir: number) => void; t?: Phaser.GameObjects.BitmapText }
 interface TouchBtn { a: Action; x: number; y: number; r: number; label: string; g?: Phaser.GameObjects.Graphics; down: boolean }
@@ -23,13 +27,17 @@ export class UIScene extends Phaser.Scene {
   toastQ: [string, number, string?][] = []; toastBusy = false;
   touchBtns: TouchBtn[] = []; touchOn = false;
   muteBtn!: Phaser.GameObjects.BitmapText;
-  dropTotal = 0;
+  dropTotal = 0; leafTotal = 3;
   ended = false;
+  hearts: Phaser.GameObjects.Image[] = [];
+  scoreT!: Phaser.GameObjects.BitmapText;
+  bossBar: Phaser.GameObjects.Container | null = null; bossFill!: Phaser.GameObjects.Graphics;
+  clearCard: Phaser.GameObjects.Container | null = null;
 
   constructor() { super('UI'); }
 
   create() {
-    this.pickerCards = []; this.touchBtns = []; this.menu = null; this.menuKind = null; this.toastQ = []; this.toastBusy = false; this.ended = false;
+    this.pickerCards = []; this.touchBtns = []; this.menu = null; this.menuKind = null; this.toastQ = []; this.toastBusy = false; this.ended = false; this.hearts = []; this.bossBar = null; this.clearCard = null;
     this.input.addPointer(4);
     this.buildHud();
     this.buildPicker();
@@ -37,11 +45,17 @@ export class UIScene extends Phaser.Scene {
     if (this.touchOn) this.buildTouch();
     const ev = this.game.events;
     const on = (n: string, f: (...a: never[]) => void) => { ev.on(n, f, this); this.events.once('shutdown', () => ev.off(n, f, this)); };
-    on('hud:reset', ((o: { dropTotal: number }) => { this.dropTotal = o.dropTotal; this.resetHud(); }) as never);
+    on('hud:reset', ((o: { dropTotal: number; leafTotal?: number; level?: string }) => { this.dropTotal = o.dropTotal; this.leafTotal = o.leafTotal ?? 3; this.resetHud(); if (o.level) this.levelBanner(o.level); }) as never);
+    on('hud:hearts', ((n: number, m: number) => this.setHearts(n, m)) as never);
+    on('hud:score', ((n: number) => this.scoreT.setText(String(n).padStart(6, '0'))) as never);
+    on('hud:burp', ((id: BurpId | null) => this.setBurp(id)) as never);
+    on('hud:boss', ((name: string | null, frac: number) => this.setBoss(name, frac)) as never);
+    on('hud:achievement', ((name: string) => { SFX.golden(); this.toast('ACHIEVEMENT: ' + name, C.gold0, 'SAVED TO YOUR JOURNAL'); }) as never);
+    on('hud:clear', ((st: { title: string; drops: number; dropTotal: number; leaves: number; leafTotal: number; score: number; time: number }) => this.showClear(st)) as never);
     on('hud:drops', ((n: number, t: number) => { this.dropsT.setText(`${pad(n)}/${t}`); this.pulse(this.dropsT); }) as never);
-    on('hud:leaf', ((n: number) => { this.leafT.setText(`${n}/3`); this.pulse(this.leafT); }) as never);
+    on('hud:leaf', ((n: number, t?: number) => { this.leafT.setText(`${n}/${t ?? this.leafTotal}`); this.pulse(this.leafT); }) as never);
     on('hud:badge', ((v: boolean) => { this.badgeI.setAlpha(v ? 1 : 0.25).clearTint(); this.pulse(this.badgeI); }) as never);
-    on('hud:power', ((id: FlavorId | null, t: number, d: number) => this.setPower(id, t, d)) as never);
+    on('hud:power', ((id: PowerId | null, t: number, d: number) => this.setPower(id, t, d)) as never);
     on('hud:toast', ((s: string, c: number, sub?: string) => this.toast(s, c, sub)) as never);
     on('hud:pressure', ((p: number) => this.setPressure(p)) as never);
     on('hud:picker', ((o: { open: boolean; idx: number }) => this.showPicker(o.open, o.idx)) as never);
@@ -52,6 +66,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   store() { return this.scene.get('Store') as StoreScene; }
+  levelKey() { return (this.registry.get('levelKey') as string) || 'Store'; }
+  level() { return this.scene.get(this.levelKey()) as LevelScene; }
 
   // ------------------------------------------------------------ HUD
   buildHud() {
@@ -64,6 +80,9 @@ export class UIScene extends Phaser.Scene {
     this.hud.add(this.add.image(78, 14, 'goldenLeaf').setScale(0.75));
     this.leafT = txt(this, 87, 8, '0/3'); this.hud.add(this.leafT);
     this.badgeI = this.add.image(138, 14, 'badge').setScale(0.75).setAlpha(0.25).setTint(0x888888); this.hud.add(this.badgeI);
+    const g2 = this.add.graphics().fillStyle(C.ink, 0.72).fillRoundedRect(4, 26, 150, 16, 4); this.hud.add(g2);
+    for (let i = 0; i < 5; i++) { const h = this.add.image(13 + i * 13, 34, 'leaf9'); this.hearts.push(h); this.hud.add(h); }
+    this.scoreT = txt(this, 150, 29, '000000', { align: 'right', outline: false, color: C.gold0 }); this.hud.add(this.scoreT);
     // flavour slot (trident badge frame)
     this.slot = this.add.container(424, 21);
     const fr = this.add.graphics();
@@ -94,17 +113,18 @@ export class UIScene extends Phaser.Scene {
   }
   resetHud() {
     this.dropTotal = this.dropTotal || (this.registry.get('dropTotal') as number) || 0;
+    this.setHearts(GS.hearts, GS.maxHearts); this.scoreT.setText(String(GS.score).padStart(6, '0'));
     this.dropsT.setText(`00/${this.dropTotal}`);
-    this.leafT.setText('0/3');
+    this.leafT.setText(`0/${this.leafTotal}`);
     this.badgeI.setAlpha(0.25).setTint(0x888888);
     this.setPower(null, 0, 1);
     this.pressure.setAlpha(0);
   }
   pulse(o: Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject) { this.tweens.add({ targets: o, scale: { from: 1.35, to: o === this.badgeI as unknown ? 0.75 : 1 }, duration: 220, ease: 'Back.Out' }); }
-  setPower(id: FlavorId | null, t: number, d: number) {
+  setPower(id: PowerId | null, t: number, d: number) {
     this.slotRing.clear();
-    if (!id) { this.slotIcon.setTexture('icon_none'); this.slotName.setText(''); return; }
-    const f = FLAVORS[id];
+    if (!id) { if (this.slotIcon.texture.key !== 'icon_burp') { this.slotIcon.setTexture('icon_none').clearTint(); this.slotName.setText(''); } return; }
+    const f = { ...POWERS[id], icon: POWERS[id].icon };
     if (this.slotIcon.texture.key !== f.icon) { this.slotIcon.setTexture(f.icon); this.pulse(this.slotIcon); this.slotName.setText(f.power).setTint(f.light); }
     const k = Math.max(0, t / d);
     this.slotRing.lineStyle(3, k < 0.2 && Math.floor(this.time.now / 150) % 2 ? C.wht : f.light, 1).beginPath().arc(0, 0, 12.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k).strokePath();
@@ -134,6 +154,52 @@ export class UIScene extends Phaser.Scene {
     this.tweens.chain({ targets: c, tweens: [{ y: 40, duration: 260, ease: 'Back.Out' }, { y: 40, duration: 2000 }, { y: -40, duration: 220, ease: 'Quad.In', onComplete: () => { c.destroy(); this.nextToast(); } }] });
   }
 
+  setHearts(n: number, m: number) {
+    this.hearts.forEach((h, i) => { h.setVisible(i < m).setTint(i < n ? 0xffffff : 0x444444).setAlpha(i < n ? 1 : 0.5); });
+  }
+  setBurp(id: BurpId | null) {
+    if (!id) return;
+    const b = BURPS[id];
+    this.slotIcon.setTexture('icon_burp').setTint(b.light);
+    this.slotName.setText(b.power).setTint(b.light);
+    this.slotRing.clear().lineStyle(3, b.light, 1).strokeCircle(0, 0, 12.5);
+  }
+  setBoss(name: string | null, frac: number) {
+    if (!name) { this.bossBar?.destroy(); this.bossBar = null; return; }
+    if (!this.bossBar) {
+      const c = this.add.container(240, 250).setDepth(12);
+      const g = this.add.graphics().fillStyle(C.ink, 0.85).fillRoundedRect(-120, -8, 240, 18, 4).lineStyle(2, C.red1).strokeRoundedRect(-119, -7, 238, 16, 4);
+      this.bossFill = this.add.graphics();
+      c.add([g, this.bossFill, txt(this, 0, -18, name, { align: 'center', color: C.red0 }), this.add.image(-112, 1, 'trident13').setScale(0.8), this.add.image(112, 1, 'trident13').setScale(0.8)]);
+      this.bossBar = c;
+    }
+    const w = Math.max(0, Math.round(200 * frac));
+    this.bossFill.clear().fillStyle(C.blk1).fillRect(-100, -2, 200, 6).fillStyle(frac > 0.5 ? C.red1 : frac > 0.25 ? C.gold1 : C.red0).fillRect(-100, -2, w, 6).fillStyle(0xffffff, 0.45).fillRect(-100, -2, w, 1);
+  }
+  levelBanner(name: string) {
+    const c = this.add.container(240, 120).setDepth(18).setAlpha(0);
+    const w = name.length * 6 + 40;
+    c.add([this.add.graphics().fillStyle(C.ink, 0.85).fillRect(-w / 2, -14, w, 28).fillStyle(C.red1).fillRect(-w / 2, -14, w, 2).fillRect(-w / 2, 12, w, 2),
+      this.add.image(-w / 2 + 10, 0, 'trident13'), this.add.image(w / 2 - 10, 0, 'leaf9'), txt(this, 0, -5, name, { align: 'center', color: C.wht })]);
+    this.tweens.chain({ targets: c, tweens: [{ alpha: 1, duration: 300, delay: 300 }, { alpha: 1, duration: 1800 }, { alpha: 0, duration: 400, onComplete: () => c.destroy() }] });
+  }
+  showClear(st: { title: string; drops: number; dropTotal: number; leaves: number; leafTotal: number; score: number; time: number }) {
+    this.clearCard?.destroy();
+    const c = this.add.container(240, 135).setDepth(28).setScale(0.3).setAlpha(0);
+    const mm = Math.floor(st.time / 60), ss = Math.floor(st.time % 60);
+    const g = this.add.graphics().fillStyle(C.blk2, 0.95).fillRoundedRect(-110, -56, 220, 112, 8).lineStyle(2, C.red1).strokeRoundedRect(-109, -55, 218, 110, 8);
+    c.add([g, this.add.image(-92, -42, 'trident22'), this.add.image(92, -42, 'leaf15'), txt(this, 0, -46, st.title, { align: 'center', color: C.gold1 }),
+      txt(this, 0, -24, `SYRUP DROPS  ${st.drops}/${st.dropTotal}`, { align: 'center', outline: false, color: C.wl1 }),
+      txt(this, 0, -10, `GOLDEN MAPLE LEAVES  ${st.leaves}/${st.leafTotal}`, { align: 'center', outline: false, color: C.wl1 }),
+      txt(this, 0, 4, `SCORE  ${st.score}`, { align: 'center', outline: false, color: C.gold0 }),
+      txt(this, 0, 18, `TIME  ${mm}:${String(ss).padStart(2, '0')}`, { align: 'center', outline: false, color: C.wl1 }),
+      txt(this, 0, 38, 'HONK! ON TO THE NEXT ONE...', { align: 'center', outline: false, color: C.red0 })]);
+    this.clearCard = c;
+    this.tweens.add({ targets: c, scale: 1, alpha: 1, duration: 350, ease: 'Back.Out' });
+    SFX.powerup(); MUSIC.stinger();
+    this.time.delayedCall(3300, () => this.tweens.add({ targets: c, alpha: 0, duration: 300, onComplete: () => { c.destroy(); if (this.clearCard === c) this.clearCard = null; } }));
+  }
+
   // ------------------------------------------------------------ picker
   buildPicker() {
     this.picker = this.add.container(240, 206).setDepth(15).setVisible(false);
@@ -145,7 +211,7 @@ export class UIScene extends Phaser.Scene {
       const g = this.add.graphics();
       c.add([g, this.add.image(0, -10, f.icon).setScale(1.5), txt(this, 0, 4, f.name, { align: 'center', outline: false, color: f.light }), txt(this, 0, 14, f.power, { align: 'center', outline: false, color: C.wl1 })]);
       c.setData('g', g);
-      const z = this.add.zone(0, 0, 90, 54).setInteractive().on('pointerdown', () => { if (this.picker.visible) (this.store()?.sampling).pick(i); });
+      const z = this.add.zone(0, 0, 90, 54).setInteractive().on('pointerdown', () => { if (this.picker.visible) (this.level() as unknown as StoreScene)?.sampling?.pick(i); });
       c.add(z);
       this.picker.add(c);
       this.pickerCards.push(c);
@@ -167,42 +233,49 @@ export class UIScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ menus
   openPause() {
-    if (this.menu || this.ended) return;
-    const st = this.store();
-    if (!st || !this.scene.isActive('Store')) return;
-    this.scene.pause('Store');
+    if (this.menu || this.ended || this.clearCard) return;
+    const key = this.levelKey();
+    if (!this.scene.isActive(key)) return;
+    this.scene.pause(key);
     AE.music.gain.setTargetAtTime(settings().music * 0.18, AE.now, 0.05);
     SFX.ui('ok');
     this.menuKind = 'pause';
     const vol = (k: 'music' | 'sfx') => () => `${k === 'music' ? 'MUSIC' : 'SOUND FX'}  < ${Math.round(settings()[k] * 10)} >`;
     const adj = (k: 'music' | 'sfx') => (d: number) => { const v = Phaser.Math.Clamp(Math.round(settings()[k] * 10 + (d || 1)) / 10, 0, 1); saveSettings({ [k]: d === 0 ? (settings()[k] >= 1 ? 0 : v) : v } as never); AE.music.gain.setTargetAtTime(settings().music * 0.18, AE.now, 0.05); SFX.ui('move'); };
+    const tog = (k: 'reduceFlash' | 'reduceShake' | 'highContrast', label: string) => ({ label: () => `${label}: ${settings()[k] ? 'ON' : 'OFF'}`, act: () => { saveSettings({ [k]: !settings()[k] } as never); SFX.ui('move'); } });
     this.buildMenu('PAUSED', [
       { label: () => 'RESUME', act: () => this.closePause() },
       { label: vol('music'), act: adj('music') },
       { label: vol('sfx'), act: adj('sfx') },
       { label: () => `MUTE: ${settings().muted ? 'ON' : 'OFF'}`, act: () => this.toggleMute() },
-      { label: () => 'RESTART DEMO', act: () => this.goto('Intro') },
+      tog('reduceFlash', 'REDUCE FLASHING'),
+      tog('reduceShake', 'REDUCE SHAKE'),
+      tog('highContrast', 'HIGH CONTRAST'),
+      { label: () => 'JOURNAL', act: () => { this.scene.launch('Journal', { from: 'UI' }); this.scene.bringToTop('Journal'); this.scene.pause(); } },
+      { label: () => (GS.mode === 'demo' ? 'RESTART DEMO' : 'RESTART FROM CHECKPOINT'), act: () => { if (GS.mode === 'demo') this.goto('Intro'); else { this.registry.set('resumeCheckpoint', true); this.goto(key); } } },
       { label: () => 'MAIN MENU', act: () => this.goto('Title') },
     ], this.controlsHelp());
     Controls.consumeAll();
   }
-  controlsHelp() { return this.touchOn ? 'ON-SCREEN BUTTONS: MOVE, JUMP, HONK, POWER, SIP/USE' : 'ARROWS/AD MOVE  SPACE JUMP  X HONK  C POWER  E SIP/USE  M MUTE'; }
   closePause() {
     this.destroyMenu();
-    this.scene.resume('Store');
+    this.scene.resume(this.levelKey());
     AE.apply();
     Controls.consumeAll();
     SFX.ui('back');
   }
   toggleMute() { saveSettings({ muted: !settings().muted }); this.muteBtn.setText(settings().muted ? 'OFF' : 'SND'); this.refreshMenu(); }
-  goto(scene: 'Intro' | 'Title') {
+  goto(scene: string) {
     this.destroyMenu();
     MUSIC.stop(0.2);
     AE.apply();
     Controls.consumeAll(); Controls.clearTouch();
-    this.scene.stop('Store');
+    const key = this.levelKey();
+    this.scene.stop(key);
+    if (scene === key) { this.scene.stop(); this.scene.start(scene); return; }
     this.scene.start(scene);
   }
+  controlsHelp() { return this.touchOn ? 'ON-SCREEN BUTTONS: MOVE, JUMP, HONK, POWER, SIP/USE' : 'ARROWS/AD MOVE  SPACE JUMP  X HONK  C POWER  E SIP/USE  M MUTE'; }
   buildMenu(title: string, items: MenuItem[], footer?: string, y = 135) {
     const kind = this.menuKind;
     this.destroyMenu();

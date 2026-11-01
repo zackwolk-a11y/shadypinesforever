@@ -1,7 +1,7 @@
 /** Persistent settings + demo stats (localStorage, versioned). */
 const KEY = 'simps-goose-v1';
-export interface Settings { music: number; sfx: number; muted: boolean; bestDrops: number; plays: number; touch: 'auto' | 'on' | 'off' }
-const DEF: Settings = { music: 0.7, sfx: 0.85, muted: false, bestDrops: 0, plays: 0, touch: 'auto' };
+export interface Settings { music: number; sfx: number; muted: boolean; bestDrops: number; plays: number; touch: 'auto' | 'on' | 'off'; reduceFlash: boolean; reduceShake: boolean; highContrast: boolean }
+const DEF: Settings = { music: 0.7, sfx: 0.85, muted: false, bestDrops: 0, plays: 0, touch: 'auto', reduceFlash: false, reduceShake: false, highContrast: false };
 let cache: Settings | null = null;
 export function settings(): Settings {
   if (cache) return cache;

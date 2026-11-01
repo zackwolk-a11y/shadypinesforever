@@ -6,6 +6,9 @@ import { SFX } from '../audio/sfx';
 import { FLAVORS, FLAVOR_ORDER, FlavorId } from './flavors';
 import { FLOOR, L } from './layout';
 import { emote } from '../entities/Emote';
+import { addUnique, save } from '../systems/save';
+import { achieve } from '../data/achievements';
+import { shake } from '../systems/camfx';
 
 export const CUP_X = [L.sample.x + 56, L.sample.x + 72, L.sample.x + 88];
 const TOP = FLOOR - L.sample.h;
@@ -39,7 +42,7 @@ export class Sampling {
   open() {
     this.s.phase = 'picker';
     this.s.goose.body.vx = 0;
-    this.idx = Math.max(0, FLAVOR_ORDER.indexOf(this.s.power ?? 'cola'));
+    this.idx = Math.max(0, FLAVOR_ORDER.indexOf((this.s.power ?? 'cola') as FlavorId));
     SFX.ui('ok');
     Controls.consume('interact'); Controls.consume('confirm'); Controls.consume('jump');
     this.s.sam.setState('gesture', 3);
@@ -97,7 +100,7 @@ export class Sampling {
     const head = { x: g.x + 10, y: g.y - 28 };
     if (id === 'cola') {
       SFX.fizz(1.2, 1.4); SFX.honk(0.7);
-      s.cameras.main.shake(400, 0.004);
+      shake(s, 400, 0.004);
       for (let k = 0; k < 10; k++) s.time.delayedCall(k * 110, () => s.fx.fizz(g.x + 4, g.y - 20, 6));
       emote(s, g.x + 6, g.y - 44, 'FIZZ!!', { life: 1100, color: f.color });
     } else if (id === 'cream') {
@@ -112,6 +115,8 @@ export class Sampling {
     }
     s.time.delayedCall(1450, () => {
       s.setPower(id);
+      addUnique('flavors', id);
+      if (FLAVOR_ORDER.every((f) => save().flavors.includes(f))) achieve('flavor_explorer');
       s.sam.say(f.staffLine, 1800); s.sam.setState('laugh', 1.2); SFX.laugh(1.15);
       g.mode = 'play'; g.playLoop('idle'); g.wasGround = true;
       s.phase = 'play';

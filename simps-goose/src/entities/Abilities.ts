@@ -8,11 +8,13 @@ export class Foam {
   img: Phaser.GameObjects.Image;
   plat: Platform;
   t = 0; life = 4.6; startY: number; liftTo: number; active = true;
-  constructor(scene: Phaser.Scene, world: PhysicsWorld, x: number, feetY: number, lift: number) {
+  constructor(scene: Phaser.Scene, world: PhysicsWorld, x: number, feetY: number, lift: number, big = false) {
     this.startY = feetY; this.liftTo = feetY - lift;
-    this.plat = world.add({ x: x - 20, y: feetY, w: 40, h: 4, kind: 'oneway', tag: 'foam' });
+    if (big) this.life = 9;
+    const w = big ? 64 : 40;
+    this.plat = world.add({ x: x - w / 2, y: feetY, w, h: 4, kind: 'oneway', tag: 'foam' });
     this.plat.owner = this;
-    this.img = scene.add.image(x, feetY + 7, 'foam').setDepth(44).setScale(0.2);
+    this.img = scene.add.image(x, feetY + 7, big ? 'foamBig' : 'foam').setDepth(44).setScale(0.2);
     scene.tweens.add({ targets: this.img, scale: 1, duration: 260, ease: 'Back.Out' });
     SFX.foam();
   }

@@ -13,6 +13,7 @@ import { SFX } from '../audio/sfx';
 import { AE } from '../audio/engine';
 import { FxSystem } from '../gameplay/FxSystem';
 import { emote } from '../entities/Emote';
+import { shake } from '../systems/camfx';
 
 const GY = 226;
 export class IntroScene extends Phaser.Scene {
@@ -85,7 +86,7 @@ export class IntroScene extends Phaser.Scene {
       this.time.delayedCall(140, () => {
         SFX.honk(2.2);
         this.fx.honk(this.goose.x + 14, this.goose.y - 34, 1, true);
-        cam.shake(450, 0.01);
+        shake(this, 450, 0.01);
         this.birds.forEach((b, i) => { b.play('bird_fly'); SFX.tweet(); this.tweens.add({ targets: b, x: b.x - 120 - i * 40, y: -30, duration: 1400 + i * 200, ease: 'Quad.In' }); });
         this.peds.forEach((p) => { if (Math.abs(p.s.x - this.goose.x) < 260) { p.s.play(p.s.texture.key + '_shock'); p.v = 0; emote(this, p.s.x, p.s.y - 62, ['!', 'WHOA!', '?!'][Math.floor(Math.random() * 3)], { life: 1100 }); } });
       });

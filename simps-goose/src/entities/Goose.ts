@@ -33,6 +33,10 @@ export class Goose {
   private hurtT = 0; private dashT = 0; private dashDir = 1;
   private airDashUsed = false;
   canDash = false;
+  floatMode = false;
+  speedMul = 1;
+  tropicalUses = 2;
+  private dashSpeed = 340;
   ride: { x: number; y: number } | null = null;
   events = new Phaser.Events.EventEmitter();
   wasGround = true;
@@ -72,10 +76,10 @@ export class Goose {
     SFX.hurt();
     this.events.emit('hurt');
   }
-  dash(dir: 1 | -1) {
+  dash(dir: 1 | -1, dur = 0.24, speed = 340) {
     if (!this.body.onGround && this.airDashUsed) return false;
     if (!this.body.onGround) this.airDashUsed = true;
-    this.mode = 'dash'; this.dashT = 0.24; this.dashDir = dir; this.facing = dir;
+    this.mode = 'dash'; this.dashT = dur; this.dashSpeed = speed; this.dashDir = dir; this.facing = dir;
     this.sprite.play('g_dash', true);
     this.squash(1.3, 0.75);
     return true;
@@ -101,7 +105,7 @@ export class Goose {
     // ---------- horizontal ----------
     if (this.mode === 'dash') {
       this.dashT -= dt;
-      b.vx = this.dashDir * 340; b.vy = 0;
+      b.vx = this.dashDir * this.dashSpeed; b.vy = 0;
       if (this.dashT <= 0 || b.hitWall) { this.mode = 'play'; b.vx = this.dashDir * T.runMax; this.squash(0.85, 1.15); }
     } else if (this.mode === 'hurt') {
       this.hurtT -= dt;
@@ -111,7 +115,7 @@ export class Goose {
       const locked = this.oneShotLock || this.mode === 'locked';
       const d = locked ? 0 : dir;
       if (d !== 0) { this.facing = d as 1 | -1; this.holdRun += dt; } else this.holdRun = 0;
-      const max = this.holdRun > T.runAfter ? T.runMax : T.walkMax;
+      const max = (this.holdRun > T.runAfter ? T.runMax : T.walkMax) * this.speedMul;
       const acc = b.onGround ? T.accel : T.airAccel;
       if (d !== 0) {
         if (Math.sign(b.vx) !== d && b.vx !== 0) b.vx += d * (b.onGround ? T.decel : T.airAccel) * dt * 1.2;
@@ -143,7 +147,8 @@ export class Goose {
     if (this.mode !== 'dash') {
       let g = T.gravity * (b.vy > 0 ? T.fallMul : 1);
       let maxF = T.maxFall;
-      if (inp && b.vy > 0 && Controls.down('jump') && this.flutter > 0) { g *= T.flutterGrav; maxF = T.flutterMax; this.flutter -= dt; flutter = true; }
+      if (inp && b.vy > 0 && Controls.down('jump') && this.floatMode) { g *= 0.12; maxF = 28; flutter = true; }
+      else if (inp && b.vy > 0 && Controls.down('jump') && this.flutter > 0) { g *= T.flutterGrav; maxF = T.flutterMax; this.flutter -= dt; flutter = true; }
       b.vy = Math.min(maxF, b.vy + g * dt);
     }
 

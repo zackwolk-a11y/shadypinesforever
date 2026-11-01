@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { generateAll } from '../art/registry';
 import { C } from '../art/palette';
 import { settings } from '../systems/settings';
+import { GS } from '../systems/gamestate';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
@@ -21,6 +22,7 @@ export class BootScene extends Phaser.Scene {
       generateAll(this);
       (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.genMs = Math.round(performance.now() - t0);
       this.scene.launch('Input');
+      GS.newRun(q.get('mode') === 'demo' ? 'demo' : 'story');
       const start = q.get('scene');
       this.scene.start(start === 'store' ? 'Store' : start === 'intro' ? 'Intro' : 'Title');
     });

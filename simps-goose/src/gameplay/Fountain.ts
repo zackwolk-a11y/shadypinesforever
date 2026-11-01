@@ -11,6 +11,7 @@ import { FLOOR, L } from './layout';
 import { FOUNTAIN_SPOUTS } from '../art/props';
 import { C } from '../art/palette';
 import { emote } from '../entities/Emote';
+import { shake, flash } from '../systems/camfx';
 
 const FX0 = L.fountain.x, TOPY = FLOOR - L.fountain.h;
 export class Fountain {
@@ -48,14 +49,14 @@ export class Fountain {
       SFX.fountainStart(1); SFX.fizz(1, 1);
       MUSIC.setIntensity(1);
       this.needleTarget = -0.8; this.shake = 1;
-      s.cameras.main.shake(300, 0.003);
+      shake(s, 300, 0.003);
       for (let i = 0; i < 6; i++) s.time.delayedCall(i * 120, () => s.fx.steam(FX0 + 20 + Math.random() * 90, TOPY + 10, 2));
       emote(s, this.cx, TOPY - 14, '?!', { life: 1100, color: C.red1 });
       s.nearestPerson(this.cx, 260)?.say('UH OH...', 1600);
     } else {
       SFX.fountainStart(2); SFX.hiss(1.4);
       this.needleTarget = 1.6; this.shake = 2.5;
-      s.cameras.main.shake(900, 0.006);
+      shake(s, 900, 0.006);
       s.time.delayedCall(1300, () => this.erupt());
     }
   }
@@ -63,8 +64,8 @@ export class Fountain {
     const s = this.s;
     this.stage = 2;
     SFX.bigPop(); MUSIC.setIntensity(2);
-    s.cameras.main.flash(180, 255, 255, 255);
-    s.cameras.main.shake(500, 0.008);
+    flash(s, 180, 255, 255, 255);
+    shake(s, 500, 0.008);
     s.bubbles.spawn(this.cx + 10, TOPY + 40, 46, 'drift', { vx: 45, vy: -30, maxStomps: 99, life: 6 });
     for (const sx of FOUNTAIN_SPOUTS) { s.fx.bubbles(FX0 + sx, FLOOR - 40, 10); s.fx.drops(FX0 + sx, FLOOR - 40, [C.cola0, C.crm1, C.chr0][FOUNTAIN_SPOUTS.indexOf(sx)], 14); }
     for (let i = 0; i < 4; i++) s.fx.splat(FX0 + 140 + i * 40 + Math.random() * 20, FLOOR + 2, [C.cola1, C.crm2, C.chr1][i % 3]);
@@ -128,7 +129,7 @@ export class Fountain {
     s.tweens.add({ targets: this.wheel, rotation: Math.PI * 6, duration: 1200, ease: 'Cubic.InOut' });
     SFX.valve();
     this.needleTarget = 2.3; this.shake = 3;
-    s.time.delayedCall(500, () => { SFX.hiss(1.6); SFX.rumble(1.2); s.cameras.main.shake(800, 0.007); for (const sx of FOUNTAIN_SPOUTS) s.fx.bubbles(FX0 + sx, FLOOR - 40, 14); });
+    s.time.delayedCall(500, () => { SFX.hiss(1.6); SFX.rumble(1.2); shake(s, 800, 0.007); for (const sx of FOUNTAIN_SPOUTS) s.fx.bubbles(FX0 + sx, FLOOR - 40, 14); });
     s.time.delayedCall(1300, () => {
       // giant bubble envelops the goose
       const bub = s.add.image(g.x, g.y - 22, 'bubble96').setDepth(47).setScale(0.1).setTint(0xf2fbff);

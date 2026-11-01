@@ -1,114 +1,123 @@
 /**
- * LEVEL 1 (vertical slice) — inside the Simps store.
- * Orchestrates: environment build, fixed-step physics, flavour powers, interactions,
- * Bubble Trouble and the freeze-frame ending.
+ * LEVEL 1 — BUBBLE TROUBLE (the Simps store).
+ * Story mode: 3 pressure valves → giant bubble ride out through the skylight → Level 2.
+ * Demo mode (the original vertical slice): single valve → freeze-frame "TO BE CONTINUED".
  */
 import Phaser from 'phaser';
 import { C } from '../art/palette';
-import { PhysicsWorld, overlap } from '../systems/physics';
-import { Controls } from '../systems/input';
 import { settings, saveSettings } from '../systems/settings';
-import { Goose } from '../entities/Goose';
 import { Person } from '../entities/Person';
-import { BubbleManager, Bubble } from '../entities/Bubbles';
 import { ShelfBottle, BoxWall } from '../entities/Props';
-import { Foam, CherryShot, TridentLift } from '../entities/Abilities';
+import { TridentLift } from '../entities/Abilities';
 import { emote } from '../entities/Emote';
-import { FxSystem } from '../gameplay/FxSystem';
 import { Sampling } from '../gameplay/Sampling';
 import { Fountain } from '../gameplay/Fountain';
-import { FLAVORS, FlavorId, POWER_DURATION } from '../gameplay/flavors';
 import { WORLD_W, WORLD_H, FLOOR, CEIL, L, BG_PARALLAX, BG_W, bgX, solids } from '../gameplay/layout';
 import { TRIDENT_STAND } from '../art/motifs';
+import { LevelScene, Rect, SwitchLike } from '../levels/LevelScene';
+import { GS } from '../systems/gamestate';
+import { complete, unlock, StageId } from '../systems/save';
+import { achieve } from '../data/achievements';
+import { shake, flash } from '../systems/camfx';
 import { SFX } from '../audio/sfx';
 import { MUSIC } from '../audio/music';
 
-type Phase = 'intro' | 'play' | 'picker' | 'cutscene' | 'frozen';
-interface Pickup { img: Phaser.GameObjects.Image; x: number; y: number; kind: 'drop' | 'leaf' | 'badge'; got: boolean; t: number; shade?: Phaser.GameObjects.Image }
-interface Prompt { img: Phaser.GameObjects.Image; cond: () => boolean; done: () => boolean; at: () => { x: number; y: number }; a: number }
+/** Trident pressure valve (story mode). Honk it, use it, or hit it with a shot. */
+class PressureValve implements SwitchLike {
+  on = false; by = ['honk', 'interact', 'shot', 'electric'];
+  wheel: Phaser.GameObjects.Image;
+  constructor(public s: StoreScene, public x: number, public y: number, public n: number) {
+    s.add.rectangle(x, y, 6, 30, C.st2).setOrigin(0.5, 1).setDepth(30);
+    s.add.rectangle(x - 14, y - 30, 28, 6, C.st3).setOrigin(0, 0.5).setDepth(30);
+    this.wheel = s.add.image(x, y - 34, 'valveWheel').setDepth(31);
+    s.tweens.add({ targets: this.wheel, angle: { from: -6, to: 6 }, yoyo: true, repeat: -1, duration: 300 });
+  }
+  rect(): Rect { return { x: this.x - 16, y: this.y - 50, w: 32, h: 50 }; }
+  activate() {
+    if (this.on || this.s.fountain.stage < 2) { if (this.s.fountain.stage < 2) emote(this.s, this.x, this.y - 54, 'NO PRESSURE YET', { life: 900 }); return; }
+    this.on = true;
+    const s = this.s;
+    s.tweens.killTweensOf(this.wheel);
+    s.tweens.add({ targets: this.wheel, rotation: Math.PI * 4, duration: 900, ease: 'Cubic.InOut' });
+    SFX.valve(); SFX.hiss(1.2); shake(s, 400, 0.004);
+    for (let i = 0; i < 3; i++) s.time.delayedCall(i * 150, () => s.fx.steam(this.x, this.y - 40, 2));
+    s.bubbles.spawn(this.x + 40, this.y - 70, 30, 'drift', { vx: 30, vy: -18, maxStomps: 99, life: 12, tint: 0xf8f0ff });
+    const done = s.valves.filter((v) => v.on).length;
+    s.game.events.emit('hud:toast', `PRESSURE VALVE ${done}/${s.valves.length + 1}`, C.red0, done === s.valves.length ? 'MAIN VALVE ON THE MEZZANINE UNLOCKED!' : 'GIANT BUBBLE RELEASED!');
+    s.fountain.pressure = Math.max(0.3, s.fountain.pressure - 0.2);
+  }
+}
 
-const STEP = 1 / 120;
-const DROP_COLORS = [C.cola0, C.crm1, C.chr0, C.blu1, C.lim1, C.mng1, C.pur0];
-
-export class StoreScene extends Phaser.Scene {
-  world!: PhysicsWorld; goose!: Goose; fx!: FxSystem; bubbles!: BubbleManager;
-  people: Person[] = []; bottles: ShelfBottle[] = []; boxWall!: BoxWall; lift!: TridentLift;
-  foams: Foam[] = []; shots: CherryShot[] = [];
+export class StoreScene extends LevelScene {
+  stage: StageId = 'store';
+  bottles: ShelfBottle[] = []; boxWall!: BoxWall; lift!: TridentLift;
   sam!: Person;
   sampling!: Sampling; fountain!: Fountain;
-  power: FlavorId | null = null; powerT = 0; abilityCd = 0;
-  pickups: Pickup[] = []; dropCount = 0; dropTotal = 0; leafCount = 0; badgeGot = false;
-  phase: Phase = 'intro';
-  acc = 0; elapsed = 0;
-  prompts: Prompt[] = [];
-  honkCount = 0;
+  valves: PressureValve[] = [];
   wallShelfHonks = 0;
   bumpedWall = 0;
   lampGlows: Phaser.GameObjects.Image[] = [];
-  touch = false;
-  usedJump = false; usedHonk = false; usedPower = false;
+  demo = false;
+  fridgeT = 0;
 
   constructor() { super('Store'); }
+  get dropCount() { return this.counts.drop; }
+  get dropTotal() { return this.totals.drop; }
+  get leafCount() { return this.counts.leaf; }
+  get badgeGot() { return this.counts.badge > 0; }
 
   create() {
-    this.resetState();
-    const cam = this.cameras.main;
-    cam.setBounds(0, 0, WORLD_W, WORLD_H).setBackgroundColor(C.blk2).setRoundPixels(true);
-    this.world = new PhysicsWorld();
+    this.demo = GS.mode === 'demo';
+    this.levelName = this.demo ? 'BUBBLE TROUBLE (DEMO)' : 'LEVEL 1: BUBBLE TROUBLE';
+    this.initLevel({ w: WORLD_W, h: WORLD_H, floor: FLOOR, bg: C.blk2, spawn: { x: 40, y: FLOOR } });
+    this.bottles = []; this.valves = []; this.lampGlows = []; this.wallShelfHonks = 0; this.bumpedWall = 0;
     for (const sd of solids()) this.world.add(sd);
-    this.fx = new FxSystem(this);
-    this.touch = this.registry.get('touch') === true;
     this.buildEnvironment();
     this.buildPeople();
     this.buildBottles();
     this.buildPickups();
-
-    this.goose = new Goose(this, 40, FLOOR);
-    this.goose.events.on('honk', (p: { x: number; y: number }) => this.onHonk(p.x, p.y));
-    this.goose.events.on('land', (x: number, y: number) => this.fx.dust(x, y, 5));
-    this.goose.events.on('jump', () => { this.usedJump = true; this.fx.dust(this.goose.x, this.goose.y, 3); });
-    this.goose.events.on('hurt', () => { this.fx.stars(this.goose.sprite); emote(this, this.goose.x, this.goose.y - 40, 'HONK?!', { life: 900 }); });
-
-    this.bubbles = new BubbleManager(this, this.world, 28);
-    this.bubbles.onPop = (b: Bubble) => this.onBubblePop(b);
+    if (!this.demo) this.buildStorage();
+    this.finishInit({ music: 'store' });
     this.boxWall = new BoxWall(this, this.world, L.boxWall.x, L.boxWall.cols, L.boxWall.rows, L.boxWall.bw, L.boxWall.bh);
+    const bw = this.boxWall;
+    this.breakables.push({ get broken() { return bw.toppled; }, rect: () => bw.rect(), by: ['dash', 'shot'], smash: (dir: number) => bw.topple(dir, this.world, (x, y) => this.fx.dust(x, y, 6)) });
     this.add.image(L.boxWall.x + 24, FLOOR - 92, 'signDelivery').setOrigin(0.5, 1).setDepth(37);
     this.lift = new TridentLift(this, this.world, L.lift.x, L.lift.low, L.lift.high);
     this.sampling = new Sampling(this);
     this.fountain = new Fountain(this);
+    if (!this.demo) {
+      this.addPlatform(1972, 250, 36, 5, 'oneway', 'valveLedge');
+      const g = this.add.graphics().setDepth(27); g.fillStyle(C.st3).fillRect(1972, 250, 36, 5).fillStyle(C.st1).fillRect(1972, 250, 36, 1);
+      this.add.image(1990, 255, 'trident13').setOrigin(0.5, 0).setDepth(26);
+      this.valves.push(new PressureValve(this, 1990, 250, 1), new PressureValve(this, 2245, FLOOR, 2));
+      this.switches.push(...this.valves);
+    }
     this.buildPrompts();
-
-    cam.startFollow(this.goose.sprite, true, 0.12, 0.1, 0, 30);
-    cam.setDeadzone(40, 50);
-    cam.fadeIn(500, 20, 12, 24);
-
-    this.registry.set('dropTotal', this.dropTotal);
-    if (!this.scene.isActive('UI')) this.scene.launch('UI');
-    else this.scene.get('UI').events.emit('reset');
-    this.scene.bringToTop('UI');
-    MUSIC.play('store'); MUSIC.setIntensity(0);
-    this.game.events.emit('hud:reset', { dropTotal: this.dropTotal });
-
     // intro: goose waddles in through the door
     this.phase = 'intro';
     this.goose.body.vx = 70;
     this.time.delayedCall(650, () => { if (this.phase === 'intro') this.phase = 'play'; });
-    this.events.once('shutdown', () => { this.goose.events.removeAllListeners(); });
     const api = (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS;
     api.store = this;
-    // test hooks (used by tests/e2e.mjs to reach sections quickly; gameplay itself uses real input)
-    api.teleport = (x: number, y: number) => { const b = this.goose.body; b.x = x - b.w / 2; b.y = y - b.h; b.vx = 0; b.vy = 0; b.ground = null; this.cameras.main.centerOn(x, y); };
     api.restartStore = () => this.scene.restart();
   }
+  valvesReady() { return this.valves.every((v) => v.on); }
 
-  resetState() {
-    this.people = []; this.bottles = []; this.foams = []; this.shots = []; this.pickups = []; this.prompts = []; this.lampGlows = [];
-    this.power = null; this.powerT = 0; this.abilityCd = 0; this.dropCount = 0; this.dropTotal = 0; this.leafCount = 0; this.badgeGot = false;
-    this.acc = 0; this.elapsed = 0; this.honkCount = 0; this.wallShelfHonks = 0; this.bumpedWall = 0;
-    this.usedJump = false; this.usedHonk = false; this.usedPower = false;
+  /** Upper storage-shelf route above the coolers (golden bottle). */
+  buildStorage() {
+    const ledges: [number, number, number][] = [[740, 800, 196], [832, 900, 180], [930, 1066, 166]];
+    const g = this.add.graphics().setDepth(27);
+    for (const [x0, x1, y] of ledges) {
+      this.addPlatform(x0, y, x1 - x0, 5, 'oneway', 'storage');
+      g.fillStyle(C.ink).fillRect(x0 - 1, y - 1, x1 - x0 + 2, 7).fillStyle(C.wd1).fillRect(x0, y, x1 - x0, 5).fillStyle(C.wd0).fillRect(x0, y, x1 - x0, 1);
+      this.add.image(x0 + 8, y + 5, 'trident13').setOrigin(0.5, 0).setDepth(26); this.add.image(x1 - 8, y + 5, 'trident13').setOrigin(0.5, 0).setDepth(26);
+    }
+    for (const [x, k] of [[950, 'box1'], [974, 'box2'], [962, 'box0']] as [number, string][]) this.add.image(x, k === 'box0' ? 166 - 22 : 166, k).setOrigin(0.5, 1).setDepth(27);
+    this.add.image(962, 166 - 44, 'box2').setOrigin(0.5, 1).setDepth(27);
+    this.addDropLine(752, 790, 182, 3); this.addDropLine(845, 890, 166, 3);
+    this.addPickup('bottle', 1045, 148);
   }
 
-  // ------------------------------------------------------------------ build
   buildEnvironment() {
     const P = BG_PARALLAX;
     this.add.image(0, 0, 'storeWall').setOrigin(0).setScrollFactor(P, 1).setDepth(0);
@@ -199,122 +208,93 @@ export class StoreScene extends Phaser.Scene {
   }
 
   buildPickups() {
-    const drops: [number, number][] = [];
-    const line = (x0: number, x1: number, y: number, n: number) => { for (let i = 0; i < n; i++) drops.push([x0 + (x1 - x0) * (n === 1 ? 0 : i / (n - 1)), y]); };
-    line(120, 250, FLOOR - 14, 4);
-    line(312, 324, FLOOR - 44, 2);
-    line(366, 380, FLOOR - 72, 2);
-    line(440, 512, FLOOR - 92, 4);
-    drops.push([L.tridentStand.x + 38, FLOOR - TRIDENT_STAND.h + 46], [L.tridentStand.x + 15, FLOOR - TRIDENT_STAND.h + 8], [L.tridentStand.x + 61, FLOOR - TRIDENT_STAND.h + 8]);
-    line(735, 810, FLOOR - 92, 4);
-    line(880, 1060, FLOOR - 14, 5);
-    line(1125, 1200, FLOOR - 62, 3);
-    line(1330, 1370, FLOOR - 14, 2);
-    line(1640, 1700, FLOOR - 14, 3);
-    line(1800, 1880, FLOOR - 14, 3);
-    line(1960, 2000, FLOOR - 100, 2);
-    line(2070, 2110, FLOOR - 150, 2);
-    line(2200, 2300, L.mezz.y - 14, 4);
-    drops.forEach(([x, y], i) => {
-      const img = this.add.image(x, y, 'droplet').setTint(DROP_COLORS[i % DROP_COLORS.length]).setDepth(38);
-      const shade = this.add.image(x, y, 'dropletShade').setDepth(39);
-      this.pickups.push({ img, shade, x, y, kind: 'drop', got: false, t: i * 0.4 });
-    });
-    this.dropTotal = drops.length;
-    for (const [x, y] of [[L.wallShelf.x + 34, L.wallShelf.y - 14], [L.checkout.x + 56, FLOOR - L.checkout.h - 48], [L.mezz.x + L.mezz.w - 20, L.mezz.y - 14]] as [number, number][]) {
-      this.pickups.push({ img: this.add.image(x, y, 'goldenLeaf').setDepth(38), x, y, kind: 'leaf', got: false, t: 0 });
-    }
-    const bx = L.tridentStand.x + 38, by = FLOOR - TRIDENT_STAND.h - 6;
-    this.pickups.push({ img: this.add.image(bx, by, 'badge28').setDepth(38), x: bx, y: by, kind: 'badge', got: false, t: 0 });
+    this.addDropLine(120, 250, FLOOR - 14, 4);
+    this.addDropLine(312, 324, FLOOR - 44, 2);
+    this.addDropLine(366, 380, FLOOR - 72, 2);
+    this.addDropLine(440, 512, FLOOR - 92, 4);
+    const tx = L.tridentStand.x, ty = FLOOR - TRIDENT_STAND.h;
+    this.addPickup('drop', tx + 38, ty + 46); this.addPickup('drop', tx + 15, ty + 8); this.addPickup('drop', tx + 61, ty + 8);
+    this.addDropLine(735, 810, FLOOR - 92, 4);
+    this.addDropLine(880, 1060, FLOOR - 14, 5);
+    this.addDropLine(1125, 1200, FLOOR - 62, 3);
+    this.addDropLine(1330, 1370, FLOOR - 14, 2);
+    this.addDropLine(1640, 1700, FLOOR - 14, 3);
+    this.addDropLine(1800, 1880, FLOOR - 14, 3);
+    this.addDropLine(1960, 2000, FLOOR - 100, 2);
+    this.addDropLine(2070, 2110, FLOOR - 150, 2);
+    this.addDropLine(2200, 2300, L.mezz.y - 14, 4);
+    this.addPickup('leaf', L.wallShelf.x + 34, L.wallShelf.y - 14);
+    this.addPickup('leaf', L.checkout.x + 56, FLOOR - L.checkout.h - 48);
+    this.addPickup('leaf', L.mezz.x + L.mezz.w - 20, L.mezz.y - 14);
+    this.addPickup('badge', tx + 38, ty - 6);
   }
 
-  key(k: 'jump' | 'honk' | 'sip' | 'power' | 'use' | 'move') {
-    if (this.touch) return { jump: 'key_JUMP', honk: 'key_HONK', sip: 'key_SIP', power: 'key_POWER', use: 'key_USE', move: 'key_ARROWS' }[k];
-    return { jump: 'key_SPACE', honk: 'key_X', sip: 'key_E', power: 'key_C', use: 'key_E', move: 'key_ARROWS' }[k];
-  }
   buildPrompts() {
-    const mk = (tex: string, cond: () => boolean, done: () => boolean, at: () => { x: number; y: number }) => {
-      const img = this.add.image(0, 0, tex).setDepth(85).setAlpha(0);
-      this.prompts.push({ img, cond, done, at, a: 0 });
-    };
     const g = this.goose;
-    mk(this.key('move'), () => this.elapsed > 0.8 && this.elapsed < 6 && g.x < 120, () => g.x > 140, () => ({ x: g.x, y: g.y - 46 }));
-    mk(this.key('jump'), () => g.x > 230 && g.x < 300, () => this.usedJump, () => ({ x: L.crate1.x + 17, y: FLOOR - 52 }));
-    mk(this.key('honk'), () => this.elapsed > 4 && this.nearestPerson(g.x, 90) !== null && this.honkCount === 0, () => this.honkCount > 0, () => ({ x: g.x, y: g.y - 46 }));
-    mk(this.key('sip'), () => this.sampling.inZone() && this.phase === 'play', () => false, () => ({ x: L.sample.x + 72, y: FLOOR - L.sample.h - 24 }));
-    mk(this.key('power'), () => this.power !== null && !this.boxWall.toppled && g.x > L.boxWall.x - 120 && g.x < L.boxWall.x, () => this.boxWall.toppled || g.x > L.boxWall.x + 60, () => ({ x: g.x, y: g.y - 46 }));
-    mk(this.key('honk'), () => this.fountain.stage < 2 && Math.abs(g.x - this.fountain.cx) < 90 && this.phase === 'play', () => this.fountain.stage >= 2, () => ({ x: this.fountain.cx, y: FLOOR - L.fountain.h - 30 }));
-    mk(this.key('use'), () => this.fountain.stage >= 2 && this.fountain.nearValve() && !this.fountain.finaleStarted, () => this.fountain.finaleStarted, () => ({ x: L.valve.x, y: L.mezz.y - 80 }));
+    this.addPrompt(this.key('move'), () => this.elapsed > 0.8 && this.elapsed < 6 && g.x < 120, () => g.x > 140, () => ({ x: g.x, y: g.y - 46 }));
+    this.addPrompt(this.key('jump'), () => g.x > 230 && g.x < 300, () => this.usedJump, () => ({ x: L.crate1.x + 17, y: FLOOR - 52 }));
+    this.addPrompt(this.key('honk'), () => this.elapsed > 4 && this.nearestPerson(g.x, 90) !== null && this.honkCount === 0, () => this.honkCount > 0, () => ({ x: g.x, y: g.y - 46 }));
+    this.addPrompt(this.key('sip'), () => this.sampling.inZone() && this.phase === 'play', () => false, () => ({ x: L.sample.x + 72, y: FLOOR - L.sample.h - 24 }));
+    this.addPrompt(this.key('power'), () => this.power !== null && !this.boxWall.toppled && g.x > L.boxWall.x - 120 && g.x < L.boxWall.x, () => this.boxWall.toppled || g.x > L.boxWall.x + 60, () => ({ x: g.x, y: g.y - 46 }));
+    this.addPrompt(this.key('honk'), () => this.fountain.stage < 2 && Math.abs(g.x - this.fountain.cx) < 90 && this.phase === 'play', () => this.fountain.stage >= 2, () => ({ x: this.fountain.cx, y: FLOOR - L.fountain.h - 30 }));
+    for (const v of this.valves) this.addPrompt(this.key('honk'), () => this.fountain.stage >= 2 && Math.abs(g.x - v.x) < 60 && Math.abs(g.y - v.y) < 60, () => v.on, () => ({ x: v.x, y: v.y - 64 }));
+    this.addPrompt(this.key('use'), () => this.fountain.stage >= 2 && this.fountain.nearValve() && !this.fountain.finaleStarted && this.valvesReady(), () => this.fountain.finaleStarted, () => ({ x: L.valve.x, y: L.mezz.y - 80 }));
   }
 
-  // ---------------------------------------------------------------- helpers
-  nearestPerson(x: number, r: number, staff = true): Person | null {
-    let best: Person | null = null, bd = r;
-    for (const p of this.people) { if (!staff && p.staff) continue; const d = Math.abs(p.x - x); if (d < bd) { bd = d; best = p; } }
-    return best;
-  }
-  setPower(id: FlavorId | null) {
-    this.power = id;
-    this.powerT = id ? POWER_DURATION : 0;
-    if (id) { SFX.powerup(); this.game.events.emit('hud:toast', `${FLAVORS[id].name}: ${FLAVORS[id].power}!`, FLAVORS[id].light, FLAVORS[id].hint); this.fx.sparkle(this.goose.x, this.goose.y - 20, 10, FLAVORS[id].light); }
-    this.game.events.emit('hud:power', id, this.powerT, POWER_DURATION);
-  }
-
-  onHonk(x: number, y: number) {
-    this.honkCount++; this.usedHonk = true;
-    const d = this.goose.facing;
-    this.fx.honk(x, y, d);
-    for (const p of this.people) if (Math.abs(p.x - x) < 130 && Math.abs(p.y - this.goose.y) < 120) p.onHonk(x);
+  onHonkLevel(x: number, y: number) {
     for (const b of this.bottles) if (Math.hypot(b.x - x, b.y - y) < 120) b.jiggle(1);
-    // honking under the high wall ledge rattles a bottle loose (it may bonk the goose!)
     if (Math.abs(x - (L.wallShelf.x + 30)) < 90 && y > L.wallShelf.y) {
       this.wallShelfHonks++;
       if (this.wallShelfHonks >= 2) { const b = this.bottles.find((bb) => bb.knockable && bb.state === 'rest' && bb.baseY === L.wallShelf.y); b?.knock(x > b.x ? 1 : -1, 0.4, true); this.wallShelfHonks = 0; }
     }
     if (!this.boxWall.toppled && Math.abs(x - L.boxWall.x - 24) < 60) this.boxWall.wobble();
     this.fountain.onHonk(x);
+    if (this.fountain.stage >= 2 && this.fountain.nearValve()) this.time.delayedCall(200, () => this.tryFinale());
   }
-
-  useAbility() {
+  onInteract() {
+    if (this.sampling.inZone()) { this.sampling.open(); return true; }
+    if (this.fountain.stage >= 2 && this.fountain.nearValve()) { this.tryFinale(); return true; }
     const g = this.goose;
-    if (this.abilityCd > 0 || g.mode !== 'play') return;
-    if (!this.power) {
-      // no flavor yet: a tiny sad bubble + shrug teaches that C does *something*
-      this.abilityCd = 0.8;
-      g.playOnce('blow', true); SFX.bubble();
-      this.time.delayedCall(300, () => { const b = this.add.image(g.x + g.facing * 14, g.y - 26, 'bubble16').setScale(0.4).setDepth(46); this.tweens.add({ targets: b, y: b.y - 16, scale: 0.6, duration: 600, onComplete: () => { b.destroy(); SFX.pop(0.6); } }); });
-      this.time.delayedCall(800, () => { if (g.mode === 'play') g.playOnce('shrug'); });
-      if (this.sampling.nearGreet()) this.sam.say('TRY A SAMPLE!', 1400);
-      return;
+    if (g.x > L.fridges.x - 10 && g.x < L.fridges.x + L.fridges.w + 10 && g.y > FLOOR - 4 && this.fridgeT <= 0) {
+      this.fridgeT = 1.5;
+      SFX.door(); emote(this, g.x, g.y - 44, 'BRRR!', { life: 900 });
+      for (let i = 0; i < 6; i++) this.time.delayedCall(i * 60, () => this.fx.steam(g.x + (Math.random() - 0.5) * 20, g.y - 20, 1));
+      g.playOnce('hurt'); this.time.delayedCall(500, () => { if (g.mode === 'play') g.playLoop('idle'); });
+      const p = this.nearestPerson(g.x, 140, false); p?.say('CLOSE THE DOOR!', 1200);
+      return true;
     }
-    this.usedPower = true;
-    if (this.power === 'cola') {
-      if (g.dash(g.facing)) { this.abilityCd = 0.55; SFX.dash(); this.cameras.main.shake(120, 0.002); }
-    } else if (this.power === 'cream') {
-      if (this.foams.filter((f) => f.active).length >= 2) this.foams.find((f) => f.active)?.kill();
-      const onGround = g.body.onGround;
-      const f = new Foam(this, this.world, g.x, g.y, onGround ? 48 : 0);
-      this.foams.push(f);
-      if (onGround) { g.body.ground = f.plat; } else { g.body.vy = 0; }
-      g.playOnce('blow');
-      this.fx.bubbles(g.x, g.y, 5);
-      this.abilityCd = 0.7;
-    } else if (this.power === 'cherry') {
-      if (this.shots.filter((s) => s.active).length >= 3) return;
-      g.playOnce('blow');
-      this.time.delayedCall(180, () => this.shots.push(new CherryShot(this, g.x + g.facing * 16, g.y - 26, g.facing)));
-      this.abilityCd = 0.35;
+    return false;
+  }
+  tryFinale() {
+    if (this.fountain.finaleStarted) return;
+    if (!this.valvesReady()) { emote(this, L.valve.x, L.mezz.y - 60, `LOCKED: ${this.valves.filter((v) => !v.on).length} VALVE(S) LEFT`, { life: 1300 }); SFX.ui('back'); return; }
+    this.fountain.finale();
+  }
+  sampled(id: string) { /* hook from Sampling */ void id; }
+
+  stepLevel(dt: number) { this.lift.step(dt); for (const b of this.bottles) b.step(dt, this.world); }
+  frameLevel(dt: number) {
+    const g = this.goose, b = g.body;
+    this.fridgeT -= dt;
+    this.sampling.update();
+    for (const bt of this.bottles) {
+      if (bt.state === 'fall' && bt.canHurt && bt.vy > 80 && g.mode === 'play' && Math.abs(bt.x - g.x) < 10 && bt.y > g.y - 34 && bt.y < g.y - 4) { g.hurt(bt.x); bt.vy = -120; bt.vx = -bt.vx; }
+      if (bt.state !== 'rest' || !bt.knockable) continue;
+      if (Math.abs(bt.x - g.x) < 9 && bt.y <= g.y + 2 && bt.y > g.y - 22 && (Math.abs(b.vx) > 30 || g.dashing)) bt.knock(Math.sign(b.vx) || g.facing, g.dashing ? 1.8 : 1);
     }
+    for (const s of this.shots) if (s.active) for (const bt of this.bottles) if (bt.state === 'rest' && Math.abs(bt.x - s.x) < 6 && Math.abs(bt.y - 8 - s.y) < 10) bt.knock(Math.sign(s.vx), 1);
+    if (!this.boxWall.toppled && b.hitWall === 1 && Math.abs(b.x + b.w - L.boxWall.x) < 2 && this.phase === 'play') {
+      this.bumpedWall += dt;
+      if (this.bumpedWall > 0.5) { this.bumpedWall = -3; g.playOnce('shrug'); emote(this, g.x, g.y - 44, '?', { life: 900 }); if (!this.power) this.sam.say('A SAMPLE MIGHT HELP!', 1800); }
+    }
+    this.fountain.update(dt);
+    this.lift.render();
+    for (const l of this.lampGlows) l.setAlpha(0.18 + Math.sin(this.elapsed * 2 + l.x) * 0.015);
   }
 
-  onBubblePop(b: Bubble) {
-    this.fx.drops(b.x, b.y, b.tint === 0xffffff ? C.bub2 : b.tint, Math.round(b.r / 2));
-    this.fx.sparkle(b.x, b.y, 3);
-    if (b.y > FLOOR - 120) this.fx.splat(b.x, FLOOR + 2, [C.bub2, C.crm1, C.chr0][Math.floor(Math.random() * 3)]);
-    if (this.goose.body.ground === b.plat) this.goose.body.ground = null;
-  }
-
+  /** Called by Fountain once the giant-bubble ride is under way. */
   wideShot() {
+    if (!this.demo) return this.exitThroughSkylight();
     const cam = this.cameras.main;
     cam.stopFollow();
     cam.pan(2150, 172, 900, 'Sine.easeInOut');
@@ -322,146 +302,23 @@ export class StoreScene extends Phaser.Scene {
     for (let i = 0; i < 6; i++) this.bubbles.spawn(1900 + Math.random() * 450, 200 + Math.random() * 120, 10 + Math.random() * 10, 'rise', { vy: -20 - Math.random() * 20, tint: [0xffffff, 0xffe0ea, 0xfff6dc][i % 3] });
     this.time.delayedCall(1150, () => this.freeze());
   }
+  exitThroughSkylight() {
+    complete('store'); unlock('lab'); achieve('bubble_trouble');
+    GS.addScore(2000);
+    flash(this, 300);
+    this.levelClear('Lab', { title: 'LEVEL 1 CLEAR!', delay: 3800 });
+  }
   freeze() {
     this.phase = 'frozen';
     this.tweens.pauseAll();
     this.anims.pauseAll();
     this.children.list.forEach((o) => { if (o instanceof Phaser.GameObjects.Particles.ParticleEmitter) o.pause(); });
-    this.cameras.main.flash(120, 255, 255, 255);
+    flash(this, 120, 255, 255, 255);
     const pfx = (this.cameras.main as unknown as { postFX?: { addColorMatrix: () => { sepia: () => void } } }).postFX;
     try { pfx?.addColorMatrix().sepia(); } catch { /* canvas renderer */ }
     MUSIC.stinger();
-    const s = settings();
-    saveSettings({ bestDrops: Math.max(s.bestDrops, this.dropCount), plays: s.plays + 1 });
+    const st = settings();
+    saveSettings({ bestDrops: Math.max(st.bestDrops, this.dropCount), plays: st.plays + 1 });
     this.game.events.emit('demo:end', { drops: this.dropCount, total: this.dropTotal, leaves: this.leafCount, badge: this.badgeGot, time: this.elapsed, honks: this.honkCount });
-  }
-
-  // ---------------------------------------------------------------- loop
-  update(_t: number, deltaMs: number) {
-    if (this.phase === 'frozen') return;
-    const dt = Math.min(deltaMs / 1000, 1 / 20);
-    this.elapsed += dt;
-    if (Controls.pressed('pause') && this.phase !== 'picker') { this.game.events.emit('ui:pause'); return; }
-
-    // per-frame input that isn't movement
-    if (this.phase === 'play') {
-      if (Controls.pressed('ability')) this.useAbility();
-      if (Controls.pressed('interact')) {
-        if (this.sampling.inZone()) this.sampling.open();
-        else if (this.fountain.stage >= 2 && this.fountain.nearValve()) this.fountain.finale();
-      }
-      // honking at the valve also works (it's a goose)
-      if (Controls.pressed('honk') && this.fountain.stage >= 2 && this.fountain.nearValve()) this.time.delayedCall(200, () => this.fountain.finale());
-    }
-    this.sampling.update();
-
-    // fixed-step simulation
-    this.acc += dt;
-    let first = true, n = 0;
-    while (this.acc >= STEP && n < 8) {
-      this.stepSim(STEP, first);
-      this.acc -= STEP; first = false; n++;
-    }
-    this.frame(dt);
-  }
-
-  stepSim(dt: number, first: boolean) {
-    const g = this.goose;
-    this.bubbles.step(dt);
-    this.lift.step(dt);
-    for (const f of this.foams) f.step(dt);
-    const gr = g.body.ground;
-    this.bubbles.standing = gr && gr.tag === 'bubble' ? (gr.owner as Bubble) : null;
-    if (this.phase === 'intro') { g.body.vx = 70; g.update(dt, this.world, false, false); g.body.vx = 70; }
-    else g.update(dt, this.world, this.phase === 'play', first);
-    // projectiles
-    for (const s of this.shots) {
-      if (!s.active) continue;
-      if (s.step(dt, this.world) === 'pop') { this.fx.drops(s.x, s.y, C.chr0, 6); continue; }
-      const r = s.rect();
-      if (!this.boxWall.toppled && overlap(r, this.boxWall.rect())) { this.boxWall.topple(Math.sign(s.vx) || 1, this.world, (x, y) => this.fx.dust(x, y, 6)); this.fx.drops(s.x, s.y, C.chr0, 12); this.fx.splat(s.x, FLOOR + 2, C.chr1); s.kill(); continue; }
-      for (const p of this.people) if (Math.abs(p.x - s.x) < 8 && s.y > p.y - 60 && s.y < p.y) { p.onHonk(s.x); this.fx.drops(s.x, s.y, C.chr0, 8); s.kill(); break; }
-      for (const b of this.bottles) if (b.state === 'rest' && Math.abs(b.x - s.x) < 6 && Math.abs(b.y - 8 - s.y) < 10) { b.knock(Math.sign(s.vx), 1); }
-    }
-    for (const b of this.bottles) {
-      b.step(dt, this.world);
-      if (b.state === 'fall' && b.canHurt && b.vy > 80 && g.mode === 'play' && Math.abs(b.x - g.x) < 10 && b.y > g.y - 34 && b.y < g.y - 4) { g.hurt(b.x); b.vy = -120; b.vx = -b.vx; }
-    }
-  }
-
-  frame(dt: number) {
-    const g = this.goose, b = g.body;
-    this.abilityCd -= dt;
-    // dash effects & collisions
-    if (g.dashing) {
-      this.fx.fizz(g.x - g.facing * 8, g.y - 12, 2);
-      if (Math.random() < 0.5) this.fx.drops(g.x - g.facing * 10, g.y - 8, C.cola0, 1);
-      const gr = { x: b.x - 4, y: b.y, w: b.w + 8, h: b.h };
-      if (!this.boxWall.toppled && overlap(gr, this.boxWall.rect())) { this.boxWall.topple(g.facing, this.world, (x, y) => this.fx.dust(x, y, 6)); this.cameras.main.shake(250, 0.006); emote(this, g.x, g.y - 44, 'HONK!', { life: 800 }); }
-    }
-    // walking into the box wall without a way through
-    if (!this.boxWall.toppled && b.hitWall === 1 && Math.abs(b.x + b.w - L.boxWall.x) < 2 && this.phase === 'play') {
-      this.bumpedWall += dt;
-      if (this.bumpedWall > 0.5) { this.bumpedWall = -3; g.playOnce('shrug'); emote(this, g.x, g.y - 44, '?', { life: 900 }); if (!this.power) this.sam.say('A SAMPLE MIGHT HELP!', 1800); }
-    }
-    // knock bottles off display tops by walking/dashing through them
-    for (const bt of this.bottles) {
-      if (bt.state !== 'rest' || !bt.knockable) continue;
-      if (Math.abs(bt.x - g.x) < 9 && bt.y <= g.y + 2 && bt.y > g.y - 22 && (Math.abs(b.vx) > 30 || g.dashing)) bt.knock(Math.sign(b.vx) || g.facing, g.dashing ? 1.8 : 1);
-    }
-    // bump into people
-    for (const p of this.people) if (Math.abs(p.x - g.x) < 10 && Math.abs(p.y - g.y) < 30 && (Math.abs(b.vx) > 110 || g.dashing)) p.onBump(g.x);
-    for (const p of this.people) p.update(dt);
-    // pickups
-    for (const pk of this.pickups) {
-      if (pk.got) continue;
-      pk.t += dt;
-      const bob = Math.round(Math.sin(pk.t * 3) * 2);
-      pk.img.y = pk.y + bob; if (pk.shade) pk.shade.y = pk.y + bob;
-      if (pk.kind !== 'drop') pk.img.setScale(Math.abs(Math.cos(pk.t * 2)) * 0.3 + 0.7, 1);
-      if (Math.abs(pk.x - g.x) < 12 && pk.y > g.y - 34 && pk.y < g.y + 6) this.collect(pk);
-    }
-    // power timer
-    if (this.power && this.phase === 'play') {
-      this.powerT -= dt;
-      this.game.events.emit('hud:power', this.power, this.powerT, POWER_DURATION);
-      if (this.powerT <= 0) {
-        SFX.burp(); SFX.powerdown();
-        emote(this, g.x, g.y - 44, 'BURP!', { life: 1000 });
-        this.fx.bubbles(g.x + g.facing * 12, g.y - 26, 6);
-        this.setPower(null);
-      }
-    }
-    this.fountain.update(dt);
-    this.bubbles.render(dt);
-    this.lift.render();
-    g.updateShadow(this.world, this.bubbles.standing ?? undefined);
-    for (const l of this.lampGlows) l.setAlpha(0.18 + Math.sin(this.elapsed * 2 + l.x) * 0.015);
-    // world prompts
-    for (const pr of this.prompts) {
-      const show = !pr.done() && pr.cond();
-      pr.a += ((show ? 1 : 0) - pr.a) * Math.min(1, dt * 8);
-      const p = pr.at();
-      pr.img.setPosition(Math.round(p.x), Math.round(p.y + Math.sin(this.elapsed * 5) * 1.5)).setAlpha(pr.a);
-    }
-  }
-
-  collect(pk: Pickup) {
-    pk.got = true;
-    if (pk.kind === 'drop') {
-      this.dropCount++; SFX.collect(this.dropCount);
-      this.fx.sparkle(pk.x, pk.y, 4, pk.img.tintTopLeft);
-      this.game.events.emit('hud:drops', this.dropCount, this.dropTotal);
-    } else if (pk.kind === 'leaf') {
-      this.leafCount++; SFX.golden(); this.fx.confetti(pk.x, pk.y, 14);
-      this.game.events.emit('hud:leaf', this.leafCount);
-      this.game.events.emit('hud:toast', `GOLDEN MAPLE LEAF ${this.leafCount}/3`, C.gold1);
-    } else {
-      this.badgeGot = true; SFX.golden(); this.fx.sparkle(pk.x, pk.y, 14, C.red0); this.fx.confetti(pk.x, pk.y, 20);
-      this.game.events.emit('hud:badge', true);
-      this.game.events.emit('hud:toast', 'SIMPS CERTIFIED GOOSE!', C.red0);
-      this.goose.playOnce('celebrate'); this.time.delayedCall(900, () => { if (this.goose.mode === 'play') this.goose.playLoop('idle'); });
-    }
-    this.tweens.add({ targets: [pk.img, pk.shade].filter(Boolean), y: pk.y - 18, alpha: 0, scale: 1.6, duration: 300, onComplete: () => { pk.img.destroy(); pk.shade?.destroy(); } });
   }
 }

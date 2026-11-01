@@ -12,6 +12,7 @@ import * as PR from './props';
 import * as BG from './backgrounds';
 import { buildFonts } from './font';
 import * as MO from './motifs';
+import * as F2 from './fx2';
 import { registerSheet } from './registry-sheets';
 
 export const FLAVOR_RAMPS = { cola: R.cola, cream: R.cream, cherry: R.cherry };
@@ -62,6 +63,10 @@ export const SINGLE: Record<string, () => Px> = {
   goldenLeaf: MO.goldenLeaf, badge: () => MO.badge(20), badge28: () => MO.badge(28), bunting: MO.bunting,
   flag0: () => MO.canadaFlag(0), flag1: () => MO.canadaFlag(1), flag2: () => MO.canadaFlag(2), flag3: () => MO.canadaFlag(3),
   bigFlag0: () => MO.canadaFlag(0, 44, 22), bigFlag1: () => MO.canadaFlag(1, 44, 22), bigFlag2: () => MO.canadaFlag(2, 44, 22), bigFlag3: () => MO.canadaFlag(3, 44, 22),
+  recipeCard: F2.recipeCard, bubbleStar: F2.bubbleStar, coffeeBean: F2.coffeeBean, goldenGoose: F2.goldenGoose, electricShot: F2.electricShot,
+  foamBig: () => F2.foamCloudW(64), checkpoint0: () => F2.checkpoint(0), checkpoint1: () => F2.checkpoint(1), checkpoint2: () => F2.checkpoint(2),
+  icon_rocket: () => F2.powerIcon('rocket'), icon_cloud9: () => F2.powerIcon('cloud9'), icon_tropical: () => F2.powerIcon('tropical'), icon_shield: () => F2.powerIcon('shield'),
+  icon_electric: () => F2.powerIcon('electric'), icon_float: () => F2.powerIcon('float'), icon_pinkfizz: () => F2.powerIcon('pinkfizz'), icon_burp: () => F2.powerIcon('burp'),
   tridentStand: MO.tridentStand, floorLeaf: () => MO.floorDecal('leaf'), floorTrident: () => MO.floorDecal('trident'), liftHead: MO.liftHead, piston: MO.pistonShaft,
 };
 SHELF_RAMPS.forEach((r, i) => { SINGLE['bottle' + i] = () => FX.bottle(r, 6, 16); });
@@ -88,5 +93,6 @@ export function generateAll(scene: Phaser.Scene, onProgress?: (t: number) => voi
   }
   if (!scene.anims.exists('door_open')) scene.anims.create({ key: 'door_open', frames: [0, 1, 2, 3].map((i) => ({ key: 'door' + i })), frameRate: 10, repeat: 0 });
   for (const [k, p] of [['flag', 'flag'], ['bigflag', 'bigFlag']]) if (!scene.anims.exists(k)) scene.anims.create({ key: k, frames: [0, 1, 2, 3].map((i) => ({ key: p + i })), frameRate: 6, repeat: -1 });
+  if (!scene.anims.exists('checkpoint_on')) scene.anims.create({ key: 'checkpoint_on', frames: [{ key: 'checkpoint1' }, { key: 'checkpoint2' }], frameRate: 5, repeat: -1 });
   if (!scene.anims.exists('bird_fly')) scene.anims.create({ key: 'bird_fly', frames: [{ key: 'bird1' }, { key: 'bird0' }], frameRate: 10, repeat: -1 });
 }
