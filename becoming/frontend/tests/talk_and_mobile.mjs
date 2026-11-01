@@ -85,6 +85,54 @@ const browser = await chromium.launch();
   if (shots) await p.screenshot({ path: `${shots}/desktop_talk.png` });
   await ctx.close();
 }
+// 3) Overhear: generated demo scene with a stand-in that streams a fake scene.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(() => {
+    window.__prompts = []; window.__said = [];
+    window.addEventListener("resident-say", (e) => window.__said.push(e.detail.id));
+    const sample = async (input, opts) => {
+      window.__prompts.push(input);
+      const names = input.match(/using only these names: (.+)\./)[1].split(", ");
+      let text = "Scene: Two baskets wait by the kitchen door.\n";
+      for (let i = 0; i < 6; i++) {
+        text += `${names[i % names.length]}: test line ${i + 1}.\n`;
+        opts?.onText?.({ text, delta: "" });
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      text += "Narrator: this must be ignored\n";
+      return { text, truncated: false };
+    };
+    window.claude = { use: async (n) => (n === "sample" ? sample : null) };
+  });
+  const p = await ctx.newPage();
+  await p.goto(URL);
+  await p.waitForFunction(() => window.village?.scene?.() === "Village");
+  await p.selectOption("#overhear-genre", "friendly_dispute");
+  await p.click("#overhear-btn");
+  await p.waitForFunction(() => document.querySelectorAll("#talk-log .bubble").length === 6, null, { timeout: 10000 });
+  const prompt = await p.evaluate(() => window.__prompts[0]);
+  check(prompt.includes("A friendly dispute between commitments") && prompt.includes("Starting theme"), "prompt carries the chosen conversation type and a Days theme");
+  check(prompt.includes("Concede specifically") && prompt.includes("No moral lesson"), "prompt carries the craft rules from Days 1-75");
+  check(prompt.includes("do not invent past events"), "prompt forbids invented shared memories");
+  const header = await p.locator("#talk-name").textContent();
+  const cast = header.split(" · ")[0].split(", ");
+  check(cast.length >= 2 && cast.every((n) => ["Bernie", "Ralph", "Tony", "Mark"].includes(n)), `cast drawn from the genre's voices (${cast.join(", ")})`);
+  const log = await p.locator("#talk-log").innerText();
+  check(log.includes("Two baskets wait") && !log.includes("must be ignored"), "scene line shown; non-cast lines ignored");
+  check((await p.evaluate(() => window.__said.length)) === 6, "each line raised a speech bubble on the map");
+  check(!(await p.locator("#talk-form").isVisible()), "message box hidden while overhearing");
+  check((await p.locator("#talk-status").textContent()).includes("Not part of the village's history"), "labelled as a demo, not history");
+  if (shots) await p.screenshot({ path: `${shots}/overhear.png` });
+  await ctx.close();
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const p2 = await ctx2.newPage(); await p2.goto(URL);
+  await p2.waitForFunction(() => window.village?.scene?.() === "Village");
+  await p2.click("#overhear-btn");
+  await p2.waitForSelector("#talk:not([hidden])");
+  check((await p2.locator("#talk-status").textContent()).includes("Nothing is invented"), "without Claude, overhearing says so");
+  await ctx2.close();
+}
 await browser.close();
 console.log(failures ? `${failures} check(s) failed` : "all talk/mobile checks passed");
 process.exit(failures ? 1 : 0);

@@ -46,6 +46,11 @@ export class VillageScene extends Phaser.Scene {
       this.walkTo(Math.floor(p.worldX / T), Math.floor(p.worldY / T));
     });
 
+    // Speech bubbles for generated demo scenes (overhear.ts). Cosmetic only.
+    const onSay = (e: Event) => this.say((e as CustomEvent).detail.id, (e as CustomEvent).detail.text);
+    window.addEventListener("resident-say", onSay);
+    this.events.once("shutdown", () => window.removeEventListener("resident-say", onSay));
+
     // Test & accessibility hooks: the text navigation and the e2e test drive the same code path.
     (window as any).village = {
       scene: () => this.scene.key,
@@ -111,6 +116,20 @@ export class VillageScene extends Phaser.Scene {
       if (d < 2.6 && d < best) { best = d; nearest = r; }
     }
     setTalkButton(nearest);
+  }
+
+  bubbles = new Map<string, Phaser.GameObjects.Text>();
+
+  say(id: string, text: string) {
+    const s = this.residentSprites.get(id); if (!s) return;
+    this.bubbles.get(id)?.destroy();
+    const short = text.length > 90 ? text.slice(0, 87) + "…" : text;
+    const b = this.add.text(s.x, s.y - 56, short, {
+      fontFamily: "Georgia", fontSize: "10px", color: "#2b2a20", backgroundColor: "#fff8e8",
+      padding: { x: 5, y: 3 }, wordWrap: { width: 150 },
+    }).setOrigin(0.5, 1).setDepth(20_000).setResolution(3);
+    this.bubbles.set(id, b);
+    this.time.delayedCall(7000, () => { if (this.bubbles.get(id) === b) { b.destroy(); this.bubbles.delete(id); } });
   }
 
   avatarTile() {

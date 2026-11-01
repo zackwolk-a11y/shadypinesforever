@@ -74,3 +74,9 @@ main { display: flex; gap: 12px; padding: 0 12px 12px; }
   #talk { left: 6px; right: 6px; width: auto; top: auto; bottom: 6px; max-height: 62%; }
   body.talking #dpad, body.talking #actions { display: none; }
 }
+
+/* --- overhear --- */
+#overhear select { font: inherit; font-size: 0.85rem; margin: 4px 0; max-width: 100%; }
+#overhear button { display: block; margin-top: 4px; }
+.small { font-size: 0.75rem; margin: 2px 0; }
+body.overhearing #talk-form { display: none; }

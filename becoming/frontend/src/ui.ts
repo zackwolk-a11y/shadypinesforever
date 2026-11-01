@@ -1,5 +1,6 @@
 import { WORLD, zoneCenter, assetUrl, type Resident } from "./world";
 import { openTalk, initTalk } from "./talk";
+import { initOverhear } from "./overhear";
 
 /** Held directions from the on-screen pad, read by the village scene each frame. */
 export const pad = { up: false, down: false, left: false, right: false };
@@ -60,6 +61,7 @@ export function setEnterButton(name: string | null, onEnter?: () => void) {
 
 export function initUi(getScene: () => any) {
   initTalk();
+  initOverhear();
   $("enter").addEventListener("click", () => enterHandler?.());
   $("talk-btn").addEventListener("click", talkToNearby);
   for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>("#dpad button"))) {

@@ -140,3 +140,11 @@ def test_style_paragraph_is_canonical():
     text = load_style_paragraph()
     assert text.startswith("Create a cozy, ecologically rich 16-bit-inspired RPG world")
     assert text.endswith("sterile modern office design.")
+
+
+def test_conversation_patterns_are_labelled_fiction_and_valid():
+    from becoming.canon import load_conversation_patterns
+    cp = load_conversation_patterns()
+    assert "AUTHORED FICTION" in cp.provenance and "never resident memories" in cp.provenance
+    assert len(cp.genres) >= 8 and len(cp.topic_bank) == 75
+    assert all(len(g.typical_voices) >= 2 for g in cp.genres)

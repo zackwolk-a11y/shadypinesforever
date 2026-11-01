@@ -18,6 +18,13 @@ export const WORLD = raw as unknown as {
   width: number; height: number; art: { image: string; px_per_tile: number };
   walkable: string[]; doors: Door[]; zones: Zone[]; residents: Resident[];
   founder: { id: string; name: string; title: string; note: string; portrait: string; frames: Record<string, number> };
+  patterns: {
+    provenance: string;
+    craft: { turn_length: string; humor: string; ordinary_hooks: string; reasoning_moves: string[]; endings: string; what_to_avoid: string[] };
+    genres: { id: string; name: string; shape: string; typical_voices: string[]; settings: string[]; example_days: number[] }[];
+    moves: Record<string, string>;
+    topics: { day: number; title: string }[];
+  };
 };
 
 export const T = WORLD.art.px_per_tile;

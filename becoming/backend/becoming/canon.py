@@ -324,3 +324,47 @@ def load_ensemble(path: Path = CANON_DIR / "curriculum" / "ensemble_scenes.yaml"
 
 def load_style_paragraph(path: Path = CANON_DIR / "style" / "canonical_style.txt") -> str:
     return path.read_text().strip()
+
+
+class Genre(Strict):
+    id: str
+    name: str
+    shape: str
+    typical_voices: list[str] = Field(min_length=2)
+    settings: list[str] = Field(min_length=1)
+    example_days: list[int] = Field(min_length=1)
+
+
+class ConversationPatterns(Strict):
+    """Founder-intended conversation types, derived from AUTHORED FICTION (Days 1-75).
+
+    A style and topic reference only: never memories, never events.
+    """
+    schema_version: Literal[1]
+    provenance: str
+    founder_intent: str
+    observed_craft: dict
+    genres: list[Genre] = Field(min_length=8)
+    signature_moves_observed: dict[str, str]
+    topic_bank: list[dict]
+
+    @model_validator(mode="after")
+    def _check(self) -> "ConversationPatterns":
+        if "AUTHORED FICTION" not in self.provenance:
+            raise ValueError("conversation patterns must be labelled as derived from authored fiction")
+        if set(self.signature_moves_observed) != set(RESIDENT_IDS):
+            raise ValueError("signature moves must cover exactly the nine residents")
+        days = [t["day"] for t in self.topic_bank]
+        if days != list(range(1, 76)):
+            raise ValueError("topic bank must hold Days 1-75 in order")
+        for g in self.genres:
+            bad = set(g.typical_voices) - set(RESIDENT_IDS)
+            if bad:
+                raise ValueError(f"{g.id}: unknown residents {bad}")
+            if any(not 1 <= d <= 75 for d in g.example_days):
+                raise ValueError(f"{g.id}: example day out of range")
+        return self
+
+
+def load_conversation_patterns(path: Path = CANON_DIR / "curriculum" / "conversation_patterns.yaml") -> ConversationPatterns:
+    return ConversationPatterns.model_validate(yaml.safe_load(path.read_text()))

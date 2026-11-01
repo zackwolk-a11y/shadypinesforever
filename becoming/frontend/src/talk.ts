@@ -8,7 +8,7 @@
 import { WORLD, assetUrl, type Resident } from "./world";
 
 type Msg = { role: "user" | "assistant"; content: string };
-type Sample = ((input: Msg[], opts?: any) => Promise<{ text: string; truncated?: boolean }>) | null;
+type Sample = ((input: string | Msg[], opts?: any) => Promise<{ text: string; truncated?: boolean }>) | null;
 
 const $ = (id: string) => document.getElementById(id)!;
 const histories = new Map<string, Msg[]>();
@@ -16,7 +16,7 @@ let samplePromise: Promise<Sample> | null = null;
 let current: Resident | null = null;
 let busy = false;
 
-function getSample(): Promise<Sample> {
+export function getSample(): Promise<Sample> {
   if (!samplePromise) {
     const c = (window as any).claude;
     samplePromise = c?.use ? Promise.resolve(c.use("sample")).catch(() => null) : Promise.resolve(null);
@@ -103,6 +103,7 @@ export async function openTalk(r: Resident) {
   ($("talk-portrait") as HTMLImageElement).src = assetUrl(r.portrait);
   $("talk-name").textContent = `Talking with ${r.name}`;
   $("talk").hidden = false;
+  document.body.classList.remove("overhearing");
   document.body.classList.add("talking");
   renderHistory(r);
   const sample = await getSample();
@@ -120,7 +121,7 @@ export async function openTalk(r: Resident) {
 
 export function closeTalk() {
   $("talk").hidden = true;
-  document.body.classList.remove("talking");
+  document.body.classList.remove("talking", "overhearing");
   current = null;
 }
 

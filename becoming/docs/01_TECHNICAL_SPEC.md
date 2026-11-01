@@ -101,6 +101,12 @@ A quiet tick (night, everyone solitary) is recorded as a quiet tick, not filled 
 - **Context assembly:** canon identity + current beliefs + top-k relevant memories (FTS5 + recency + importance + participants) + relationship notes for the present residents + research notes the resident was exposed to + the transcript window. Size is budgeted per turn.
 - **Style guardrails** (in the system prompt and checked by the evaluator): no stage-direction padding, no logistics-dominated talk, no slogans, disagreement allowed, uncertainty welcome.
 
+### 6.2a Conversation styles (Founder direction, D-031)
+`canon/curriculum/conversation_patterns.yaml` (distilled from the Founder's authored Days 1-75) drives two things:
+- **Opportunity generation:** each day the scheduler offers 3-5 scene opportunities across Morning to Evening, drawing a conversation type, a setting and a starting theme from the topic bank, plus the residents whose interests fit. Residents still accept or decline (consent and solitude rules apply), so not everyone appears every day.
+- **Turn style:** the craft rules (short turns, humor, specific concessions, distinguishing claims, ordinary hooks, open endings) go into every turn's instructions, and the evaluator scores against them (Part XXVI).
+The Days themselves are never memory: residents can only remember conversations the simulation actually ran.
+
 ### 6.3 Memory
 Episodic memories are created per participant from the transcript, from that resident's point of view, and always cite event IDs. Semantic memories consolidate repeated themes and findings. Relationship memories hold salient moments with evidence. The curiosity notebook holds questions the resident chooses to keep. Retrieval is selective and relevance-ranked, never "dump everything".
 

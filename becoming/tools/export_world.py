@@ -73,10 +73,15 @@ def main() -> None:
         "note": " ".join(f["role_note"].split()), "portrait": f["portrait"],
         "frames": {d: len(list((frames_dir / f["id"]).glob(f"{d}_*.png"))) for d in ("down", "up", "left", "right")},
     }
+    cp = yaml.safe_load((ROOT / "canon" / "curriculum" / "conversation_patterns.yaml").read_text())
+    patterns = {
+        "provenance": cp["provenance"], "craft": cp["observed_craft"], "genres": cp["genres"],
+        "moves": cp["signature_moves_observed"], "topics": cp["topic_bank"],
+    }
     out = {
         "source": "canon/world/village_layout.json + canon/residents (exported, do not edit)",
         "width": raw["width"], "height": raw["height"],
-        "art": raw["art"], "walkable": walk, "doors": doors, "zones": zones, "residents": residents, "founder": founder,
+        "art": raw["art"], "walkable": walk, "doors": doors, "zones": zones, "residents": residents, "founder": founder, "patterns": patterns,
     }
     OUT.write_text(json.dumps(out, indent=1))
     print(f"wrote {OUT.relative_to(ROOT)}: {len(doors)} doors, {len(residents)} residents")

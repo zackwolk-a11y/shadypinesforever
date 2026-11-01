@@ -32,3 +32,8 @@ Old project regression (untouched): `pytest tests` at repo root → 27 passed.
 - `npm run test:e2e` → 12/12 buildings OK.
 - `node tests/talk_and_mobile.mjs` → **13/13 checks pass**: pad visible and moves the avatar on an emulated iPhone 13; Talk button appears near a resident and names them; without Claude, Talk states it is unavailable and disables input; with a test-only stand-in for `sample`, the first message carries the character prompt and Zachary's words, honesty rules are included, follow-ups send the conversation so far, the hidden prompt never appears in the transcript, and typing W/A/S/D/E/T goes into the chat without moving the avatar.
 - Standalone rebuilt (5.0 MB); offline test 12/12, no errors. Artifact republished with the `sample` capability declared. **Live replies from Claude have not been exercised by an automated test** (they require the artifact viewer and the Founder's consent).
+
+## 2026-11-01 — Conversation patterns and Overhear demo
+- `backend pytest -q` → **43 passed** (adds the conversation-patterns check: labelled fiction, 12 types, 75 topics, voices are real residents).
+- Browser: buildings 12/12; talk/mobile/overhear **21/21 checks pass**: prompt carries the chosen type, a Days theme and the craft rules, and forbids invented memories; the cast comes from the type's voices; lines stream into the transcript and raise map bubbles; non-cast lines are ignored; it is labelled a demo; without Claude it says so.
+- Live generation by Claude in the artifact is not covered by an automated test.
