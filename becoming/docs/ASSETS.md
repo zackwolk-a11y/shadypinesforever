@@ -15,6 +15,7 @@
 | Haize walk frames (16) | assets/sprites/frames/haize/ | tools/extract_sprites.py --bg-max 160; this sheet's rows 3/4 were left/right (reversed vs sheet v1) and were renamed accordingly | Project-owned processing | Pixel sprite style | 2026-11-01 |
 | Mao portrait + walk sheet v1 (**provisional**) | assets/sprites/source/sheet_mao_v1.png (sha256 prefix 3bbfd72002d90ba2) → assets/portraits/mao.png; frames in assets/sprites/frames/mao/ (5 per direction) | Founder upload, 2026-11-01; ChatGPT | Founder-generated | Pixel portrait + sprite style | 2026-11-01 |
 | Bernie portrait + walk sheet v1 (**provisional**) | assets/sprites/source/sheet_bernie_v1.png (sha256 prefix db858e1707139280) → assets/portraits/bernie.png; frames in assets/sprites/frames/bernie/ | Founder upload, 2026-11-01; ChatGPT | Founder-generated | Pixel portrait + sprite style | 2026-11-01 |
+| Mark portrait + walk sheet v1 | assets/sprites/source/sheet_mark_v1.png (sha256 prefix ee4bd6ca456d9e90) → assets/portraits/mark.png; frames in assets/sprites/frames/mark/ | Founder upload, 2026-11-01; ChatGPT; treated as an original fictional character (D-019) | Founder-generated | Pixel portrait + sprite style | 2026-11-01 |
 | Layout blockout (planning diagram, not game art) | docs/world/layout_blockout.svg / .png | Generated from layout JSON by `world_layout.py` | Project-owned | n/a | 2026-10-31 |
 
 No game art exists yet. Art production begins after the Founder selects a direction (HV-003).
