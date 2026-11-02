@@ -53,10 +53,12 @@ interface GPal { body: Ramp; chest: Ramp; head: Ramp; neck: [number, number, num
 const PALS: Record<GooseStyle, GPal> = {
   white: { body: R.goose, chest: R.goose, head: R.goose, neck: [C.gw2, C.gw1, C.gw0], wingD: [C.gw2, C.gw3, C.gw3, C.gw4], wingL: [C.gw0, C.gw1, C.gw1, C.gw2], tail: [C.gw2, C.gw1], feather: C.gw3, belly: [C.gw3, C.gw2], go: [C.go0, C.go1, C.go2, C.go3], strap: false },
   canada: {
-    body: [0xb39a7c, 0x96806a, 0x7a6655, 0x5b4b3f], chest: [0xf0e6d6, 0xdccdb6, 0xc2b096, 0xa08d75], head: [0x4a4a52, 0x33333a, 0x26262c, 0x1d1d22],
-    neck: [0x26262c, 0x33333a, 0x45454e], wingD: [0x6e5b4b, 0x5a4a3d, 0x5a4a3d, 0x463a30], wingL: [0xa48b70, 0x8c7660, 0x8c7660, 0x6e5b4b],
-    tail: [0x2a2a30, 0x3c3c44], feather: 0xd8cbb4, belly: [0xe6dccb, 0xd0c2aa], go: [0x5c5c64, 0x3a3a42, 0x2c2c33, 0x1f1f25], strap: true,
+    // softened: charcoal (not black) head/neck/tail, warm light-brown body, cream chest
+    body: [0xcdb99b, 0xb39f83, 0x96836b, 0x786856], chest: [0xf6eee0, 0xe6dac6, 0xcfc0a8, 0xb2a28a], head: [0x7a7a84, 0x64646e, 0x52525c, 0x44444d],
+    neck: [0x4c4c55, 0x5e5e68, 0x74747e], wingD: [0x8a7562, 0x766352, 0x766352, 0x5f5043], wingL: [0xbba184, 0xa48b70, 0xa48b70, 0x8a7562],
+    tail: [0x4e4e57, 0x63636d], feather: 0xe6dccb, belly: [0xeee5d6, 0xdcd0bc], go: [0x86868e, 0x64646c, 0x52525a, 0x404048], strap: true,
   },
+
 };
 let STYLE: GooseStyle = 'canada';
 export const setGooseStyle = (s: GooseStyle) => { STYLE = s; };
@@ -203,7 +205,7 @@ export function drawGoose(pp: Partial<Pose>): Px {
     switch (p.eye) {
       case 'normal':
       case 'mischief':
-        if (P.strap) { g.rect(ex - 1, ey - 1, 4, 4, 0x15151a); g.rect(ex, ey, 2, 2, C.ink); g.set(ex, ey, C.wht); }
+        if (P.strap) { g.rect(ex, ey, 2, 2, C.ink); g.set(ex, ey, C.wht); }
         else { g.rect(ex, ey, 2, 2, C.ink); g.set(ex, ey, C.wht); g.set(ex + 1, ey + 2, C.ink); }
         break;
       case 'look':
