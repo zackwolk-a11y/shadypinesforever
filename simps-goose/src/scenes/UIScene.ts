@@ -13,6 +13,7 @@ import type { LevelScene } from '../levels/LevelScene';
 import { POWERS, PowerId } from '../data/recipes';
 import { BURPS, BurpId } from '../data/coffee';
 import { GS } from '../systems/gamestate';
+import { portraitPad } from '../systems/touchpad';
 
 interface MenuItem { label: () => string; act: (dir: number) => void; t?: Phaser.GameObjects.BitmapText }
 interface TouchBtn { a: Action; x: number; y: number; r: number; label: string; g?: Phaser.GameObjects.Graphics; down: boolean }
@@ -355,6 +356,9 @@ export class UIScene extends Phaser.Scene {
   }
   updateTouch() {
     if (!this.touchOn || this.ended) return;
+    const dom = portraitPad();
+    this.touchBtns.forEach((b) => { b.g?.setVisible(!dom); (b.g?.getData('t') as Phaser.GameObjects.BitmapText | undefined)?.setVisible(!dom); });
+    if (dom) return;
     const ptrs = this.input.manager.pointers.filter((p) => p.isDown);
     let changed = false;
     const blocking = !!this.menu || this.picker.visible;

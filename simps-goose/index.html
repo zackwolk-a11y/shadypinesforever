@@ -10,13 +10,22 @@
     html, body { margin: 0; height: 100%; background: #18131c; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
     #game { position: fixed; inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
     canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
-    #rotate { display: none; position: fixed; inset: 0; z-index: 10; background: #18131c; color: #fff; font: bold 16px monospace; align-items: center; justify-content: center; text-align: center; padding: 24px; }
-    @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
+    #pad { display: none; }
+    body.pad-on #game { bottom: auto; height: calc((100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) * 0.5625); }
+    body.pad-on #pad { display: grid; position: fixed; left: 0; right: 0; bottom: 0; top: calc(env(safe-area-inset-top) + 100vw * 0.5625 + 12px);
+      padding: 12px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      grid-template-columns: repeat(3, 1fr) 12px repeat(2, 1.3fr); grid-template-rows: 40px repeat(3, 66px); gap: 10px; align-content: start;
+      grid-template-areas: ". . pause . . ." "x up y . honk power" "left z right . jump sip" ". down . . jump sip"; background: #18131c; }
+    .pb { font: bold 15px monospace; color: #fff; background: #2a2430; border: 2px solid #e02a3c; border-radius: 14px; touch-action: none; -webkit-tap-highlight-color: transparent; min-height: 52px; }
+    .pb.on { background: #e02a3c; }
+    .pb.up { grid-area: up; } .pb.down { grid-area: down; } .pb.left { grid-area: left; } .pb.right { grid-area: right; }
+    .pb.jump { grid-area: jump; font-size: 18px; } .pb.sip { grid-area: sip; } .pb.honk { grid-area: honk; } .pb.power { grid-area: power; }
+    .pb.pause { grid-area: pause; min-height: 36px; font-size: 13px; border-color: #46364f; }
   </style>
 </head>
 <body>
   <div id="game"></div>
-  <div id="rotate">🪿 Rotate your device to landscape<br/>to play SIMPS: GOOSE ON THE LOOSE!</div>
+  <div id="pad"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { installTouchpad } from './systems/touchpad';
 import { BootScene, InputScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
 import { IntroScene } from './scenes/IntroScene';
@@ -31,5 +32,7 @@ const game = new Phaser.Game({
   scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, LabScene, DimensionScene, BossCarbScene, FakeEndScene, CafeScene, WaterfrontScene, OgopogoScene, TrueEndScene, UIScene, MixerScene, CoffeeScene, JournalScene],
 });
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.game = game;
+installTouchpad(() => game.registry.get('touch') === true || ('ontouchstart' in window || navigator.maxTouchPoints > 0));
+window.addEventListener('resize-game', () => setTimeout(() => game.scale.refresh(), 50));
 // Resume audio when tab regains focus on mobile
 document.addEventListener('visibilitychange', () => { if (document.hidden) game.loop.sleep(); else game.loop.wake(); });
