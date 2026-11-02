@@ -34,6 +34,8 @@ export class Goose {
   private airDashUsed = false;
   canDash = false;
   floatMode = false;
+  /** set when a dash ends by slamming into a wall (consumed by the level's fixed step) */
+  dashBonk = false;
   speedMul = 1;
   tropicalUses = 2;
   private dashSpeed = 340;
@@ -85,6 +87,8 @@ export class Goose {
     return true;
   }
   get dashing() { return this.mode === 'dash'; }
+  /** smashing through something ends the dash with a skid (never fling the goose into a pit) */
+  endDash() { if (this.mode !== 'dash') return; this.mode = 'play'; this.body.vx = this.dashDir * 50; this.squash(0.8, 1.2); }
 
   update(dt: number, world: PhysicsWorld, allowInput = true, edges = true) {
     const b = this.body;
@@ -106,7 +110,7 @@ export class Goose {
     if (this.mode === 'dash') {
       this.dashT -= dt;
       b.vx = this.dashDir * this.dashSpeed; b.vy = 0;
-      if (this.dashT <= 0 || b.hitWall) { this.mode = 'play'; b.vx = this.dashDir * T.runMax; this.squash(0.85, 1.15); }
+      if (this.dashT <= 0 || b.hitWall) { if (b.hitWall) this.dashBonk = true; this.mode = 'play'; b.vx = this.dashDir * T.runMax; this.squash(0.85, 1.15); }
     } else if (this.mode === 'hurt') {
       this.hurtT -= dt;
       b.vx *= Math.pow(0.1, dt);

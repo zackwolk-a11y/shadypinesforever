@@ -83,7 +83,8 @@ export class TrueEndScene extends Phaser.Scene {
       const tri = this.add.image(240, 54, 'trident44').setDepth(95).setScale(0).setAlpha(0.95);
       const glow = this.add.image(240, 54, 'glow128').setTint(C.red0).setBlendMode(Phaser.BlendModes.ADD).setDepth(94).setAlpha(0);
       this.tweens.add({ targets: tri, scale: 1.2, duration: 900, ease: 'Back.Out' }); this.tweens.add({ targets: glow, alpha: 0.6, duration: 900 });
-      const c = this.add.container(240, 128).setDepth(96).setAlpha(0);
+      const c = this.add.container(240, 128).setDepth(96).setAlpha(0).setName('endCard');
+      tri.setName('endCard'); glow.setName('endCard');
       c.add([this.add.rectangle(0, 18, 400, 74, C.ink, 0.6), txt(this, 0, -2, 'GOOSE ON THE LOOSE!', { align: 'center', color: C.gold1, size: 2 }), txt(this, 0, 26, 'THE END... FOR REAL THIS TIME.', { align: 'center', color: C.wht }), txt(this, 0, 42, 'ONE GOOSE. A THOUSAND FLAVORS. ABSOLUTELY NO SELF-CONTROL.', { align: 'center', outline: false, color: C.crm0 })]);
       this.tweens.add({ targets: c, alpha: 1, duration: 1200, delay: 600 });
       achieve('friend_of_ogopogo');
@@ -102,6 +103,7 @@ export class TrueEndScene extends Phaser.Scene {
     this.time.delayedCall(500, () => { for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2; const p = this.add.image(x, y, 'dot3').setTint(col).setDepth(91).setBlendMode(Phaser.BlendModes.ADD); this.tweens.add({ targets: p, x: x + Math.cos(a) * 46, y: y + Math.sin(a) * 46 + 10, alpha: 0, duration: 900, ease: 'Quad.Out', onComplete: () => p.destroy() }); } this.fx.sparkle(x, y, 6, col); });
   }
   showStats() {
+    this.tweens.add({ targets: this.children.list.filter((o) => o.name === 'endCard'), alpha: 0, duration: 500 });
     const s = save();
     const kinds: [string, string][] = [['drop', 'SYRUP DROPS'], ['leaf', 'GOLDEN MAPLE LEAVES'], ['badge', 'CERTIFIED BADGES'], ['bottle', 'GOLDEN BOTTLES'], ['card', 'RECIPE CARDS'], ['star', 'BUBBLE STARS'], ['token', 'GOLDEN GOOSE TOKENS']];
     const count = (k: string) => s.collected.filter((c) => c.includes(':' + k + ':')).length;

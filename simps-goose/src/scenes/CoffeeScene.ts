@@ -111,7 +111,7 @@ export class CoffeeScene extends Phaser.Scene {
   }
   drawCup(dt: number) {
     const g = this.cup.clear();
-    let x = 330, y = 120; const w = 70, h = 80;
+    let x = 330, y = 150; const w = 70, h = 78;
     if (this.step === 'done') {
       x = 335; y = 150;
       // top-down cup with latte art

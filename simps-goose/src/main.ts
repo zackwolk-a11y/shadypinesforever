@@ -27,7 +27,7 @@ const game = new Phaser.Game({
   backgroundColor: '#18131c',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   input: { activePointers: 5, gamepad: false },
-  fps: { target: 60 },
+  fps: { target: 60, smoothStep: false }, // real-time deltas: slower devices must not run in slow motion
   scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, LabScene, DimensionScene, BossCarbScene, FakeEndScene, CafeScene, WaterfrontScene, OgopogoScene, TrueEndScene, UIScene, MixerScene, CoffeeScene, JournalScene],
 });
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.game = game;

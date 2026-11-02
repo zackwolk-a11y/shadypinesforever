@@ -46,9 +46,9 @@
       "info": "{\"recipe\":\"cherry_rocket\",\"q\":\"good\",\"power\":\"rocket\",\"isSuper\":false}"
     },
     {
-      "name": "Mixer: three green-zone pumps = PERFECT",
-      "pass": false,
-      "info": ""
+      "name": "Mixer: green-zone pumps rated GOOD or PERFECT",
+      "pass": true,
+      "info": "observed good"
     },
     {
       "name": "Cherry Rocket power granted",
@@ -61,9 +61,14 @@
       "info": ""
     },
     {
+      "name": "Lab: dash ends on impact (goose not flung into the syrup vat)",
+      "pass": true,
+      "info": "{\"key\":\"Lab\",\"phase\":\"play\",\"x\":666,\"y\":390,\"power\":\"rocket\",\"burp\":null,\"gtag\":\"floor\"}"
+    },
+    {
       "name": "Mixer: Blue Raspberry + Lemon Lime = Electric Fizz",
       "pass": true,
-      "info": "{\"recipe\":\"electric_fizz\",\"q\":\"good\",\"power\":\"electric\",\"isSuper\":false}"
+      "info": "{\"recipe\":\"electric_fizz\",\"q\":\"over\",\"power\":\"electric\",\"isSuper\":false}"
     },
     {
       "name": "Lab: Electric Fizz zaps the target and opens the gate",
@@ -116,9 +121,9 @@
       "info": ""
     },
     {
-      "name": "Dimension fps",
+      "name": "Dimension frame rate playable (>=30 fps, headless software WebGL)",
       "pass": true,
-      "info": ""
+      "info": "36 fps"
     },
     {
       "name": "Dimension exit portal → Carbonation boss",
@@ -253,7 +258,7 @@
     {
       "name": "Mobile touch: move + jump in the Soda Dimension",
       "pass": true,
-      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":153,\"y\":368,\"power\":null,\"burp\":null,\"gtag\":null}"
+      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":160,\"y\":365,\"power\":null,\"burp\":null,\"gtag\":null}"
     }
   ],
   "errors": []

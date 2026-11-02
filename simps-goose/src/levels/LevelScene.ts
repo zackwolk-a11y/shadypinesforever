@@ -351,6 +351,12 @@ export abstract class LevelScene extends Phaser.Scene {
     }
     if (this.phase === 'intro') { g.update(dt, this.world, false, false); }
     else g.update(dt, this.world, this.phase === 'play', first);
+    // dash vs breakables runs every fixed step so it never misses at low frame rates
+    if (g.dashing || g.dashBonk) {
+      const gr = this.gooseRect(6);
+      for (const br of this.breakables) if (!br.broken && br.by.includes('dash') && overlap(gr, br.rect())) { br.smash(g.facing); g.endDash(); shake(this, 250, 0.006); emote(this, g.x, g.y - 44, 'HONK!', { life: 800 }); }
+      g.dashBonk = false;
+    }
     for (const e of this.enemies) if (e.alive) e.step(dt, this);
     for (const s of this.shots) {
       if (!s.active) continue;
@@ -376,7 +382,6 @@ export abstract class LevelScene extends Phaser.Scene {
       this.fx.fizz(g.x - g.facing * 8, g.y - 12, 2);
       if (this.power === 'rocket' && Math.random() < 0.35) this.shots.push(new Projectile(this, g.x - g.facing * 10, g.y - 12, { tex: 'dot3', vx: -g.facing * 40, vy: -40, gravity: 300, bounces: 1, life: 0.7, r: 4, dmg: 1, kind: 'trail', tint: C.chr0, noSound: true, floorY: this.floorY }));
       const gr = this.gooseRect(4);
-      for (const br of this.breakables) if (!br.broken && br.by.includes('dash') && overlap(gr, br.rect())) { br.smash(g.facing); shake(this, 250, 0.006); emote(this, g.x, g.y - 44, 'HONK!', { life: 800 }); }
       for (const e of this.enemies) if (e.alive && overlap(gr, e.rect())) e.hit(3, g.facing, 'dash');
     }
     // enemies: stomp or get hurt

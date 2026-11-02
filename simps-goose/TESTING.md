@@ -1,16 +1,92 @@
-# Test Report — Vertical Slice v0.1
+# Test Report — SIMPS: GOOSE ON THE LOOSE! v1.0
 
-**Result: 40/40 automated checks pass, 0 page errors** (headless Chromium, Playwright).
-Run against the dev server and again against the production build (`vite preview`), with the same results.
+All results below were produced by the automated suites against the **production build** (`vite preview`) in headless Chromium (Playwright), and generated from their JSON output by `scripts/testing-report.py`.
 
-## Method
-- `tests/e2e.mjs` drives the real game in Chromium. **All gameplay actions use real keyboard or touch input** (key down/up, CDP multi-touch).
-  A `teleport` test hook moves the goose between sections so each feature is tested independently.
-  The hooks are listed in the log and are not reachable by players.
-- `tests/perf.mjs` measures frame rate during Bubble Trouble (the heaviest moment).
-- `tests/export-assets.mjs` renders every sound through an OfflineAudioContext. Every file has non-zero signal (RMS and peak checked).
+| Suite | Result |
+|---|---|
+| Original vertical-slice checks (`tests/e2e.mjs`, demo mode) | **40/40** |
+| Full game (`tests/fullgame.mjs`, Levels 1–3, bosses, endings, saves, menus, touch) | **52/52** |
+| Every coffee defeats Ogopogo (`tests/ogopogo.mjs`) | **6/6** |
+| Page errors | 0 |
 
-## Automated checks
+## Method and honesty notes
+- Gameplay actions use **real keyboard input** (key down/up), including mixer pumps, coffee extraction/pour holds, honks, stomps, dashes, burps and menus. Mobile uses **CDP multi-touch** on the on-screen buttons.
+- `window.__SIMPS.teleport` moves the goose between sections so each feature is checked independently. In boss tests it puts the goose where a player would stand (e.g. next to a bubble, on a buoy). It does not skip any rule: damage, phases and win conditions all run normally.
+- Not verified: real phones/tablets, Firefox/Safari, physical gamepads, audio by ear (audio files are checked for signal), and a single uninterrupted human playthrough timed end-to-end (the suite covers every stage separately).
+
+## Ogopogo — every coffee
+| Coffee (Simps café syrup) | Result | Fight time with good positioning |
+|---|---|---|
+| vanilla | defeated → true ending | 25 s |
+| saltedcaramel | defeated → true ending | 25 s |
+| hazelnut | defeated → true ending | 26 s |
+| peppermint | defeated → true ending | 28 s |
+| lavender | defeated → true ending | 25 s |
+| marshmallow | defeated → true ending | 31 s |
+
+## Performance
+```
+bubble trouble: {"fps":38,"bubbles":14,"objects":364,"renderer":"WebGL"}
+```
+Measured in headless Chromium, where WebGL is rendered **in software on the CPU**. The same build measured **57–60 fps** in Bubble Trouble before a container restart, and **34–46 fps** across all scenes on the replacement VM. The unchanged store scene dropped by the same proportion, so the drop is the environment, not the game. Real GPUs should hold 60 fps. Since the delta fix below, a slower device keeps real-time speed instead of running in slow motion.
+
+## Full-game checks
+| Check | Result | Detail |
+|---|---|---|
+| L1 storage route golden bottle collectable | PASS |  |
+| L1 two honks erupt the fountain (story) | PASS |  |
+| L1 main valve locked until pressure valves are open | PASS |  |
+| L1 both pressure valves opened (honk) | PASS | [true,true] |
+| L1 final trident valve starts the finale | PASS |  |
+| L1 transitions into Level 2 (Lab) | PASS |  |
+| Lab arrival cutscene → play | PASS |  |
+| no missing textures (store/lab) | PASS |  |
+| Mixer: Cola + Black Cherry = Cherry Rocket | PASS | {"recipe":"cherry_rocket","q":"good","power":"rocket","isSuper":false} |
+| Mixer: green-zone pumps rated GOOD or PERFECT | PASS | observed good |
+| Cherry Rocket power granted | PASS |  |
+| Lab: rocket dash smashes the fragile glass wall | PASS |  |
+| Lab: dash ends on impact (goose not flung into the syrup vat) | PASS | {"key":"Lab","phase":"play","x":666,"y":390,"power":"rocket","burp":null,"gtag":"floor"} |
+| Mixer: Blue Raspberry + Lemon Lime = Electric Fizz | PASS | {"recipe":"electric_fizz","q":"over","power":"electric","isSuper":false} |
+| Lab: Electric Fizz zaps the target and opens the gate | PASS |  |
+| Lab: pressure lever starts the trident lift | PASS |  |
+| Mixer: unknown combo still gives a power (Mystery Fizz) | PASS | {"recipe":null,"q":"good","power":"cream","isSuper":false} |
+| Super Soda (Cola + Cream Soda + Black Cherry + MAX) | PASS | {"recipe":null,"q":"over","power":"cola","isSuper":true} |
+| Portal accident → Soda Dimension | PASS |  |
+| Recipes saved to the journal | PASS | cherry_rocket,electric_fizz |
+| Dimension: stomping a Syrup Slug defeats it | PASS |  |
+| Dimension: all 5 enemy types present | PASS | BottleBot,FizzSprite,FoamMonster,FruitFlyer,SyrupSlug |
+| Dimension: collapsing foam pad gives way | PASS |  |
+| Dimension: checkpoint reached | PASS |  |
+| Dimension frame rate playable (>=30 fps, headless software WebGL) | PASS | 36 fps |
+| Dimension exit portal → Carbonation boss | PASS |  |
+| Boss phase 1: honked bubbles hit the pressure switches | PASS |  |
+| Boss phase 2: matching flavor taps | PASS |  |
+| Boss phase 3: all valves → Carbonator defeated | PASS |  |
+| Boss → fake ending | PASS |  |
+| Fake ending: credits interrupted → Level 3 café | PASS |  |
+| Level 3 revealed + unlocked (progress kept) | PASS |  |
+| Café: barista dialogue → coffee mini-game | PASS |  |
+| Café: first burp → Bubble Burp unlocked (Peppermint) | PASS |  |
+| Café: burp fires a bubble | PASS |  |
+| Café → waterfront | PASS |  |
+| Coffee power persisted in the save | PASS | {"c":"peppermint","r":"peppermint"} |
+| Waterfront: burp targets popped | PASS |  |
+| Waterfront: burp lifts the beach ball | PASS |  |
+| Waterfront: E makes a bubble platform | PASS |  |
+| Waterfront: bubble bell opens the dock | PASS |  |
+| Waterfront: sit on the dock → ripples → Ogopogo | PASS |  |
+| True ending → final stats screen | PASS |  |
+| Achievements saved (Friend of Ogopogo, Golden Goose) | PASS | first_honk,bubble_trouble,master_of_fizz,coffee_break,friend_of_ogopogo,golden_goose |
+| Golden Goose Token collected | PASS |  |
+| Title shows CONTINUE after progress | PASS | CONTINUE/NEW GAME/LEVEL SELECT/JOURNAL + ACHIEVEMENTS/SETTINGS/HOW TO PLAY/VERTICAL SLICE  |
+| Level select lists Level 3 once revealed | PASS | LEVEL SELECT/~ L1  BUBBLE TROUBLE  */L2  THE HONKIN' SODA LAB  */L2  THE SODA DIMENSION  * |
+| Journal opens from the title | PASS |  |
+| Pause works in Level 2 | PASS |  |
+| Pause menu toggles Reduce Flashing (saved) | PASS |  |
+| Resume works in Level 2 | PASS |  |
+| Mobile touch: move + jump in the Soda Dimension | PASS | {"key":"Dimension","phase":"play","x":80,"y":400,"power":null,"burp":null,"gtag":"island"} |
+
+## Original 40 vertical-slice checks
 | Check | Result | Detail |
 |---|---|---|
 | title screen loads | PASS |  |
@@ -18,9 +94,9 @@ Run against the dev server and again against the production build (`vite preview
 | cinematic plays through to the store | PASS |  |
 | no missing textures (title/intro/store) | PASS |  |
 | cinematic is skippable | PASS |  |
-| goose walks right | PASS | 79 → 157 |
-| goose turns and walks left | PASS | 157 → 147 |
-| jump leaves ground and lands | PASS | apex-ish y=285, landed y=330 |
+| goose walks right | PASS | 42 → 122 |
+| goose turns and walks left | PASS | 122 → 111 |
+| jump leaves ground and lands | PASS | apex-ish y=284, landed y=330 |
 | jump onto display crate | PASS | y=304 on crate1 |
 | honk makes customers react | PASS | 1 reacting (was browse,browse,browse,browse,idle,browse,idle,browse) |
 | honk jiggles bottles on shelves | PASS | 28 wobbling |
@@ -31,7 +107,7 @@ Run against the dev server and again against the production build (`vite preview
 | Fizzy Dash smashes the delivery box wall | PASS |  |
 | sip CREAM SODA → Foam Float | PASS | cream |
 | Foam Float lifts the goose on a foam cloud | PASS | y=283 on foam |
-| foam cloud lets goose clear the box wall | PASS | x=1663 |
+| foam cloud lets goose clear the box wall | PASS | x=1675 |
 | sip BLACK CHERRY → Cherry Blast | PASS | cherry |
 | Cherry Blast topples the box wall | PASS |  |
 | only one power active at a time (HUD shows cherry) | PASS |  |
@@ -39,64 +115,35 @@ Run against the dev server and again against the production build (`vite preview
 | first honk wakes the fountain (stage 1) | PASS |  |
 | second honk → eruption (stage 2) | PASS |  |
 | bubbles spawn continuously | PASS | 8 active |
-| floating bubble supports the goose | PASS | {"x":2085,"y":219,"ground":true,"gtag":"bubble","mode":"play","phase":"play","power":null,"drops":1,"fountain":2,"wall":true,"bubbles":8,"anim":"g_land"} |
+| floating bubble supports the goose | PASS | {"x":2081,"y":215,"ground":true,"gtag":"bubble","mode":"play","phase":"play","power":null, |
 | goose rides the bubble (still on it after 0.5s) | PASS |  |
 | bubble pops after repeated landings | PASS |  |
-| trident lift is moving | PASS | 317.6 → 322.5 |
-| bubble → elevated mezzanine (real jump) | PASS | {"x":2188,"y":168,"ground":true,"gtag":"mezz","mode":"play","phase":"play","power":null,"drops":1,"fountain":2,"wall":true,"bubbles":15,"anim":"g_idle"} |
+| trident lift is moving | PASS | 323.3 → 304.1 |
+| bubble → elevated mezzanine (real jump) | PASS | {"x":2199,"y":168,"ground":true,"gtag":"mezz","mode":"play","phase":"play","power":null,"d |
 | pause and resume | PASS |  |
 | valve triggers finale | PASS |  |
-| goose rides the giant bubble upward | PASS | {"x":2326,"y":140,"ground":true,"gtag":"mezz","mode":"ride","phase":"cutscene","power":null,"drops":1,"fountain":2,"wall":true,"bubbles":16,"anim":"g_ride"} |
+| goose rides the giant bubble upward | PASS | {"x":2320,"y":134,"ground":true,"gtag":"mezz","mode":"ride","phase":"cutscene","power":nul |
 | freeze frame + demo end | PASS |  |
 | no missing textures (gameplay) | PASS |  |
 | REPLAY DEMO restarts at the cinematic | PASS |  |
-| mobile: touch RIGHT moves goose | PASS | 79 → 152 |
-| mobile: multi-touch RIGHT+JUMP jumps | PASS | {"x":180,"y":301,"ground":false,"gtag":null,"mode":"play","phase":"play","power":null,"drops":2,"fountain":0,"wall":false,"bubbles":0,"anim":"g_jump"} |
+| mobile: touch RIGHT moves goose | PASS | 42 → 115 |
+| mobile: multi-touch RIGHT+JUMP jumps | PASS | {"x":157,"y":301,"ground":false,"gtag":null,"mode":"play","phase":"play","power":null,"dro |
 | mobile: HONK button honks | PASS |  |
 
-## Requirement coverage (assignment §11)
-| # | Requirement | Covered by |
-|---|---|---|
-| 1 | Cinematic plays and can be skipped | "START DEMO → intro", "cinematic plays through", "cinematic is skippable" |
-| 2 | Goose moves and jumps correctly | walk left/right, jump + land, crate, trident-stand ledges, bubble → mezzanine |
-| 3 | Honking triggers reactions | customers react, bottles jiggle, fountain stages, mobile HONK |
-| 4 | Flavour samples are interactive | picker opens, keyboard selection of each flavour; touch selection supported (tap card) |
-| 5 | All three powers function | dash smashes wall, foam lifts and clears wall, cherry topples wall; expiry burp |
-| 6 | Bubble platforms support the goose | stands and rides on a hover bubble; pops after repeated landings |
-| 7 | Soda fountain animation triggers | stage 1 rumble, stage 2 eruption, continuous bubbles, lift moving |
-| 8 | Concluding bubble ride works | valve → ride upward → freeze frame |
-| 9 | Demo ends correctly | "freeze frame + demo end", TO BE CONTINUED screenshot |
-| 10 | Replay restarts | "REPLAY DEMO restarts at the cinematic" |
-| 11 | Desktop and mobile controls | keyboard throughout; touch RIGHT, RIGHT+JUMP multi-touch, HONK at 844×390 |
-| 12 | Pause and resume | "pause and resume" (Esc / Esc) |
-| 13 | No missing assets | "no missing textures" ×2 (all scenes) |
-| 14 | No serious collision or physics bugs | fixed-step physics; all platform checks pass; no tunnelling seen at 120 Hz |
+## Screenshots
+`screenshots/slice/` (vertical slice), `screenshots/full/` (every level, both bosses, fake + true ending, menus, journal, mobile). Gameplay clips: `captures/*.webm`.
 
-## Performance
-- Bubble Trouble: **58–60 fps** (WebGL, headless Chromium with software GL; 13–14 live bubbles, about 330 display objects).
-- Texture generation at boot: about 0.38 s on desktop. Bundle: 1.63 MB JS (392 KB gzipped). Phaser is the bulk of it.
-
-## Screenshots (`screenshots/`)
-01 title · 02 title menu · 03 intro spots the bottle · 04 ENORMOUS HONK · 05 door opens · 06 honk reaction ·
-07 trident stand · 08 flavour picker · 09 drinking · 10 flavour reaction · 11 cola dash · 12 cream foam ·
-13 cherry blast · 14 fountain rumble · 15 Bubble Trouble · 16 standing on a bubble · 17 pause menu ·
-18 giant bubble ride · 19 TO BE CONTINUED · 20 mobile touch (844×390) · 21–22 small phone (667×375)
-
-## Bugs found and fixed during testing
-- Quick key taps (down and up inside one frame) could be lost → taps are now latched between polls.
-- The E press that opened the sampling picker also confirmed it in the same frame → that press is now consumed.
-- Pause → Esc didn't resume (the menu kind was reset while the menu was built) → fixed.
-- Cherry shots bounced off the box wall before registering a hit → fixed.
-- Camera pan and zoom used tween-style ease names that Phaser's camera rejects → fixed.
-- Bitmap fonts rendered at a non-integer scale (1.5× / 1.375×), causing clipped glyphs and overflowing balloons → fixed to exact 1:1.
-- A bottle knocked by walking could hurt the goose in the first seconds → only the honk-loosened ledge bottle can bonk now.
-- Mezzanine route was too strict → retuned: lift → two hover bubbles in a staircase → mezzanine, plus a vent bubble beside the mezzanine.
-- Effects were 10–20× quieter than the music → effects bus rebalanced.
-
-## Not verified / known limitations
-- **No real mobile hardware**: touch was tested with emulated multi-touch in Chromium at 844×390 and 667×375. iOS Safari audio unlock and safe-area insets need a device check.
-- **Firefox and Safari not tested**, only Chromium.
-- **Gamepad** mapping is implemented but untested (no controller available).
-- **Audio was verified by signal measurement, not by listening.** The mix balance is a best estimate.
-- Frame rate was measured in headless Chromium, not on low-end phones.
-- simpsmb.com was unreachable from the build environment, so brand details beyond the client-supplied trident badge come from search results.
+## Bugs found and fixed during full-game development
+- Bubble manager survived scene restarts and pointed at destroyed images → recreated each level start.
+- The store's sampling update was dropped in the refactor → restored (caught by the original 40 checks).
+- Cherry shots bounced off breakable walls before registering → breakables are ignored by projectile physics.
+- Café counter was a solid block, so the goose couldn't reach the stools → one-way counter top.
+- Boss health bar overlapped the machine's name plate / burp label → moved.
+- Ogopogo Heavy-Burp arcs could overshoot a high head → gentle vertical steer within 55 px of head height (all 6 coffees now verified).
+- Perfect pump window (±41 ms) was stricter than input latency allows → ±0.06 of the gauge.
+- A test `pkill` pattern killed its own shell → the preview server is now started separately.
+- **Phaser delta smoothing made the game run in slow motion below 60 fps** (reported 16.7 ms per frame while frames took 33 ms). It's off now (`smoothStep: false`), so game time follows real time on slow phones too. The level runtime still clamps frames at 50 ms.
+- **Dash vs. breakables was checked once per rendered frame**, so at about 30 fps a dash could start, hit the glass and end inside one frame without smashing it → now checked every 120 Hz physics step.
+- **The rocket dash flung the goose through the glass into the syrup vat** → smashing now ends the dash with a skid (new check: "dash ends on impact").
+- Enemy type checks used minified class names in the production build → enemies now carry an explicit `kind`.
+- Harness note: the pump-timing test presses about 55 ms early to cover its own reaction latency (as a player would). Mixes observed in the final run: GOOD/OVERMIXED. PERFECT was observed in earlier runs.

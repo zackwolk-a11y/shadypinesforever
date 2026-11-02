@@ -1,0 +1,44 @@
+PASS  title screen loads
+PASS  START DEMO → intro cinematic
+PASS  cinematic plays through to the store
+PASS  no missing textures (title/intro/store)
+PASS  cinematic is skippable
+PASS  goose walks right  — 42 → 122
+PASS  goose turns and walks left  — 122 → 111
+PASS  jump leaves ground and lands  — apex-ish y=284, landed y=330
+PASS  jump onto display crate  — y=304 on crate1
+PASS  honk makes customers react  — 1 reacting (was browse,browse,browse,browse,idle,browse,idle,browse)
+PASS  honk jiggles bottles on shelves  — 28 wobbling
+PASS  trident stand: pedestal  — "tridentPedestal"
+PASS  trident stand: crossbar ledge  — "trident0"
+PASS  sampling station opens picker
+PASS  sip COLA → Fizzy Dash  — cola
+PASS  Fizzy Dash smashes the delivery box wall
+PASS  sip CREAM SODA → Foam Float  — cream
+PASS  Foam Float lifts the goose on a foam cloud  — y=283 on foam
+PASS  foam cloud lets goose clear the box wall  — x=1675
+PASS  sip BLACK CHERRY → Cherry Blast  — cherry
+PASS  Cherry Blast topples the box wall
+PASS  only one power active at a time (HUD shows cherry)
+PASS  power expires (burp) after its timer
+PASS  first honk wakes the fountain (stage 1)
+PASS  second honk → eruption (stage 2)
+PASS  bubbles spawn continuously  — 8 active
+PASS  floating bubble supports the goose  — {"x":2081,"y":215,"ground":true,"gtag":"bubble","mode":"play","phase":"play","power":null,"drops":2,"fountain":2,"wall":true,"bubbles":8,"anim":"g_land"}
+PASS  goose rides the bubble (still on it after 0.5s)
+PASS  bubble pops after repeated landings
+PASS  trident lift is moving  — 323.3 → 304.1
+PASS  bubble → elevated mezzanine (real jump)  — {"x":2199,"y":168,"ground":true,"gtag":"mezz","mode":"play","phase":"play","power":null,"drops":3,"fountain":2,"wall":true,"bubbles":14,"anim":"g_idle"}
+PASS  pause and resume
+PASS  valve triggers finale
+PASS  goose rides the giant bubble upward  — {"x":2320,"y":134,"ground":true,"gtag":"mezz","mode":"ride","phase":"cutscene","power":null,"drops":3,"fountain":2,"wall":true,"bubbles":16,"anim":"g_ride"}
+PASS  freeze frame + demo end
+PASS  no missing textures (gameplay)
+PASS  REPLAY DEMO restarts at the cinematic
+PASS  mobile: touch RIGHT moves goose  — 42 → 115
+PASS  mobile: multi-touch RIGHT+JUMP jumps  — {"x":157,"y":301,"ground":false,"gtag":null,"mode":"play","phase":"play","power":null,"drops":1,"fountain":0,"wall":false,"bubbles":0,"anim":"g_jump"}
+PASS  mobile: HONK button honks
+
+no page errors
+
+40/40 checks passed

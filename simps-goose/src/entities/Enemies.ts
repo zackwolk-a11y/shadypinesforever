@@ -7,6 +7,7 @@ import { GS } from '../systems/gamestate';
 import { settings } from '../systems/settings';
 
 abstract class Enemy implements EnemyLike {
+  abstract readonly kind: string;
   alive = true; stompable = true; contactDamage = 1; slows = false;
   sprite: Phaser.GameObjects.Sprite; x: number; y: number; w: number; h: number;
   hp = 1; stun = 0; flash = 0; dir = 1; t = Math.random() * 3;
@@ -42,6 +43,7 @@ abstract class Enemy implements EnemyLike {
 
 /** Fizz Sprite — hops between two points, sometimes leaps toward the goose. */
 export class FizzSprite extends Enemy {
+  readonly kind = 'FizzSprite';
   vy = 0; baseY: number; airborne = false;
   constructor(s: LevelScene, x: number, y: number, minX?: number, maxX?: number) { super(s, x, y, 'fs_idle0', 14, 14, minX, maxX); this.baseY = y; this.sprite.play('fs_idle'); }
   step(dt: number, s: LevelScene) {
@@ -62,6 +64,7 @@ export class FizzSprite extends Enemy {
 }
 /** Syrup Slug — slow crawler; touching it makes the goose sticky-slow (no damage). */
 export class SyrupSlug extends Enemy {
+  readonly kind = 'SyrupSlug';
   constructor(s: LevelScene, x: number, y: number, minX?: number, maxX?: number) { super(s, x, y, 'sl_crawl0', 22, 10, minX, maxX); this.sprite.play('sl_crawl'); this.contactDamage = 0; this.slows = true; this.hp = 2; }
   step(dt: number) {
     this.t += dt; this.stun -= dt; if (this.stun > 0) return;
@@ -72,6 +75,7 @@ export class SyrupSlug extends Enemy {
 }
 /** Bottle Bot — patrols, charges when it spots the goose. */
 export class BottleBot extends Enemy {
+  readonly kind = 'BottleBot';
   alert = 0;
   constructor(s: LevelScene, x: number, y: number, minX?: number, maxX?: number) { super(s, x, y, 'bb_walk0', 14, 26, minX, maxX); this.sprite.play('bb_walk'); this.hp = 2; }
   step(dt: number, s: LevelScene) {
@@ -87,6 +91,7 @@ export class BottleBot extends Enemy {
 }
 /** Foam Monster — swells up to block the route, then shrinks. Pop it while small or with shots. */
 export class FoamMonster extends Enemy {
+  readonly kind = 'FoamMonster';
   big = false; cycle = 0;
   constructor(s: LevelScene, x: number, y: number) { super(s, x, y, 'fm_small0', 24, 22, x, x); this.sprite.play('fm_small'); this.hp = 4; }
   step(dt: number) {
@@ -105,6 +110,7 @@ export class FoamMonster extends Enemy {
 }
 /** Fruit Flyer — bobs in the air, dives at the goose. */
 export class FruitFlyer extends Enemy {
+  readonly kind = 'FruitFlyer';
   hx: number; hy: number; diving = 0; vx = 0; vy = 0;
   constructor(s: LevelScene, x: number, y: number) { super(s, x, y, 'ff_fly0', 16, 14, x - 60, x + 60); this.hx = x; this.hy = y; this.sprite.play('ff_fly'); this.sprite.setOrigin(0.5, 0.5); }
   rect(): Rect { return { x: this.x - 8, y: this.y - 7, w: 16, h: 14 }; }

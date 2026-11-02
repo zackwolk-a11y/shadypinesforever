@@ -1,0 +1,56 @@
+PASS  L1 storage route golden bottle collectable
+PASS  L1 two honks erupt the fountain (story)
+PASS  L1 main valve locked until pressure valves are open
+PASS  L1 both pressure valves opened (honk)  — [true,true]
+PASS  L1 final trident valve starts the finale
+PASS  L1 transitions into Level 2 (Lab)
+PASS  Lab arrival cutscene → play
+PASS  no missing textures (store/lab)
+PASS  Mixer: Cola + Black Cherry = Cherry Rocket  — {"recipe":"cherry_rocket","q":"good","power":"rocket","isSuper":false}
+PASS  Mixer: green-zone pumps rated GOOD or PERFECT  — observed good
+PASS  Cherry Rocket power granted
+PASS  Lab: rocket dash smashes the fragile glass wall
+PASS  Lab: dash ends on impact (goose not flung into the syrup vat)  — {"key":"Lab","phase":"play","x":666,"y":390,"power":"rocket","burp":null,"gtag":"floor"}
+PASS  Mixer: Blue Raspberry + Lemon Lime = Electric Fizz  — {"recipe":"electric_fizz","q":"over","power":"electric","isSuper":false}
+PASS  Lab: Electric Fizz zaps the target and opens the gate
+PASS  Lab: pressure lever starts the trident lift
+PASS  Mixer: unknown combo still gives a power (Mystery Fizz)  — {"recipe":null,"q":"good","power":"cream","isSuper":false}
+PASS  Super Soda (Cola + Cream Soda + Black Cherry + MAX)  — {"recipe":null,"q":"over","power":"cola","isSuper":true}
+PASS  Portal accident → Soda Dimension
+PASS  Recipes saved to the journal  — cherry_rocket,electric_fizz
+PASS  Dimension: stomping a Syrup Slug defeats it
+PASS  Dimension: all 5 enemy types present  — BottleBot,FizzSprite,FoamMonster,FruitFlyer,SyrupSlug
+PASS  Dimension: collapsing foam pad gives way
+PASS  Dimension: checkpoint reached
+PASS  Dimension frame rate playable (>=30 fps, headless software WebGL)  — 36 fps
+PASS  Dimension exit portal → Carbonation boss
+PASS  Boss phase 1: honked bubbles hit the pressure switches
+PASS  Boss phase 2: matching flavor taps
+PASS  Boss phase 3: all valves → Carbonator defeated
+PASS  Boss → fake ending
+PASS  Fake ending: credits interrupted → Level 3 café
+PASS  Level 3 revealed + unlocked (progress kept)
+PASS  Café: barista dialogue → coffee mini-game
+PASS  Café: first burp → Bubble Burp unlocked (Peppermint)
+PASS  Café: burp fires a bubble
+PASS  Café → waterfront
+PASS  Coffee power persisted in the save  — {"c":"peppermint","r":"peppermint"}
+PASS  Waterfront: burp targets popped
+PASS  Waterfront: burp lifts the beach ball
+PASS  Waterfront: E makes a bubble platform
+PASS  Waterfront: bubble bell opens the dock
+PASS  Waterfront: sit on the dock → ripples → Ogopogo
+PASS  True ending → final stats screen
+PASS  Achievements saved (Friend of Ogopogo, Golden Goose)  — first_honk,bubble_trouble,master_of_fizz,coffee_break,friend_of_ogopogo,golden_goose
+PASS  Golden Goose Token collected
+PASS  Title shows CONTINUE after progress  — CONTINUE|NEW GAME|LEVEL SELECT|JOURNAL + ACHIEVEMENTS|SETTINGS|HOW TO PLAY|VERTICAL SLICE DEMO
+PASS  Level select lists Level 3 once revealed  — LEVEL SELECT|~ L1  BUBBLE TROUBLE  *|L2  THE HONKIN' SODA LAB  *|L2  THE SODA DIMENSION  *|L2  CARBONATION CATASTROPHE  
+PASS  Journal opens from the title
+PASS  Pause works in Level 2
+PASS  Pause menu toggles Reduce Flashing (saved)
+PASS  Resume works in Level 2
+PASS  Mobile touch: move + jump in the Soda Dimension  — {"key":"Dimension","phase":"play","x":80,"y":400,"power":null,"burp":null,"gtag":"island"} → {"key":"Dimension","phase":"play","x":160,"y":365,"power":null,"burp":null,"gtag":null}
+
+no page errors
+
+52/52 full-game checks passed
