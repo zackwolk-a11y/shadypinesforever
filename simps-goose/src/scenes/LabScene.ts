@@ -49,6 +49,7 @@ export class LabScene extends LevelScene {
   mixing = false; t = 0; greeted = { A: false, B: false, gate: false };
   glass: Phaser.GameObjects.Image[] = []; glassBroken = false;
   colT = 0;
+  gerry!: Person; gerrySaid = false;
   constructor() { super('Lab'); }
 
   create() {
@@ -84,6 +85,7 @@ export class LabScene extends LevelScene {
     }
     this.tech = new Person(this, 'lab_tech', 400, F, { staff: true, facing: -1 }); this.people.push(this.tech);
     this.tech2 = new Person(this, 'lab_tech', 1340, F, { staff: true, facing: 1 }); this.people.push(this.tech2);
+    this.gerry = new Person(this, 'gerry', 2490, F, { staff: true, facing: 1, depth: 28 }); this.people.push(this.gerry); this.gerrySaid = false;
     // fragile glass wall + solid bulkhead above
     this.addPlatform(600, 22, 44, 236, 'solid', 'bulkhead');
     const bh = this.add.graphics().setDepth(29); bh.fillStyle(C.st3).fillRect(600, 22, 44, 236).fillStyle(C.st4).fillRect(600, 250, 44, 8);
@@ -314,6 +316,7 @@ export class LabScene extends LevelScene {
     // tutorial chatter
     const g = this.goose;
     if (!this.greeted.A && Math.abs(g.x - 300) < 90 && this.phase === 'play') { this.greeted.A = true; this.tech.say('BASE + SYRUP + FIZZ. PUMP IN THE GREEN!', 2600); }
+    if (!this.gerrySaid && Math.abs(g.x - 2560) < 100 && this.phase === 'play') { this.gerrySaid = true; this.gerry.say('THE SUPER SODA 9000. GERRY APPROVES... MOSTLY.', 2600); this.gerry.setState('gesture', 2); }
     if (!this.greeted.B && Math.abs(g.x - 1300) < 120 && this.phase === 'play') { this.greeted.B = true; this.tech2.say('THAT TARGET NEEDS AN ELECTRIC ZAP!', 2600); }
     // electric fizz homes in on zap targets
     for (const s of this.shots) if (s.active && s.kind === 'electric') for (const sw of this.switches) if (!sw.on && sw.by.includes('electric') && sw instanceof Target) {

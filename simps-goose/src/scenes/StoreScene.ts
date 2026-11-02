@@ -59,6 +59,7 @@ export class StoreScene extends LevelScene {
   lampGlows: Phaser.GameObjects.Image[] = [];
   demo = false;
   fridgeT = 0;
+  dave!: Person; gerry!: Person; greetedDave = false; gerryLine = 0;
 
   constructor() { super('Store'); }
   get dropCount() { return this.counts.drop; }
@@ -194,6 +195,9 @@ export class StoreScene extends LevelScene {
     add('cust_d', 1270, { range: [1255, 1290], facing: -1 });
     this.sam = add('emp_sam', L.sample.x + 30, { staff: true, depth: 26, facing: 1 });
     add('cust_c', 1695, { range: [1660, 1735], facing: 1 });
+    this.dave = add('dave', 214, { staff: true, depth: 31, facing: -1 });
+    this.gerry = add('gerry', 1918, { staff: true, depth: 26, facing: -1 });
+    this.greetedDave = false; this.gerryLine = 0;
   }
 
   buildBottles() {
@@ -276,6 +280,8 @@ export class StoreScene extends LevelScene {
   frameLevel(dt: number) {
     const g = this.goose, b = g.body;
     this.fridgeT -= dt;
+    if (!this.greetedDave && this.phase === 'play' && Math.abs(g.x - this.dave.x) < 80) { this.greetedDave = true; this.dave.say("WELCOME TO SIMPS! I'M DAVE.", 2200); this.dave.setState('gesture', 2); SFX.hey(0.9); }
+    if (this.gerryLine < this.fountain.stage && !this.demo) { this.gerryLine = this.fountain.stage; const st = this.fountain.stage; this.time.delayedCall(900, () => { this.gerry.lastLine = 0; this.gerry.say(st === 1 ? "GERRY HERE. PLEASE DON'T HONK AT THAT." : '...OKAY, KEEP GOING!', 2400); this.gerry.setState(st === 1 ? 'react' : 'cheer', 2); }); }
     this.sampling.update();
     for (const bt of this.bottles) {
       if (bt.state === 'fall' && bt.canHurt && bt.vy > 80 && g.mode === 'play' && Math.abs(bt.x - g.x) < 10 && bt.y > g.y - 34 && bt.y < g.y - 4) { g.hurt(bt.x); bt.vy = -120; bt.vx = -bt.vx; }

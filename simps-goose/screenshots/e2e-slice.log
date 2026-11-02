@@ -7,7 +7,7 @@ PASS  goose walks right  — 42 → 122
 PASS  goose turns and walks left  — 122 → 111
 PASS  jump leaves ground and lands  — apex-ish y=284, landed y=330
 PASS  jump onto display crate  — y=304 on crate1
-PASS  honk makes customers react  — 1 reacting (was browse,browse,browse,browse,idle,browse,idle,browse)
+PASS  honk makes customers react  — 2 reacting (was walk,browse,walk,browse,idle,browse,idle,walk,gesture,idle)
 PASS  honk jiggles bottles on shelves  — 28 wobbling
 PASS  trident stand: pedestal  — "tridentPedestal"
 PASS  trident stand: crossbar ledge  — "trident0"
@@ -24,19 +24,19 @@ PASS  power expires (burp) after its timer
 PASS  first honk wakes the fountain (stage 1)
 PASS  second honk → eruption (stage 2)
 PASS  bubbles spawn continuously  — 8 active
-PASS  floating bubble supports the goose  — {"x":2081,"y":215,"ground":true,"gtag":"bubble","mode":"play","phase":"play","power":null,"drops":2,"fountain":2,"wall":true,"bubbles":8,"anim":"g_land"}
+PASS  floating bubble supports the goose  — {"x":2089,"y":217,"ground":true,"gtag":"bubble","mode":"play","phase":"play","power":null,"drops":1,"fountain":2,"wall":true,"bubbles":8,"anim":"g_land"}
 PASS  goose rides the bubble (still on it after 0.5s)
 PASS  bubble pops after repeated landings
-PASS  trident lift is moving  — 323.3 → 304.1
-PASS  bubble → elevated mezzanine (real jump)  — {"x":2199,"y":168,"ground":true,"gtag":"mezz","mode":"play","phase":"play","power":null,"drops":3,"fountain":2,"wall":true,"bubbles":14,"anim":"g_idle"}
+PASS  trident lift is moving  — 323.9 → 311.8
+PASS  bubble → elevated mezzanine (real jump)  — {"x":2198,"y":168,"ground":true,"gtag":"mezz","mode":"play","phase":"play","power":null,"drops":2,"fountain":2,"wall":true,"bubbles":15,"anim":"g_idle"}
 PASS  pause and resume
 PASS  valve triggers finale
-PASS  goose rides the giant bubble upward  — {"x":2320,"y":134,"ground":true,"gtag":"mezz","mode":"ride","phase":"cutscene","power":null,"drops":3,"fountain":2,"wall":true,"bubbles":16,"anim":"g_ride"}
+PASS  goose rides the giant bubble upward  — {"x":2321,"y":134,"ground":true,"gtag":"mezz","mode":"ride","phase":"cutscene","power":null,"drops":2,"fountain":2,"wall":true,"bubbles":16,"anim":"g_ride"}
 PASS  freeze frame + demo end
 PASS  no missing textures (gameplay)
 PASS  REPLAY DEMO restarts at the cinematic
 PASS  mobile: touch RIGHT moves goose  — 42 → 115
-PASS  mobile: multi-touch RIGHT+JUMP jumps  — {"x":157,"y":301,"ground":false,"gtag":null,"mode":"play","phase":"play","power":null,"drops":1,"fountain":0,"wall":false,"bubbles":0,"anim":"g_jump"}
+PASS  mobile: multi-touch RIGHT+JUMP jumps  — {"x":155,"y":298,"ground":false,"gtag":null,"mode":"play","phase":"play","power":null,"drops":1,"fountain":0,"wall":false,"bubbles":0,"anim":"g_jump"}
 PASS  mobile: HONK button honks
 
 no page errors

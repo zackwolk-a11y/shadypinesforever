@@ -19,7 +19,7 @@ import { MUSIC } from '../audio/music';
 
 const CREDITS = [
   ['SIMPS: GOOSE ON THE LOOSE!', ''], ['', ''],
-  ['DIRECTED BY', 'THE GOOSE'], ['LEAD HONKER', 'THE GOOSE'], ['CHIEF SIP OFFICER', 'THE GOOSE'],
+  ['FOUNDERS', 'DAVE & GERRY'], ['DIRECTED BY', 'THE GOOSE'], ['LEAD HONKER', 'THE GOOSE'], ['CHIEF SIP OFFICER', 'THE GOOSE'],
   ['FLAVOR SCIENTIST', 'A VERY TIRED LAB TECH'], ['FREE SAMPLES', 'SAM'], ['CHECKOUT + PATIENCE', 'JO'],
   ['SODA FOUNTAIN', 'FIZZ-O-MATIC (RETIRED)'], ['BUBBLE WRANGLING', 'CARBONATOR 3000 (ON LEAVE)'],
   ['BOX WALL', 'PLEASE DO NOT CLIMB'], ['CATERING', 'CREAM SODA, MOSTLY'], ['CONTINUITY', 'NONE. THERE IS A GOOSE.'],
@@ -44,7 +44,7 @@ export class FakeEndScene extends Phaser.Scene {
     this.add.tileSprite(0, 240, 480, 30, 'floor').setOrigin(0).setDepth(15);
     this.add.tileSprite(0, 6, 480, 22, 'bunting').setOrigin(0).setDepth(3);
     this.fx = new FxSystem(this, 70);
-    for (const [k, x, f] of [['emp_sam', 120, 1], ['emp_jo', 360, -1], ['cust_a', 60, 1], ['cust_b', 420, -1], ['cust_d', 300, -1], ['lab_tech', 190, 1]] as [string, number, number][]) {
+    for (const [k, x, f] of [['emp_sam', 70, 1], ['dave', 150, 1], ['emp_jo', 400, -1], ['gerry', 330, -1], ['cust_a', 30, 1], ['cust_b', 450, -1], ['lab_tech', 200, 1]] as [string, number, number][]) {
       const p = new Person(this, k, x, 240, { staff: true, facing: f }); this.people.push(p);
     }
     this.goose = this.add.sprite(240, -40, 'goose', 'fall_0').setOrigin(22 / 48, 46 / 48).setDepth(40).play('g_fall');
@@ -53,7 +53,8 @@ export class FakeEndScene extends Phaser.Scene {
     this.tweens.add({ targets: this.goose, y: 240, duration: 900, ease: 'Bounce.Out', delay: 300, onComplete: () => {
       SFX.land(); this.fx.dust(240, 240, 10); this.goose.play('g_celebrate');
       this.people.forEach((p) => p.cheer()); SFX.cheer();
-      this.people[0].say('YOU SAVED THE SODA!', 2200);
+      this.people[1].say('YOU SAVED THE SODA!', 2200);
+      this.time.delayedCall(1200, () => this.people[3].say('HONK! I MEAN... THANKS!', 2000));
       for (let i = 0; i < 6; i++) this.time.delayedCall(i * 300, () => this.fx.confetti(60 + Math.random() * 360, 120, 18));
     } });
     this.time.delayedCall(3200, () => { this.goose.play('g_honk'); this.time.delayedCall(140, () => { SFX.honk(1.4); this.fx.honk(this.goose.x + 14, this.goose.y - 34, 1, true); }); });

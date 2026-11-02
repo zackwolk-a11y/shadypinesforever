@@ -8,14 +8,15 @@ import { Px } from './px';
 export const PF_W = 32, PF_H = 64;
 export interface PersonSpec {
   skin: [number, number];
-  hair: number; hairStyle: 'short' | 'long' | 'bun' | 'curly' | 'cap' | 'bald';
+  hair: number; hairStyle: 'short' | 'long' | 'bun' | 'curly' | 'cap' | 'bald' | 'slick';
   shirt: [number, number, number]; // hi, base, shade
   pants: [number, number];
   shoes: number;
   apron?: boolean; capColor?: number;
   bag?: 'basket' | 'tote' | null;
   glasses?: boolean;
-  tall?: number; // -2..2
+  tall?: number; // -2..3
+  beard?: 'full' | 'goatee'; vest?: boolean; jacket?: boolean; tattoo?: boolean; broad?: boolean;
 }
 export interface PersonPose {
   stride: number; // -1..1
@@ -48,6 +49,7 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
     g.line(sx + ex * 0.5, sy + ey * 0.5, sx + ex, sy + ey, front ? s.skin[0] : s.skin[1]);
     g.line(sx + 1 + ex * 0.5, sy + ey * 0.5, sx + 1 + ex, sy + ey, front ? s.skin[0] : s.skin[1]);
     g.circle(sx + ex + 0.5, sy + ey + 0.5, 1.6, front ? s.skin[0] : s.skin[1]);
+    if (s.tattoo && front) for (const k of [0.6, 0.72, 0.84]) { g.set(sx + ex * k, sy + ey * k, C.ink3); g.set(sx + 1 + ex * k, sy + ey * k + 1, C.blu3); }
     return [sx + ex, sy + ey];
   };
   arm(p.armB, tx - 5 + lean, false);
@@ -65,9 +67,9 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
   leg(2, p.stride, s.pants[0]);
 
   // torso
-  g.fill(tx - 6 + lean, shY, tx + 6 + lean, hipY + 1, (x, y) => {
+  g.fill(tx - 7 + lean, shY, tx + 7 + lean, hipY + 1, (x, y) => {
     const t = (y - shY) / (hipY - shY);
-    const w = 6 - t * 0.6;
+    const w = (s.broad ? 7 : 6) - t * 0.6;
     const xx = x - (tx + lean * (1 - t));
     if (xx < -w || xx > w) return -1;
     if (xx > w - 2.5) return s.shirt[2];
@@ -76,6 +78,25 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
   });
   // collar / neckline
   g.rect(tx - 1 + lean, shY - 2, 3, 3, s.skin[1]);
+  if (s.vest) {
+    g.fill(tx - 7 + lean, shY, tx + 7 + lean, hipY + 1, (x, y) => {
+      const t = (y - shY) / (hipY - shY), w = (s.broad ? 7 : 6) - t * 0.6, xx = x - (tx + lean * (1 - t));
+      if (xx < -w || xx > w) return -1;
+      if (Math.abs(xx - 0.5) < 3.5 - (y - shY) * 0.45 && y < shY + 8) return -1; // V-neck shows the white shirt
+      return xx > w - 2 ? C.blk2 : C.blk1;
+    });
+    const cx = Math.round(tx + lean + 0.5);
+    g.vline(cx, shY - 1, shY + 8, C.blk2); g.vline(cx + 1, shY, shY + 7, C.blk0);
+    for (const yy of [shY + 1, shY + 4, shY + 7]) g.set(cx, yy, C.st1);
+    g.set(cx, shY + 11, C.blk0); g.set(cx, shY + 14, C.blk0);
+  }
+  if (s.jacket) {
+    const cx = Math.round(tx + lean + 0.5);
+    g.rect(cx - 2, shY, 4, 7, C.blk2); // black tee
+    g.vline(cx + 2, shY + 1, hipY, C.st2); // zipper
+    g.rect(cx - 4, shY - 2, 2, 3, C.blk0); g.rect(cx + 3, shY - 2, 2, 3, C.blk0); // stand collar
+    g.vline(tx - 4 + lean, shY + 3, hipY - 2, C.blk0); g.set(tx - 3 + lean, shY + 6, 0x7a7088); g.set(tx + 4 + lean, shY + 9, 0x7a7088);
+  }
   if (s.apron) {
     g.fill(tx - 4 + lean, shY + 4, tx + 5 + lean, hipY + 6, (x, y) => {
       const xx = x - (tx + lean * 0.8);
@@ -108,8 +129,17 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
     case 'bun': g.fill(hx - 6, hy - 7, hx + 5, hy, (x, y) => { const nx = (x + .5 - hx) / 5.6, ny = (y + .5 - hy + 1) / 6; return nx * nx + ny * ny <= 1 && (y < hy - 2 || x < hx - 2) ? H : -1; }); g.circle(hx - 4, hy - 6, 2.5, H); break;
     case 'curly': for (let k = 0; k < 9; k++) { const a = Math.PI * (0.9 + k * 0.14); g.circle(hx + Math.cos(a) * 4.8, hy - 1 + Math.sin(a) * 5.5, 2.2, H); } break;
     case 'cap': g.fill(hx - 6, hy - 7, hx + 5, hy - 2, (x, y) => { const nx = (x + .5 - hx) / 5.6, ny = (y + .5 - hy + 1) / 6; return nx * nx + ny * ny <= 1 ? (s.capColor ?? C.red1) : -1; }); g.rect(hx, hy - 3, 7, 2, s.capColor ?? C.red1); g.rect(hx - 6, hy - 2, 3, 4, H); break;
-    case 'bald': g.set(hx - 2, hy - 5, C.wht); break;
+    case 'bald': g.set(hx - 2, hy - 5, C.wht); g.set(hx - 1, hy - 5, C.wht); g.set(hx - 2, hy - 4, 0xffffff); break;
+    case 'slick':
+      // undercut fade on the side, long dark top swept forward over the brow
+      g.fill(hx - 6, hy - 4, hx - 3, hy + 1, (x, y) => { const nx = (x + .5 - hx) / 5.4, ny = (y + .5 - hy) / 6; return nx * nx + ny * ny <= 1 && nx < -0.5 ? 0x5e5866 : -1; });
+      g.fill(hx - 6, hy - 9, hx + 6, hy - 2, (x, y) => { const nx = (x + .5 - hx) / 5.8, ny = (y + .5 - hy + 2) / 6.2; return nx * nx + ny * ny <= 1 && y < hy - 2 ? H : -1; });
+      g.rect(hx + 2, hy - 3, 4, 2, H); g.set(hx + 5, hy - 1, H); g.set(hx + 6, hy - 2, H);
+      g.hline(hx - 3, hx + 3, hy - 8, 0x5a5262);
+      break;
   }
+  if (s.beard === 'full') g.fill(hx - 5, hy, hx + 5, hy + 7, (x, y) => { const nx = (x + .5 - hx) / 5.1, ny = (y + .5 - hy) / 6.2; if (nx * nx + ny * ny > 1 || x < hx - 3) return -1; const edge = nx * nx + ny * ny > 0.62; return (y >= hy + 4 || (edge && y >= hy + 1)) ? H : -1; });
+  if (s.beard === 'goatee') { g.hline(hx + 2, hx + 4, hy + 2, H); g.rect(hx + 2, hy + 5, 2, 2, H); g.set(hx + 2, hy + 7, H); }
   if (s.hairStyle === 'cap' && s.apron) g.set(hx - 1, hy - 5, C.wht);
 
   // front arm
@@ -167,6 +197,8 @@ export const PEOPLE: Record<string, PersonSpec> = {
   cust_b: { skin: [C.sk2, C.sk3], hair: C.hr0, hairStyle: 'curly', shirt: [C.lim0, C.lim2, C.lim3], pants: [C.cb2, C.cb3], shoes: C.ink2, bag: 'tote' },
   cust_c: { skin: [C.sk0, C.sk1], hair: C.hr4, hairStyle: 'short', shirt: [C.pur0, C.pur1, C.pur2], pants: [C.blk0, C.blk1], shoes: C.cola2, glasses: true, tall: 1 },
   cust_d: { skin: [C.sk1, C.sk2], hair: C.hr2, hairStyle: 'bun', shirt: [C.mng0, C.mng1, C.mng2], pants: [C.blu1, C.blu2], shoes: C.red1, tall: -1 },
+  dave: { skin: [C.sk0, C.sk1], hair: C.hr1, hairStyle: 'bald', beard: 'full', shirt: [0xffffff, C.wl0, C.wl2], pants: [C.blk1, C.blk2], shoes: C.ink2, vest: true, tattoo: true, tall: 3, broad: true },
+  gerry: { skin: [C.sk0, C.sk1], hair: C.hr0, hairStyle: 'slick', beard: 'goatee', shirt: [C.blk0, C.blk1, C.blk2], pants: [C.blk0, C.blk1], shoes: C.blk2, jacket: true, tall: 3 },
   cust_e: { skin: [C.sk3, C.sk4], hair: C.hr0, hairStyle: 'short', shirt: [C.blu0, C.blu1, C.blu2], pants: [C.st2, C.st3], shoes: C.wht, tall: 2 },
   lab_tech: { skin: [C.sk1, C.sk2], hair: C.hr3, hairStyle: 'bun', shirt: [0xffffff, C.wl0, C.wl2], pants: [C.blk0, C.blk1], shoes: C.ink2, glasses: true },
   barista: { skin: [C.sk2, C.sk3], hair: C.hr1, hairStyle: 'curly', shirt: [C.crm1, C.crm2, C.crm3], pants: [C.blk1, C.blk2], shoes: C.cola2, apron: true },
