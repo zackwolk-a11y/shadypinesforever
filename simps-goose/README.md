@@ -51,6 +51,7 @@ Coffee burps: **Vanilla** Gentle Giant · **Salted Caramel** Heavy Burp · **Haz
 | Sip / use / pick up / bubble platform (Double Bubble) | E | SIP | Y |
 | Pause (journal, a11y, restart) | Esc / P | II | Start |
 | Mute | M | SND | — |
+| Fullscreen | F | FS (HUD / title) · ⛶ FULL (phone pad) | — |
 
 ## Systems
 Hearts (5 maple leaves) and trident checkpoints (resume from checkpoint). Score, time, best score.

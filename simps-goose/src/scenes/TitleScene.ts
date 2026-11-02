@@ -12,6 +12,7 @@ import { MUSIC } from '../audio/music';
 import { SFX } from '../audio/sfx';
 import { FxSystem } from '../gameplay/FxSystem';
 import { GS } from '../systems/gamestate';
+import { toggleFullscreen } from '../systems/fullscreen';
 import { save, update, resetSave, STAGES, level3Revealed } from '../systems/save';
 
 function logoTexture(scene: Phaser.Scene) {
@@ -67,6 +68,11 @@ export class TitleScene extends Phaser.Scene {
     this.add.existing(txt(this, 474, 258, 'UNOFFICIAL CONCEPT DEMO - V0.1', { align: 'right', outline: false, color: C.st2 }).setDepth(10));
     this.add.existing(txt(this, 6, 258, 'KELOWNA, B.C.', { outline: false, color: C.st2 }).setDepth(10));
     this.menuC = this.add.container(0, 0).setDepth(11);
+    // fullscreen button (top-right); pointerup so the browser treats it as a user gesture
+    const fsG = this.add.graphics().setDepth(12).fillStyle(C.ink, 0.72).fillRoundedRect(424, 4, 52, 16, 3).lineStyle(1, C.st3).strokeRoundedRect(424.5, 4.5, 51, 15, 3);
+    const fsT = txt(this, 450, 7, 'FS (F)', { align: 'center', outline: false, color: C.wht }).setDepth(13);
+    this.add.existing(fsT); void fsG;
+    this.add.zone(424, 4, 52, 16).setOrigin(0).setDepth(13).setInteractive({ useHandCursor: true }).on('pointerup', (_p: unknown, _x: unknown, _y: unknown, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); void toggleFullscreen(); });
     this.input.on('pointerdown', () => { if (!this.started) this.begin(); });
     if (AE.ctx && AE.ctx.state === 'running') this.begin();
     (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.scene = 'Title';
@@ -121,6 +127,7 @@ export class TitleScene extends Phaser.Scene {
       'E             SIP/USE  SIP    (BUBBLE PLATFORM)',
       'ESC           PAUSE    II',
       'M             MUTE     SND',
+      'F             FULLSCREEN  FS',
       '',
       'SIP SAMPLES + MIX RECIPES FOR POWERS.',
       'STOMP OR HONK AT FIZZ CREATURES.',

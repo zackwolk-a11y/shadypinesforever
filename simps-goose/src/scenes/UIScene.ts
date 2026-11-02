@@ -14,6 +14,7 @@ import { POWERS, PowerId } from '../data/recipes';
 import { BURPS, BurpId } from '../data/coffee';
 import { GS } from '../systems/gamestate';
 import { portraitPad } from '../systems/touchpad';
+import { toggleFullscreen } from '../systems/fullscreen';
 
 interface MenuItem { label: () => string; act: (dir: number) => void; t?: Phaser.GameObjects.BitmapText }
 interface TouchBtn { a: Action; x: number; y: number; r: number; label: string; g?: Phaser.GameObjects.Graphics; down: boolean }
@@ -101,15 +102,16 @@ export class UIScene extends Phaser.Scene {
     this.slot.add([fr, this.slotRing, this.slotIcon, crest, this.slotName]);
     this.hud.add(this.slot);
     // pause + mute buttons
-    const btn = (y: number, label: string, f: () => void) => {
+    const btn = (y: number, label: string, f: () => void, ev: 'pointerdown' | 'pointerup' = 'pointerdown') => {
       const b = this.add.graphics().fillStyle(C.ink, 0.72).fillRoundedRect(452, y, 24, 16, 3).lineStyle(1, C.st3).strokeRoundedRect(452.5, y + 0.5, 23, 15, 3);
       const t = txt(this, 464, y + 3, label, { align: 'center', outline: false, color: C.wht });
-      const z = this.add.zone(452, y, 24, 16).setOrigin(0).setInteractive({ useHandCursor: true }).on('pointerdown', (_p: unknown, _x: unknown, _y: unknown, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); f(); });
+      const z = this.add.zone(452, y, 24, 16).setOrigin(0).setInteractive({ useHandCursor: true }).on(ev, (_p: unknown, _x: unknown, _y: unknown, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); f(); });
       this.hud.add([b, t, z]);
       return t;
     };
     btn(4, 'II', () => this.openPause());
     this.muteBtn = btn(22, settings().muted ? 'OFF' : 'SND', () => this.toggleMute());
+    btn(40, 'FS', () => { void toggleFullscreen(); }, 'pointerup');
     // pressure meter
     this.pressure = this.add.container(240, 8).setAlpha(0);
     const pg = this.add.graphics().fillStyle(C.ink, 0.8).fillRoundedRect(-70, 0, 140, 20, 4).lineStyle(1, C.red1).strokeRoundedRect(-69.5, 0.5, 139, 19, 4);

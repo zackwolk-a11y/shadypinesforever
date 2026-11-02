@@ -3,6 +3,7 @@
  * keyboard, so every menu works with the d-pad + JUMP/SIP. Landscape uses the in-game buttons.
  */
 import { Controls, Action } from './input';
+import { toggleFullscreen } from './fullscreen';
 
 const BUTTONS: { a: Action[]; label: string; cls: string }[] = [
   { a: ['up'], label: '▲', cls: 'up' }, { a: ['left'], label: '◀', cls: 'left' }, { a: ['right'], label: '▶', cls: 'right' }, { a: ['down'], label: '▼', cls: 'down' },
@@ -24,6 +25,12 @@ export function installTouchpad(isTouch: () => boolean) {
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     pad.appendChild(el);
   }
+  // fullscreen button (top-right of the pad); triggered on pointerup so it counts as a user gesture
+  const fs = document.createElement('button');
+  fs.className = 'pb pause fs'; fs.type = 'button'; fs.textContent = '⛶ FULL';
+  fs.style.gridArea = '1 / 5 / 2 / 7';
+  fs.addEventListener('click', (e) => { e.preventDefault(); void toggleFullscreen(); });
+  pad.appendChild(fs);
   const update = () => {
     const portrait = window.innerHeight > window.innerWidth;
     document.body.classList.toggle('pad-on', portrait && isTouch());

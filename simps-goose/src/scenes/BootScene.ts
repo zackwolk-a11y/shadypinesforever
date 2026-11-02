@@ -39,12 +39,16 @@ export class BootScene extends Phaser.Scene {
 /** Persistent scene that owns the keyboard and polls controls first every frame. */
 import { Controls } from '../systems/input';
 import { saveSettings } from '../systems/settings';
+import { toggleFullscreen } from '../systems/fullscreen';
 export class InputScene extends Phaser.Scene {
-  m!: Phaser.Input.Keyboard.Key;
+  m!: Phaser.Input.Keyboard.Key; f!: Phaser.Input.Keyboard.Key;
   constructor() { super('Input'); }
   create() {
     Controls.bind(this);
     this.m = this.input.keyboard!.addKey('M');
+    // F = fullscreen (runs inside the key event so browsers accept it as a user gesture)
+    this.f = this.input.keyboard!.addKey('F');
+    this.f.on('down', () => { void toggleFullscreen(); });
   }
   update() {
     Controls.poll();

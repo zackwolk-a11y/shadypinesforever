@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { installTouchpad } from './systems/touchpad';
+import { setFullscreenNotifier } from './systems/fullscreen';
 import { BootScene, InputScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
 import { IntroScene } from './scenes/IntroScene';
@@ -34,6 +35,8 @@ const game = new Phaser.Game({
 });
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.game = game;
 installTouchpad(() => game.registry.get('touch') === true || ('ontouchstart' in window || navigator.maxTouchPoints > 0));
+for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => { setTimeout(() => game.scale.refresh(), 60); game.events.emit('fullscreen:change'); });
+setFullscreenNotifier((m, sub) => game.events.emit('hud:toast', m, 0xffc94a, sub));
 window.addEventListener('resize-game', () => setTimeout(() => game.scale.refresh(), 50));
 // Resume audio when tab regains focus on mobile
 document.addEventListener('visibilitychange', () => { if (document.hidden) game.loop.sleep(); else game.loop.wake(); });
