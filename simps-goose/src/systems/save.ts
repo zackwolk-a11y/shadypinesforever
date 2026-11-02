@@ -2,9 +2,10 @@
  * Persistent progress (localStorage, versioned). Kept separate from settings
  * ('simps-goose-v1'), so saves from the vertical slice keep working.
  */
-export type StageId = 'store' | 'lab' | 'dimension' | 'carb' | 'cafe' | 'waterfront' | 'ogopogo';
+export type StageId = 'store' | 'stockroom' | 'lab' | 'dimension' | 'carb' | 'cafe' | 'waterfront' | 'ogopogo';
 export const STAGES: { id: StageId; scene: string; level: 1 | 2 | 3; name: string }[] = [
   { id: 'store', scene: 'Intro', level: 1, name: 'BUBBLE TROUBLE' },
+  { id: 'stockroom', scene: 'Stockroom', level: 1, name: 'THE GREAT SIMPS STOCK-UP' },
   { id: 'lab', scene: 'Lab', level: 2, name: "THE HONKIN' SODA LAB" },
   { id: 'dimension', scene: 'Dimension', level: 2, name: 'THE SODA DIMENSION' },
   { id: 'carb', scene: 'BossCarb', level: 2, name: 'CARBONATION CATASTROPHE' },
@@ -28,9 +29,11 @@ export interface SaveData {
   fakeEndingSeen: boolean; trueEnding: boolean;
   checkpoint: { stage: StageId; x: number; y: number } | null;
   run: { score: number; hearts: number; time: number; coffee: string | null } | null;
+  powerHonk: boolean; doubleBubble: boolean; superBurp: boolean; stockDone: boolean; goldenOutfit: boolean; outfit: 'classic' | 'golden';
+  owners: { welcome: boolean; workshop: boolean; gerryLab: boolean };
 }
 const KEY = 'simps-goose-save-v2';
-const fresh = (): SaveData => ({ v: 2, unlocked: ['store'], completed: [], bestScore: 0, lastScore: 0, bestTime: 0, flavors: [], recipes: {}, cards: [], collected: [], achievements: [], coffee: null, coffees: [], fakeEndingSeen: false, trueEnding: false, checkpoint: null, run: null });
+const fresh = (): SaveData => ({ v: 2, unlocked: ['store'], completed: [], bestScore: 0, lastScore: 0, bestTime: 0, flavors: [], recipes: {}, cards: [], collected: [], achievements: [], coffee: null, coffees: [], fakeEndingSeen: false, trueEnding: false, checkpoint: null, run: null, powerHonk: false, doubleBubble: false, superBurp: false, stockDone: false, goldenOutfit: false, outfit: 'classic', owners: { welcome: false, workshop: false, gerryLab: false } });
 let cache: SaveData | null = null;
 export function save(): SaveData {
   if (cache) return cache;

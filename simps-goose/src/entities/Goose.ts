@@ -36,6 +36,7 @@ export class Goose {
   floatMode = false;
   /** set when a dash ends by slamming into a wall (consumed by the level's fixed step) */
   dashBonk = false;
+  powerHonk = false; honkHold = -1; powerCd = 0; chargeGlow = false; outfitTint = 0;
   speedMul = 1;
   tropicalUses = 2;
   private dashSpeed = 340;
@@ -168,10 +169,29 @@ export class Goose {
     this.wasGround = b.onGround;
 
     // ---------- honk ----------
-    if (inp && pressed('honk') && this.honkCd <= 0) {
-      this.honkCd = T.honkCooldown;
-      this.playOnce('honk', b.onGround);
-      this.scene.time.delayedCall(140, () => { SFX.honk(); this.events.emit('honk', this.beakPos()); });
+    this.powerCd -= dt;
+    if (!this.powerHonk) {
+      if (inp && pressed('honk') && this.honkCd <= 0) {
+        this.honkCd = T.honkCooldown;
+        this.playOnce('honk', b.onGround);
+        this.scene.time.delayedCall(140, () => { SFX.honk(); this.events.emit('honk', this.beakPos()); });
+      }
+    } else {
+      // tap = honk, hold = charge the Maple Leaf Power Honk
+      if (inp && pressed('honk')) this.honkHold = 0;
+      if (this.honkHold >= 0 && Controls.down('honk')) { this.honkHold += dt; if (this.honkHold > 0.55 && Math.random() < dt * 30) this.events.emit('charging', this.honkHold); }
+      if (this.honkHold >= 0 && (!Controls.down('honk') || !inp) && edges) {
+        const held = this.honkHold; this.honkHold = -1;
+        if (held >= 0.55 && this.powerCd <= 0) {
+          this.powerCd = 3; this.honkCd = T.honkCooldown;
+          this.playOnce('honk', b.onGround); this.squash(1.3, 0.8);
+          this.scene.time.delayedCall(140, () => { SFX.honk(2.3); SFX.rumble(0.6); this.events.emit('powerhonk', this.beakPos()); });
+        } else if (this.honkCd <= 0) {
+          this.honkCd = T.honkCooldown;
+          this.playOnce('honk', b.onGround);
+          this.scene.time.delayedCall(140, () => { SFX.honk(); this.events.emit('honk', this.beakPos()); });
+        }
+      }
     }
 
     // ---------- animation selection ----------
@@ -204,6 +224,8 @@ export class Goose {
     this.sprite.setFlipX(this.facing < 0);
     this.sprite.setScale(this.sq.x, this.sq.y);
     this.sprite.setAlpha(this.mode === 'hurt' ? (Math.floor(this.hurtT * 20) % 2 ? 0.6 : 1) : 1);
+    const charging = this.honkHold > 0.55 || this.chargeGlow;
+    if (charging) this.sprite.setTint(Math.floor(this.scene.time.now / 80) % 2 ? 0xffe066 : 0xffffff); else if (this.outfitTint) this.sprite.setTint(this.outfitTint); else this.sprite.clearTint();
   }
   updateShadow(world: PhysicsWorld, ignore?: unknown) {
     const gy = world.surfaceBelow(this.x, this.y - 2, ignore);

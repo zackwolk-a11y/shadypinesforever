@@ -44,7 +44,7 @@ const COUNTER = parse([
 ]);
 const BASS_PAT = 'R . O . 5 . O . R . O . 5 . O R'.split(' ');
 
-export type Song = 'title' | 'street' | 'store' | 'lab' | 'dimension' | 'boss' | 'fake' | 'cafe' | 'waterfront' | 'ogopogo' | 'finale' | 'none';
+export type Song = 'title' | 'street' | 'store' | 'lab' | 'dimension' | 'boss' | 'fake' | 'cafe' | 'waterfront' | 'ogopogo' | 'finale' | 'warehouse' | 'none';
 interface SongDef { bpm: (i: number) => number; chords: [string, number[]][]; mel: Ev[]; counter?: Ev[]; bass: string[]; lead: 'sq' | 'pluck' | 'tri' | 'sq50'; leadGain: number; drums: 'full' | 'light' | 'march'; arp: (i: number) => boolean; pad?: boolean; swing?: number }
 const MAJ = [0, 4, 7], MIN = [0, 3, 7];
 const SONGS: Partial<Record<Song, SongDef>> = {
@@ -62,6 +62,8 @@ const SONGS: Partial<Record<Song, SongDef>> = {
     mel: parse(['B4 - - - D5 - - - G5 - - - F#5 - E5 -', 'E5 - - - B4 - - - G4 - - - B4 - - -', 'C5 - - - E5 - - - G5 - - - E5 - C5 -', 'D5 - - - F#5 - - - A5 - - - F#5 - - -']) },
   ogopogo: { bpm: (i) => 148 + i * 6, chords: [['E2', MIN], ['C2', MAJ], ['D2', MAJ], ['B1', MAJ]], lead: 'sq', leadGain: 0.08, drums: 'full', arp: (i) => i >= 1, pad: true, bass: 'R . O R 5 . O R R . O R 5 . O 5'.split(' '),
     mel: parse(['E5 . E5 . G5 . E5 . B5 - A5 . G5 . F#5 .', 'E5 . E5 . G5 . E5 . C6 - B5 . A5 . G5 .', 'D5 . F#5 . A5 . D6 . C6 . A5 . F#5 . D5 .', 'D#5 - - . F#5 . B4 . D#5 - F#5 - B5 - - .']) },
+  warehouse: { bpm: (i) => 132 + i * 14, chords: [['C2', MAJ], ['A1', MIN], ['F1', MAJ], ['G1', MAJ]], lead: 'sq50', leadGain: 0.07, drums: 'full', arp: (i) => i >= 1, swing: 0.08, bass: 'R . R O 5 . R . R . R O 5 . 3 .'.split(' '),
+    mel: parse(['C5 . E5 . G5 . E5 . C5 . D5 . E5 - - .', 'A4 . C5 . E5 . C5 . A4 . B4 . C5 - - .', 'F4 . A4 . C5 . F5 . E5 . D5 . C5 . A4 .', 'G4 . B4 . D5 . G5 . F5 . D5 . B4 - - .']) },
   finale: { bpm: () => 126, chords: [['D2', MAJ], ['G1', MAJ], ['A1', MAJ], ['D2', MAJ]], lead: 'sq', leadGain: 0.08, drums: 'full', arp: () => true, pad: true, bass: 'R . O . 5 . O . R . O . 5 . O R'.split(' '),
     mel: parse(['F#5 . A5 . D6 - - . A5 . F#5 . A5 - - .', 'G5 . B5 . D6 - - . B5 . G5 . B5 - - .', 'A5 . C#6 . E6 - - . C#6 . A5 . G5 . F#5 .', 'D6 - - - A5 - - - F#5 - - - D5 - - -']) },
 };

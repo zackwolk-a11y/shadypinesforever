@@ -4,6 +4,7 @@ import { BootScene, InputScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
 import { IntroScene } from './scenes/IntroScene';
 import { StoreScene } from './scenes/StoreScene';
+import { StockroomScene } from './scenes/StockroomScene';
 import { UIScene } from './scenes/UIScene';
 import { MixerScene } from './scenes/MixerScene';
 import { LabScene } from './scenes/LabScene';
@@ -29,7 +30,7 @@ const game = new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   input: { activePointers: 5, gamepad: false },
   fps: { target: 60, smoothStep: false }, // real-time deltas: slower devices must not run in slow motion
-  scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, LabScene, DimensionScene, BossCarbScene, FakeEndScene, CafeScene, WaterfrontScene, OgopogoScene, TrueEndScene, UIScene, MixerScene, CoffeeScene, JournalScene],
+  scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, StockroomScene, LabScene, DimensionScene, BossCarbScene, FakeEndScene, CafeScene, WaterfrontScene, OgopogoScene, TrueEndScene, UIScene, MixerScene, CoffeeScene, JournalScene],
 });
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.game = game;
 installTouchpad(() => game.registry.get('touch') === true || ('ontouchstart' in window || navigator.maxTouchPoints > 0));

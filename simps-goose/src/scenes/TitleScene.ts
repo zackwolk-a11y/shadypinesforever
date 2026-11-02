@@ -90,6 +90,7 @@ export class TitleScene extends Phaser.Scene {
       { label: () => 'NEW GAME', act: () => this.startDemo('story') },
       { label: () => 'LEVEL SELECT', act: () => this.levelSelect() },
       { label: () => 'JOURNAL + ACHIEVEMENTS', act: () => { this.scene.launch('Journal', { from: 'Title' }); this.scene.bringToTop('Journal'); } },
+      { label: () => 'CUSTOMIZE GOOSE', act: () => this.outfitPanel() },
       { label: () => 'SETTINGS', act: () => this.settingsPanel() },
       { label: () => 'HOW TO PLAY', act: () => this.howTo() },
       { label: () => 'VERTICAL SLICE DEMO', act: () => this.startDemo('demo') },
@@ -176,6 +177,23 @@ export class TitleScene extends Phaser.Scene {
     });
     rows.push({ label: () => 'BACK', act: (d: number) => { if (d === 0) this.closePanel(); }, dim: false });
     this.listPanel('LEVEL SELECT', rows);
+  }
+  /** Character customization: the classic goose, or the golden Canadian outfit (perfect Stock-Up reward). */
+  outfitPanel() {
+    const has = () => save().goldenOutfit;
+    const set = (o: 'classic' | 'golden') => { if (o === 'golden' && !has()) { SFX.ui('back'); return; } update((s) => { s.outfit = o; }); SFX.ui('ok'); prev(); };
+    const cur = (o: string) => (save().outfit === o ? '  [ON]' : '');
+    this.listPanel('CUSTOMIZE GOOSE', [
+      { label: () => 'CLASSIC GOOSE' + cur('classic'), act: (d: number) => { if (d === 0) set('classic'); } },
+      { label: () => (has() ? 'GOLDEN CANADIAN GOOSE' + cur('golden') : 'GOLDEN CANADIAN GOOSE (LOCKED)'), act: (d: number) => { if (d === 0) set('golden'); }, dim: !has() },
+      { label: () => (has() ? '' : 'PERFECT STOCK-UP RUN TO UNLOCK'), act: () => undefined, dim: true },
+      { label: () => 'BACK', act: (d: number) => { if (d === 0) this.closePanel(); } },
+    ]);
+    const g = this.add.sprite(240, 112, 'goose', 'idle_0').setOrigin(22 / 48, 46 / 48).setScale(2).play('g_idle');
+    const med = this.add.image(250, 84, 'medallion').setScale(0.6);
+    this.panel!.add([g, med]);
+    const prev = () => { const gold = save().outfit === 'golden'; if (gold) g.setTint(0xffe7a0); else g.clearTint(); med.setVisible(gold); };
+    prev();
   }
   settingsPanel() {
     const vol = (k: 'music' | 'sfx', n: string) => ({ label: () => `${n} < ${Math.round(settings()[k] * 10)} >`, act: (d: number) => { saveSettings({ [k]: Math.max(0, Math.min(1, Math.round(settings()[k] * 10 + (d || 1)) / 10)) } as never); SFX.ui('move'); } });

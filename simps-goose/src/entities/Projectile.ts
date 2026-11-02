@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { PhysicsWorld } from '../systems/physics';
 import { SFX } from '../audio/sfx';
 
-export type ShotKind = 'cherry' | 'electric' | 'trail' | 'burp' | 'boss';
+export type ShotKind = 'cherry' | 'electric' | 'trail' | 'burp' | 'boss' | 'super';
 export interface ShotOpts { tex: string; vx: number; vy: number; gravity?: number; bounces?: number; life?: number; r?: number; dmg?: number; kind?: ShotKind; tint?: number; scale?: number; floorY?: number; ignoreTags?: string[]; noSound?: boolean; restitution?: number; stun?: number; spin?: boolean }
 export class Projectile {
   img: Phaser.GameObjects.Image;

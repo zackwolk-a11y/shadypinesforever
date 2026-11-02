@@ -24,6 +24,7 @@ import { settings } from '../systems/settings';
 import { shake } from '../systems/camfx';
 import { SFX } from '../audio/sfx';
 import { MUSIC, Song } from '../audio/music';
+import { Dialogue, Line } from '../ui/Dialogue';
 
 export type Phase = 'intro' | 'play' | 'picker' | 'cutscene' | 'frozen';
 export type PickupKind = 'drop' | 'leaf' | 'badge' | 'bottle' | 'card' | 'star' | 'bean' | 'token';
@@ -62,6 +63,9 @@ export abstract class LevelScene extends Phaser.Scene {
   checkpoint = { x: 40, y: 330 }; lastSafe = { x: 40, y: 330 }; safeT = 0;
   checkpointSprites: { img: Phaser.GameObjects.Sprite; x: number; y: number; on: boolean }[] = [];
   stomps = 0;
+  dialogue: Dialogue | null = null;
+  outfitBadge: Phaser.GameObjects.Image | null = null;
+  cHold = -1; superCd = 0;
 
   // ---------------------------------------------------------------- hooks
   onHonkLevel(_x: number, _y: number) { /* level-specific */ }
@@ -106,6 +110,12 @@ export abstract class LevelScene extends Phaser.Scene {
     this.goose.events.on('land', (x: number, y: number) => this.fx.dust(x, y, 5));
     this.goose.events.on('jump', () => { this.usedJump = true; this.fx.dust(this.goose.x, this.goose.y, 3); });
     this.goose.events.on('hurt', () => { this.fx.stars(this.goose.sprite); });
+    this.goose.events.on('powerhonk', (p: { x: number; y: number }) => this.powerHonk(p.x, p.y));
+    this.goose.events.on('charging', () => this.fx.sparkle(this.goose.x + (Math.random() - 0.5) * 20, this.goose.y - 20, 1, C.gold0));
+    this.goose.powerHonk = save().powerHonk;
+    this.goose.outfitTint = save().outfit === 'golden' && save().goldenOutfit ? 0xffe7a0 : 0;
+    this.outfitBadge = this.goose.outfitTint ? this.add.image(0, 0, 'medallion').setScale(0.45).setDepth(41) : null;
+    this.time.delayedCall(80, () => this.game.events.emit('hud:abilities', { ph: save().powerHonk, db: save().doubleBubble, sb: save().superBurp }));
     this.bubbles = new BubbleManager(this, this.world, 28);
     this.bubbles.onPop = (b: Bubble) => this.onBubblePop(b);
     if (o.follow !== false) {
@@ -141,6 +151,22 @@ export abstract class LevelScene extends Phaser.Scene {
     this.pickups.push({ img, shade, x, y, kind, got: false, t: i * 0.4, id, data });
     this.totals[kind]++;
   }
+  /** A cracked wall only the Maple Leaf POWER HONK can break; hides a collectible. */
+  addCrackedWall(x: number, y: number, kind: PickupKind = 'star') {
+    const img = this.add.image(x, y, 'crackedWall').setOrigin(0.5, 1).setDepth(25);
+    const br: Breakable = { broken: false, rect: () => ({ x: x - 18, y: y - 36, w: 36, h: 36 }), by: ['powerhonk'], smash: () => {
+      br.broken = true; SFX.crash(); this.fx.dust(x, y - 10, 12); img.destroy(); this.addPickup(kind, x, y - 18);
+      this.game.events.emit('hud:toast', 'CRACKED WALL!', C.gold0, 'POWER HONK REVEALED A SECRET');
+    } };
+    this.breakables.push(br);
+  }
+  /** A high stash: easiest to reach by stacking DOUBLE BUBBLE platforms. */
+  addHighStash(x: number, y: number, kind: PickupKind = 'leaf') {
+    this.addPlatform(x - 18, y, 36, 5, 'oneway', 'stash');
+    const g = this.add.graphics().setDepth(27); g.fillStyle(C.ink).fillRect(x - 19, y - 1, 38, 7).fillStyle(C.gold1).fillRect(x - 18, y, 36, 5).fillStyle(C.gold0).fillRect(x - 18, y, 36, 1);
+    this.add.image(x, y + 5, 'trident13').setOrigin(0.5, 0).setDepth(26);
+    this.addPickup(kind, x, y - 14);
+  }
   addDropLine(x0: number, x1: number, y: number, n: number) { for (let i = 0; i < n; i++) this.addPickup('drop', x0 + (x1 - x0) * (n === 1 ? 0 : i / (n - 1)), y); }
   addCheckpoint(x: number, y: number) {
     const img = this.add.sprite(x, y, 'checkpoint0').setOrigin(0.5, 1).setDepth(26);
@@ -160,6 +186,12 @@ export abstract class LevelScene extends Phaser.Scene {
     return best;
   }
   say(text: string, x = this.goose.x, y = this.goose.y - 44, life = 1200) { emote(this, x, y, text, { life }); }
+  /** run a conversation; gameplay is paused (phase 'cutscene') until it ends */
+  talk(lines: Line[], actors: Record<string, Person | undefined>, onDone?: (skipped?: boolean) => void, skipNote?: [string, string]) {
+    const prev = this.phase === 'cutscene' ? 'play' : this.phase;
+    this.phase = 'cutscene'; this.goose.body.vx = 0;
+    this.dialogue = new Dialogue(this, lines, actors, (sk) => { this.dialogue = null; this.phase = prev === 'intro' ? 'play' : prev; onDone?.(sk); }, skipNote);
+  }
 
   // ---------------------------------------------------------------- powers
   setPower(id: PowerId | null, durMul = 1) {
@@ -226,6 +258,48 @@ export abstract class LevelScene extends Phaser.Scene {
       case 'float': this.say('HOLD JUMP!', g.x, g.y - 44, 700); break;
     }
   }
+  /** Dave's DOUBLE BUBBLE: a rising platform bubble (two may exist at once). */
+  doubleBubble() {
+    const g = this.goose;
+    this.abilityCd = 0.45;
+    g.playOnce('blow'); SFX.bubble();
+    const own = this.bubbles.pool.filter((b) => b.active && b.anchorY === -2);
+    if (own.length >= 2) this.bubbles.pop(own[0]);
+    const air = !g.body.onGround;
+    const bub = this.bubbles.spawn(air ? g.x : g.x + g.facing * 24, air ? g.y + 12 : g.y - 6, 15, 'rise', { vy: air ? -10 : -16, tint: 0xfff0b0, maxStomps: 3, life: 5 });
+    if (bub) bub.anchorY = -2;
+  }
+  /** Gerry's SUPER BURP: charged rainbow bubble that bursts into five on impact. */
+  gerrySuperBurp() {
+    const g = this.goose;
+    this.superCd = 2.5; this.abilityCd = 0.4;
+    g.playOnce('burp'); SFX.burp(); SFX.burp(); SFX.whoosh(); shake(this, 200, 0.004);
+    const p = this.shoot({ tex: 'bubble32', vx: g.facing * 280, vy: -20, gravity: 0, bounces: 1, life: 2.4, r: 15, dmg: 6, kind: 'super', noSound: true, restitution: 0.8, spin: false }, 18, -30);
+    p.img.setTint(0xffd0f0);
+  }
+  splitSuper(x: number, y: number) {
+    SFX.bigPop(); this.fx.confetti(x, y, 10);
+    for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i - 2) * 0.6; const pr = new Projectile(this, x, y, { tex: 'bubble16', vx: Math.cos(a) * 180, vy: Math.sin(a) * 180, gravity: 200, bounces: 1, life: 1.2, r: 7, dmg: 1, kind: 'burp', noSound: true, tint: [C.red0, C.gold0, C.lim0, C.blu0, C.pur0][i], floorY: this.floorY, spin: false }); this.shots.push(pr); }
+  }
+  /** Maple Leaf POWER HONK shockwave. */
+  powerHonk(x: number, y: number) {
+    this.honkCount++;
+    const R = 170;
+    const ring = this.add.circle(x, y, 10, C.gold1, 0).setStrokeStyle(4, C.gold0).setDepth(80);
+    this.tweens.add({ targets: ring, radius: R, alpha: 0, duration: 520, ease: 'Quad.Out', onComplete: () => ring.destroy() });
+    const ring2 = this.add.circle(x, y, 10, C.gold1, 0).setStrokeStyle(2, C.red0).setDepth(80);
+    this.tweens.add({ targets: ring2, radius: R * 0.7, alpha: 0, duration: 420, delay: 80, onComplete: () => ring2.destroy() });
+    this.fx.confetti(x, y, 22); this.fx.sparkle(x, y, 12, C.gold0); this.fx.honk(x, y, this.goose.facing, true);
+    shake(this, 350, 0.008);
+    const near = (r: Rect) => Math.hypot(r.x + r.w / 2 - x, r.y + r.h / 2 - y) < R;
+    for (const s of this.switches) if (!s.on && (s.by.includes('honk') || s.by.includes('powerhonk')) && near(s.rect())) s.activate('powerhonk');
+    for (const e of this.enemies) if (e.alive && near(e.rect())) { e.hit(1, Math.sign(e.x - x) || 1, 'powerhonk'); e.x += (Math.sign(e.x - x) || 1) * 24; }
+    for (const br of this.breakables) if (!br.broken && br.by.includes('powerhonk') && near(br.rect())) br.smash(Math.sign(br.rect().x - x) || 1);
+    for (const b of this.bubbles.pool) if (b.active && b.anchorY > -2 && Math.hypot(b.x - x, b.y - y) < R * 0.8) this.bubbles.pop(b);
+    for (const p of this.people) if (Math.abs(p.x - x) < R) p.onHonk(x);
+    this.onPowerHonkLevel(x, y);
+  }
+  onPowerHonkLevel(_x: number, _y: number) { /* level-specific */ }
   noPower() {
     const g = this.goose;
     this.abilityCd = 0.8;
@@ -256,13 +330,17 @@ export abstract class LevelScene extends Phaser.Scene {
   /** E with burps and nothing to interact with: a floating bubble platform. */
   burpPlatform() {
     const g = this.goose;
+    const dbl = save().doubleBubble;
     this.abilityCd = 0.5;
     g.playOnce('burp'); SFX.burp();
-    const own = this.bubbles.pool.filter((b) => b.active && b.anchorY < 0);
-    if (own.length >= 2) this.bubbles.pop(own[0]);
-    const bx = g.x + g.facing * 26, by = g.y - 6;
-    const bub = this.bubbles.spawn(bx, by, 16, 'rise', { vy: -14, tint: BURPS[this.burp!].light, maxStomps: 3, life: 6 });
+    const own = this.bubbles.pool.filter((b) => b.active && b.anchorY < 0 && b.anchorY > -2);
+    while (own.length >= (dbl ? 3 : 2)) this.bubbles.pop(own.shift()!);
+    const air = dbl && !g.body.onGround;
+    const bx = air ? g.x : g.x + g.facing * 26, by = air ? g.y + 12 : g.y - 6;
+    const bub = this.bubbles.spawn(bx, by, 16, 'rise', { vy: air ? -8 : -14, tint: BURPS[this.burp!].light, maxStomps: 3, life: 6 });
     if (bub) bub.anchorY = -1;
+    // Dave's DOUBLE BUBBLE: a second platform bubble right after the first (and one under your feet mid-air)
+    if (dbl) this.time.delayedCall(170, () => { const b2 = this.bubbles.spawn(bx + g.facing * 30, by - 22, 14, 'rise', { vy: -12, tint: 0xfff0b0, maxStomps: 3, life: 5 }); if (b2) b2.anchorY = -1; SFX.bubble(); });
   }
 
   // ---------------------------------------------------------------- events
@@ -315,15 +393,27 @@ export abstract class LevelScene extends Phaser.Scene {
   update(_t: number, deltaMs: number) {
     if (this.phase === 'frozen') return;
     const dt = Math.min(deltaMs / 1000, 1 / 20);
+    const hadDialogue = !!this.dialogue;
+    if (this.dialogue) this.dialogue.update(dt);
     this.elapsed += dt;
     if (this.phase !== 'cutscene') GS.time += dt;
-    if (Controls.pressed('pause') && this.phase !== 'picker') { this.game.events.emit('ui:pause'); return; }
+    if (Controls.pressed('pause') && this.phase !== 'picker' && !hadDialogue) { this.game.events.emit('ui:pause'); return; }
+    this.superCd -= dt;
     if (this.phase === 'play') {
-      if (Controls.pressed('ability')) this.useAbility();
+      if (!save().superBurp) { if (Controls.pressed('ability')) this.useAbility(); }
+      else {
+        // tap = flavor power / burp, hold = Gerry's SUPER BURP
+        if (Controls.pressed('ability')) this.cHold = 0;
+        if (this.cHold >= 0) {
+          if (Controls.down('ability')) { this.cHold += dt; this.goose.chargeGlow = this.cHold > 0.6 && this.superCd <= 0; }
+          else { const h = this.cHold; this.cHold = -1; this.goose.chargeGlow = false; if (h >= 0.6 && this.superCd <= 0) this.gerrySuperBurp(); else this.useAbility(); }
+        }
+      }
       if (Controls.pressed('interact')) {
         let used = this.onInteract();
         if (!used) for (const s of this.switches) if (!s.on && s.by.includes('interact') && overlap(this.gooseRect(8), s.rect())) { s.activate('interact'); used = true; break; }
         if (!used && this.burpsEnabled && this.burp && this.abilityCd <= 0) this.burpPlatform();
+        else if (!used && save().doubleBubble && this.abilityCd <= 0) this.doubleBubble();
       }
     }
     this.acc += dt;
@@ -359,7 +449,7 @@ export abstract class LevelScene extends Phaser.Scene {
     }
     for (const e of this.enemies) if (e.alive) e.step(dt, this);
     for (const s of this.shots) {
-      if (!s.active) continue;
+      if (!s.active) { if (s.kind === 'super' && !(s as unknown as { split?: boolean }).split) { (s as unknown as { split?: boolean }).split = true; this.splitSuper(s.x, s.y); } continue; }
       if (s.step(dt, this.world) === 'pop') { this.fx.drops(s.x, s.y, s.kind === 'electric' ? C.blu0 : C.chr0, 5); continue; }
       if (this.onShot(s)) continue;
       const r = s.rect();
@@ -444,6 +534,7 @@ export abstract class LevelScene extends Phaser.Scene {
       if (this.shieldT <= 0 && this.shieldImg) { this.shieldImg.destroy(); this.shieldImg = null; SFX.pop(1.2); }
     }
     this.frameLevel(dt);
+    if (this.outfitBadge) this.outfitBadge.setPosition(Math.round(g.x + g.facing * 6), Math.round(g.y - 13)).setVisible(g.sprite.visible);
     this.bubbles.render(dt);
     g.updateShadow(this.world, this.bubbles.standing ?? undefined);
     for (const pr of this.prompts) {

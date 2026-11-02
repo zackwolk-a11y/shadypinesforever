@@ -16,44 +16,44 @@ import { WORLD_W, WORLD_H, FLOOR, CEIL, L, BG_PARALLAX, BG_W, bgX, solids } from
 import { TRIDENT_STAND } from '../art/motifs';
 import { LevelScene, Rect, SwitchLike } from '../levels/LevelScene';
 import { GS } from '../systems/gamestate';
-import { complete, unlock, StageId } from '../systems/save';
+import { complete, unlock, StageId, save, update } from '../systems/save';
+import { txt } from '../art/font';
+import type { Platform } from '../systems/physics';
 import { achieve } from '../data/achievements';
 import { shake, flash } from '../systems/camfx';
 import { SFX } from '../audio/sfx';
 import { MUSIC } from '../audio/music';
+import { Controls } from '../systems/input';
+import type { Line } from '../ui/Dialogue';
 
-/** Trident pressure valve (story mode). Honk it, use it, or hit it with a shot. */
-class PressureValve implements SwitchLike {
+/** Dave's Bubble Workshop syrup valve (story mode). Honk it (or bump it from a bubble) in the right colour order. */
+const WS = { x: 2176, y: 236 };
+const VALVE_COL = [C.red1, C.gold1, C.blu1];
+const VALVE_NAME = ['RED', 'GOLD', 'BLUE'];
+class SyrupValve implements SwitchLike {
   on = false; by = ['honk', 'interact', 'shot', 'electric'];
   wheel: Phaser.GameObjects.Image;
   constructor(public s: StoreScene, public x: number, public y: number, public n: number) {
-    s.add.rectangle(x, y, 6, 30, C.st2).setOrigin(0.5, 1).setDepth(30);
-    s.add.rectangle(x - 14, y - 30, 28, 6, C.st3).setOrigin(0, 0.5).setDepth(30);
-    this.wheel = s.add.image(x, y - 34, 'valveWheel').setDepth(31);
+    s.add.rectangle(x, y - 16, 4, 16, C.st2).setOrigin(0.5, 0).setDepth(30);
+    this.wheel = s.add.image(x, y - 18, 'valveWheel').setDepth(31).setTint(VALVE_COL[n]);
     s.tweens.add({ targets: this.wheel, angle: { from: -6, to: 6 }, yoyo: true, repeat: -1, duration: 300 });
   }
-  rect(): Rect { return { x: this.x - 16, y: this.y - 50, w: 32, h: 50 }; }
-  activate() {
-    if (this.on || this.s.fountain.stage < 2) { if (this.s.fountain.stage < 2) emote(this.s, this.x, this.y - 54, 'NO PRESSURE YET', { life: 900 }); return; }
-    this.on = true;
-    const s = this.s;
-    s.tweens.killTweensOf(this.wheel);
-    s.tweens.add({ targets: this.wheel, rotation: Math.PI * 4, duration: 900, ease: 'Cubic.InOut' });
-    SFX.valve(); SFX.hiss(1.2); shake(s, 400, 0.004);
-    for (let i = 0; i < 3; i++) s.time.delayedCall(i * 150, () => s.fx.steam(this.x, this.y - 40, 2));
-    s.bubbles.spawn(this.x + 40, this.y - 70, 30, 'drift', { vx: 30, vy: -18, maxStomps: 99, life: 12, tint: 0xf8f0ff });
-    const done = s.valves.filter((v) => v.on).length;
-    s.game.events.emit('hud:toast', `PRESSURE VALVE ${done}/${s.valves.length + 1}`, C.red0, done === s.valves.length ? 'MAIN VALVE ON THE MEZZANINE UNLOCKED!' : 'GIANT BUBBLE RELEASED!');
-    s.fountain.pressure = Math.max(0.3, s.fountain.pressure - 0.2);
-  }
+  rect(): Rect { return { x: this.x - 18, y: this.y - 40, w: 36, h: 44 }; }
+  activate() { this.s.valveHit(this); }
+  reset() { this.on = false; this.wheel.setRotation(0); this.wheel.setTint(VALVE_COL[this.n]); }
 }
+
+const STOCK_X = 1524;
 
 export class StoreScene extends LevelScene {
   stage: StageId = 'store';
   bottles: ShelfBottle[] = []; boxWall!: BoxWall; lift!: TridentLift;
   sam!: Person;
   sampling!: Sampling; fountain!: Fountain;
-  valves: PressureValve[] = [];
+  valves: SyrupValve[] = []; seq = [1, 0, 2]; seqIdx = 0; workshopOn = false; workshopDone = false; finalSwitch: { x: number; on: boolean; img: Phaser.GameObjects.Image } | null = null;
+  wsBubbles: { b: import('../entities/Bubbles').Bubble; x0: number; x1: number; ph: number; sp: number }[] = []; overfill: { img: Phaser.GameObjects.Image; x: number; y: number; t: number; dead: number }[] = [];
+  gaugeImg: Phaser.GameObjects.Image | null = null;
+  rope: Platform | null = null; ropeImg: Phaser.GameObjects.Image | null = null; returning = false; welcomeDone = false;
   wallShelfHonks = 0;
   bumpedWall = 0;
   lampGlows: Phaser.GameObjects.Image[] = [];
@@ -69,6 +69,8 @@ export class StoreScene extends LevelScene {
 
   create() {
     this.demo = GS.mode === 'demo';
+    this.returning = this.registry.get('fromStockroom') === true; this.registry.set('fromStockroom', false);
+    this.welcomeDone = this.returning || this.demo; this.workshopOn = false; this.workshopDone = false; this.seqIdx = 0; this.wsBubbles = []; this.overfill = []; this.finalSwitch = null; this.rope = null; this.ropeImg = null;
     this.levelName = this.demo ? 'BUBBLE TROUBLE (DEMO)' : 'LEVEL 1: BUBBLE TROUBLE';
     this.initLevel({ w: WORLD_W, h: WORLD_H, floor: FLOOR, bg: C.blk2, spawn: { x: 40, y: FLOOR } });
     this.bottles = []; this.valves = []; this.lampGlows = []; this.wallShelfHonks = 0; this.bumpedWall = 0;
@@ -78,7 +80,7 @@ export class StoreScene extends LevelScene {
     this.buildBottles();
     this.buildPickups();
     if (!this.demo) this.buildStorage();
-    this.finishInit({ music: 'store' });
+    this.finishInit({ music: 'store', spawnX: this.returning ? 1524 : undefined, spawnY: this.returning ? FLOOR : undefined });
     this.boxWall = new BoxWall(this, this.world, L.boxWall.x, L.boxWall.cols, L.boxWall.rows, L.boxWall.bw, L.boxWall.bh);
     const bw = this.boxWall;
     this.breakables.push({ get broken() { return bw.toppled; }, rect: () => bw.rect(), by: ['dash', 'shot'], smash: (dir: number) => bw.topple(dir, this.world, (x, y) => this.fx.dust(x, y, 6)) });
@@ -87,22 +89,23 @@ export class StoreScene extends LevelScene {
     this.sampling = new Sampling(this);
     this.fountain = new Fountain(this);
     if (!this.demo) {
-      this.addPlatform(1972, 250, 36, 5, 'oneway', 'valveLedge');
-      const g = this.add.graphics().setDepth(27); g.fillStyle(C.st3).fillRect(1972, 250, 36, 5).fillStyle(C.st1).fillRect(1972, 250, 36, 1);
-      this.add.image(1990, 255, 'trident13').setOrigin(0.5, 0).setDepth(26);
-      this.valves.push(new PressureValve(this, 1990, 250, 1), new PressureValve(this, 2245, FLOOR, 2));
-      this.switches.push(...this.valves);
+      this.buildWorkshop();
+      this.buildStockDoor();
     }
     this.buildPrompts();
-    // intro: goose waddles in through the door
-    this.phase = 'intro';
-    this.goose.body.vx = 70;
-    this.time.delayedCall(650, () => { if (this.phase === 'intro') this.phase = 'play'; });
+    if (this.returning) { this.restoreSnap(); this.phase = 'play'; }
+    else if (!this.demo && GS.mode === 'story') { this.phase = 'intro'; this.goose.body.vx = 70; this.time.delayedCall(650, () => this.welcome()); }
+    else {
+      // intro: goose waddles in through the door
+      this.phase = 'intro';
+      this.goose.body.vx = 70;
+      this.time.delayedCall(650, () => { if (this.phase === 'intro') this.phase = 'play'; });
+    }
     const api = (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS;
     api.store = this;
     api.restartStore = () => this.scene.restart();
   }
-  valvesReady() { return this.valves.every((v) => v.on); }
+  valvesReady() { return this.demo || this.workshopDone; }
 
   /** Upper storage-shelf route above the coolers (golden bottle). */
   buildStorage() {
@@ -195,8 +198,9 @@ export class StoreScene extends LevelScene {
     add('cust_d', 1270, { range: [1255, 1290], facing: -1 });
     this.sam = add('emp_sam', L.sample.x + 30, { staff: true, depth: 26, facing: 1 });
     add('cust_c', 1695, { range: [1660, 1735], facing: 1 });
-    this.dave = add('dave', 214, { staff: true, depth: 31, facing: -1 });
-    this.gerry = add('gerry', 1918, { staff: true, depth: 26, facing: -1 });
+    const welcome = !this.demo && GS.mode === 'story' && !this.returning;
+    this.dave = add('dave', welcome ? 196 : this.returning ? WS.x + 10 : this.demo ? 214 : STOCK_X + 30, { staff: true, depth: 31, facing: -1 });
+    this.gerry = add('gerry', welcome ? 268 : 1918, { staff: true, depth: 31, facing: -1 });
     this.greetedDave = false; this.gerryLine = 0;
   }
 
@@ -241,11 +245,16 @@ export class StoreScene extends LevelScene {
     this.addPrompt(this.key('sip'), () => this.sampling.inZone() && this.phase === 'play', () => false, () => ({ x: L.sample.x + 72, y: FLOOR - L.sample.h - 24 }));
     this.addPrompt(this.key('power'), () => this.power !== null && !this.boxWall.toppled && g.x > L.boxWall.x - 120 && g.x < L.boxWall.x, () => this.boxWall.toppled || g.x > L.boxWall.x + 60, () => ({ x: g.x, y: g.y - 46 }));
     this.addPrompt(this.key('honk'), () => this.fountain.stage < 2 && Math.abs(g.x - this.fountain.cx) < 90 && this.phase === 'play', () => this.fountain.stage >= 2, () => ({ x: this.fountain.cx, y: FLOOR - L.fountain.h - 30 }));
-    for (const v of this.valves) this.addPrompt(this.key('honk'), () => this.fountain.stage >= 2 && Math.abs(g.x - v.x) < 60 && Math.abs(g.y - v.y) < 60, () => v.on, () => ({ x: v.x, y: v.y - 64 }));
+    for (const v of this.valves) this.addPrompt(this.key('honk'), () => this.workshopOn && v.n === this.seq[this.seqIdx] && Math.abs(g.x - v.x) < 50 && Math.abs(g.y - v.y) < 70, () => v.on || this.workshopDone, () => ({ x: v.x, y: v.y - 46 }));
+    if (!this.demo) {
+      this.addPrompt(this.key('use'), () => Math.abs(g.x - STOCK_X) < 26 && this.phase === 'play', () => false, () => ({ x: STOCK_X, y: FLOOR - 96 }));
+      this.addPrompt(this.key('honk'), () => !!this.finalSwitch && this.seqIdx >= 3 && Math.abs(g.x - this.finalSwitch.x) < 60, () => this.workshopDone, () => ({ x: this.finalSwitch!.x, y: FLOOR - 50 }));
+    }
     this.addPrompt(this.key('use'), () => this.fountain.stage >= 2 && this.fountain.nearValve() && !this.fountain.finaleStarted && this.valvesReady(), () => this.fountain.finaleStarted, () => ({ x: L.valve.x, y: L.mezz.y - 80 }));
   }
 
   onHonkLevel(x: number, y: number) {
+    if (this.finalSwitch && !this.workshopDone && this.seqIdx >= 3 && Math.abs(x - this.finalSwitch.x) < 70) this.workshopFinale();
     for (const b of this.bottles) if (Math.hypot(b.x - x, b.y - y) < 120) b.jiggle(1);
     if (Math.abs(x - (L.wallShelf.x + 30)) < 90 && y > L.wallShelf.y) {
       this.wallShelfHonks++;
@@ -257,6 +266,7 @@ export class StoreScene extends LevelScene {
   }
   onInteract() {
     if (this.sampling.inZone()) { this.sampling.open(); return true; }
+    if (!this.demo && Math.abs(this.goose.x - STOCK_X) < 26) { this.enterStockroom(); return true; }
     if (this.fountain.stage >= 2 && this.fountain.nearValve()) { this.tryFinale(); return true; }
     const g = this.goose;
     if (g.x > L.fridges.x - 10 && g.x < L.fridges.x + L.fridges.w + 10 && g.y > FLOOR - 4 && this.fridgeT <= 0) {
@@ -271,17 +281,18 @@ export class StoreScene extends LevelScene {
   }
   tryFinale() {
     if (this.fountain.finaleStarted) return;
-    if (!this.valvesReady()) { emote(this, L.valve.x, L.mezz.y - 60, `LOCKED: ${this.valves.filter((v) => !v.on).length} VALVE(S) LEFT`, { life: 1300 }); SFX.ui('back'); return; }
+    if (!this.valvesReady()) { emote(this, L.valve.x, L.mezz.y - 60, "LOCKED: HELP DAVE'S WORKSHOP BELOW!", { life: 1300 }); SFX.ui('back'); return; }
     this.fountain.finale();
   }
   sampled(id: string) { /* hook from Sampling */ void id; }
 
-  stepLevel(dt: number) { this.lift.step(dt); for (const b of this.bottles) b.step(dt, this.world); }
+  stepLevel(dt: number) { this.lift.step(dt); for (const b of this.bottles) b.step(dt, this.world); for (const w of this.wsBubbles) { if (!w.b.active) continue; w.ph += dt * w.sp; w.b.anchorX = w.x0 + (w.x1 - w.x0) * (Math.sin(w.ph) * 0.5 + 0.5); } }
   frameLevel(dt: number) {
     const g = this.goose, b = g.body;
     this.fridgeT -= dt;
-    if (!this.greetedDave && this.phase === 'play' && Math.abs(g.x - this.dave.x) < 80) { this.greetedDave = true; this.dave.say("WELCOME TO SIMPS! I'M DAVE.", 2200); this.dave.setState('gesture', 2); SFX.hey(0.9); }
-    if (this.gerryLine < this.fountain.stage && !this.demo) { this.gerryLine = this.fountain.stage; const st = this.fountain.stage; this.time.delayedCall(900, () => { this.gerry.lastLine = 0; this.gerry.say(st === 1 ? "GERRY HERE. PLEASE DON'T HONK AT THAT." : '...OKAY, KEEP GOING!', 2400); this.gerry.setState(st === 1 ? 'react' : 'cheer', 2); }); }
+    if (this.demo && !this.greetedDave && this.phase === 'play' && Math.abs(g.x - this.dave.x) < 80) { this.greetedDave = true; this.dave.say("WELCOME TO SIMPS! I'M DAVE.", 2200); this.dave.setState('gesture', 2); SFX.hey(0.9); }
+    this.frameWorkshop(dt);
+    if (this.gerryLine < this.fountain.stage && !this.demo && Math.abs(this.gerry.x - 1918) < 40) { this.gerryLine = this.fountain.stage; const st = this.fountain.stage; this.time.delayedCall(900, () => { this.gerry.lastLine = 0; this.gerry.say(st === 1 ? "GERRY HERE. PLEASE DON'T HONK AT THAT." : '...OKAY, KEEP GOING!', 2400); this.gerry.setState(st === 1 ? 'react' : 'cheer', 2); }); }
     this.sampling.update();
     for (const bt of this.bottles) {
       if (bt.state === 'fall' && bt.canHurt && bt.vy > 80 && g.mode === 'play' && Math.abs(bt.x - g.x) < 10 && bt.y > g.y - 34 && bt.y < g.y - 4) { g.hurt(bt.x); bt.vy = -120; bt.vx = -bt.vx; }
@@ -296,6 +307,203 @@ export class StoreScene extends LevelScene {
     this.fountain.update(dt);
     this.lift.render();
     for (const l of this.lampGlows) l.setAlpha(0.18 + Math.sin(this.elapsed * 2 + l.x) * 0.015);
+  }
+
+  // ---------------------------------------------------------------- SCENE 1: the owners welcome the goose
+  welcome() {
+    const g = this.goose;
+    const seen = save().owners.welcome;
+    this.phase = 'cutscene'; g.body.vx = 0;
+    g.playOnce('honk'); SFX.honk(1.3); this.fx.honk(g.x + 12, g.y - 30, 1);
+    // the goose nearly knocks over the syrup display; Gerry catches a bottle, Dave laughs
+    for (const b of this.bottles) if (b.x < 340) b.jiggle(1.5);
+    const fly = this.add.image(316, FLOOR - 34, 'bottle2').setDepth(40);
+    this.tweens.add({ targets: fly, x: this.gerry.x - 4, y: FLOOR - 50, angle: -360, duration: 650, delay: 250, ease: 'Sine.Out', onComplete: () => { this.gerry.act('catch', 1.6); SFX.clink(); fly.destroy(); this.gerry.say('GOT IT!', 900); } });
+    this.time.delayedCall(450, () => { this.dave.act('laugh', 1.4); SFX.laugh(0.9); });
+    const lines1: Line[] = [
+      ['dave', "WELL, WOULD YOU LOOK AT THAT! GERRY, WE'VE GOT OURSELVES A GOOSE!", 'laugh'],
+      ['gerry', "OF ALL THE CUSTOMERS WE'VE HAD, THIS ONE'S DEFINITELY THE MOST FEATHERED.", 'hold'],
+      ['dave', "WELCOME TO SIMPS MODERN BEVERAGE! WE'RE ALL ABOUT MAKING DELICIOUS DRINKS WITH OUR CANADIAN-MADE SYRUPS.", 'wave'],
+      ['gerry', "WE'VE GOT CLASSICS, CREATIVE FLAVORS, AND ENOUGH COMBINATIONS TO KEEP A GOOSE BUSY ALL AFTERNOON.", 'gesture'],
+    ];
+    const lines2: Line[] = [
+      ['dave', 'GO AHEAD! SAMPLE THE FLAVORS. FIND YOUR FAVORITES!', 'point'],
+      ['gerry', 'JUST TRY NOT TO DESTROY THE STORE.', 'talk'],
+      ['goose', 'HONK!!'],
+      ['dave', 'I THINK THAT MEANS YES!', 'laugh'],
+    ];
+    const note: [string, string] = ['SAMPLE FLAVORS AT THE COUNTER', this.touch ? 'SIP AT THE SAMPLE COUNTER' : 'E AT THE SAMPLE COUNTER'];
+    const end = () => {
+      this.welcomeDone = true; update((sv) => { sv.owners.welcome = true; });
+      this.dave.setState('laugh', 1.2); this.gerry.setState('laugh', 1.2); SFX.laugh(1);
+      this.phase = 'play';
+      // Dave opens the sampling area, Gerry fires up the fountain
+      this.time.delayedCall(900, () => {
+        this.dave.walkTo(STOCK_X + 30, 120, () => { this.dave.facing = -1; });
+        this.gerry.walkTo(1918, 130, () => { this.gerry.facing = -1; this.fx.sparkle(this.fountain.cx, FLOOR - 120, 10, C.blu0); SFX.fizz(0.4, 1); });
+      });
+      this.game.events.emit('hud:toast', 'THE ADVENTURE BEGINS!', C.red0, note[1]);
+    };
+    this.time.delayedCall(1300, () => {
+      if (seen) { this.talk([['dave', 'WELCOME BACK, GOOSE! THE SAMPLES ARE ON US.', 'wave'], ['gerry', 'THE STORE IS... MOSTLY INTACT. KEEP IT THAT WAY.', 'talk']], { dave: this.dave, gerry: this.gerry }, end, note); return; }
+      this.talk(lines1, { dave: this.dave, gerry: this.gerry }, (sk) => { if (sk) return end(); this.brandPanels(() => this.talk(lines2, { dave: this.dave, gerry: this.gerry }, end, note)); }, note);
+    });
+  }
+  /** Interactive brand intro: three flavor cards + how concentrate becomes a soda. */
+  brandPanels(then: () => void) {
+    this.phase = 'cutscene';
+    const c = this.add.container(0, 0).setScrollFactor(0).setDepth(190);
+    const g = this.add.graphics(); g.fillStyle(C.ink, 0.88).fillRoundedRect(14, 20, 452, 166, 8).lineStyle(2, C.red1).strokeRoundedRect(15, 21, 450, 164, 8);
+    c.add(g);
+    c.add(txt(this, 240, 28, 'MEET THE FLAVORS', { align: 'center', color: C.gold0 }));
+    const cards: [string, string, string, number][] = [['COLA', 'CLASSIC SODA FLAVOR', 'UNLOCKS: FIZZY DASH', 0x8a4a22], ['CREAM SODA', 'SWEET AND CREAMY', 'UNLOCKS: FOAM CLOUD', 0xf2dca0], ['BLACK CHERRY', 'FRUITY AND BOLD', 'UNLOCKS: CHERRY BUBBLES', 0xa01838]];
+    cards.forEach(([n, d, p, col], i) => {
+      const x = 32 + i * 146;
+      const cg = this.add.graphics(); cg.fillStyle(C.blk2).fillRoundedRect(x, 42, 136, 96, 5).lineStyle(1, col).strokeRoundedRect(x, 42, 136, 96, 5);
+      c.add(cg);
+      const bt = this.add.image(x + 22, 108, 'bottle' + [0, 1, 2][i]).setScale(2); c.add(bt);
+      this.tweens.add({ targets: bt, y: 104, duration: 600 + i * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      c.add(txt(this, x + 44, 52, n, { color: col === 0xf2dca0 ? C.gold0 : C.wht }));
+      c.add(txt(this, x + 44, 66, d, { color: C.st1 }).setMaxWidth(90));
+      c.add(txt(this, x + 44, 96, p, { color: C.gold1 }).setMaxWidth(90));
+      for (let k = 0; k < 4; k++) { const bub = this.add.image(x + 22 + (k - 1.5) * 4, 88, 'bubble16').setScale(0.2); c.add(bub); this.tweens.add({ targets: bub, y: 50, alpha: 0, duration: 1100, delay: k * 260 + i * 120, repeat: -1 }); }
+    });
+    c.add(txt(this, 240, 146, 'HOW SYRUP BECOMES SODA: 1 PART CONCENTRATE + 5 PARTS SODA WATER = 1 DRINK', { align: 'center', color: C.wht }).setMaxWidth(420));
+    c.add(txt(this, 240, 170, 'JUMP / TAP TO CONTINUE', { align: 'center', color: C.st2 }));
+    c.setAlpha(0); this.tweens.add({ targets: c, alpha: 1, duration: 250 });
+    SFX.sparkle(); SFX.fizz(0.4, 1);
+    const zone = this.add.zone(0, 0, 480, 270).setOrigin(0).setScrollFactor(0).setDepth(191).setInteractive();
+    let done = false, t = 0;
+    const finish = () => { if (done) return; done = true; zone.destroy(); this.events.off('update', tick); this.tweens.add({ targets: c, alpha: 0, duration: 200, onComplete: () => c.destroy(true) }); then(); };
+    const tick = (_t: number, d: number) => { t += d; if (t > 300 && (Controls.pressed('jump') || Controls.pressed('interact') || Controls.pressed('confirm') || Controls.pressed('back') || Controls.pressed('pause'))) finish(); };
+    zone.on('pointerdown', () => { if (t > 300) finish(); });
+    this.events.on('update', tick);
+  }
+
+  // ---------------------------------------------------------------- the stockroom door (THE GREAT SIMPS STOCK-UP)
+  buildStockDoor() {
+    this.add.image(STOCK_X, FLOOR, 'stockDoor').setOrigin(0.5, 1).setDepth(20);
+    if (!save().stockDone) {
+      this.ropeImg = this.add.image(1556, FLOOR, 'rope').setOrigin(0.5, 1).setDepth(33);
+      this.rope = this.addPlatform(1546, FLOOR - 40, 18, 40, 'solid', 'rope');
+    }
+  }
+  enterStockroom() {
+    const got = this.pickups.filter((p) => p.got).map((p) => p.id);
+    this.registry.set('storeSnap', { got, counts: { ...this.counts }, sampled: (this.sampling as unknown as { done?: string[] }).done ?? [] });
+    SFX.door(); this.phase = 'cutscene';
+    GS.persistRun();
+    this.goTo('Stockroom');
+  }
+  restoreSnap() {
+    const snap = this.registry.get('storeSnap') as { got: string[]; counts: Record<string, number> } | undefined;
+    if (snap) for (const pk of this.pickups) if (snap.got.includes(pk.id)) { pk.got = true; pk.img.destroy(); pk.shade?.destroy(); this.counts[pk.kind]++; }
+    this.game.events.emit('hud:drops', this.counts.drop + this.counts.bean, this.totals.drop + this.totals.bean);
+    this.game.events.emit('hud:leaf', this.counts.leaf, this.totals.leaf);
+    if (this.counts.badge) this.game.events.emit('hud:badge', true);
+    this.time.delayedCall(500, () => this.game.events.emit('hud:toast', 'POWER HONK READY!', C.gold0, this.touch ? 'HOLD HONK TO CHARGE' : 'HOLD X TO CHARGE'));
+  }
+
+  // ---------------------------------------------------------------- SCENE 2: Dave's Bubble Workshop (under the mezzanine)
+  buildWorkshop() {
+    const g = this.add.graphics().setDepth(24);
+    // bubbling syrup tanks behind the valves
+    for (let i = 0; i < 3; i++) {
+      const x = WS.x + 22 + i * 64;
+      g.fillStyle(C.st3).fillRect(x - 14, 178, 28, 34).fillStyle(VALVE_COL[i], 0.85).fillRect(x - 11, 184, 22, 26).fillStyle(0xffffff, 0.5).fillRect(x - 9, 186, 2, 22).fillStyle(C.st2).fillRect(x - 14, 178, 28, 3);
+      this.valves.push(new SyrupValve(this, x, WS.y, i));
+    }
+    this.switches.push(...this.valves);
+    this.add.image(WS.x + 86, 222, 'trident13').setDepth(25).setScale(1.4).setTint(C.red1);
+    this.gaugeImg = this.add.image(WS.x - 6, 196, 'psiGauge').setDepth(26);
+    // the colour-order sign
+    const sg = this.add.graphics().setDepth(26);
+    sg.fillStyle(C.ink).fillRect(WS.x + 160, 180, 46, 30).fillStyle(C.wht).fillRect(WS.x + 161, 181, 44, 28);
+    this.seq.forEach((n, i) => sg.fillStyle(VALVE_COL[n]).fillCircle(WS.x + 170 + i * 13, 201, 5));
+    this.add.existing(txt(this, WS.x + 183, 183, 'ORDER', { align: 'center', outline: false, color: C.ink })).setDepth(27);
+    // final pressure switch
+    const img = this.add.image(WS.x + 214, FLOOR, 'wswitch0').setOrigin(0.5, 1).setDepth(30);
+    this.finalSwitch = { x: WS.x + 214, on: false, img };
+  }
+  startWorkshop() {
+    if (this.workshopOn || this.workshopDone) return;
+    this.workshopOn = true;
+    this.dave.sprite.setPosition(WS.x + 10, FLOOR); this.dave.facing = 1;
+    this.talk([
+      ['dave', "HEY, GOOSE! YOU'RE JUST IN TIME. I'VE BEEN WORKING ON SOMETHING SPECIAL!", 'wave'],
+      ['goose', 'HONK!'],
+      ['dave', 'YOU KNOW WHAT MAKES A GREAT SODA? GETTING THE MIX JUST RIGHT!', 'pour'],
+      ['dave', 'HOP ON THE BUBBLES, HONK THE SYRUP VALVES IN THE ORDER ON MY SIGN, THEN HIT THE PRESSURE SWITCH. AVOID THE RED ONES, THEY ARE OVERFILLED!', 'point'],
+    ], { dave: this.dave }, () => this.spawnWorkshopBubbles(), ['DAVE: STABILIZE THE VALVES', 'HONK VALVES IN ORDER: GOLD, RED, BLUE']);
+  }
+  spawnWorkshopBubbles() {
+    const defs: [number, number, number, number][] = [[WS.x + 4, WS.x + 70, 306, 0.9], [WS.x + 60, WS.x + 140, 300, 1.2], [WS.x + 120, WS.x + 200, 306, 1]];
+    for (const [x0, x1, y, sp] of defs) {
+      if (!this.bubbles.pool.some((q) => !q.active)) { const old = this.bubbles.pool.find((q) => q.active && !this.wsBubbles.some((w) => w.b === q)); if (old) this.bubbles.pop(old); }
+      const b = this.bubbles.spawn(x0, y, 15, 'hover', { maxStomps: 9999, life: 9999, tint: 0xe8f6ff });
+      if (b) this.wsBubbles.push({ b, x0, x1, ph: Math.random() * 6, sp });
+    }
+    for (const [x, y] of [[WS.x + 54, 252], [WS.x + 118, 250]] as [number, number][]) this.overfill.push({ img: this.add.image(x, y, 'bubble24').setTint(0xff5a5a).setDepth(46), x, y, t: Math.random() * 6, dead: 0 });
+  }
+  valveHit(v: SyrupValve) {
+    if (this.demo || v.on) return;
+    const gx = this.goose.x;
+    if (this.valves.some((o) => o !== v && Math.abs(o.x - gx) < Math.abs(v.x - gx))) return; // one honk = the nearest valve
+    if (!this.workshopOn) { emote(this, v.x, v.y - 50, 'TALK TO DAVE', { life: 900 }); return; }
+    if (v.n !== this.seq[this.seqIdx]) {
+      SFX.ui('back'); SFX.hiss(0.8); this.dave.lastLine = 0; this.dave.say(`NOPE! ${VALVE_NAME[this.seq[this.seqIdx]]} FIRST!`, 1600); this.dave.act('shock', 0.8);
+      for (const vv of this.valves) vv.reset(); this.seqIdx = 0; return;
+    }
+    v.on = true; this.seqIdx++;
+    this.tweens.killTweensOf(v.wheel); this.tweens.add({ targets: v.wheel, rotation: Math.PI * 4, duration: 900, ease: 'Cubic.InOut' });
+    SFX.valve(); SFX.hiss(1); this.fx.steam(v.x, v.y - 30, 3); this.fx.drops(v.x, v.y - 10, VALVE_COL[v.n], 8);
+    this.game.events.emit('hud:toast', `SYRUP VALVE ${this.seqIdx}/3`, VALVE_COL[v.n], this.seqIdx === 3 ? 'NOW HONK THE PRESSURE SWITCH!' : `NEXT: ${VALVE_NAME[this.seq[this.seqIdx]]}`);
+    if (this.seqIdx === 3) { this.dave.lastLine = 0; this.dave.say('THE PRESSURE SWITCH! HONK IT!', 1800); this.dave.act('point', 1.2); }
+  }
+  workshopFinale() {
+    if (this.workshopDone) return;
+    this.workshopDone = true;
+    const sw = this.finalSwitch!; sw.on = true; sw.img.setTexture('wswitch1');
+    SFX.valve(); SFX.rumble(1); shake(this, 600, 0.008);
+    for (const w of this.wsBubbles) this.bubbles.pop(w.b); this.wsBubbles = [];
+    for (const o of this.overfill) o.img.destroy(); this.overfill = [];
+    this.gaugeImg?.setTint(0x80ff80);
+    // the elaborate fountain eruption
+    for (let i = 0; i < 18; i++) this.time.delayedCall(i * 70, () => { const x = WS.x + 20 + Math.random() * 180; this.bubbles.spawn(x, FLOOR - 10, 6 + Math.random() * 10, 'rise', { vy: -90 - Math.random() * 60, tint: [0xffd0d0, 0xfff0b0, 0xc0e0ff][i % 3], life: 3 }); this.fx.drops(x, FLOOR - 40, VALVE_COL[i % 3], 4); });
+    this.fx.confetti(WS.x + 110, 220, 30); SFX.fizz(0.8, 1.2); SFX.cheer();
+    this.time.delayedCall(1300, () => {
+      update((s) => { s.doubleBubble = true; s.owners.workshop = true; });
+      achieve('double_bubble');
+      this.game.events.emit('hud:abilities', { ph: save().powerHonk, db: true, sb: save().superBurp });
+      SFX.powerup();
+      this.talk([
+        ['dave', "NOW THAT'S WHAT I CALL A PROPER POUR!", 'cheer'],
+        ['dave', 'HERE, A LITTLE TRICK: YOU CAN NOW BLOW TWO BUBBLES IN QUICK SUCCESSION. DOUBLE BUBBLE!', 'pour'],
+        ['goose', 'HONK!'],
+        ['dave', 'GO SHOW GERRY WHAT YOU CAN DO!', 'wave'],
+      ], { dave: this.dave }, () => {
+        this.dave.act('wave', 2);
+        this.game.events.emit('hud:toast', 'DOUBLE BUBBLE!', 0xfff0b0, this.touch ? 'USE (WITH NO TARGET): BUBBLE PLATFORM, TWICE' : 'E: BUBBLE PLATFORM (TWO AT ONCE)');
+        this.game.events.emit('hud:toast', 'MAIN VALVE UNLOCKED!', C.red0, 'UP ON THE MEZZANINE');
+      });
+    });
+  }
+  frameWorkshop(dt: number) {
+    if (this.demo) return;
+    const g = this.goose;
+    if (this.rope && save().stockDone) { this.rope.active = false; this.rope.x = -999; this.ropeImg?.destroy(); this.rope = null; }
+    if (this.rope && this.phase === 'play' && g.x > 1500 && g.x < 1546 && this.goose.body.hitWall === 1) { this.dave.lastLine = this.dave.lastLine || 0; if (this.time.now - this.dave.lastLine > 2500) { this.dave.say('STOCKROOM FIRST! LEND US A WING?', 1800); this.dave.act('point', 1); } }
+    if (!this.workshopOn && !this.workshopDone && this.phase === 'play' && g.x > WS.x - 40 && g.y > FLOOR - 40) {
+      if (this.fountain.stage >= 2) this.startWorkshop();
+      else if (this.time.now - this.dave.lastLine > 2500) this.dave.say('GET THAT FOUNTAIN GOING FIRST!', 1600);
+    }
+    if (this.gaugeImg && !this.workshopDone) this.gaugeImg.setTint(Math.floor(this.elapsed * 4) % 2 ? 0xff8080 : 0xffffff);
+    for (const o of this.overfill) {
+      o.t += dt;
+      if (o.dead > 0) { o.dead -= dt; if (o.dead <= 0) o.img.setVisible(true).setScale(0.2); continue; }
+      o.img.setPosition(o.x + Math.sin(o.t * 0.8) * 14, o.y + Math.sin(o.t * 1.7) * 8).setScale(Math.min(1, o.img.scale + dt) * (1 + Math.sin(o.t * 12) * 0.06));
+      if (Math.hypot(o.img.x - g.x, o.img.y - (g.y - 12)) < 18 && g.mode === 'play') { o.dead = 3; o.img.setVisible(false); SFX.bigPop(); this.fx.drops(o.img.x, o.img.y, C.red0, 12); this.damage(o.img.x); }
+    }
   }
 
   /** Called by Fountain once the giant-bubble ride is under way. */

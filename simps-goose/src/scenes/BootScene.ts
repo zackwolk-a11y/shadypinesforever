@@ -1,12 +1,15 @@
 /** Boot: generate all pixel-art textures (cached), then hand off. */
 import Phaser from 'phaser';
 import { generateAll } from '../art/registry';
+import daveUrl from '../assets/portrait_dave.png?inline';
+import gerryUrl from '../assets/portrait_gerry.png?inline';
 import { C } from '../art/palette';
 import { settings } from '../systems/settings';
 import { GS } from '../systems/gamestate';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
+  preload() { this.load.image('portrait_dave', daveUrl); this.load.image('portrait_gerry', gerryUrl); }
   create() {
     const g = this.add.graphics();
     g.fillStyle(C.blk2).fillRect(0, 0, 480, 270);
@@ -24,7 +27,7 @@ export class BootScene extends Phaser.Scene {
       this.scene.launch('Input');
       GS.newRun(q.get('mode') === 'demo' ? 'demo' : 'story');
       const start = q.get('scene');
-      const MAP: Record<string, string> = { store: 'Store', intro: 'Intro', lab: 'Lab', dimension: 'Dimension', carb: 'BossCarb', fake: 'FakeEnd', cafe: 'Cafe', waterfront: 'Waterfront', ogopogo: 'Ogopogo', trueend: 'TrueEnd', journal: 'Journal' };
+      const MAP: Record<string, string> = { store: 'Store', stockroom: 'Stockroom', intro: 'Intro', lab: 'Lab', dimension: 'Dimension', carb: 'BossCarb', fake: 'FakeEnd', cafe: 'Cafe', waterfront: 'Waterfront', ogopogo: 'Ogopogo', trueend: 'TrueEnd', journal: 'Journal' };
       if (q.get('burp')) GS.coffee = q.get('burp');
       if (q.get('skipintro')) this.registry.set('skipIntro', true);
       const key = (start && MAP[start]) || 'Title';

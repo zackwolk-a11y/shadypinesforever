@@ -14,6 +14,11 @@ export const ACHIEVEMENTS: { id: string; name: string; desc: string }[] = [
   { id: 'friend_of_ogopogo', name: 'FRIEND OF OGOPOGO', desc: 'SHARE THE LAST SIP.' },
   { id: 'proudly_canadian', name: 'PROUDLY CANADIAN', desc: 'FIND 6 GOLDEN MAPLE LEAVES.' },
   { id: 'certified', name: 'SIMPS CERTIFIED', desc: 'COLLECT 3 CERTIFIED BADGES.' },
+  { id: 'honk_if_you_work_here', name: 'HONK IF YOU WORK HERE', desc: 'FINISH THE GREAT SIMPS STOCK-UP.' },
+  { id: 'master_stocker', name: 'MASTER STOCKER', desc: 'PUT AWAY EVERY BOX WITHOUT DROPPING ONE.' },
+  { id: 'special_delivery', name: 'SPECIAL DELIVERY, EH!', desc: 'LOAD THE TRUCK BEFORE THE BONUS TIMER EXPIRES.' },
+  { id: 'double_bubble', name: 'DOUBLE BUBBLE', desc: "FINISH DAVE'S BUBBLE WORKSHOP." },
+  { id: 'rainbow_soda', name: 'RAINBOW SODA', desc: "BREW GERRY'S EXPERIMENTAL SODA." },
   { id: 'golden_goose', name: 'GOLDEN GOOSE', desc: 'FINISH THE GAME AND EARN THE GOLDEN GOOSE TOKEN.' },
 ];
 let emitter: { emit: (n: string, ...a: unknown[]) => void } | null = null;

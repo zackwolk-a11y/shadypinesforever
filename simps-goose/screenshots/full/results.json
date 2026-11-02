@@ -1,6 +1,26 @@
 {
   "results": [
     {
+      "name": "L1 owners welcome the goose (Dave + Gerry dialogue)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "L1 both owners at the entrance",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "L1 skipping the welcome keeps the instructions (toast) and saves it",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "L1 rope blocks Bubble Trouble until the Stock-Up is done",
+      "pass": true,
+      "info": ""
+    },
+    {
       "name": "L1 storage route golden bottle collectable",
       "pass": true,
       "info": ""
@@ -11,14 +31,24 @@
       "info": ""
     },
     {
-      "name": "L1 main valve locked until pressure valves are open",
+      "name": "L1 main valve locked until the workshop is done",
       "pass": true,
       "info": ""
     },
     {
-      "name": "L1 both pressure valves opened (honk)",
+      "name": "L1 Dave's Bubble Workshop dialogue",
       "pass": true,
-      "info": "[true,true]"
+      "info": ""
+    },
+    {
+      "name": "L1 workshop: syrup valves in the colour order (from the moving bubbles)",
+      "pass": true,
+      "info": "[true,true,true]"
+    },
+    {
+      "name": "L1 pressure switch → DOUBLE BUBBLE unlocked",
+      "pass": true,
+      "info": ""
     },
     {
       "name": "L1 final trident valve starts the finale",
@@ -63,12 +93,12 @@
     {
       "name": "Lab: dash ends on impact (goose not flung into the syrup vat)",
       "pass": true,
-      "info": "{\"key\":\"Lab\",\"phase\":\"play\",\"x\":666,\"y\":390,\"power\":\"rocket\",\"burp\":null,\"gtag\":\"floor\"}"
+      "info": "{\"key\":\"Lab\",\"phase\":\"play\",\"x\":668,\"y\":390,\"power\":\"rocket\",\"burp\":null,\"gtag\":\"floor\"}"
     },
     {
       "name": "Mixer: Blue Raspberry + Lemon Lime = Electric Fizz",
       "pass": true,
-      "info": "{\"recipe\":\"electric_fizz\",\"q\":\"over\",\"power\":\"electric\",\"isSuper\":false}"
+      "info": "{\"recipe\":\"electric_fizz\",\"q\":\"good\",\"power\":\"electric\",\"isSuper\":false}"
     },
     {
       "name": "Lab: Electric Fizz zaps the target and opens the gate",
@@ -84,6 +114,36 @@
       "name": "Mixer: unknown combo still gives a power (Mystery Fizz)",
       "pass": true,
       "info": "{\"recipe\":null,\"q\":\"good\",\"power\":\"cream\",\"isSuper\":false}"
+    },
+    {
+      "name": "Lab: Super Soda gated behind Gerry's experiment",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Lab: Gerry's Experimental Flavor Lab dialogue",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Lab: three samples matched to their tanks",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Lab: timed honk → rainbow soda → SUPER BURP unlocked",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Lab: SUPER BURP fires a charged shot (hold C)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Lab: SUPER BURP bursts into smaller bubbles",
+      "pass": true,
+      "info": ""
     },
     {
       "name": "Super Soda (Cola + Cream Soda + Black Cherry + MAX)",
@@ -123,7 +183,7 @@
     {
       "name": "Dimension frame rate playable (>=30 fps, headless software WebGL)",
       "pass": true,
-      "info": "36 fps"
+      "info": "38 fps"
     },
     {
       "name": "Dimension exit portal → Carbonation boss",
@@ -211,14 +271,109 @@
       "info": ""
     },
     {
+      "name": "Stock-Up: Dave + Gerry opening dialogue",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Stock-Up: big boxes pushed into the floor bays",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Stock-Up: STOCK-O-METER 100% (all 8 stocked)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Stock-Up: delivery 1 (flavour compartments + jammed-conveyor honk)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Stock-Up: delivery 2 (push the cart onto the trident lift)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Stock-Up: delivery 3 (bottle rush + last box launched)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Stock-Up: MAPLE LEAF POWER HONK unlocked",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Stock-Up: achievements (work here, master stocker, special delivery)",
+      "pass": true,
+      "info": "first_honk,double_bubble,bubble_trouble,rainbow_soda,master_of_fizz,coffee_break,master_stocker,special_delivery,honk_if_you_work_here"
+    },
+    {
+      "name": "Stock-Up: perfect run unlocks the golden outfit",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Power Honk: shockwave pushes the heavy crate + breaks the cracked wall",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Stock-Up: exit returns to the store at the stockroom door",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Store: rope gone once the Stock-Up is done",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Ogopogo: owner abilities carried in (Power Honk / Double Bubble / Super Burp)",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Ogopogo: Power Honk briefly stuns Ogopogo",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Ogopogo: SUPER BURP hits hard (3 HP) ",
+      "pass": true,
+      "info": "40 -> 34"
+    },
+    {
+      "name": "Ogopogo: DOUBLE BUBBLE burps two platform bubbles",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Celebration: Dave + Gerry arrive and talk",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Celebration: owners + crowd + Ogopogo soda cup on screen",
+      "pass": true,
+      "info": ""
+    },
+    {
       "name": "True ending → final stats screen",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Final screen offers replay / levels / achievement journal",
       "pass": true,
       "info": ""
     },
     {
       "name": "Achievements saved (Friend of Ogopogo, Golden Goose)",
       "pass": true,
-      "info": "first_honk,bubble_trouble,master_of_fizz,coffee_break,friend_of_ogopogo,golden_goose"
+      "info": "first_honk,double_bubble,bubble_trouble,rainbow_soda,master_of_fizz,coffee_break,master_stocker,special_delivery,honk_if_you_work_here,friend_of_ogopogo,golden_goose"
     },
     {
       "name": "Golden Goose Token collected",
@@ -228,12 +383,12 @@
     {
       "name": "Title shows CONTINUE after progress",
       "pass": true,
-      "info": "CONTINUE|NEW GAME|LEVEL SELECT|JOURNAL + ACHIEVEMENTS|SETTINGS|HOW TO PLAY|VERTICAL SLICE DEMO"
+      "info": "CONTINUE|NEW GAME|LEVEL SELECT|JOURNAL + ACHIEVEMENTS|CUSTOMIZE GOOSE|SETTINGS|HOW TO PLAY|VERTICAL SLICE DEMO"
     },
     {
       "name": "Level select lists Level 3 once revealed",
       "pass": true,
-      "info": "LEVEL SELECT|~ L1  BUBBLE TROUBLE  *|L2  THE HONKIN' SODA LAB  *|L2  THE SODA DIMENSION  *|L2  CARBONATION CATASTROPHE  "
+      "info": "LEVEL SELECT|~ L1  BUBBLE TROUBLE  *|L1  THE GREAT SIMPS STOCK-UP  *|L2  THE HONKIN' SODA LAB  *|L2  THE SODA DIMENSION "
     },
     {
       "name": "Journal opens from the title",
@@ -258,7 +413,7 @@
     {
       "name": "Mobile touch: move + jump in the Soda Dimension",
       "pass": true,
-      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":160,\"y\":365,\"power\":null,\"burp\":null,\"gtag\":null}"
+      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":160,\"y\":367,\"power\":null,\"burp\":null,\"gtag\":null}"
     }
   ],
   "errors": []

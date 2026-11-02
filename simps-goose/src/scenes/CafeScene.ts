@@ -57,6 +57,7 @@ export class CafeScene extends LevelScene {
     this.add.image(712, 120, 'mug_b').setOrigin(0.5, 1).setDepth(28); this.add.image(756, 120, 'mug_a').setOrigin(0.5, 1).setDepth(28);
     this.addPickup('leaf', 735, 100);
     for (let i = 0; i < 4; i++) this.addPickup('bean', 120 + i * 40, F - 50);
+    this.addCrackedWall(890, F, 'star');
     this.finishInit({ music: 'cafe' });
     if (GS.coffee) { this.setBurp(GS.coffee as never); this.served = true; this.burpReady = true; this.spawnTargets(); }
     const g = this.goose;

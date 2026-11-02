@@ -20,6 +20,7 @@ import { shake, flash } from '../systems/camfx';
 import { Controls } from '../systems/input';
 import { SFX } from '../audio/sfx';
 import { MUSIC } from '../audio/music';
+import { GerryLab } from '../gameplay/GerryLab';
 
 const F = LAB.FLOOR;
 const STATIONS = [{ x: 300, id: 'A' }, { x: 1262, id: 'B' }];
@@ -49,7 +50,7 @@ export class LabScene extends LevelScene {
   mixing = false; t = 0; greeted = { A: false, B: false, gate: false };
   glass: Phaser.GameObjects.Image[] = []; glassBroken = false;
   colT = 0;
-  gerry!: Person; gerrySaid = false;
+  gerry!: Person; gerrySaid = false; gl!: GerryLab;
   constructor() { super('Lab'); }
 
   create() {
@@ -85,7 +86,7 @@ export class LabScene extends LevelScene {
     }
     this.tech = new Person(this, 'lab_tech', 400, F, { staff: true, facing: -1 }); this.people.push(this.tech);
     this.tech2 = new Person(this, 'lab_tech', 1340, F, { staff: true, facing: 1 }); this.people.push(this.tech2);
-    this.gerry = new Person(this, 'gerry', 2490, F, { staff: true, facing: 1, depth: 28 }); this.people.push(this.gerry); this.gerrySaid = false;
+    this.gerry = new Person(this, 'gerry', 2372, F, { staff: true, facing: -1, depth: 28 }); this.people.push(this.gerry); this.gerrySaid = false;
     // fragile glass wall + solid bulkhead above
     this.addPlatform(600, 22, 44, 236, 'solid', 'bulkhead');
     const bh = this.add.graphics().setDepth(29); bh.fillStyle(C.st3).fillRect(600, 22, 44, 236).fillStyle(C.st4).fillRect(600, 250, 44, 8);
@@ -152,6 +153,8 @@ export class LabScene extends LevelScene {
     this.add.image(2600, F, 'superMachine').setOrigin(0.5, 1).setDepth(27);
     this.add.image(2600, F - 120, 'glow128').setTint(C.red0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.2).setDepth(26);
     this.addPickup('leaf', 2760, F - 16);
+    this.addCrackedWall(1660, F, 'star'); this.addHighStash(2560, 120, 'star');
+    this.gl = new GerryLab(this, this.gerry, 2290, F, [[2396, 150], [2085, 236], [2730, F]]);
     // recipe cards along the way
     this.addPickup('card', 230, F - 16, 'cherry_rocket');
     this.addPickup('card', 1074, 280, 'tropical_launch');
@@ -171,7 +174,9 @@ export class LabScene extends LevelScene {
     for (const st of STATIONS) this.addPrompt(this.key('use'), () => this.nearStation() === st && this.phase === 'play', () => false, () => ({ x: st.x, y: F - 112 }));
     this.addPrompt(this.key('power'), () => !this.glassBroken && g.x > 520 && g.x < 600, () => this.glassBroken, () => ({ x: g.x, y: g.y - 46 }));
     this.addPrompt(this.key('honk'), () => !this.lift.running && Math.abs(g.x - 1928) < 50, () => this.lift.running, () => ({ x: 1928, y: F - 48 }));
-    this.addPrompt(this.key('use'), () => Math.abs(g.x - 2600) < 80 && g.y > F - 10 && this.phase === 'play', () => false, () => ({ x: 2600, y: F - 182 }));
+    this.addPrompt(this.key('use'), () => Math.abs(g.x - 2600) < 80 && g.y > F - 10 && this.phase === 'play' && this.gl.state === 'done', () => false, () => ({ x: 2600, y: F - 182 }));
+    this.addPrompt(this.key('use'), () => this.gl.state === 'collect' && !!this.gl.carried && this.gl.near() && this.phase === 'play', () => this.gl.state !== 'collect', () => ({ x: g.x, y: g.y - 46 }));
+    this.addPrompt(this.key('honk'), () => this.gl.state === 'carb' && this.gl.near(), () => this.gl.state !== 'carb', () => ({ x: 2290, y: F - 150 }));
   }
   nearStation() { const g = this.goose; return STATIONS.find((s) => Math.abs(g.x - s.x) < 40 && g.y > F - 6) ?? null; }
 
@@ -206,10 +211,15 @@ export class LabScene extends LevelScene {
     this.tech2.setState('cheer', 1.5);
   }
 
+  onHonkLevel(x: number) { this.gl.onHonk(x); }
   onInteract() {
     const st = this.nearStation();
     if (st) { this.openMixer('normal'); return true; }
-    if (Math.abs(this.goose.x - 2600) < 80 && this.goose.y > F - 10) { this.openMixer('super'); return true; }
+    if (this.gl.onInteract()) return true;
+    if (Math.abs(this.goose.x - 2600) < 80 && this.goose.y > F - 10) {
+      if (this.gl.state !== 'done') { this.gerry.lastLine = 0; this.gerry.say(this.gl.state === 'idle' ? 'GOOSE! OVER HERE FIRST!' : 'FINISH MY EXPERIMENT FIRST!', 1800); this.gerry.act('point', 1); return true; }
+      this.openMixer('super'); return true;
+    }
     return false;
   }
   openMixer(mode: 'normal' | 'super') {
@@ -316,7 +326,8 @@ export class LabScene extends LevelScene {
     // tutorial chatter
     const g = this.goose;
     if (!this.greeted.A && Math.abs(g.x - 300) < 90 && this.phase === 'play') { this.greeted.A = true; this.tech.say('BASE + SYRUP + FIZZ. PUMP IN THE GREEN!', 2600); }
-    if (!this.gerrySaid && Math.abs(g.x - 2560) < 100 && this.phase === 'play') { this.gerrySaid = true; this.gerry.say('THE SUPER SODA 9000. GERRY APPROVES... MOSTLY.', 2600); this.gerry.setState('gesture', 2); }
+    this.gl.update(dt);
+    if (this.gl.state === 'done' && !this.gerrySaid && Math.abs(g.x - 2560) < 100 && this.phase === 'play') { this.gerrySaid = true; this.gerry.say('THE SUPER SODA 9000. GERRY APPROVES... MOSTLY.', 2600); this.gerry.setState('gesture', 2); }
     if (!this.greeted.B && Math.abs(g.x - 1300) < 120 && this.phase === 'play') { this.greeted.B = true; this.tech2.say('THAT TARGET NEEDS AN ELECTRIC ZAP!', 2600); }
     // electric fizz homes in on zap targets
     for (const s of this.shots) if (s.active && s.kind === 'electric') for (const sw of this.switches) if (!sw.on && sw.by.includes('electric') && sw instanceof Target) {

@@ -47,19 +47,41 @@ async function mix(p, picks, fizzRight = 0) {
 // ============================================================ LEVEL 1 (story mode)
 {
   const p = await page('/?scene=store');
+  ok('L1 owners welcome the goose (Dave + Gerry dialogue)', await wait(p, () => !!window.__SIMPS.level?.dialogue, null, 12000));
+  await p.waitForTimeout(600); await shot(p, 'L1-owners-welcome');
+  ok('L1 both owners at the entrance', await p.evaluate(() => { const s = window.__SIMPS.level; return s.dave.x < 300 && s.gerry.x < 300; }));
+  await key(p, 'Escape', 1, 600);
   await wait(p, () => window.__SIMPS.level?.phase === 'play');
+  ok('L1 skipping the welcome keeps the instructions (toast) and saves it', await p.evaluate(() => JSON.parse(localStorage.getItem('simps-goose-save-v2')).owners.welcome));
+  await tp(p, 1500, 330); await p.keyboard.down('ArrowRight'); await p.waitForTimeout(900); await p.keyboard.up('ArrowRight');
+  ok('L1 rope blocks Bubble Trouble until the Stock-Up is done', (await p.evaluate(() => window.__SIMPS.level.goose.x)) < 1550);
   await tp(p, 1045, 166); await p.waitForTimeout(400);
   ok('L1 storage route golden bottle collectable', (await p.evaluate(() => window.__SIMPS.level.counts.bottle)) === 1);
   await tp(p, 1820, 330); await p.waitForTimeout(200);
   for (let k = 0; k < 5 && (await p.evaluate(() => window.__SIMPS.level.fountain.stage)) < 2; k++) { await tp(p, 1820, 330); await key(p, 'x', 1, 900); }
   ok('L1 two honks erupt the fountain (story)', await wait(p, () => window.__SIMPS.level.fountain.stage === 2, null, 5000));
   await tp(p, 2330, 168); await p.waitForTimeout(300); await key(p, 'e'); await p.waitForTimeout(400);
-  ok('L1 main valve locked until pressure valves are open', !(await p.evaluate(() => window.__SIMPS.level.fountain.finaleStarted)));
-  for (let k = 0; k < 3 && !(await p.evaluate(() => window.__SIMPS.level.valves[0].on)); k++) { await tp(p, 1990, 250); await p.waitForTimeout(300); await key(p, 'x', 1, 600); }
-  for (let k = 0; k < 3 && !(await p.evaluate(() => window.__SIMPS.level.valves[1].on)); k++) { await tp(p, 2245, 330); await p.waitForTimeout(300); await key(p, 'x', 1, 600); }
+  ok('L1 main valve locked until the workshop is done', !(await p.evaluate(() => window.__SIMPS.level.fountain.finaleStarted)));
+  // Dave's Bubble Workshop (under the mezzanine)
+  await tp(p, 2150, 330);
+  ok("L1 Dave's Bubble Workshop dialogue", await wait(p, () => !!window.__SIMPS.level.dialogue, null, 5000));
+  await p.waitForTimeout(600); await shot(p, 'L1-dave-workshop');
+  await key(p, 'Escape', 1, 600);
+  for (const n of [1, 0, 2]) {
+    const vx = await p.evaluate((n) => window.__SIMPS.level.valves[n].x, n);
+    for (let k = 0; k < 150; k++) {
+      const bb = await p.evaluate(() => window.__SIMPS.level.wsBubbles.map((w) => [w.b.x, w.b.y, w.b.r]));
+      const best = bb.sort((a, c) => Math.abs(a[0] - vx) - Math.abs(c[0] - vx))[0];
+      if (best && Math.abs(best[0] - vx) < 12) { await tp(p, best[0], best[1] - best[2] * 0.62); await p.waitForTimeout(80); await key(p, 'x', 1, 400); break; }
+      await p.waitForTimeout(100);
+    }
+  }
   const vs = await p.evaluate(() => window.__SIMPS.level.valves.map((v) => v.on));
-  ok('L1 both pressure valves opened (honk)', vs.every(Boolean), JSON.stringify(vs));
-  await shot(p, 'L1-valves-giant-bubbles');
+  ok('L1 workshop: syrup valves in the colour order (from the moving bubbles)', vs.every(Boolean), JSON.stringify(vs));
+  await tp(p, 2390, 330); await p.waitForTimeout(300); await key(p, 'ArrowLeft'); await key(p, 'x', 1, 1500);
+  await shot(p, 'L1-workshop-eruption');
+  ok('L1 pressure switch → DOUBLE BUBBLE unlocked', await wait(p, () => window.__SIMPS.level.workshopDone && JSON.parse(localStorage.getItem('simps-goose-save-v2')).doubleBubble, null, 4000));
+  await wait(p, () => !!window.__SIMPS.level.dialogue, null, 4000); await key(p, 'Escape', 1, 600);
   await tp(p, 2330, 168); await p.waitForTimeout(300); await key(p, 'e');
   ok('L1 final trident valve starts the finale', await wait(p, () => window.__SIMPS.level.fountain.finaleStarted, null, 3000));
   await p.waitForTimeout(4500); await shot(p, 'L1-level-clear');
@@ -94,6 +116,26 @@ async function mix(p, picks, fizzRight = 0) {
   ok('Lab: pressure lever starts the trident lift', await p.evaluate(() => window.__SIMPS.level.lift.running));
   const r3 = await (async () => { await tp(p, 1262, 390); await p.waitForTimeout(300); return mix(p, [5, 9, -1]); })();
   ok('Mixer: unknown combo still gives a power (Mystery Fizz)', !!r3.power && r3.recipe === null, JSON.stringify(r3));
+  await tp(p, 2600, 390); await p.waitForTimeout(300); await key(p, 'e', 1, 500);
+  ok("Lab: Super Soda gated behind Gerry's experiment", !(await active(p, 'Mixer')));
+  await tp(p, 2280, 390);
+  ok("Lab: Gerry's Experimental Flavor Lab dialogue", await wait(p, () => !!window.__SIMPS.level.dialogue, null, 5000));
+  await p.waitForTimeout(600); await shot(p, 'L2-gerry-lab'); await key(p, 'Escape', 1, 500);
+  for (const [x, y] of [[2396, 150], [2085, 236], [2730, 390]]) {
+    await tp(p, x, y); await p.waitForTimeout(400);
+    const k = await p.evaluate(() => window.__SIMPS.level.gl.carried?.kind);
+    await tp(p, 2290 - 34 + { lime: 0, blue: 1, mango: 2 }[k] * 34, 390); await p.waitForTimeout(250); await key(p, 'e', 1, 500);
+  }
+  ok('Lab: three samples matched to their tanks', await p.evaluate(() => window.__SIMPS.level.gl.state === 'carb'));
+  await tp(p, 2250, 390);
+  await p.waitForFunction(() => { const n = window.__SIMPS.level.gl.needle; return n > 0.45 && n < 0.55; }, null, { polling: 4, timeout: 8000 }).catch(() => {}); await key(p, 'x', 1, 2500);
+  await shot(p, 'L2-rainbow-soda');
+  for (let i = 0; i < 5 && !(await p.evaluate(() => window.__SIMPS.level.gl.state === 'done')); i++) { await wait(p, () => !!window.__SIMPS.level.dialogue || window.__SIMPS.level.gl.state === 'done', null, 12000); await p.waitForTimeout(400); if (await p.evaluate(() => !!window.__SIMPS.level.dialogue)) await key(p, 'Escape', 1, 400); }
+  ok('Lab: timed honk → rainbow soda → SUPER BURP unlocked', await p.evaluate(() => window.__SIMPS.level.gl.state === 'done' && JSON.parse(localStorage.getItem('simps-goose-save-v2')).superBurp));
+  await p.keyboard.down('c'); await p.waitForTimeout(800); await p.keyboard.up('c'); await p.waitForTimeout(100);
+  ok('Lab: SUPER BURP fires a charged shot (hold C)', await p.evaluate(() => window.__SIMPS.level.shots.some((s) => s.kind === 'super')));
+  await p.waitForTimeout(2600);
+  ok('Lab: SUPER BURP bursts into smaller bubbles', await p.evaluate(() => window.__SIMPS.level.shots.filter((s) => s.kind === 'burp').length >= 5));
   await tp(p, 2600, 390); await p.waitForTimeout(300);
   const r4 = await mix(p, [0, 1, 2], 0);
   ok('Super Soda (Cola + Cream Soda + Black Cherry + MAX)', r4.isSuper, JSON.stringify(r4));
@@ -206,14 +248,87 @@ async function mix(p, picks, fizzRight = 0) {
   await p.waitForTimeout(7000); await shot(p, 'L3-ogopogo-rises');
   await p.close();
 }
+// ============================================================ THE GREAT SIMPS STOCK-UP
+{
+  const p = await page('/?scene=stockroom');
+  const S = (f) => p.evaluate(f);
+  ok('Stock-Up: Dave + Gerry opening dialogue', await wait(p, () => !!window.__SIMPS.stock?.dialogue, null, 12000));
+  await p.waitForTimeout(500); await shot(p, 'S-stockup-opening'); await key(p, 'Escape', 1, 500);
+  await tp(p, 140, 330); await p.keyboard.down('ArrowRight'); await p.waitForTimeout(2200); await p.keyboard.up('ArrowRight');
+  await tp(p, 500, 330); await p.keyboard.down('ArrowLeft'); await p.waitForTimeout(2600); await p.keyboard.up('ArrowLeft');
+  ok('Stock-Up: big boxes pushed into the floor bays', await S(() => window.__SIMPS.stock.bigs.every((b) => b.done)));
+  for (let k = 0; k < 10 && (await S(() => window.__SIMPS.stock.stocked)) < 8; k++) {
+    await wait(p, () => window.__SIMPS.stock.beltA?.state === 'wait', null, 8000);
+    await tp(p, 76, 330); await p.waitForTimeout(150); await key(p, 'e', 1, 200);
+    const sl = await S(() => { const s = window.__SIMPS.stock; const sl = s.slots.find((x) => !x.filled && x.fl === s.carried.fl); return [sl.x, sl.y]; });
+    await tp(p, sl[0], sl[1]); await p.waitForTimeout(300); await key(p, 'e', 1, 300);
+  }
+  ok('Stock-Up: STOCK-O-METER 100% (all 8 stocked)', (await S(() => window.__SIMPS.stock.stocked)) === 8);
+  await shot(p, 'S-stockup-shelves');
+  await wait(p, () => !!window.__SIMPS.stock.dialogue, null, 8000); await key(p, 'Escape', 1, 400);
+  const t1 = Date.now();
+  while (Date.now() - t1 < 40000 && (await S(() => window.__SIMPS.stock.delivery)) === 0) {
+    const st = await S(() => { const s = window.__SIMPS.stock; return { jam: s.jam, it: s.items.filter((i) => i.state === 'wait').map((i) => i.x) }; });
+    if (st.jam) { await tp(p, 740, 330); await p.waitForFunction(() => { const s = window.__SIMPS.stock; const k = (s.jamNeedle.x - (780 - 36)) / 32; return k > 0.42 && k < 0.58; }, null, { polling: 4 }); await key(p, 'x', 1, 500); continue; }
+    if (!st.it.length) { await p.waitForTimeout(400); continue; }
+    await tp(p, st.it[0], 330); await p.waitForTimeout(150); await key(p, 'e', 1, 150);
+    await tp(p, 860, 302); await p.waitForTimeout(250); await key(p, 'e', 1, 1300);
+  }
+  ok('Stock-Up: delivery 1 (flavour compartments + jammed-conveyor honk)', (await S(() => window.__SIMPS.stock.delivery)) >= 1 && (await S(() => window.__SIMPS.stock.jamDone)));
+  await tp(p, 600, 330); await p.keyboard.down('ArrowRight'); await p.waitForTimeout(4200); await p.keyboard.up('ArrowRight'); await p.waitForTimeout(2200);
+  ok('Stock-Up: delivery 2 (push the cart onto the trident lift)', (await S(() => window.__SIMPS.stock.delivery)) >= 2);
+  const t2 = Date.now();
+  while (Date.now() - t2 < 25000 && (await S(() => window.__SIMPS.stock.delivery)) === 2) {
+    const st = await S(() => { const s = window.__SIMPS.stock; const f = s.items.find((i) => i.state === 'fly' && i.kind === 'bottle'); const g = s.items.find((i) => i.kind === 'gold' && i.state === 'wait'); return { f: f && [f.x, f.y], gold: g && g.x }; });
+    if (st.gold) { await tp(p, st.gold, 330); await key(p, 'x', 1, 1200); continue; }
+    if (st.f) await tp(p, st.f[0] + 20, 330);
+    await p.waitForTimeout(60);
+  }
+  ok('Stock-Up: delivery 3 (bottle rush + last box launched)', (await S(() => window.__SIMPS.stock.delivery)) === 3);
+  await p.waitForTimeout(2500); await shot(p, 'S-stockup-truck-loaded');
+  for (let i = 0; i < 5 && (await S(() => window.__SIMPS.stock.part)) !== 4; i++) { await wait(p, () => !!window.__SIMPS.stock.dialogue || window.__SIMPS.stock.part === 4, null, 12000); await p.waitForTimeout(400); if (i === 1) await shot(p, 'S-stockup-reward'); if (await S(() => !!window.__SIMPS.stock.dialogue)) await key(p, 'Escape', 1, 400); }
+  const sv = await S(() => JSON.parse(localStorage.getItem('simps-goose-save-v2')));
+  ok('Stock-Up: MAPLE LEAF POWER HONK unlocked', sv.powerHonk && sv.stockDone);
+  ok('Stock-Up: achievements (work here, master stocker, special delivery)', ['honk_if_you_work_here', 'master_stocker', 'special_delivery'].every((a) => sv.achievements.includes(a)), sv.achievements.join(','));
+  ok('Stock-Up: perfect run unlocks the golden outfit', sv.goldenOutfit);
+  await tp(p, 610, 330); await p.keyboard.down('x'); await p.waitForTimeout(800); await p.keyboard.up('x'); await p.waitForTimeout(400);
+  await shot(p, 'S-power-honk');
+  ok('Power Honk: shockwave pushes the heavy crate + breaks the cracked wall', await S(() => window.__SIMPS.stock.crate.gone && window.__SIMPS.stock.wallBroken));
+  await p.waitForTimeout(3200); await tp(p, 526, 330); await p.waitForTimeout(300); await key(p, 'e', 1, 300);
+  ok('Stock-Up: exit returns to the store at the stockroom door', await wait(p, () => window.__SIMPS.game.scene.isActive('Store') && window.__SIMPS.level?.scene.key === 'Store' && Math.abs(window.__SIMPS.level.goose.x - 1524) < 40, null, 10000));
+  ok('Store: rope gone once the Stock-Up is done', await p.evaluate(() => !window.__SIMPS.level.rope));
+  await p.close();
+}
+// ============================================================ OWNER ABILITIES vs OGOPOGO
+{
+  const p = await page('/?scene=ogopogo&burp=vanilla');
+  ok('Ogopogo: owner abilities carried in (Power Honk / Double Bubble / Super Burp)', await wait(p, () => window.__SIMPS.og?.bossPhase === 1 && window.__SIMPS.og.goose.powerHonk, null, 20000));
+  await tp(p, 296, 222); await p.keyboard.press('ArrowRight'); await p.waitForTimeout(200);
+  await p.keyboard.down('x'); await p.waitForTimeout(800); await p.keyboard.up('x'); await p.waitForTimeout(250);
+  ok('Ogopogo: Power Honk briefly stuns Ogopogo', await p.evaluate(() => window.__SIMPS.og.stun > 0.5));
+  const hp0 = await p.evaluate(() => window.__SIMPS.og.hp);
+  await p.keyboard.down('c'); await p.waitForTimeout(800); await p.keyboard.up('c');
+  ok('Ogopogo: SUPER BURP hits hard (3 HP) ', await wait(p, (h) => window.__SIMPS.og.hp <= h - 3, hp0, 3000), `${hp0} -> ${await p.evaluate(() => window.__SIMPS.og.hp)}`);
+  await tp(p, 200, 222); await p.waitForTimeout(200); await key(p, 'e', 1, 400);
+  ok('Ogopogo: DOUBLE BUBBLE burps two platform bubbles', (await p.evaluate(() => window.__SIMPS.og.bubbles.pool.filter((b) => b.active && b.anchorY === -1).length)) >= 2);
+  await shot(p, 'L3-ogopogo-abilities');
+  await p.close();
+}
 // ============================================================ TRUE ENDING
 {
   const p = await page('/?scene=trueend');
   await p.waitForTimeout(8000); await shot(p, 'end-1-offer-sip');
   await p.waitForTimeout(5000); await shot(p, 'end-2-ogopogo-burp');
-  await p.waitForTimeout(12000); await shot(p, 'end-3-panorama-fireworks');
-  ok('True ending → final stats screen', await wait(p, () => window.__SIMPS.trueEnd?.menuOn, null, 12000));
-  await shot(p, 'end-4-stats');
+  ok('Celebration: Dave + Gerry arrive and talk', await wait(p, () => !!window.__SIMPS.trueEnd?.dialogue, null, 20000));
+  await p.waitForTimeout(800); await shot(p, 'end-3-owners-arrive');
+  for (let i = 0; i < 8; i++) { await key(p, 'Space', 1, 200); await key(p, 'Space', 1, 350); }
+  await wait(p, () => !window.__SIMPS.trueEnd.dialogue, null, 5000);
+  await p.waitForTimeout(5500); await shot(p, 'end-4-celebration-toast');
+  ok('Celebration: owners + crowd + Ogopogo soda cup on screen', await p.evaluate(() => { const t = window.__SIMPS.trueEnd; return t.crowd.length >= 4 && t.dave.x > 100 && t.gerry.x > 100 && t.children.list.some((o) => o.texture?.key === 'sodaCup'); }));
+  await p.waitForTimeout(8000); await shot(p, 'end-5-panorama-fireworks');
+  ok('True ending → final stats screen', await wait(p, () => window.__SIMPS.trueEnd?.menuOn, null, 20000));
+  await shot(p, 'end-6-stats');
+  ok('Final screen offers replay / levels / achievement journal', await p.evaluate(() => window.__SIMPS.trueEnd.menuItems.map((m) => m.label).join('|').includes('ACHIEVEMENT JOURNAL')));
   const s = await p.evaluate(() => JSON.parse(localStorage.getItem('simps-goose-save-v2')));
   ok('Achievements saved (Friend of Ogopogo, Golden Goose)', s.achievements.includes('friend_of_ogopogo') && s.achievements.includes('golden_goose'), s.achievements.join(','));
   ok('Golden Goose Token collected', s.collected.includes('final:token:0'));

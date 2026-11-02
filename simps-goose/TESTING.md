@@ -5,7 +5,7 @@ All results below were produced by the automated suites against the **production
 | Suite | Result |
 |---|---|
 | Original vertical-slice checks (`tests/e2e.mjs`, demo mode) | **40/40** |
-| Full game (`tests/fullgame.mjs`, Levels 1–3, bosses, endings, saves, menus, touch) | **52/52** |
+| Full game (`tests/fullgame.mjs`, Levels 1–3, bosses, endings, saves, menus, touch) | **83/83** |
 | Every coffee defeats Ogopogo (`tests/ogopogo.mjs`) | **6/6** |
 | Page errors | 0 |
 
@@ -17,26 +17,32 @@ All results below were produced by the automated suites against the **production
 ## Ogopogo — every coffee
 | Coffee (Simps café syrup) | Result | Fight time with good positioning |
 |---|---|---|
-| vanilla | defeated → true ending | 25 s |
-| saltedcaramel | defeated → true ending | 25 s |
-| hazelnut | defeated → true ending | 26 s |
-| peppermint | defeated → true ending | 28 s |
-| lavender | defeated → true ending | 25 s |
-| marshmallow | defeated → true ending | 31 s |
+| vanilla | defeated → true ending | 29 s |
+| saltedcaramel | defeated → true ending | 29 s |
+| hazelnut | defeated → true ending | 32 s |
+| peppermint | defeated → true ending | 38 s |
+| lavender | defeated → true ending | 31 s |
+| marshmallow | defeated → true ending | 35 s |
 
 ## Performance
 ```
-bubble trouble: {"fps":38,"bubbles":14,"objects":364,"renderer":"WebGL"}
+bubble trouble: {"fps":31,"bubbles":14,"objects":376,"renderer":"WebGL"}
 ```
 Measured in headless Chromium, where WebGL is rendered **in software on the CPU**. The same build measured **57–60 fps** in Bubble Trouble before a container restart, and **34–46 fps** across all scenes on the replacement VM. The unchanged store scene dropped by the same proportion, so the drop is the environment, not the game. Real GPUs should hold 60 fps. Since the delta fix below, a slower device keeps real-time speed instead of running in slow motion.
 
 ## Full-game checks
 | Check | Result | Detail |
 |---|---|---|
+| L1 owners welcome the goose (Dave + Gerry dialogue) | PASS |  |
+| L1 both owners at the entrance | PASS |  |
+| L1 skipping the welcome keeps the instructions (toast) and saves it | PASS |  |
+| L1 rope blocks Bubble Trouble until the Stock-Up is done | PASS |  |
 | L1 storage route golden bottle collectable | PASS |  |
 | L1 two honks erupt the fountain (story) | PASS |  |
-| L1 main valve locked until pressure valves are open | PASS |  |
-| L1 both pressure valves opened (honk) | PASS | [true,true] |
+| L1 main valve locked until the workshop is done | PASS |  |
+| L1 Dave's Bubble Workshop dialogue | PASS |  |
+| L1 workshop: syrup valves in the colour order (from the moving bubbles) | PASS | [true,true,true] |
+| L1 pressure switch → DOUBLE BUBBLE unlocked | PASS |  |
 | L1 final trident valve starts the finale | PASS |  |
 | L1 transitions into Level 2 (Lab) | PASS |  |
 | Lab arrival cutscene → play | PASS |  |
@@ -45,11 +51,17 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Mixer: green-zone pumps rated GOOD or PERFECT | PASS | observed good |
 | Cherry Rocket power granted | PASS |  |
 | Lab: rocket dash smashes the fragile glass wall | PASS |  |
-| Lab: dash ends on impact (goose not flung into the syrup vat) | PASS | {"key":"Lab","phase":"play","x":666,"y":390,"power":"rocket","burp":null,"gtag":"floor"} |
-| Mixer: Blue Raspberry + Lemon Lime = Electric Fizz | PASS | {"recipe":"electric_fizz","q":"over","power":"electric","isSuper":false} |
+| Lab: dash ends on impact (goose not flung into the syrup vat) | PASS | {"key":"Lab","phase":"play","x":668,"y":390,"power":"rocket","burp":null,"gtag":"floor"} |
+| Mixer: Blue Raspberry + Lemon Lime = Electric Fizz | PASS | {"recipe":"electric_fizz","q":"good","power":"electric","isSuper":false} |
 | Lab: Electric Fizz zaps the target and opens the gate | PASS |  |
 | Lab: pressure lever starts the trident lift | PASS |  |
 | Mixer: unknown combo still gives a power (Mystery Fizz) | PASS | {"recipe":null,"q":"good","power":"cream","isSuper":false} |
+| Lab: Super Soda gated behind Gerry's experiment | PASS |  |
+| Lab: Gerry's Experimental Flavor Lab dialogue | PASS |  |
+| Lab: three samples matched to their tanks | PASS |  |
+| Lab: timed honk → rainbow soda → SUPER BURP unlocked | PASS |  |
+| Lab: SUPER BURP fires a charged shot (hold C) | PASS |  |
+| Lab: SUPER BURP bursts into smaller bubbles | PASS |  |
 | Super Soda (Cola + Cream Soda + Black Cherry + MAX) | PASS | {"recipe":null,"q":"over","power":"cola","isSuper":true} |
 | Portal accident → Soda Dimension | PASS |  |
 | Recipes saved to the journal | PASS | cherry_rocket,electric_fizz |
@@ -57,7 +69,7 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Dimension: all 5 enemy types present | PASS | BottleBot,FizzSprite,FoamMonster,FruitFlyer,SyrupSlug |
 | Dimension: collapsing foam pad gives way | PASS |  |
 | Dimension: checkpoint reached | PASS |  |
-| Dimension frame rate playable (>=30 fps, headless software WebGL) | PASS | 36 fps |
+| Dimension frame rate playable (>=30 fps, headless software WebGL) | PASS | 38 fps |
 | Dimension exit portal → Carbonation boss | PASS |  |
 | Boss phase 1: honked bubbles hit the pressure switches | PASS |  |
 | Boss phase 2: matching flavor taps | PASS |  |
@@ -75,11 +87,30 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Waterfront: E makes a bubble platform | PASS |  |
 | Waterfront: bubble bell opens the dock | PASS |  |
 | Waterfront: sit on the dock → ripples → Ogopogo | PASS |  |
+| Stock-Up: Dave + Gerry opening dialogue | PASS |  |
+| Stock-Up: big boxes pushed into the floor bays | PASS |  |
+| Stock-Up: STOCK-O-METER 100% (all 8 stocked) | PASS |  |
+| Stock-Up: delivery 1 (flavour compartments + jammed-conveyor honk) | PASS |  |
+| Stock-Up: delivery 2 (push the cart onto the trident lift) | PASS |  |
+| Stock-Up: delivery 3 (bottle rush + last box launched) | PASS |  |
+| Stock-Up: MAPLE LEAF POWER HONK unlocked | PASS |  |
+| Stock-Up: achievements (work here, master stocker, special delivery) | PASS | first_honk,double_bubble,bubble_trouble,rainbow_soda,master_of_fizz,coffee_break,master_st |
+| Stock-Up: perfect run unlocks the golden outfit | PASS |  |
+| Power Honk: shockwave pushes the heavy crate + breaks the cracked wall | PASS |  |
+| Stock-Up: exit returns to the store at the stockroom door | PASS |  |
+| Store: rope gone once the Stock-Up is done | PASS |  |
+| Ogopogo: owner abilities carried in (Power Honk / Double Bubble / Super Burp) | PASS |  |
+| Ogopogo: Power Honk briefly stuns Ogopogo | PASS |  |
+| Ogopogo: SUPER BURP hits hard (3 HP)  | PASS | 40 -> 34 |
+| Ogopogo: DOUBLE BUBBLE burps two platform bubbles | PASS |  |
+| Celebration: Dave + Gerry arrive and talk | PASS |  |
+| Celebration: owners + crowd + Ogopogo soda cup on screen | PASS |  |
 | True ending → final stats screen | PASS |  |
-| Achievements saved (Friend of Ogopogo, Golden Goose) | PASS | first_honk,bubble_trouble,master_of_fizz,coffee_break,friend_of_ogopogo,golden_goose |
+| Final screen offers replay / levels / achievement journal | PASS |  |
+| Achievements saved (Friend of Ogopogo, Golden Goose) | PASS | first_honk,double_bubble,bubble_trouble,rainbow_soda,master_of_fizz,coffee_break,master_st |
 | Golden Goose Token collected | PASS |  |
-| Title shows CONTINUE after progress | PASS | CONTINUE/NEW GAME/LEVEL SELECT/JOURNAL + ACHIEVEMENTS/SETTINGS/HOW TO PLAY/VERTICAL SLICE  |
-| Level select lists Level 3 once revealed | PASS | LEVEL SELECT/~ L1  BUBBLE TROUBLE  */L2  THE HONKIN' SODA LAB  */L2  THE SODA DIMENSION  * |
+| Title shows CONTINUE after progress | PASS | CONTINUE/NEW GAME/LEVEL SELECT/JOURNAL + ACHIEVEMENTS/CUSTOMIZE GOOSE/SETTINGS/HOW TO PLAY |
+| Level select lists Level 3 once revealed | PASS | LEVEL SELECT/~ L1  BUBBLE TROUBLE  */L1  THE GREAT SIMPS STOCK-UP  */L2  THE HONKIN' SODA  |
 | Journal opens from the title | PASS |  |
 | Pause works in Level 2 | PASS |  |
 | Pause menu toggles Reduce Flashing (saved) | PASS |  |
@@ -98,7 +129,7 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | goose turns and walks left | PASS | 122 → 111 |
 | jump leaves ground and lands | PASS | apex-ish y=284, landed y=330 |
 | jump onto display crate | PASS | y=304 on crate1 |
-| honk makes customers react | PASS | 1 reacting (was browse,browse,browse,browse,idle,browse,idle,browse) |
+| honk makes customers react | PASS | 2 reacting (was walk,browse,walk,browse,idle,browse,idle,walk,gesture,idle) |
 | honk jiggles bottles on shelves | PASS | 28 wobbling |
 | trident stand: pedestal | PASS | "tridentPedestal" |
 | trident stand: crossbar ledge | PASS | "trident0" |
@@ -115,19 +146,19 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | first honk wakes the fountain (stage 1) | PASS |  |
 | second honk → eruption (stage 2) | PASS |  |
 | bubbles spawn continuously | PASS | 8 active |
-| floating bubble supports the goose | PASS | {"x":2081,"y":215,"ground":true,"gtag":"bubble","mode":"play","phase":"play","power":null, |
+| floating bubble supports the goose | PASS | {"x":2089,"y":217,"ground":true,"gtag":"bubble","mode":"play","phase":"play","power":null, |
 | goose rides the bubble (still on it after 0.5s) | PASS |  |
 | bubble pops after repeated landings | PASS |  |
-| trident lift is moving | PASS | 323.3 → 304.1 |
-| bubble → elevated mezzanine (real jump) | PASS | {"x":2199,"y":168,"ground":true,"gtag":"mezz","mode":"play","phase":"play","power":null,"d |
+| trident lift is moving | PASS | 323.9 → 311.8 |
+| bubble → elevated mezzanine (real jump) | PASS | {"x":2198,"y":168,"ground":true,"gtag":"mezz","mode":"play","phase":"play","power":null,"d |
 | pause and resume | PASS |  |
 | valve triggers finale | PASS |  |
-| goose rides the giant bubble upward | PASS | {"x":2320,"y":134,"ground":true,"gtag":"mezz","mode":"ride","phase":"cutscene","power":nul |
+| goose rides the giant bubble upward | PASS | {"x":2321,"y":134,"ground":true,"gtag":"mezz","mode":"ride","phase":"cutscene","power":nul |
 | freeze frame + demo end | PASS |  |
 | no missing textures (gameplay) | PASS |  |
 | REPLAY DEMO restarts at the cinematic | PASS |  |
 | mobile: touch RIGHT moves goose | PASS | 42 → 115 |
-| mobile: multi-touch RIGHT+JUMP jumps | PASS | {"x":157,"y":301,"ground":false,"gtag":null,"mode":"play","phase":"play","power":null,"dro |
+| mobile: multi-touch RIGHT+JUMP jumps | PASS | {"x":155,"y":298,"ground":false,"gtag":null,"mode":"play","phase":"play","power":null,"dro |
 | mobile: HONK button honks | PASS |  |
 
 ## Screenshots

@@ -108,6 +108,16 @@ export class OgopogoScene extends LevelScene {
     else if (this.bossPhase === 2 && this.hp <= 10) { this.hp = 10; this.startPhase(3); }
   }
   onShot(s: Projectile) {
+    if (s.kind === 'super') {
+      // Gerry's SUPER BURP: a heavy hit on the head (and a big boost to the cup in phase 3)
+      if (overlap(s.rect(), this.headRect()) && this.ty < WATER) {
+        if (this.bossPhase === 3) { this.charge = Math.min(1, this.charge + 0.2); this.setFace('dizzy', 0.8); SFX.ogHurt(); }
+        else this.hitBoss(3, 1, s.x, s.y);
+        emote(this, this.hx, this.hy - 44, 'SUPER BURP!', { life: 800 }); s.kill(); return true;
+      }
+      if (overlap(s.rect(), this.neckRect()) && this.ty < WATER) { s.kill(); return true; }
+      return false;
+    }
     if (s.kind !== 'burp') return false;
     const r = s.rect();
     // lavender (dream) bubbles freeze + pop waves; any burp pops spit
@@ -137,8 +147,12 @@ export class OgopogoScene extends LevelScene {
       this.tweens.add({ targets: bub, x: this.hx, y: this.hy, scale: 0.9, duration: 900, ease: 'Sine.Out', onUpdate: () => bub.setTint(Phaser.Display.Color.HSVToRGB((this.time.now / 400) % 1, 0.45, 1).color) });
       this.time.delayedCall(950, () => { achieve('super_burp'); this.setFace('dizzy'); this.ty = this.hy - 50; this.tweens.add({ targets: bub, y: this.hy - 50, duration: 1400, ease: 'Sine.InOut', onUpdate: () => { bub.x = this.hx; } }); });
       this.time.delayedCall(2600, () => { bub.destroy(); SFX.bigPop(); this.fx.confetti(this.hx, this.hy, 30); this.fx.bubbles(this.hx, this.hy, 20); this.ty = 330; this.time.delayedCall(500, () => { SFX.splash(2); this.fx.drops(this.hx, WATER, C.blu0, 30); shake(this, 600, 0.01); }); });
-      this.time.delayedCall(3800, () => { g.playLoop('celebrate'); SFX.cheer(); this.game.events.emit('hud:toast', 'OGOPOGO... DEFEATED?', C.lim0); });
-      this.time.delayedCall(6200, () => { complete('ogopogo'); GS.addScore(10000); GS.persistRun(); this.goTo('TrueEnd'); });
+      this.time.delayedCall(1200, () => { this.tweens.add({ targets: this.head, angle: 720, duration: 1300, ease: 'Sine.InOut' }); SFX.whoosh(); emote(this, this.hx, this.hy - 46, '@_@', { life: 1200 }); });
+      this.time.delayedCall(4300, () => { this.head.setAngle(0); this.ty = 150; this.tx = 400; this.setFace('sad'); SFX.splash(1); this.fx.drops(400, WATER, C.blu0, 12); emote(this, 400, 108, '...SORRY.', { life: 1200 }); });
+      this.time.delayedCall(5600, () => { g.playOnce('honk'); SFX.honk(1.6); this.fx.honk(g.x + 12, g.y - 30, 1, true); emote(this, g.x, g.y - 44, 'HONK!!', { life: 1000 }); });
+      this.time.delayedCall(6600, () => { this.setFace('happy'); for (let i = 0; i < 6; i++) this.time.delayedCall(i * 120, () => { SFX.bubble(); this.fx.bubbles(this.hx - 20, this.hy + 6, 3); }); emote(this, this.hx, this.hy - 46, 'BLUB BLUB!', { life: 1300 }); });
+      this.time.delayedCall(7600, () => { g.playLoop('celebrate'); SFX.cheer(); this.game.events.emit('hud:toast', 'OGOPOGO IS A FRIEND!', C.lim0); });
+      this.time.delayedCall(10200, () => { complete('ogopogo'); GS.addScore(10000); GS.persistRun(); this.goTo('TrueEnd'); });
     });
   }
   stepLevel(dt: number) {
@@ -174,6 +188,17 @@ export class OgopogoScene extends LevelScene {
       if (s.y > WATER + 10) { s.alive = false; s.img.destroy(); this.fx.drops(s.x, WATER, C.blu0, 4); }
     }
     if (this.charge >= 1 && !this.superReady) { this.superReady = true; this.game.events.emit('hud:toast', 'SUPER BURP READY!', C.gold0, this.touch ? 'PRESS POWER!' : 'PRESS C!'); SFX.chime(); }
+  }
+  /** Maple Leaf POWER HONK: briefly stuns Ogopogo, flattens nearby waves, nudges the cup in phase 3. */
+  onPowerHonkLevel(x: number, y: number) {
+    if (this.over || this.bossPhase === 0) return;
+    for (const w of this.waves) if (w.alive && Math.abs(w.x - x) < 170) this.killWave(w, this.bossPhase === 3);
+    for (const sp of this.spits) if (sp.alive && Math.hypot(sp.x - x, sp.y - y) < 170) { sp.alive = false; sp.img.destroy(); }
+    if (this.ty < WATER && Math.hypot(this.hx - x, this.hy - y) < 260) {
+      this.stun = Math.max(this.stun, 1.6); this.atkT = Math.max(this.atkT, 1.6); this.setFace('dizzy', 1.6); SFX.ogHurt();
+      emote(this, this.hx, this.hy - 44, 'STUNNED!', { life: 900, color: C.gold1 });
+      if (this.bossPhase === 3) this.charge = Math.min(1, this.charge + 0.08);
+    }
   }
   useAbility() { if (this.superReady && this.phase === 'play') { this.superBurp(); return; } super.useAbility(); }
   frameLevel(dt: number) {

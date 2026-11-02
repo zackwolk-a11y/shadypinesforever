@@ -35,7 +35,10 @@ export class UIScene extends Phaser.Scene {
   bossBar: Phaser.GameObjects.Container | null = null; bossFill!: Phaser.GameObjects.Graphics;
   clearCard: Phaser.GameObjects.Container | null = null;
 
+  abil: Phaser.GameObjects.Image[] = [];
   constructor() { super('UI'); }
+  /** Owner abilities row: Power Honk, Double Bubble, Super Burp. */
+  setAbilities(o: { ph: boolean; db: boolean; sb: boolean }) { [o.ph, o.db, o.sb].forEach((v, i) => { const a = this.abil[i]; if (a && a.visible !== v) { a.setVisible(v); if (v) this.pulse(a); } }); }
 
   create() {
     this.pickerCards = []; this.touchBtns = []; this.menu = null; this.menuKind = null; this.toastQ = []; this.toastBusy = false; this.ended = false; this.hearts = []; this.bossBar = null; this.clearCard = null;
@@ -57,6 +60,7 @@ export class UIScene extends Phaser.Scene {
     on('hud:leaf', ((n: number, t?: number) => { this.leafT.setText(`${n}/${t ?? this.leafTotal}`); this.pulse(this.leafT); }) as never);
     on('hud:badge', ((v: boolean) => { this.badgeI.setAlpha(v ? 1 : 0.25).clearTint(); this.pulse(this.badgeI); }) as never);
     on('hud:power', ((id: PowerId | null, t: number, d: number) => this.setPower(id, t, d)) as never);
+    on('hud:abilities', ((o: { ph: boolean; db: boolean; sb: boolean }) => this.setAbilities(o)) as never);
     on('hud:toast', ((s: string, c: number, sub?: string) => this.toast(s, c, sub)) as never);
     on('hud:pressure', ((p: number) => this.setPressure(p)) as never);
     on('hud:picker', ((o: { open: boolean; idx: number }) => this.showPicker(o.open, o.idx)) as never);
@@ -81,6 +85,8 @@ export class UIScene extends Phaser.Scene {
     this.hud.add(this.add.image(78, 14, 'goldenLeaf').setScale(0.75));
     this.leafT = txt(this, 87, 8, '0/3'); this.hud.add(this.leafT);
     this.badgeI = this.add.image(138, 14, 'badge').setScale(0.75).setAlpha(0.25).setTint(0x888888); this.hud.add(this.badgeI);
+    this.abil = [this.add.image(158, 14, 'medallion').setScale(0.6), this.add.image(172, 14, 'bubble16').setTint(0xfff0b0).setScale(0.8), this.add.image(186, 14, 'bubble16').setTint(0xffb0e0).setScale(0.8)];
+    for (const a of this.abil) { a.setVisible(false); this.hud.add(a); }
     const g2 = this.add.graphics().fillStyle(C.ink, 0.72).fillRoundedRect(4, 26, 150, 16, 4); this.hud.add(g2);
     for (let i = 0; i < 5; i++) { const h = this.add.image(13 + i * 13, 34, 'leaf9'); this.hearts.push(h); this.hud.add(h); }
     this.scoreT = txt(this, 150, 29, '000000', { align: 'right', outline: false, color: C.gold0 }); this.hud.add(this.scoreT);

@@ -92,5 +92,8 @@ export const SFX = {
   whoosh() { const o = out(); if (!o) return; noise(AE.now, 0.9, o, { f: 300, f1: 2400, q: 0.6, gain: 0.14, attack: 0.3 }); },
   rumble(dur = 0.6) { const o = out(); if (!o) return; const t = AE.now; osc('sawtooth', 40, t, dur, o, { f1: 32, gain: 0.12, attack: 0.05 }); noise(t, dur, o, { type: 'lowpass', f: 180, gain: 0.12 }); },
   sparkle() { const o = out(); if (!o) return; const t = AE.now; for (let i = 0; i < 5; i++) osc('sine', R(2000, 4000), t + i * 0.05, 0.12, o, { gain: 0.03 }); },
+  horn() { const o = out(); if (!o) return; const t = AE.now; for (const [a, d] of [[0, 0.22], [0.3, 0.6]]) for (const f of [233, 294]) osc('sawtooth', f, t + a, d, o, { gain: 0.07, attack: 0.02 }); },
+  bell() { const o = out(); if (!o) return; const t = AE.now; for (let k = 0; k < 3; k++) { osc('sine', 1760, t + k * 0.18, 0.7, o, { gain: 0.08 }); osc('sine', 4400, t + k * 0.18, 0.3, o, { gain: 0.03 }); } },
+  clunk() { const o = out(); if (!o) return; const t = AE.now; osc('square', 140, t, 0.12, o, { f1: 70, gain: 0.1 }); noise(t, 0.08, o, { type: 'lowpass', f: 600, gain: 0.15 }); },
   tweet() { const o = out(); if (!o) return; const t = AE.now; for (let i = 0; i < 3; i++) osc('sine', R(3000, 3600), t + i * 0.09, 0.06, o, { f1: R(2200, 2600), gain: 0.04 }); },
 };

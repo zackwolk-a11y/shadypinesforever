@@ -43,7 +43,7 @@ const missingTextures = (p) => p.evaluate(() => { let n = 0; for (const sc of wi
   await p.waitForTimeout(5800); await shot(p, '03-intro-notices-bottle');
   await p.waitForTimeout(1700); await shot(p, '04-intro-enormous-honk');
   await p.waitForTimeout(900); await shot(p, '05-intro-door-opens');
-  ok('cinematic plays through to the store', await wait(p, () => window.__SIMPS.store?.phase === 'play', null, 6000));
+  ok('cinematic plays through to the store (owners welcome)', await wait(p, () => window.__SIMPS.store?.phase === 'play' || !!window.__SIMPS.store?.dialogue, null, 6000));
   ok('no missing textures (title/intro/store)', (await missingTextures(p)) === 0);
   await p.close();
 }
@@ -53,7 +53,7 @@ const missingTextures = (p) => p.evaluate(() => { let n = 0; for (const sc of wi
   await wait(p, () => window.__SIMPS.scene === 'Intro');
   await p.waitForTimeout(1500);
   await p.keyboard.press('Space');
-  ok('cinematic is skippable', await wait(p, () => window.__SIMPS.store?.phase === 'play', null, 3000));
+  ok('cinematic is skippable', await wait(p, () => window.__SIMPS.store?.phase === 'play' || window.__SIMPS.store?.phase === 'cutscene', null, 3000));
   await p.close();
 }
 

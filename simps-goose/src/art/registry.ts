@@ -20,6 +20,7 @@ import * as DM from './dimension';
 import * as BS from './boss';
 import * as CF from './cafe';
 import * as WFA from './waterfront';
+import * as SR from './stockroom';
 import { registerSheet } from './registry-sheets';
 
 export const FLAVOR_RAMPS = { cola: R.cola, cream: R.cream, cherry: R.cherry };
@@ -91,6 +92,10 @@ export const SINGLE: Record<string, () => Px> = {
   wfSky: () => WFA.wfSky(false), wfSkySunset: () => WFA.wfSky(true), wfHills: () => WFA.wfHills(false), wfHillsSunset: () => WFA.wfHills(true), wfLake: () => WFA.wfLake(false), wfLakeSunset: () => WFA.wfLake(true),
   wfTrees: WFA.wfTrees, wfPath: WFA.path, bench: WFA.bench, picnic: WFA.picnic, flowers: WFA.flowers, dock160: () => WFA.dock(160), dock80: () => WFA.dock(80), sailboat: WFA.sailboat, flagPole: WFA.flagPole, bike: WFA.bike,
   ripple: WFA.ripple, wave: WFA.wave, splash: WFA.splash, ogNeck: WFA.ogNeck, ogHump: WFA.ogHump, ogTail: WFA.ogTail, panorama: WFA.panorama,
+  whWall: SR.warehouseWall, rack: () => SR.rack(340), box_cola: () => SR.flavorBox('cola'), box_cream: () => SR.flavorBox('cream'), box_cherry: () => SR.flavorBox('cherry'),
+  tag_cola: () => SR.slotTag('cola'), tag_cream: () => SR.slotTag('cream'), tag_cherry: () => SR.slotTag('cherry'), pallet: SR.pallet, heavyCrate: SR.heavyCrate, truck: SR.truck, forklift: SR.forklift, bayDoor: SR.bayDoor,
+  gift: () => SR.giftBox(false), giftOpen: () => SR.giftBox(true), medallion: SR.medallion, rope: SR.ropeBarrier, stockDoor: SR.stockDoor, gerryMachine: SR.gerryMachine,
+  vial_lime: () => SR.vial(R.lime), vial_blue: () => SR.vial(R.blue), vial_mango: () => SR.vial(R.mango), sodaCup: SR.sodaCup, rainbowGlass: SR.rainbowGlass, cart: SR.cart, crackedWall: SR.crackedWall, wswitch0: () => SR.wSwitch(false), wswitch1: () => SR.wSwitch(true), jamGauge: () => SR.gauge('JAM!'), psiGauge: () => SR.gauge('PSI'),
   tridentStand: MO.tridentStand, floorLeaf: () => MO.floorDecal('leaf'), floorTrident: () => MO.floorDecal('trident'), liftHead: MO.liftHead, piston: MO.pistonShaft,
 };
 SHELF_RAMPS.forEach((r, i) => { SINGLE['bottle' + i] = () => FX.bottle(r, 6, 16); });

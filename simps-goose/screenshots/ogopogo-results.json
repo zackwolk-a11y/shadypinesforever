@@ -2,37 +2,37 @@
   {
     "burp": "vanilla",
     "result": "defeated → true ending",
-    "secs": 25,
+    "secs": 29,
     "errors": 0
   },
   {
     "burp": "saltedcaramel",
     "result": "defeated → true ending",
-    "secs": 25,
+    "secs": 29,
     "errors": 0
   },
   {
     "burp": "hazelnut",
     "result": "defeated → true ending",
-    "secs": 26,
+    "secs": 32,
     "errors": 0
   },
   {
     "burp": "peppermint",
     "result": "defeated → true ending",
-    "secs": 28,
+    "secs": 38,
     "errors": 0
   },
   {
     "burp": "lavender",
     "result": "defeated → true ending",
-    "secs": 25,
+    "secs": 31,
     "errors": 0
   },
   {
     "burp": "marshmallow",
     "result": "defeated → true ending",
-    "secs": 31,
+    "secs": 35,
     "errors": 0
   }
 ]

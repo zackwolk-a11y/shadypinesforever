@@ -76,6 +76,7 @@ export class WaterfrontScene extends LevelScene {
     this.addDropLine(1380, 1520, 150, 5);
     for (let i = 0; i < 8; i++) this.addPickup('bean', 80 + i * 130, F - 16);
     this.addPickup('leaf', 1450, 120);
+    this.addCrackedWall(1100, F, 'star'); this.addHighStash(300, 70, 'star');
     this.add.image(1570, F - 8, 'bench').setOrigin(0.5, 1).setDepth(18);
     // joggers + cyclist
     this.runners.push({ p: new Person(this, 'jogger', 900, F, { staff: true, state: 'walk' }), v: -55 });

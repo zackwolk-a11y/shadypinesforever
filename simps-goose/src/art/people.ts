@@ -16,7 +16,7 @@ export interface PersonSpec {
   bag?: 'basket' | 'tote' | null;
   glasses?: boolean;
   tall?: number; // -2..3
-  beard?: 'full' | 'goatee'; vest?: boolean; jacket?: boolean; tattoo?: boolean; broad?: boolean;
+  beard?: 'full' | 'goatee'; vest?: boolean; jacket?: boolean; tattoo?: boolean; broad?: boolean; chibi?: boolean; tie?: number;
 }
 export interface PersonPose {
   stride: number; // -1..1
@@ -26,6 +26,7 @@ export interface PersonPose {
   eyes: 'normal' | 'wide' | 'closed' | 'happy';
   lean: number;
   emote?: boolean;
+  bottle?: 'hold' | 'pour' | 'drink' | 'clip';
 }
 
 const rot = (x: number, y: number, a: number) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
@@ -49,7 +50,7 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
     g.line(sx + ex * 0.5, sy + ey * 0.5, sx + ex, sy + ey, front ? s.skin[0] : s.skin[1]);
     g.line(sx + 1 + ex * 0.5, sy + ey * 0.5, sx + 1 + ex, sy + ey, front ? s.skin[0] : s.skin[1]);
     g.circle(sx + ex + 0.5, sy + ey + 0.5, 1.6, front ? s.skin[0] : s.skin[1]);
-    if (s.tattoo && front) for (const k of [0.6, 0.72, 0.84]) { g.set(sx + ex * k, sy + ey * k, C.ink3); g.set(sx + 1 + ex * k, sy + ey * k + 1, C.blu3); }
+    if (s.tattoo) for (const k of [0.6, 0.72, 0.84]) { g.set(sx + ex * k, sy + ey * k, C.ink3); g.set(sx + 1 + ex * k, sy + ey * k + 1, C.blu3); }
     return [sx + ex, sy + ey];
   };
   arm(p.armB, tx - 5 + lean, false);
@@ -86,8 +87,9 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
       return xx > w - 2 ? C.blk2 : C.blk1;
     });
     const cx = Math.round(tx + lean + 0.5);
-    g.vline(cx, shY - 1, shY + 8, C.blk2); g.vline(cx + 1, shY, shY + 7, C.blk0);
-    for (const yy of [shY + 1, shY + 4, shY + 7]) g.set(cx, yy, C.st1);
+    const tc = s.tie ?? C.blk2;
+    g.vline(cx, shY - 1, shY + 8, tc); g.vline(cx + 1, shY, shY + 7, tc === C.blk2 ? C.blk0 : C.red2);
+    for (const yy of [shY + 1, shY + 4, shY + 7]) g.set(cx, yy, tc === C.blk2 ? C.st1 : C.red0);
     g.set(cx, shY + 11, C.blk0); g.set(cx, shY + 14, C.blk0);
   }
   if (s.jacket) {
@@ -112,38 +114,47 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
     g.rect(tx - 8 + lean, hipY - 3, 4, 1, C.red1);
   }
 
-  // head
-  const hx = tx + lean + 1, hy = shY - 7;
-  g.ellipse(hx, hy, 5, 6, s.skin[0]);
-  g.fill(hx - 5, hy - 6, hx + 5, hy + 6, (x, y) => {
-    const nx = (x + 0.5 - hx) / 5, ny = (y + 0.5 - hy) / 6;
+  // head (owners use a slightly bigger, more expressive head — K scales every head feature)
+  const K = s.chibi ? 1.2 : 1;
+  const hx = tx + lean + 1, hy = shY - (s.chibi ? 8 : 7);
+  const RX = 5 * K, RY = 6 * K;
+  g.ellipse(hx, hy, RX, RY, s.skin[0]);
+  g.fill(hx - RX, hy - RY, hx + RX, hy + RY, (x, y) => {
+    const nx = (x + 0.5 - hx) / RX, ny = (y + 0.5 - hy) / RY;
     if (nx * nx + ny * ny > 1) return -1;
     return nx < -0.45 || ny > 0.7 ? s.skin[1] : -1;
   });
-  g.set(hx + 5, hy + 1, s.skin[0]); // nose
-  // hair
+  g.set(hx + RX, hy + 1, s.skin[0]); g.set(hx - RX + 1, hy, s.skin[1]); // nose, ear
   const H = s.hair;
+  const inHead = (x: number, y: number, ox = 0.6, oy = 1, sx = 1.12, sy = 1) => { const nx = (x + .5 - hx) / (RX * sx), ny = (y + .5 - hy + oy) / (RY * sy); return nx * nx + ny * ny <= 1; };
   switch (s.hairStyle) {
-    case 'short': g.fill(hx - 6, hy - 7, hx + 5, hy, (x, y) => { const nx = (x + .5 - hx) / 5.6, ny = (y + .5 - hy + 1) / 6; return nx * nx + ny * ny <= 1 && (y < hy - 2 || x < hx - 2) ? H : -1; }); break;
-    case 'long': g.fill(hx - 6, hy - 7, hx + 5, hy + 8, (x, y) => { const nx = (x + .5 - hx) / 5.8, ny = (y + .5 - hy + 1) / 6.2; const inHead = nx * nx + ny * ny <= 1; return (inHead && (y < hy - 2 || x < hx - 1)) || (x < hx - 1 && x > hx - 7 && y >= hy && y < hy + 9) ? H : -1; }); break;
-    case 'bun': g.fill(hx - 6, hy - 7, hx + 5, hy, (x, y) => { const nx = (x + .5 - hx) / 5.6, ny = (y + .5 - hy + 1) / 6; return nx * nx + ny * ny <= 1 && (y < hy - 2 || x < hx - 2) ? H : -1; }); g.circle(hx - 4, hy - 6, 2.5, H); break;
+    case 'short': g.fill(hx - RX - 1, hy - RY - 1, hx + RX, hy, (x, y) => inHead(x, y) && (y < hy - 2 || x < hx - 2) ? H : -1); break;
+    case 'long': g.fill(hx - RX - 1, hy - RY - 1, hx + RX, hy + 8, (x, y) => (inHead(x, y, 0, 1, 1.16, 1.03) && (y < hy - 2 || x < hx - 1)) || (x < hx - 1 && x > hx - RX - 2 && y >= hy && y < hy + 9) ? H : -1); break;
+    case 'bun': g.fill(hx - RX - 1, hy - RY - 1, hx + RX, hy, (x, y) => inHead(x, y) && (y < hy - 2 || x < hx - 2) ? H : -1); g.circle(hx - 4, hy - 6, 2.5, H); break;
     case 'curly': for (let k = 0; k < 9; k++) { const a = Math.PI * (0.9 + k * 0.14); g.circle(hx + Math.cos(a) * 4.8, hy - 1 + Math.sin(a) * 5.5, 2.2, H); } break;
-    case 'cap': g.fill(hx - 6, hy - 7, hx + 5, hy - 2, (x, y) => { const nx = (x + .5 - hx) / 5.6, ny = (y + .5 - hy + 1) / 6; return nx * nx + ny * ny <= 1 ? (s.capColor ?? C.red1) : -1; }); g.rect(hx, hy - 3, 7, 2, s.capColor ?? C.red1); g.rect(hx - 6, hy - 2, 3, 4, H); break;
-    case 'bald': g.set(hx - 2, hy - 5, C.wht); g.set(hx - 1, hy - 5, C.wht); g.set(hx - 2, hy - 4, 0xffffff); break;
-    case 'slick':
-      // undercut fade on the side, long dark top swept forward over the brow
-      g.fill(hx - 6, hy - 4, hx - 3, hy + 1, (x, y) => { const nx = (x + .5 - hx) / 5.4, ny = (y + .5 - hy) / 6; return nx * nx + ny * ny <= 1 && nx < -0.5 ? 0x5e5866 : -1; });
-      g.fill(hx - 6, hy - 9, hx + 6, hy - 2, (x, y) => { const nx = (x + .5 - hx) / 5.8, ny = (y + .5 - hy + 2) / 6.2; return nx * nx + ny * ny <= 1 && y < hy - 2 ? H : -1; });
-      g.rect(hx + 2, hy - 3, 4, 2, H); g.set(hx + 5, hy - 1, H); g.set(hx + 6, hy - 2, H);
-      g.hline(hx - 3, hx + 3, hy - 8, 0x5a5262);
+    case 'cap': g.fill(hx - 6, hy - 7, hx + 5, hy - 2, (x, y) => inHead(x, y) ? (s.capColor ?? C.red1) : -1); g.rect(hx, hy - 3, 7, 2, s.capColor ?? C.red1); g.rect(hx - 6, hy - 2, 3, 4, H); break;
+    case 'bald': g.set(hx - 2, hy - RY + 1, C.wht); g.set(hx - 1, hy - RY + 1, C.wht); g.set(hx - 2, hy - RY + 2, 0xffffff); g.set(hx - 3, hy - RY + 2, C.wht); break;
+    case 'slick': {
+      // faded undercut at the back/side, tall dark quiff swept forward over the brow
+      g.fill(hx - RX - 1, hy - 4, hx - 2, hy + 1, (x, y) => inHead(x, y, 0, 0, 1.08, 1) && x < hx - 2 ? 0x5e5866 : -1);
+      g.fill(hx - RX - 1, hy - RY - 4, hx + RX + 1, hy - 2, (x, y) => { const nx = (x + .5 - hx) / (RX * 1.15), ny = (y + .5 - hy + 3) / (RY * 1.0); return nx * nx + ny * ny <= 1 && y < hy - 2 && x > hx - RX + 1 ? H : -1; });
+      g.rect(hx + 2, hy - 3, 4, 2, H); g.set(hx + RX, hy - 2, H); g.set(hx + RX + 1, hy - 3, H);
+      g.hline(hx - 2, hx + 3, hy - RY - 2, 0x6a6070); g.set(hx + 4, hy - RY - 1, 0x6a6070);
       break;
+    }
   }
-  if (s.beard === 'full') g.fill(hx - 5, hy, hx + 5, hy + 7, (x, y) => { const nx = (x + .5 - hx) / 5.1, ny = (y + .5 - hy) / 6.2; if (nx * nx + ny * ny > 1 || x < hx - 3) return -1; const edge = nx * nx + ny * ny > 0.62; return (y >= hy + 4 || (edge && y >= hy + 1)) ? H : -1; });
-  if (s.beard === 'goatee') { g.hline(hx + 2, hx + 4, hy + 2, H); g.rect(hx + 2, hy + 5, 2, 2, H); g.set(hx + 2, hy + 7, H); }
+  if (s.beard === 'full') g.fill(hx - RX, hy, hx + RX, hy + RY + 1, (x, y) => { const nx = (x + .5 - hx) / (RX * 1.02), ny = (y + .5 - hy) / (RY * 1.05); if (nx * nx + ny * ny > 1 || x < hx - 3) return -1; const edge = nx * nx + ny * ny > 0.6; return (y >= hy + 4 || (edge && y >= hy + 1)) ? (Px.bayer(x, y) > 0.8 ? s.skin[1] : H) : -1; });
+  if (s.beard === 'goatee') { g.hline(hx + 2, hx + 4, hy + 2, H); g.rect(hx + 2, hy + 5, 2, 2, H); g.set(hx + 2, hy + 7, H); g.hline(hx - 1, hx + 1, hy + 6, H); }
   if (s.hairStyle === 'cap' && s.apron) g.set(hx - 1, hy - 5, C.wht);
 
   // front arm
   const hand = arm(p.armF, tx + 3 + lean, true);
+  if (p.bottle) {
+    const [bx, by] = hand;
+    if (p.bottle === 'clip') { g.rect(bx - 2, by - 6, 6, 8, C.wd1); g.rect(bx - 1, by - 5, 4, 6, C.wht); g.hline(bx, bx + 1, by - 3, C.st2); g.hline(bx, bx + 2, by - 1, C.st2); g.rect(bx, by - 7, 2, 2, C.st2); }
+    else if (p.bottle === 'pour') { g.line(bx, by - 2, bx + 5, by + 1, C.red1); g.line(bx, by - 3, bx + 5, by, C.red1); g.set(bx + 6, by + 1, C.wht); g.set(bx + 7, by + 3, C.chr0); g.set(bx + 7, by + 5, C.chr0); g.set(bx + 7, by + 7, C.chr0); }
+    else { g.rect(bx - 1, by - 7, 3, 7, C.red1); g.rect(bx, by - 9, 1, 2, C.gl1); g.rect(bx - 1, by - 5, 3, 2, C.wht); g.set(bx - 1, by - 7, C.red0); }
+  }
   if (s.bag === 'basket') {
     g.rect(hand[0] - 3, hand[1] + 1, 9, 6, C.red1); g.rect(hand[0] - 3, hand[1] + 1, 9, 1, C.red0);
     g.line(hand[0] - 2, hand[1] + 1, hand[0], hand[1] - 2, C.red2); g.line(hand[0] + 5, hand[1] + 1, hand[0] + 1, hand[1] - 2, C.red2);
@@ -186,6 +197,14 @@ export const PERSON_ANIMS: Record<string, { frames: PersonPose[]; fps: number; l
     gesture: { fps: 4, loop: true, frames: [P({ armF: 1.4, mouth: 'grin' }), P({ armF: 1.6, mouth: 'grin', bob: -1 })] },
     wave: { fps: 6, loop: true, frames: [P({ armF: 2.6, mouth: 'grin' }), P({ armF: 3.0, mouth: 'grin' })] },
     cheer: { fps: 8, loop: true, frames: [P({ armF: 2.9, armB: -2.9, mouth: 'laugh', eyes: 'happy', bob: -2 }), P({ armF: 2.6, armB: -2.6, mouth: 'laugh', eyes: 'happy', bob: 0 })] },
+    talk: { fps: 7, loop: true, frames: [P({ armF: 0.5, mouth: 'o' }), P({ armF: 0.6, mouth: 'smile', bob: -1 }), P({ armF: 0.9, mouth: 'grin' }), P({ armF: 0.6, mouth: 'smile' })] },
+    point: { fps: 4, loop: true, frames: [P({ armF: 1.57, mouth: 'grin' }), P({ armF: 1.6, mouth: 'o', bob: -1 })] },
+    pour: { fps: 4, loop: true, frames: [P({ armF: 1.25, mouth: 'grin', bottle: 'pour' }), P({ armF: 1.35, mouth: 'smile', bottle: 'pour', bob: -1 })] },
+    drink: { fps: 3, loop: true, frames: [P({ armF: 2.5, mouth: 'flat', bottle: 'drink', eyes: 'closed', lean: -1 }), P({ armF: 2.6, mouth: 'flat', bottle: 'drink', eyes: 'closed', lean: -2 })] },
+    hold: { fps: 3, loop: true, frames: [P({ armF: 0.9, mouth: 'grin', bottle: 'hold' }), P({ armF: 0.95, mouth: 'smile', bottle: 'hold', bob: -1 })] },
+    toast: { fps: 6, loop: true, frames: [P({ armF: 2.8, mouth: 'laugh', bottle: 'hold', eyes: 'happy' }), P({ armF: 2.9, mouth: 'laugh', bottle: 'hold', eyes: 'happy', bob: -2 })] },
+    clip: { fps: 2, loop: true, frames: [P({ armF: 0.9, mouth: 'flat', bottle: 'clip' }), P({ armF: 0.95, mouth: 'smile', bottle: 'clip' })] },
+    catch: { fps: 8, loop: true, frames: [P({ armF: 2.3, armB: -1.2, mouth: 'o', eyes: 'wide', bottle: 'hold', lean: -1 }), P({ armF: 2.1, armB: -1, mouth: 'grin', bottle: 'hold' })] },
     browse: { fps: 2, loop: true, frames: [P({ armF: 1.0, mouth: 'flat' }), P({ armF: 1.1, mouth: 'flat', eyes: 'closed' }), P({ armF: 1.0, mouth: 'flat' }), P({ armF: 1.2, mouth: 'smile' })] },
   };
 })();
@@ -197,8 +216,8 @@ export const PEOPLE: Record<string, PersonSpec> = {
   cust_b: { skin: [C.sk2, C.sk3], hair: C.hr0, hairStyle: 'curly', shirt: [C.lim0, C.lim2, C.lim3], pants: [C.cb2, C.cb3], shoes: C.ink2, bag: 'tote' },
   cust_c: { skin: [C.sk0, C.sk1], hair: C.hr4, hairStyle: 'short', shirt: [C.pur0, C.pur1, C.pur2], pants: [C.blk0, C.blk1], shoes: C.cola2, glasses: true, tall: 1 },
   cust_d: { skin: [C.sk1, C.sk2], hair: C.hr2, hairStyle: 'bun', shirt: [C.mng0, C.mng1, C.mng2], pants: [C.blu1, C.blu2], shoes: C.red1, tall: -1 },
-  dave: { skin: [C.sk0, C.sk1], hair: C.hr1, hairStyle: 'bald', beard: 'full', shirt: [0xffffff, C.wl0, C.wl2], pants: [C.blk1, C.blk2], shoes: C.ink2, vest: true, tattoo: true, tall: 3, broad: true },
-  gerry: { skin: [C.sk0, C.sk1], hair: C.hr0, hairStyle: 'slick', beard: 'goatee', shirt: [C.blk0, C.blk1, C.blk2], pants: [C.blk0, C.blk1], shoes: C.blk2, jacket: true, tall: 3 },
+  dave: { skin: [C.sk0, C.sk1], hair: C.hr1, hairStyle: 'bald', beard: 'full', shirt: [0xffffff, C.wl0, C.wl2], pants: [C.st3, C.st4], shoes: C.wd3, vest: true, tattoo: true, tall: 3, broad: true, chibi: true, tie: C.red2 },
+  gerry: { skin: [C.sk0, C.sk1], hair: C.hr0, hairStyle: 'slick', beard: 'goatee', shirt: [C.blk0, C.blk1, C.blk2], pants: [0x4a6aa8, 0x2f4a7e], shoes: C.blk2, jacket: true, tall: 3, chibi: true },
   cust_e: { skin: [C.sk3, C.sk4], hair: C.hr0, hairStyle: 'short', shirt: [C.blu0, C.blu1, C.blu2], pants: [C.st2, C.st3], shoes: C.wht, tall: 2 },
   lab_tech: { skin: [C.sk1, C.sk2], hair: C.hr3, hairStyle: 'bun', shirt: [0xffffff, C.wl0, C.wl2], pants: [C.blk0, C.blk1], shoes: C.ink2, glasses: true },
   barista: { skin: [C.sk2, C.sk3], hair: C.hr1, hairStyle: 'curly', shirt: [C.crm1, C.crm2, C.crm3], pants: [C.blk1, C.blk2], shoes: C.cola2, apron: true },
