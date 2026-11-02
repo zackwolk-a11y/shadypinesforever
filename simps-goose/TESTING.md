@@ -5,7 +5,7 @@ All results below were produced by the automated suites against the **production
 | Suite | Result |
 |---|---|
 | Original vertical-slice checks (`tests/e2e.mjs`, demo mode) | **40/40** |
-| Full game (`tests/fullgame.mjs`, Levels 1–3, bosses, endings, saves, menus, touch) | **83/83** |
+| Full game (`tests/fullgame.mjs`, Levels 1–3, bosses, endings, saves, menus, touch) | **82/83** |
 | Every coffee defeats Ogopogo (`tests/ogopogo.mjs`) | **6/6** |
 | Page errors | 0 |
 
@@ -51,7 +51,7 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Mixer: green-zone pumps rated GOOD or PERFECT | PASS | observed good |
 | Cherry Rocket power granted | PASS |  |
 | Lab: rocket dash smashes the fragile glass wall | PASS |  |
-| Lab: dash ends on impact (goose not flung into the syrup vat) | PASS | {"key":"Lab","phase":"play","x":668,"y":390,"power":"rocket","burp":null,"gtag":"floor"} |
+| Lab: dash ends on impact (goose not flung into the syrup vat) | PASS | {"key":"Lab","phase":"play","x":669,"y":390,"power":"rocket","burp":null,"gtag":"floor"} |
 | Mixer: Blue Raspberry + Lemon Lime = Electric Fizz | PASS | {"recipe":"electric_fizz","q":"good","power":"electric","isSuper":false} |
 | Lab: Electric Fizz zaps the target and opens the gate | PASS |  |
 | Lab: pressure lever starts the trident lift | PASS |  |
@@ -69,7 +69,7 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Dimension: all 5 enemy types present | PASS | BottleBot,FizzSprite,FoamMonster,FruitFlyer,SyrupSlug |
 | Dimension: collapsing foam pad gives way | PASS |  |
 | Dimension: checkpoint reached | PASS |  |
-| Dimension frame rate playable (>=30 fps, headless software WebGL) | PASS | 38 fps |
+| Dimension frame rate playable (>=30 fps, headless software WebGL) | **FAIL** | 28 fps |
 | Dimension exit portal → Carbonation boss | PASS |  |
 | Boss phase 1: honked bubbles hit the pressure switches | PASS |  |
 | Boss phase 2: matching flavor taps | PASS |  |
@@ -101,7 +101,7 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Store: rope gone once the Stock-Up is done | PASS |  |
 | Ogopogo: owner abilities carried in (Power Honk / Double Bubble / Super Burp) | PASS |  |
 | Ogopogo: Power Honk briefly stuns Ogopogo | PASS |  |
-| Ogopogo: SUPER BURP hits hard (3 HP)  | PASS | 40 -> 34 |
+| Ogopogo: SUPER BURP hits hard (3 HP)  | PASS | 40 -> 37 |
 | Ogopogo: DOUBLE BUBBLE burps two platform bubbles | PASS |  |
 | Celebration: Dave + Gerry arrive and talk | PASS |  |
 | Celebration: owners + crowd + Ogopogo soda cup on screen | PASS |  |

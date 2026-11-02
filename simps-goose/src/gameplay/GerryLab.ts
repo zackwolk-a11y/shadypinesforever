@@ -146,7 +146,7 @@ export class GerryLab {
     s.tweens.add({ targets: b, x: ge.x, y: ge.y - 56, duration: 900, delay: 400, ease: 'Sine.InOut', onComplete: () => { b.destroy(); SFX.pop(0.6); s.fx.sparkle(ge.x, ge.y - 56, 6, 0xffd0f0); ge.act('laugh', 1.8); SFX.laugh(1.05); } });
     s.time.delayedCall(1700, () => this.talkAll([['gerry', 'YEP. DEFINITELY WORKS.', 'laugh']], () => {
       this.state = 'done'; g.mode = 'play'; g.playLoop('idle'); s.phase = 'play';
-      ge.say('THE SUPER SODA 9000 IS ALL YOURS NOW.', 2400);
+      ge.lastLine = 0; ge.say('NOW THE SUPER SODA 9000, RIGHT THERE! COLA + CREAM SODA + BLACK CHERRY, MAX FIZZ.', 5000); s.game.events.emit('hud:toast', 'NEXT: SUPER SODA 9000', C.red0, s.touch ? 'SIP AT THE BIG MACHINE ON THE RIGHT' : 'PRESS E AT THE BIG MACHINE ON THE RIGHT');
     }));
   }
 
@@ -164,7 +164,7 @@ export class GerryLab {
         s.game.events.emit('hud:toast', `SAMPLE: ${VNAME[v.kind]}`, VCOL[v.kind], 'BRING IT TO GERRY\'S MACHINE');
       }
     }
-    if (this.carried) this.carried.img.setPosition(Math.round(g.x + g.facing * 9), Math.round(g.y - 30 + Math.sin(this.t * 10)));
+    if (this.carried) { const tip = g.x + (g.facing > 0 ? 17 : -15); this.carried.img.setOrigin(0.5, 0).setScale(0.8).setPosition(Math.round(tip + g.facing * 3), Math.round(g.y - 31 + Math.abs(Math.sin(this.t * 8)))).setDepth(g.sprite.depth + 1); }
     // carbonation gauge
     if (this.state === 'carb' && this.gauge) {
       this.needleT += dt; this.needle = Math.sin(this.needleT * 1.8) * 0.5 + 0.5;

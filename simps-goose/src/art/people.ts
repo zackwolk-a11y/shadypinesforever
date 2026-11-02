@@ -50,7 +50,7 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
     g.line(sx + ex * 0.5, sy + ey * 0.5, sx + ex, sy + ey, front ? s.skin[0] : s.skin[1]);
     g.line(sx + 1 + ex * 0.5, sy + ey * 0.5, sx + 1 + ex, sy + ey, front ? s.skin[0] : s.skin[1]);
     g.circle(sx + ex + 0.5, sy + ey + 0.5, 1.6, front ? s.skin[0] : s.skin[1]);
-    if (s.tattoo) for (const k of [0.6, 0.72, 0.84]) { g.set(sx + ex * k, sy + ey * k, C.ink3); g.set(sx + 1 + ex * k, sy + ey * k + 1, C.blu3); }
+    if (s.tattoo) { const ink = front ? 0x56679a : 0x45527c; g.set(Math.round(sx + ex * 0.66), Math.round(sy + ey * 0.66), ink); g.set(Math.round(sx + 1 + ex * 0.78), Math.round(sy + ey * 0.78), ink); } // small forearm tattoo
     return [sx + ex, sy + ey];
   };
   arm(p.armB, tx - 5 + lean, false);
@@ -124,10 +124,11 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
     if (nx * nx + ny * ny > 1) return -1;
     return nx < -0.45 || ny > 0.7 ? s.skin[1] : -1;
   });
-  g.set(hx + RX, hy + 1, s.skin[0]); g.set(hx - RX + 1, hy, s.skin[1]); // nose, ear
+  if (!s.chibi) { g.set(hx + RX, hy + 1, s.skin[0]); g.set(hx - RX + 1, hy, s.skin[1]); } // nose, ear
   const H = s.hair;
+  if (s.chibi) ownerHair(g, s, hx, hy, RX, RY);
   const inHead = (x: number, y: number, ox = 0.6, oy = 1, sx = 1.12, sy = 1) => { const nx = (x + .5 - hx) / (RX * sx), ny = (y + .5 - hy + oy) / (RY * sy); return nx * nx + ny * ny <= 1; };
-  switch (s.hairStyle) {
+  if (!s.chibi) switch (s.hairStyle) {
     case 'short': g.fill(hx - RX - 1, hy - RY - 1, hx + RX, hy, (x, y) => inHead(x, y) && (y < hy - 2 || x < hx - 2) ? H : -1); break;
     case 'long': g.fill(hx - RX - 1, hy - RY - 1, hx + RX, hy + 8, (x, y) => (inHead(x, y, 0, 1, 1.16, 1.03) && (y < hy - 2 || x < hx - 1)) || (x < hx - 1 && x > hx - RX - 2 && y >= hy && y < hy + 9) ? H : -1); break;
     case 'bun': g.fill(hx - RX - 1, hy - RY - 1, hx + RX, hy, (x, y) => inHead(x, y) && (y < hy - 2 || x < hx - 2) ? H : -1); g.circle(hx - 4, hy - 6, 2.5, H); break;
@@ -143,8 +144,8 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
       break;
     }
   }
-  if (s.beard === 'full') g.fill(hx - RX, hy, hx + RX, hy + RY + 1, (x, y) => { const nx = (x + .5 - hx) / (RX * 1.02), ny = (y + .5 - hy) / (RY * 1.05); if (nx * nx + ny * ny > 1 || x < hx - 3) return -1; const edge = nx * nx + ny * ny > 0.6; return (y >= hy + 4 || (edge && y >= hy + 1)) ? (Px.bayer(x, y) > 0.8 ? s.skin[1] : H) : -1; });
-  if (s.beard === 'goatee') { g.hline(hx + 2, hx + 4, hy + 2, H); g.rect(hx + 2, hy + 5, 2, 2, H); g.set(hx + 2, hy + 7, H); g.hline(hx - 1, hx + 1, hy + 6, H); }
+  if (!s.chibi && s.beard === 'full') g.fill(hx - RX, hy, hx + RX, hy + RY + 1, (x, y) => { const nx = (x + .5 - hx) / (RX * 1.02), ny = (y + .5 - hy) / (RY * 1.05); if (nx * nx + ny * ny > 1 || x < hx - 3) return -1; const edge = nx * nx + ny * ny > 0.6; return (y >= hy + 4 || (edge && y >= hy + 1)) ? (Px.bayer(x, y) > 0.8 ? s.skin[1] : H) : -1; });
+  if (!s.chibi && s.beard === 'goatee') { g.hline(hx + 2, hx + 4, hy + 2, H); g.rect(hx + 2, hy + 5, 2, 2, H); g.set(hx + 2, hy + 7, H); g.hline(hx - 1, hx + 1, hy + 6, H); }
   if (s.hairStyle === 'cap' && s.apron) g.set(hx - 1, hy - 5, C.wht);
 
   // front arm
@@ -164,6 +165,7 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
   g.outline(C.ink);
 
   // face
+  if (s.chibi) { ownerFace(g, s, p, hx, hy); return g; }
   const ey = hy - 1;
   const eye = (x: number) => {
     if (p.eyes === 'normal') { g.set(x, ey, C.ink); g.set(x, ey + 1, C.ink); }
@@ -183,6 +185,70 @@ export function drawPerson(s: PersonSpec, p: PersonPose): Px {
   }
   if (p.emote) { g.set(hx - 3, hy + 1, C.pink); g.set(hx + 5, hy + 2, C.pink); }
   return g;
+}
+
+/** Owner heads (Dave + Gerry): clean 3/4 chibi faces, readable at 1x. */
+const mix = (a: number, b: number, t: number) => { const ch = (s: number) => Math.round(((a >> s) & 255) * (1 - t) + ((b >> s) & 255) * t); return (ch(16) << 16) | (ch(8) << 8) | ch(0); };
+function ownerHair(g: Px, s: PersonSpec, hx: number, hy: number, RX: number, RY: number) {
+  const inH = (x: number, y: number) => { const nx = (x + 0.5 - hx) / RX, ny = (y + 0.5 - hy) / RY; return nx * nx + ny * ny <= 1; };
+  const H = s.hair, HL = mix(H, 0xffffff, 0.22);
+  // ear on the back side
+  g.rect(hx - 4, hy - 1, 2, 3, s.skin[1]); g.set(hx - 3, hy, s.skin[0]);
+  if (s.hairStyle === 'bald') {
+    // shiny scalp highlight
+    g.hline(hx - 2, hx, hy - 6, 0xfff2e0); g.set(hx - 3, hy - 5, 0xfff2e0); g.set(hx - 1, hy - 5, 0xffe4cc);
+  } else if (s.hairStyle === 'slick') {
+    // faded sides (skin tinted by hair), dark top swept up and forward into a quiff
+    const fade = mix(s.skin[1], H, 0.35);
+    g.fill(hx - 6, hy - 4, hx - 1, hy - 1, (x, y) => inH(x, y) && !(x >= hx - 4 && x <= hx - 3 && y >= hy - 1) ? fade : -1);
+    g.fill(hx - 7, hy - 10, hx + 7, hy - 3, (x, y) => {
+      const nx = (x + 0.5 - hx) / (RX + 0.6), ny = (y + 0.5 - (hy - 2)) / (RY + 0.4);
+      const cap = nx * nx + ny * ny <= 1 && y <= hy - 4 && x >= hx - 5;
+      const quiff = y >= hy - 9 && y <= hy - 6 && x >= hx - 3 && x <= hx + 6 - Math.max(0, hy - 7 - y);
+      return cap || quiff ? H : -1;
+    });
+    g.hline(hx - 2, hx + 3, hy - 8, HL); g.set(hx + 4, hy - 7, HL);
+  }
+  // beards (solid, trimmed — no dithering)
+  const Bd = s.beard ? H : 0;
+  if (s.beard === 'full') {
+    g.fill(hx - 4, hy, hx + 6, hy + 8, (x, y) => {
+      if (!inH(x, y)) return -1;
+      if (y >= hy + 3) return x >= hx - 3 ? Bd : -1;            // jaw + chin
+      if (x <= hx - 2 && x >= hx - 3) return Bd;                // sideburn
+      if (y === hy + 2 && x >= hx + 1 && x <= hx + 5) return Bd; // moustache
+      return -1;
+    });
+    g.hline(hx - 2, hx + 4, hy + 7, mix(Bd, 0x000000, 0.25));
+  } else if (s.beard === 'goatee') {
+    g.hline(hx + 1, hx + 5, hy + 2, Bd);                       // moustache
+    g.set(hx + 1, hy + 3, Bd); g.set(hx + 1, hy + 4, Bd); g.set(hx + 5, hy + 3, Bd); g.set(hx + 5, hy + 4, Bd);
+    g.rect(hx + 2, hy + 5, 3, 2, Bd);                          // chin
+    g.fill(hx - 3, hy + 1, hx + 6, hy + 7, (x, y) => inH(x, y) && g.get(x, y) === s.skin[0] && (x + y) % 3 === 0 && (x < hx + 1 || y > hy + 4) && x > hx - 3 ? mix(s.skin[0], H, 0.3) : -1); // stubble
+  }
+}
+function ownerFace(g: Px, s: PersonSpec, p: PersonPose, hx: number, hy: number) {
+  const ey = hy - 1, brow = s.hairStyle === 'bald' ? mix(s.hair, 0x000000, 0.2) : s.hair;
+  // brows (raised when surprised)
+  const by = ey - (p.eyes === 'wide' ? 3 : 2);
+  g.hline(hx, hx + 1, by, brow); g.hline(hx + 3, hx + 4, by, brow);
+  const eye = (x: number) => {
+    if (p.eyes === 'normal') { g.rect(x, ey, 1, 2, C.ink); }
+    else if (p.eyes === 'wide') { g.rect(x - 1, ey - 1, 2, 3, C.wht); g.rect(x, ey, 1, 2, C.ink); }
+    else if (p.eyes === 'closed') { g.hline(x - 1, x, ey + 1, C.ink); }
+    else { g.set(x - 1, ey + 1, C.ink); g.set(x, ey, C.ink); g.set(x + 1, ey + 1, C.ink); }
+  };
+  eye(hx + 1); eye(hx + 4);
+  g.set(hx + 5, hy + 1, s.skin[1]); // nose shade
+  const my = hy + 3, lip = s.beard === 'full' ? s.skin[0] : C.ink;
+  switch (p.mouth) {
+    case 'smile': g.set(hx + 2, my, lip); g.hline(hx + 3, hx + 4, my + 1, lip); g.set(hx + 5, my, lip); break;
+    case 'grin': g.hline(hx + 2, hx + 5, my, C.ink); g.hline(hx + 2, hx + 5, my + 1, C.wht); g.hline(hx + 3, hx + 4, my + 2, C.ink); break;
+    case 'o': g.rect(hx + 3, my, 2, 2, C.red3); break;
+    case 'laugh': g.rect(hx + 2, my, 4, 3, C.red3); g.hline(hx + 2, hx + 5, my, C.wht); break;
+    case 'flat': g.hline(hx + 2, hx + 4, my + 1, lip); break;
+  }
+  if (p.emote) { g.set(hx - 1, hy + 1, C.pink); g.set(hx + 6, hy + 1, C.pink); }
 }
 
 export const PERSON_ANIMS: Record<string, { frames: PersonPose[]; fps: number; loop: boolean }> = (() => {

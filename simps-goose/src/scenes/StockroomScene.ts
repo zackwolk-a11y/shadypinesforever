@@ -113,7 +113,7 @@ export class StockroomScene extends LevelScene {
     // floor bays for the big boxes (under the bottom shelf)
     this.bays = [RACK_X + 100, RACK_X + 250];
     for (const bx of this.bays) { const g = this.add.graphics().setDepth(16); g.lineStyle(1, C.gold1, 0.9).strokeRect(bx - 16, F - 28, 32, 28); this.add.image(bx, F + 6, 'tag_cherry').setDepth(16).setTint(0xffe0a0); }
-    this.bigs.push(this.mkBig(RACK_X + 20, 'cream', 0), this.mkBig(RACK_X + 330, 'cherry', 1));
+    this.bigs.push(this.mkBig(RACK_X + 20, 'cream', 0), this.mkBig(RACK_X + 296, 'cherry', 1));
     // pallets to hop on
     for (const x of [300, 62]) { this.add.image(x, F, 'pallet').setOrigin(0.5, 1).setDepth(26); this.addPlatform(x - 22, F - 10, 44, 4, 'oneway', 'pallet'); }
     // Gerry's red-trident lift
@@ -337,6 +337,19 @@ export class StockroomScene extends LevelScene {
     for (const r of this.rollers) if (Math.abs(r.x - x) < 170) r.vx = Math.sign(r.x - x) * 260;
   }
 
+  hintText(): string | null {
+    const use = this.touch ? 'SIP' : 'E';
+    if (this.part === 1) return this.carried
+      ? `TAKE THE ${FL_NAME[this.carried.fl]} BOX TO A MATCHING TAG ON THE SHELVES (RIDE GERRY'S LIFT), THEN ${use}. (${this.stocked}/8)`
+      : `GRAB A BOX FROM DAVE'S CONVEYOR (${use}) OR PUSH THE BIG BOXES INTO THE FLOOR BAYS. (${this.stocked}/8)`;
+    if (this.part === 2) {
+      if (this.delivery === 0) return this.jam ? 'HONK WHEN THE JAM GAUGE NEEDLE IS IN THE GREEN.' : `CARRY ${FL_NAME[this.order[this.orderIdx]]} FROM THE BELT TO DAVE ON THE DOCK (${use}). (${this.orderIdx}/3)`;
+      if (this.delivery === 1) return 'PUSH THE CART ALL THE WAY RIGHT ONTO THE GOLD TRIDENT BY THE DOCK.';
+      if (this.delivery === 2) return this.caught >= 5 ? 'HONK THE GOLDEN LAST BOX AT THE END OF THE BELT.' : `CATCH THE BOTTLES FLYING OFF THE BELT END. (${this.caught}/5)`;
+    }
+    if (this.part === 4) return this.crate.gone ? `WALK TO THE EXIT DOOR AND PRESS ${use}.` : `HOLD HONK TO CHARGE A POWER HONK NEXT TO THE HEAVY CRATE, THEN LET GO.`;
+    return null;
+  }
   // ------------------------------------------------------------------ input hooks
   nearSlot(): Slot | null {
     const g = this.goose;
@@ -365,6 +378,17 @@ export class StockroomScene extends LevelScene {
     return false;
   }
   onHonkLevel(x: number) {
+    // a honk right next to a big box nudges it away from the goose (backup for tight spots)
+    if (this.part === 1) for (const bx of this.bigs) {
+      if (bx.done) continue;
+      const cx = bx.plat.x + 15, g = this.goose;
+      if (Math.abs(cx - g.x) < 40 && g.y > F - 30) {
+        const dir = cx > g.x ? 1 : -1;
+        const nx = Math.max(RACK_X - 10, Math.min(BAY_X - 50, bx.plat.x + dir * 18));
+        bx.plat.x = nx; this.tweens.add({ targets: bx.img, x: nx + 15, duration: 150 }); SFX.clunk(); this.fx.dust(cx, F, 4);
+        for (const bay of this.bays) if (Math.abs(nx + 15 - bay) < 10) { bx.plat.x = bay - 15; this.tweens.add({ targets: bx.img, x: bay, duration: 120 }); }
+      }
+    }
     if (this.jam && Math.abs(x - CONV_B.x1) < 160 && this.jamNeedle) {
       const k = (this.jamNeedle.x - (CONV_B.x1 - 36)) / 32;
       if (k > 0.28 && k < 0.72) { this.clearJam(); } else { emote(this, this.goose.x, this.goose.y - 44, k < 0.5 ? 'TOO EARLY!' : 'TOO LATE!', { life: 700 }); SFX.clunk(); }
@@ -447,8 +471,8 @@ export class StockroomScene extends LevelScene {
       if (bx.done || !b.onGround) return;
       const p = bx.plat;
       const vert = Math.abs(b.y + b.h - (p.y + p.h)) < 4;
-      const right = vert && b.x < p.x && b.x + b.w >= p.x - 1.5 && Controls.down('right');
-      const left = vert && b.x > p.x && b.x <= p.x + p.w + 1.5 && Controls.down('left');
+      const right = vert && b.x < p.x && b.x + b.w >= p.x - 3 && Controls.down('right');
+      const left = vert && b.x > p.x && b.x <= p.x + p.w + 3 && Controls.down('left');
       const dir = right ? 1 : left ? -1 : 0;
       if (!dir) return;
       const nx = Math.max(minX, Math.min(maxX, p.x + dir * 60 * dt));
@@ -462,7 +486,8 @@ export class StockroomScene extends LevelScene {
     this.conveyorA.tilePositionX -= this.part === 1 ? dt * 30 : 0;
     this.conveyorB.tilePositionX -= this.jam ? 0 : dt * this.beltSpeed * 0.7;
     this.liftHead.y = Math.round(this.liftY); this.liftShaft.height = Math.max(1, F - Math.round(this.liftY) - 10);
-    if (this.carried) { this.carried.img.setPosition(Math.round(g.x + g.facing * 9), Math.round(g.y - 30 + Math.sin(this.elapsed * 10))); }
+    // carried in the beak: the box hangs just in front of the beak tip (never over the head)
+    if (this.carried) { const tip = g.x + (g.facing > 0 ? 17 : -15); this.carried.img.setOrigin(0.5, 0).setScale(0.75).setPosition(Math.round(tip + g.facing * 5), Math.round(g.y - 31 + Math.abs(Math.sin(this.elapsed * 8)))).setDepth(g.sprite.depth + 1); }
     if (this.timerT) this.timerT.setText(this.part === 2 ? `${Math.max(0, Math.ceil(this.timeLimit - this.t2))}S${this.t2 <= this.bonusLimit && !this.overtime ? ' *' : ''}` : '');
     if (this.part === 1) this.frameShelves(dt);
     if (this.part === 2) this.frameTruck(dt);

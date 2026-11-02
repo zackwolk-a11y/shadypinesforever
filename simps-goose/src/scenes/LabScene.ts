@@ -212,6 +212,18 @@ export class LabScene extends LevelScene {
   }
 
   onHonkLevel(x: number) { this.gl.onHonk(x); }
+  hintText(): string | null {
+    const g = this.goose, use = this.touch ? 'SIP' : 'E', pw = this.touch ? 'POWER' : 'C';
+    if (!this.glassBroken && g.x < 600) return `MIX A DRINK AT A MIX-O-MATIC (${use}). COLA OR CHERRY ROCKET LETS YOU DASH (${pw}) THROUGH THE GLASS WALL.`;
+    if (this.gatePlat.active && g.x < 1480) return 'ZAP THE TARGET WITH ELECTRIC FIZZ (BLUE RASPBERRY + LEMON LIME) TO OPEN THE GATE.';
+    if (!this.lift.running) return 'HONK THE LEVER NEXT TO THE LIFT SHAFT, THEN RIDE THE LIFT UP.';
+    const gl = this.gl;
+    if (gl.state === 'idle') return "FIND GERRY BY HIS MACHINE, PAST THE LIFT.";
+    if (gl.state === 'collect') return gl.carried ? `POUR THE SAMPLE INTO THE TANK OF THE SAME COLOUR (${use}).` : 'FIND THE GLOWING SAMPLES: UP ON THE CATWALK, ABOVE THE STEAM JET, AND PAST THE SUPER SODA 9000.';
+    if (gl.state === 'carb') return "HONK BY GERRY'S MACHINE WHEN THE NEEDLE IS IN THE GREEN.";
+    if (gl.state === 'done') return `AT THE SUPER SODA 9000 PRESS ${use}, THEN MIX COLA + CREAM SODA + BLACK CHERRY WITH MAX FIZZ.`;
+    return null;
+  }
   onInteract() {
     const st = this.nearStation();
     if (st) { this.openMixer('normal'); return true; }

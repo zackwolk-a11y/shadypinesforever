@@ -25,6 +25,7 @@ import { shake } from '../systems/camfx';
 import { SFX } from '../audio/sfx';
 import { MUSIC, Song } from '../audio/music';
 import { Dialogue, Line } from '../ui/Dialogue';
+import { txt } from '../art/font';
 
 export type Phase = 'intro' | 'play' | 'picker' | 'cutscene' | 'frozen';
 export type PickupKind = 'drop' | 'leaf' | 'badge' | 'bottle' | 'card' | 'star' | 'bean' | 'token';
@@ -64,7 +65,7 @@ export abstract class LevelScene extends Phaser.Scene {
   checkpointSprites: { img: Phaser.GameObjects.Sprite; x: number; y: number; on: boolean }[] = [];
   stomps = 0;
   dialogue: Dialogue | null = null;
-  outfitBadge: Phaser.GameObjects.Image | null = null;
+  outfitBadge: Phaser.GameObjects.Image | null = null; offTopT = 0; stuckT = 0; lastHint = ''; hintWin: Phaser.GameObjects.Container | null = null;
   cHold = -1; superCd = 0;
 
   // ---------------------------------------------------------------- hooks
@@ -131,6 +132,8 @@ export abstract class LevelScene extends Phaser.Scene {
     this.game.events.emit('hud:reset', { dropTotal: this.totals.drop, leafTotal: this.totals.leaf, level: this.levelName });
     this.time.delayedCall(60, () => { this.game.events.emit('hud:hearts', GS.hearts, GS.maxHearts); this.game.events.emit('hud:score', GS.score); if (this.burpsEnabled && this.burp) this.game.events.emit('hud:burp', this.burp); });
     this.events.once('shutdown', () => { this.goose.events.removeAllListeners(); });
+    // talk prompt over the owners
+    for (const p of this.people) if (p.key === 'dave' || p.key === 'gerry') this.addPrompt(this.key('use'), () => this.phase === 'play' && Math.abs(p.x - this.goose.x) < 30 && Math.abs(p.y - this.goose.y) < 40, () => false, () => ({ x: p.x, y: p.y - 74 }));
     const api = (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS;
     api.level = this;
     api.teleport = (x: number, y: number) => { const b = this.goose.body; b.x = x - b.w / 2; b.y = y - b.h; b.vx = 0; b.vy = 0; b.ground = null; this.cameras.main.centerOn(x, y); };
@@ -300,6 +303,44 @@ export abstract class LevelScene extends Phaser.Scene {
     this.onPowerHonkLevel(x, y);
   }
   onPowerHonkLevel(_x: number, _y: number) { /* level-specific */ }
+  /** What the player should do next (levels override). Unchanged for 60 s = stuck → a reminder. */
+  hintText(): string | null { return null; }
+  /** E / SIP next to Dave or Gerry: they tell you what to do next. */
+  talkToOwner(): boolean {
+    const g = this.goose;
+    const o = this.people.find((p) => (p.key === 'dave' || p.key === 'gerry') && Math.abs(p.x - g.x) < 30 && Math.abs(p.y - g.y) < 40);
+    if (!o) return false;
+    const h = this.hintText();
+    const fallback = o.key === 'dave' ? ['HONK IF YOU LOVE SODA!', 'TRY EVERY FLAVOR, GOOSE!', 'LOOK HIGH AND LOW FOR GOLDEN MAPLE LEAVES!'] : ["DON'T TELL DAVE, BUT YOU'RE MY FAVOURITE CUSTOMER.", 'HONK AT THINGS. IT USUALLY HELPS.', 'BUBBLES MAKE GREAT PLATFORMS.'];
+    o.lastLine = 0; o.facing = g.x > o.x ? 1 : -1;
+    o.say(h ?? fallback[Math.floor(Math.random() * fallback.length)], h ? 4800 : 2200); o.act(h ? 'point' : 'wave', 1.6); SFX.hey(o.pitch);
+    this.stuckT = 0;
+    return true;
+  }
+  /** Dave or Gerry say it if they're near; otherwise a hint window. */
+  remind(text: string) {
+    const g = this.goose, cam = this.cameras.main;
+    const owner = this.people.filter((p) => (p.key === 'dave' || p.key === 'gerry') && Math.abs(p.x - g.x) < 230 && p.x > cam.scrollX && p.x < cam.scrollX + cam.width)
+      .sort((a, b) => Math.abs(a.x - g.x) - Math.abs(b.x - g.x))[0];
+    if (owner) { owner.lastLine = 0; owner.say((owner.key === 'dave' ? 'PSST, GOOSE! ' : 'HEY GOOSE, ') + text, 5200); owner.act('point', 2); SFX.hey(owner.pitch); return; }
+    this.showHintWindow(text);
+  }
+  showHintWindow(text: string) {
+    this.hintWin?.destroy(true);
+    const c = this.add.container(0, 0).setScrollFactor(0).setDepth(210);
+    c.add(this.add.graphics().fillStyle(C.ink, 0.92).fillRoundedRect(60, 74, 360, 86, 8).lineStyle(2, C.gold1).strokeRoundedRect(61, 75, 358, 84, 8));
+    c.add(this.add.image(78, 90, 'trident13')); c.add(this.add.image(402, 90, 'leaf9'));
+    c.add(txt(this, 240, 84, "STUCK? HERE'S WHAT TO DO:", { align: 'center', color: C.gold0 }));
+    c.add(txt(this, 240, 104, text, { align: 'center', outline: false, color: C.wht }).setMaxWidth(330));
+    c.add(txt(this, 240, 146, 'ANY BUTTON / TAP TO CLOSE', { align: 'center', outline: false, color: C.st2 }));
+    SFX.chime();
+    this.hintWin = c;
+    let t = 0;
+    const close = () => { if (!c.active) return; this.events.off('update', tick); c.destroy(true); if (this.hintWin === c) this.hintWin = null; };
+    const tick = (_t: number, d: number) => { t += d; if (t > 400 && (Controls.anyPressed || t > 10000)) close(); };
+    this.events.on('update', tick);
+    this.input.once('pointerdown', close);
+  }
   noPower() {
     const g = this.goose;
     this.abilityCd = 0.8;
@@ -411,6 +452,7 @@ export abstract class LevelScene extends Phaser.Scene {
       }
       if (Controls.pressed('interact')) {
         let used = this.onInteract();
+        if (!used) used = this.talkToOwner();
         if (!used) for (const s of this.switches) if (!s.on && s.by.includes('interact') && overlap(this.gooseRect(8), s.rect())) { s.activate('interact'); used = true; break; }
         if (!used && this.burpsEnabled && this.burp && this.abilityCd <= 0) this.burpPlatform();
         else if (!used && save().doubleBubble && this.abilityCd <= 0) this.doubleBubble();
@@ -495,8 +537,22 @@ export abstract class LevelScene extends Phaser.Scene {
       else if (h.kind === 'pit' && this.phase === 'play') { GS.hearts = Math.max(0, GS.hearts - 1); this.game.events.emit('hud:hearts', GS.hearts, GS.maxHearts); SFX.hurt(); this.respawn(GS.hearts <= 0); }
     }
     if (b.y > this.worldH + 40 && this.phase === 'play') { GS.hearts = Math.max(0, GS.hearts - 1); this.game.events.emit('hud:hearts', GS.hearts, GS.maxHearts); SFX.hurt(); this.respawn(GS.hearts <= 0); }
+    // reminders after a minute without progress
+    if (this.phase === 'play' && !this.dialogue) {
+      const h = this.hintText();
+      if (!h) this.stuckT = 0;
+      else if (h !== this.lastHint) { this.lastHint = h; this.stuckT = 0; }
+      else if ((this.stuckT += dt) > 60) { this.stuckT = 0; this.remind(h); }
+    }
+    // never get lost above the top of the screen: flying off the top or landing on the ceiling / a wall top
+    // brings the goose straight back to the last safe spot (no damage)
+    const lost = b.y + b.h < 0 || (b.onGround && !!b.ground && (b.ground.tag === 'ceiling' || b.ground.y <= 12));
+    if (lost && this.phase === 'play') {
+      this.offTopT += dt;
+      if (this.offTopT > (b.onGround ? 0.1 : 1.0)) { this.offTopT = 0; emote(this, g.x, Math.max(30, g.y) - 20, 'WHOA!', { life: 800 }); this.respawn(false); }
+    } else this.offTopT = 0;
     // safe ground tracking (for pits)
-    if (b.onGround && b.ground && b.ground.dx === 0 && b.ground.dy === 0 && b.ground.tag !== 'bubble' && b.ground.tag !== 'foam') { this.safeT += dt; if (this.safeT > 0.25) this.lastSafe = { x: g.x, y: g.y }; } else this.safeT = 0;
+    if (b.onGround && b.ground && b.ground.dx === 0 && b.ground.dy === 0 && b.ground.tag !== 'bubble' && b.ground.tag !== 'foam' && b.ground.tag !== 'ceiling' && b.ground.y > 12) { this.safeT += dt; if (this.safeT > 0.25) this.lastSafe = { x: g.x, y: g.y }; } else this.safeT = 0;
     // checkpoints
     for (const cp of this.checkpointSprites) if (!cp.on && Math.abs(cp.x - g.x) < 16 && Math.abs(cp.y - g.y) < 40) {
       cp.on = true; cp.img.play('checkpoint_on'); this.checkpoint = { x: cp.x, y: cp.y };
@@ -549,7 +605,7 @@ export abstract class LevelScene extends Phaser.Scene {
     pk.got = true;
     this.counts[pk.kind]++;
     GS.addScore(SCORE[pk.kind]);
-    const firstTime = pk.kind !== 'drop' && pk.kind !== 'bean' ? addUnique('collected', pk.id) : false;
+    if (pk.kind !== 'drop' && pk.kind !== 'bean') addUnique('collected', pk.id);
     if (pk.kind === 'drop' || pk.kind === 'bean') {
       SFX.collect(this.counts[pk.kind]);
       this.fx.sparkle(pk.x, pk.y, 4, pk.kind === 'drop' ? pk.img.tintTopLeft : C.cola0);
@@ -560,7 +616,7 @@ export abstract class LevelScene extends Phaser.Scene {
       if (pk.kind === 'leaf') this.game.events.emit('hud:leaf', this.counts.leaf, this.totals.leaf);
       if (pk.kind === 'badge') { this.game.events.emit('hud:badge', true); this.goose.playOnce('celebrate'); this.time.delayedCall(900, () => { if (this.goose.mode === 'play') this.goose.playLoop('idle'); }); }
       if (pk.kind === 'card' && pk.data) { addUnique('cards', pk.data); }
-      this.game.events.emit('hud:toast', label[pk.kind] + (firstTime ? '' : ' (AGAIN)'), pk.kind === 'badge' ? C.red0 : C.gold1, pk.kind === 'card' && pk.data ? 'NEW RECIPE IN YOUR JOURNAL' : undefined);
+      this.game.events.emit('hud:toast', label[pk.kind], pk.kind === 'badge' ? C.red0 : C.gold1, pk.kind === 'card' && pk.data ? 'NEW RECIPE IN YOUR JOURNAL' : undefined);
       const all = save().collected;
       if (all.filter((c) => c.includes(':leaf:')).length >= 6) achieve('proudly_canadian');
       if (all.filter((c) => c.includes(':badge:')).length >= 3) achieve('certified');

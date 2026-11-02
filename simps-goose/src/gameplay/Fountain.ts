@@ -113,10 +113,10 @@ export class Fountain {
     }
     for (let i = 0; i < 2; i++) {
       const b = this.hoverRefs[i];
-      if (!b || !b.active || b.kind !== 'hover') { this.hoverTimers[i] += dt; if (this.hoverTimers[i] > 2.4) { this.hoverTimers[i] = 0; this.spawnHover(i); } }
+      if (!b || !b.active || b.kind !== 'hover' || Math.abs(b.anchorX - L.hovers[i][0]) > 1) { this.hoverTimers[i] += dt; if (this.hoverTimers[i] > 2.4) { this.hoverTimers[i] = 0; this.spawnHover(i); } }
     }
   }
-  nearValve() { const g = this.s.goose; return Math.abs(g.x - L.valve.x) < 28 && Math.abs(g.y - L.mezz.y) < 6; }
+  nearValve() { const g = this.s.goose; return Math.abs(g.x - L.valve.x) < 40 && Math.abs(g.y - L.mezz.y) < 12; }
   /** Pull the valve → giant bubble ride → freeze-frame. */
   finale() {
     if (this.finaleStarted) return;

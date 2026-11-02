@@ -57,7 +57,7 @@ export class MixerScene extends Phaser.Scene {
     // beaker + steps + known recipes
     this.beaker = this.add.graphics();
     this.steps = txt(this, 290, 40, '', { outline: false, color: C.wl1 });
-    txt(this, 300, 150, 'KNOWN RECIPES (X / TAP):', { outline: false, color: C.gold1 });
+    txt(this, 300, 150, 'RECIPES (X / UP-DOWN / TAP):', { outline: false, color: C.gold1 });
     this.known.slice(0, 7).forEach((r, i) => {
       const t = txt(this, 300, 162 + i * 10, `${RECIPE_NAME[r.id]}`, { outline: false, color: C.wl2 });
       t.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.autofill(i));
@@ -155,7 +155,7 @@ export class MixerScene extends Phaser.Scene {
       base: 'CHOOSE A BASE  (ARROWS + E)   X: AUTO-FILL KNOWN RECIPE   ESC: LEAVE',
       primary: 'CHOOSE A PRIMARY SYRUP   ESC: BACK',
       secondary: 'OPTIONAL SECOND SYRUP (OR NONE)   ESC: BACK',
-      fizz: 'CARBONATION: < >   E: START PUMPING',
+      fizz: this.knownIdx >= 0 ? 'CARBONATION: < >   X / UP-DOWN: NEXT RECIPE   E: PUMP' : 'CARBONATION: < >   E: START PUMPING',
       pump: 'PRESS E / SPACE / TAP WHEN THE NEEDLE IS IN THE GREEN!',
       result: 'E / TAP: DRINK IT!',
     };
@@ -224,6 +224,11 @@ export class MixerScene extends Phaser.Scene {
       const mx = this.mode === 'super' ? 3 : 2;
       if (Controls.pressed('left')) { this.sel = Math.max(0, this.sel - 1); SFX.ui('move'); this.refresh(); }
       if (Controls.pressed('right')) { this.sel = Math.min(mx, this.sel + 1); SFX.ui('move'); this.refresh(); }
+      // keep browsing the known recipes (X / up / down) after an auto-fill
+      if (this.known.length && this.knownIdx >= 0) {
+        if (Controls.pressed('honk') || Controls.pressed('down')) this.autofill(this.knownIdx + 1);
+        else if (Controls.pressed('up')) this.autofill(this.knownIdx - 1 + this.known.length);
+      }
     }
     if (Controls.pressed('confirm') || Controls.pressed('interact')) {
       if (this.step === 'pump') this.pump(); else if (this.step === 'result') this.finish(); else this.choose();
