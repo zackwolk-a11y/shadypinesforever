@@ -2,7 +2,7 @@
  * Chiptune sequencer with layered intensity. All melodies are original.
  * Notation per bar: 16 sixteenth-note slots: "C5", "-" (hold), "." (rest).
  */
-import { AE, mtof } from './engine';
+import { TEMPO, AE, mtof } from './engine';
 
 const NOTE: Record<string, number> = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
 const midi = (s: string) => { const m = s.match(/^([A-G][b#]?)(-?\d)$/)!; return NOTE[m[1]] + (+m[2] + 1) * 12; };
@@ -141,7 +141,7 @@ class Music {
     this.song = song; this.intensity = intensity;
     this.bpm = SONGS[song] ? SONGS[song]!.bpm(intensity) : song === 'title' ? 112 : song === 'street' ? 104 : intensity >= 2 ? 150 : intensity === 1 ? 138 : 128;
     this.bus = AE.ctx!.createGain(); this.bus.connect(AE.music);
-    const spb = 60 / this.bpm / 4;
+    const spb = 60 / (this.bpm * TEMPO) / 4;
     for (let st = 0; st < bars * 16; st++) this.schedule(st, 0.05 + st * spb, spb);
     this.song = song;
     return 0.05 + bars * 16 * spb + 1;
@@ -163,7 +163,7 @@ class Music {
   }
   private tick() {
     const ctx = AE.ctx!;
-    const spb = 60 / this.bpm / 4;
+    const spb = 60 / (this.bpm * TEMPO) / 4;
     while (this.nextT < ctx.currentTime + 0.12) {
       this.schedule(this.step, this.nextT, spb);
       this.nextT += spb;
