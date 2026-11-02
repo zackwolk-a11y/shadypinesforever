@@ -73,12 +73,12 @@
     {
       "name": "Mixer: Cola + Black Cherry = Cherry Rocket",
       "pass": true,
-      "info": "{\"recipe\":\"cherry_rocket\",\"q\":\"over\",\"power\":\"rocket\",\"isSuper\":false}"
+      "info": "{\"recipe\":\"cherry_rocket\",\"q\":\"good\",\"power\":\"rocket\",\"isSuper\":false}"
     },
     {
       "name": "Mixer: green-zone pumps rated GOOD or PERFECT",
-      "pass": false,
-      "info": "observed over"
+      "pass": true,
+      "info": "observed good"
     },
     {
       "name": "Cherry Rocket power granted",
@@ -183,7 +183,7 @@
     {
       "name": "Dimension frame rate playable (>=30 fps, headless software WebGL)",
       "pass": true,
-      "info": "33 fps"
+      "info": "30 fps"
     },
     {
       "name": "Dimension exit portal → Carbonation boss",
@@ -348,7 +348,7 @@
     {
       "name": "Ogopogo: SUPER BURP hits hard (3 HP) ",
       "pass": true,
-      "info": "40 -> 34"
+      "info": "40 -> 33"
     },
     {
       "name": "Ogopogo: DOUBLE BUBBLE burps two platform bubbles",
