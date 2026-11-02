@@ -1,8 +1,7 @@
 /**
  * LEVEL 2 BOSS — CARBONATION CATASTROPHE (the Carbonator 3000).
- * Phase 1 Pressure Problems: honk / stomp its bubbles back into 3 pressure switches.
- * Phase 2 Flavor Overload: it cycles cola / cream / cherry attacks; hit the matching flavor tap.
- * Phase 3 Maximum Fizz: foam floods the floor; ride jets + bubbles up to 3 valves (last = trident valve).
+ * ONE simple rule for the whole fight: it spits fizzy bubbles — HONK at a bubble (or jump on it)
+ * and it flies back into the machine. 9 returns win. Each phase just adds bubbles / speed.
  */
 import Phaser from 'phaser';
 import { C } from '../art/palette';
@@ -15,6 +14,7 @@ import { shake, flash } from '../systems/camfx';
 import { overlap } from '../systems/physics';
 import { SFX } from '../audio/sfx';
 import { MUSIC } from '../audio/music';
+import { txt } from '../art/font';
 
 const W = 560, H = 300, F = 280, MX = 280;
 type Flavor = 'cola' | 'cream' | 'cherry';
@@ -37,7 +37,7 @@ export class BossCarbScene extends LevelScene {
   bubblesB: BBubble[] = []; hz: Hazard2[] = [];
   pswitches: Sw[] = []; taps: Record<Flavor, Sw> = {} as Record<Flavor, Sw>; valves3: Sw[] = [];
   foamH = 0; foamImg!: Phaser.GameObjects.TileSprite; jets: { x: number; on: boolean; img: Phaser.GameObjects.Image }[] = [];
-  moodT = 0; over = false;
+  moodT = 0; over = false; hintLine!: Phaser.GameObjects.BitmapText;
   constructor() { super('BossCarb'); }
 
   create() {
@@ -58,6 +58,7 @@ export class BossCarbScene extends LevelScene {
     for (const [x, flip] of [[MX - 118, false], [MX + 118, true]] as [number, boolean][]) this.arms.push(this.add.sprite(x, F - 170, 'arm0').setOrigin(0.5, 0).setFlipX(flip).setDepth(19).play('arm'));
     this.foamImg = this.add.tileSprite(0, F, W, 0, 'foamFlood').setOrigin(0, 1).setDepth(44);
     this.finishInit({ music: 'boss', follow: true });
+    this.hintLine = this.add.existing(txt(this, 240, 256, this.touch ? 'HONK (OR JUMP ON) A BUBBLE TO SEND IT BACK!' : 'HONK (X) OR JUMP ON A BUBBLE TO SEND IT BACK!', { align: 'center', color: C.gold0 })).setScrollFactor(0).setDepth(150).setVisible(false) as Phaser.GameObjects.BitmapText;
     this.cameras.main.setDeadzone(80, 60);
     this.intro();
     (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.boss = this;
@@ -74,26 +75,12 @@ export class BossCarbScene extends LevelScene {
   }
   bossBar() { this.game.events.emit('hud:boss', 'CARBONATOR 3000', this.hp / 9); }
   startPhase(n: number) {
-    this.bossPhase = n; this.atkT = 1.5;
+    this.bossPhase = n; this.atkT = 1.5; this.hintLine.setVisible(true);
     this.bossBar();
     MUSIC.setIntensity(n - 1);
-    if (n === 1) {
-      this.game.events.emit('hud:toast', 'PHASE 1: PRESSURE PROBLEMS', C.red0, 'HONK ITS BUBBLES BACK INTO THE SWITCHES!');
-      [MX - 56, MX, MX + 56].forEach((x) => this.pswitches.push(new Sw(this, x, F - 34, 'target0', [], () => {})));
-    } else if (n === 2) {
-      this.game.events.emit('hud:toast', 'PHASE 2: FLAVOR OVERLOAD', C.gold1, 'HIT THE TAP THAT MATCHES ITS COLOR!');
-      const mk = (fl: Flavor, x: number, y: number) => { const s = new Sw(this, x, y - 20, `tap_${fl}0`, ['honk', 'interact', 'shot', 'electric', 'cherry', 'burp'], () => this.tapHit(fl), 30, 40); s.img.setOrigin(0.5, 0.5); this.taps[fl] = s; this.switches.push(s); };
-      mk('cola', 82, 210); mk('cream', 150, F); mk('cherry', 478, 210);
-      this.flavor = 'cola'; this.flavorT = 0; this.setFlavor('cola');
-    } else if (n === 3) {
-      this.game.events.emit('hud:toast', 'PHASE 3: MAXIMUM FIZZ!', C.red0, 'RIDE THE JETS + BUBBLES. OPEN ALL 3 VALVES!');
-      for (const k of Object.keys(this.taps) as Flavor[]) { this.taps[k].on = true; this.taps[k].img.setAlpha(0.4); }
-      for (const x of [170, 400]) { const img = this.add.image(x, F, 'ventJet').setOrigin(0.5, 1).setDepth(43); const j = { x, on: false, img }; this.jets.push(j); this.hazards.push({ rect: { x: x - 11, y: F - 190, w: 22, h: 190 }, kind: 'jet', strength: 470, active: () => j.on }); }
-      const mkv = (x: number, y: number, last = false) => { const s = new Sw(this, x, y - 22, last ? 'valveWheel' : 'valveWheel', ['honk', 'interact', 'shot', 'electric', 'cherry', 'burp'], () => this.valveHit(s), 30, 40); this.valves3.push(s); this.switches.push(s); if (last) s.img.setTint(0xffd0d0); return s; };
-      mkv(70, 120); mkv(490, 120); mkv(MX, 88, true);
-      this.add.image(MX, 88 - 46, 'trident22').setDepth(31);
-      eyesMood(this, 'panic');
-    }
+    const msg = ['', 'HONK THE BUBBLES BACK AT IT!', 'FASTER! KEEP SENDING THEM BACK!', 'LAST PHASE! SAME TRICK, MORE BUBBLES!'][n];
+    this.game.events.emit('hud:toast', `PHASE ${n} OF 3`, n === 3 ? C.red0 : C.gold1, msg);
+    if (n === 3) eyesMood(this, 'panic');
   }
   damageBoss(n = 1) {
     this.hp -= n; this.bossBar();
@@ -137,13 +124,11 @@ export class BossCarbScene extends LevelScene {
   launchBubble() {
     const dir = this.goose.x < MX ? -1 : 1;
     const img = this.add.image(MX + dir * 30, F - 120, 'bubble32').setDepth(46).setTint(0xd8f8ff);
-    this.bubblesB.push({ img, x: img.x, y: img.y, vx: dir * (70 + Math.random() * 60), vy: -120, reflected: false, target: null, life: 8, alive: true });
+    this.bubblesB.push({ img, x: img.x, y: img.y, vx: dir * (55 + this.bossPhase * 10 + Math.random() * 30), vy: -110, reflected: false, target: null, life: 8, alive: true });
     SFX.bubble(); this.arms.forEach((a) => a.anims.msPerFrame = 120);
   }
   reflect(b: BBubble) {
-    const tg = this.pswitches.find((s) => !s.on) ?? null;
-    if (!tg) return;
-    b.reflected = true; b.target = tg; b.img.setTint(0xfff0a0);
+    b.reflected = true; b.target = null; b.img.setTint(0xfff0a0);
     SFX.bounce(); this.fx.sparkle(b.x, b.y, 6, C.gold0);
   }
   popB(b: BBubble) { b.alive = false; b.img.destroy(); SFX.pop(1.4); this.fx.drops(b.x, b.y, C.bub2, 8); }
@@ -158,7 +143,7 @@ export class BossCarbScene extends LevelScene {
     if (this.over) return;
     this.over = true;
     this.phase = 'cutscene'; this.goose.mode = 'script';
-    this.game.events.emit('hud:boss', null, 0);
+    this.game.events.emit('hud:boss', null, 0); this.hintLine.setVisible(false);
     MUSIC.cut();
     this.eyes.setTexture('eyes_dizzy');
     for (let i = 0; i < 8; i++) this.time.delayedCall(i * 220, () => { SFX.explosion(); this.fx.confetti(MX + (Math.random() - 0.5) * 200, F - Math.random() * 180, 14); this.fx.bubbles(MX + (Math.random() - 0.5) * 200, F - Math.random() * 180, 10); shake(this, 200, 0.01); });
@@ -187,27 +172,17 @@ export class BossCarbScene extends LevelScene {
     if (this.phase !== 'play' || this.over) return;
     this.t += dt; this.atkT -= dt;
     const g = this.goose;
-    if (this.bossPhase === 1 && this.atkT <= 0) { this.atkT = 2.3; this.launchBubble(); }
-    if (this.bossPhase === 2) {
-      this.flavorT += dt;
-      if (this.flavorT > 3.4 - this.hits2 * 0.6) { this.flavorT = 0; this.setFlavor((['cola', 'cream', 'cherry'] as Flavor[])[(['cola', 'cream', 'cherry'].indexOf(this.flavor) + 1) % 3]); }
-      if (this.atkT <= 0) { this.atkT = 1.5 - this.hits2 * 0.15; this.attack2(); }
-    }
-    if (this.bossPhase === 3) {
-      this.foamH = Math.min(38, this.foamH + dt * 16);
-      for (const j of this.jets) j.on = ((this.t + j.x / 200) % 2.4) < 1.3;
-      if (this.atkT <= 0) { this.atkT = 0.9; this.bubbles.spawn(60 + Math.random() * (W - 120), F - 20, 15, 'rise', { vy: -36, maxStomps: 3, tint: 0xfff0d8 }); if (Math.random() < 0.4) { const x = 40 + Math.random() * (W - 80); const img = this.add.image(x, 20, 'foamBlob').setDepth(43); this.hz.push({ img, x, y: 20, vx: 0, vy: 110, kind: 'blob', life: 6, alive: true }); } }
-      // foam flood hurts + bounces the goose up
-      if (g.y > F - this.foamH + 6 && g.mode === 'play') { this.damage(g.x); g.body.vy = -380; g.body.onGround = false; }
-    }
+    // bubbles only — slow and readable; later phases add a second bubble
+    const live = this.bubblesB.filter((b) => b.alive && !b.reflected).length;
+    if (this.atkT <= 0 && live < this.bossPhase) { this.atkT = [0, 2.8, 2.3, 2.0][this.bossPhase]; this.launchBubble(); }
     // boss bubbles
     for (const b of this.bubblesB) {
       if (!b.alive) continue;
       b.life -= dt;
-      if (b.reflected && b.target) {
-        const dx = b.target.x - b.x, dy = b.target.y - b.y, d = Math.hypot(dx, dy);
-        b.vx = dx / d * 280; b.vy = dy / d * 280;
-        if (d < 14) { b.target.on = true; b.target.img.setTexture('target1'); this.popB(b); this.damageBoss(); continue; }
+      if (b.reflected) {
+        const tx = MX, ty = F - 120, dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy);
+        b.vx = dx / d * 300; b.vy = dy / d * 300;
+        if (d < 16) { this.popB(b); this.damageBoss(); emote(this, MX, F - 170, ['BLORP!', 'FZZT!', 'OOF!'][Math.floor(Math.random() * 3)], { life: 600 }); continue; }
       } else {
         b.vy += 300 * dt;
         if (b.y > F - 16 && b.vy > 0) { b.y = F - 16; b.vy = -Math.abs(b.vy) * 0.92; SFX.bounce(); }
@@ -235,12 +210,12 @@ export class BossCarbScene extends LevelScene {
     }
   }
   onHonkLevel(x: number, y: number) {
-    if (this.bossPhase !== 1) return;
-    for (const b of this.bubblesB) if (b.alive && !b.reflected && Math.hypot(b.x - x, b.y - y) < 80) this.reflect(b);
+    if (this.bossPhase === 0) return;
+    for (const b of this.bubblesB) if (b.alive && !b.reflected && Math.hypot(b.x - x, b.y - y) < 110) this.reflect(b);
   }
   onShot(s: { x: number; y: number; kill: () => void }) {
-    if (this.bossPhase !== 1) return false;
-    for (const b of this.bubblesB) if (b.alive && !b.reflected && Math.hypot(b.x - s.x, b.y - s.y) < 18) { this.reflect(b); s.kill(); return true; }
+    if (this.bossPhase === 0) return false;
+    for (const b of this.bubblesB) if (b.alive && !b.reflected && Math.hypot(b.x - s.x, b.y - s.y) < 22) { this.reflect(b); s.kill(); return true; }
     return false;
   }
   frameLevel(dt: number) {
@@ -251,7 +226,7 @@ export class BossCarbScene extends LevelScene {
     if (this.moodT <= 0 && !this.over && this.bossPhase > 0) this.eyes.setTexture(this.bossPhase === 3 ? 'eyes_panic' : 'eyes_angry');
     this.foamImg.height = Math.round(this.foamH); this.foamImg.tilePositionX += dt * 20;
     for (const j of this.jets) if (j.on && Math.random() < dt * 25) this.fx.fizz(j.x, F - 10 - Math.random() * 150, 3);
-    if (this.bossPhase === 1) for (const s of this.pswitches) s.img.setAlpha(s.on ? 0.6 : 1);
+
   }
 }
 function eyesMood(s: BossCarbScene, m: string) { s.eyes.setTexture('eyes_' + m); }

@@ -161,7 +161,7 @@ export class OgopogoScene extends LevelScene {
     if (this.phase !== 'play' || this.over) return;
     this.stun -= dt; this.atkT -= dt;
     const g = this.goose;
-    const rate = this.bossPhase === 1 ? 2.8 : this.bossPhase === 2 ? 2.2 : 1.9;
+    const rate = this.bossPhase === 1 ? 3.6 : this.bossPhase === 2 ? 2.9 : 2.5;
     if (this.atkT <= 0 && this.stun <= 0 && this.ty < WATER) {
       this.atkT = rate;
       this.spawnWave();

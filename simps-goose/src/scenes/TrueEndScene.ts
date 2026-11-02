@@ -78,7 +78,7 @@ export class TrueEndScene extends Phaser.Scene {
     this.gerry = new Person(this, 'gerry', -60, DOCK + 1, { staff: true, depth: 22, facing: 1 });
     this.dave.walkTo(176, 70, () => { this.dave.facing = 1; }); this.gerry.walkTo(142, 70, () => { this.gerry.facing = 1; });
     // they arrive carrying syrups and freshly mixed sodas
-    const carry = [this.add.image(-30, DOCK - 28, 'bottle3').setDepth(23), this.add.image(-60, DOCK - 28, 'rainbowGlass').setDepth(23)];
+    const carry = [this.add.image(-30, DOCK - 28, 'bottle3').setDepth(23), this.add.image(-60, DOCK - 28, 'bottle5').setDepth(23)];
     this.tweens.add({ targets: carry[0], x: 182, duration: 206 / 70 * 1000 }); this.tweens.add({ targets: carry[1], x: 148, duration: 202 / 70 * 1000, onComplete: () => carry.forEach((c) => c.destroy()) });
     this.goose.play('g_walk'); this.goose.setFlipX(true); this.tweens.add({ targets: this.goose, x: 236, duration: 900, onComplete: () => { this.goose.play('g_idle'); } });
     this.head.setTexture('og_happy');
@@ -109,9 +109,7 @@ export class TrueEndScene extends Phaser.Scene {
       this.dave.act('pour', 2.4); this.gerry.act('pour', 2.4); SFX.pour();
       const cols = [C.red1, C.gold1, C.lim1, C.blu1, C.pur1];
       cols.forEach((col, i) => { const gl = this.add.rectangle(186 + i * 6, DOCK - 24, 4, 8, col).setOrigin(0.5, 1).setDepth(24).setScale(1, 0); this.tweens.add({ targets: gl, scaleY: 1, duration: 600, delay: i * 250 }); });
-      const rb = this.add.image(152, DOCK - 32, 'rainbowGlass').setDepth(24).setScale(0.2);
-      this.tweens.add({ targets: rb, scale: 1, duration: 1200, delay: 800, ease: 'Back.Out' });
-      this.time.delayedCall(2200, () => { this.fx.sparkle(152, DOCK - 36, 10, C.gold0); SFX.sparkle(); });
+      this.time.delayedCall(2200, () => { this.fx.sparkle(200, DOCK - 30, 10, C.gold0); SFX.sparkle(); });
     });
     // the goose dances and flaps
     this.time.delayedCall(2000, () => this.goose.play('g_celebrate'));

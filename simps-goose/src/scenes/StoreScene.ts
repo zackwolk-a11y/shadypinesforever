@@ -53,7 +53,7 @@ export class StoreScene extends LevelScene {
   valves: SyrupValve[] = []; seq = [1, 0, 2]; seqIdx = 0; workshopOn = false; workshopDone = false; finalSwitch: { x: number; on: boolean; img: Phaser.GameObjects.Image } | null = null;
   wsBubbles: { b: import('../entities/Bubbles').Bubble; x0: number; x1: number; ph: number; sp: number }[] = []; overfill: { img: Phaser.GameObjects.Image; x: number; y: number; t: number; dead: number }[] = [];
   gaugeImg: Phaser.GameObjects.Image | null = null;
-  sampledAny = false; ropeLeft = true; objT!: Phaser.GameObjects.BitmapText; objBg!: Phaser.GameObjects.Rectangle; checklist: Phaser.GameObjects.Container | null = null; pushBack = 0;
+  sampledAny = false; ropeLeft = true; checklistSeen = false; objT!: Phaser.GameObjects.BitmapText; objBg!: Phaser.GameObjects.Rectangle; checklist: Phaser.GameObjects.Container | null = null; pushBack = 0;
   rope: Platform | null = null; ropeImg: Phaser.GameObjects.Image | null = null; returning = false; welcomeDone = false;
   wallShelfHonks = 0;
   bumpedWall = 0;
@@ -447,21 +447,21 @@ export class StoreScene extends LevelScene {
     // standing up by the main valve while something is still missing → clear checklist
     const g = this.goose;
     const atValve = this.phase === 'play' && !this.valvesReady() && g.x > L.mezz.x && Math.abs(g.y - L.mezz.y) < 14;
-    if (atValve && !this.checklist) this.showChecklist();
-    if (!atValve && this.checklist) { this.checklist.destroy(true); this.checklist = null; }
+    if (atValve && !this.checklistSeen) { this.checklistSeen = true; this.showChecklist(); }
+    if (!atValve) { this.checklistSeen = false; if (this.checklist) { this.checklist.destroy(true); this.checklist = null; } }
   }
+  /** Small banner at the top (out of the way of the action), shown for 3 seconds. */
   showChecklist() {
-    const st = this.steps();
+    const st = this.steps().filter((x) => !x.done);
     const c = this.add.container(0, 0).setScrollFactor(0).setDepth(150);
-    const h = 30 + st.length * 24;
-    c.add(this.add.graphics().fillStyle(C.ink, 0.9).fillRoundedRect(90, 60, 300, h, 6).lineStyle(2, C.red1).strokeRoundedRect(91, 61, 298, h - 2, 6));
-    c.add(txt(this, 240, 66, 'THE MAIN VALVE IS LOCKED. STILL TO DO:', { align: 'center', outline: false, color: C.gold0 }));
-    st.forEach((s, i) => {
-      c.add(txt(this, 102, 82 + i * 24, (s.done ? '' : '~ ') + s.label + (s.done ? '  (DONE)' : ''), { outline: false, color: s.done ? C.lim0 : C.wht }));
-      if (!s.done) c.add(txt(this, 126, 92 + i * 24, s.hint, { outline: false, color: C.st1 }));
-    });
+    const h = 16 + st.length * 10;
+    c.add(this.add.graphics().fillStyle(C.ink, 0.85).fillRoundedRect(140, 38, 200, h, 4).lineStyle(1, C.red1).strokeRoundedRect(140.5, 38.5, 199, h - 1, 4));
+    c.add(txt(this, 240, 41, 'VALVE LOCKED. STILL TO DO:', { align: 'center', outline: false, color: C.gold0 }));
+    st.forEach((x, i) => c.add(txt(this, 240, 51 + i * 10, '~ ' + x.label, { align: 'center', outline: false, color: C.wht })));
     this.checklist = c;
+    this.time.delayedCall(3000, () => { if (this.checklist === c) { this.tweens.add({ targets: c, alpha: 0, duration: 300, onComplete: () => c.destroy(true) }); this.checklist = null; } });
   }
+
 
   // ---------------------------------------------------------------- SCENE 2: Dave's Bubble Workshop (under the mezzanine)
   buildWorkshop() {

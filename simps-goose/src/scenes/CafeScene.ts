@@ -44,7 +44,8 @@ export class CafeScene extends LevelScene {
     for (const x of [90, 220]) { this.add.image(x, F, 'cafeTable').setOrigin(0.5, 1).setDepth(28); this.addPlatform(x - 22, F - 34, 44, 5, 'oneway', 'table'); this.add.image(x - 8, F - 34, 'mug_a').setOrigin(0.5, 1).setDepth(29); }
     // counter + gear
     this.addPlatform(330, F - 52, 300, 5, 'oneway', 'counter');
-    this.barista = new Person(this, 'barista', 520, F, { staff: true, depth: 26, facing: -1 }); this.people.push(this.barista);
+    // Gerry runs the espresso bar
+    this.barista = new Person(this, 'gerry', 520, F, { staff: true, depth: 26, facing: -1 }); this.people.push(this.barista);
     this.add.image(480, F, 'cafeCounter').setOrigin(0.5, 1).setDepth(29);
     this.add.image(580, F - 52, 'espresso').setOrigin(0.5, 1).setDepth(30);
     this.add.image(372, F - 52, 'pastryCase').setOrigin(0.5, 1).setDepth(30);
@@ -83,9 +84,9 @@ export class CafeScene extends LevelScene {
     this.tweens.addCounter({ from: 0, to: 1, duration: 380, onUpdate: (tw: Phaser.Tweens.Tween) => { const k = tw.getValue() as number; g.body.x = sx + (ex - sx) * k; g.body.y = sy + (ey - sy) * k - Math.sin(k * Math.PI) * 20; g.face(1); g.syncSprite(0.016); }, onComplete: () => { g.playLoop('sit'); SFX.land(); } });
     b.setState('walk'); b.facing = -1;
     this.tweens.add({ targets: b.sprite, x: 440, duration: 800, onComplete: () => b.setState('idle', 99) });
-    this.time.delayedCall(1000, () => { b.say('WHAT CAN I GET YOU?', 1700); SFX.hey(1.1); });
+    this.time.delayedCall(1000, () => { b.say('GOOSE! WHAT CAN I GET YOU?', 1700); SFX.hey(1.1); });
     this.time.delayedCall(2600, () => { g.playOnce('honk'); this.time.delayedCall(140, () => { SFX.honk(1); this.fx.honk(g.x + 12, g.y - 30, 1); emote(this, g.x, g.y - 44, 'HONK!', { life: 1000 }); }); });
-    this.time.delayedCall(3800, () => { b.say('SOMETHING SPECIAL. GOT IT.', 1800); b.setState('gesture', 2); });
+    this.time.delayedCall(3800, () => { b.say('SOMETHING EXPERIMENTAL. MY SPECIALTY.', 1800); b.setState('gesture', 2); });
     this.time.delayedCall(5400, () => {
       this.scene.pause(); this.phase = 'picker';
       this.scene.launch('Coffee', { onDone: (r: CoffeeResult) => { this.scene.resume(); Controls.consumeAll(); this.served = true; this.serve(r); } });

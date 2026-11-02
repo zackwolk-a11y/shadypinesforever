@@ -37,8 +37,6 @@ export class GerryLab {
     this.machine = s.add.image(mx, floor, 'gerryMachine').setOrigin(0.5, 1).setDepth(26);
     s.add.image(mx, floor - 60, 'glow128').setTint(C.red0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.15).setDepth(25);
     TANK_ORDER.forEach((k, i) => { const r = s.add.rectangle(this.tankX(i), floor - 30, 20, 44, VCOL[k]).setOrigin(0.5, 1).setDepth(27).setAlpha(0.75).setScale(1, 0); this.levels.push(r); });
-    const done = save().owners.gerryLab;
-    if (done) { this.state = 'done'; TANK_ORDER.forEach((k) => (this.filled[k] = true)); this.levels.forEach((l) => l.setScale(1, 1)); return; }
     TANK_ORDER.forEach((k, i) => { const [x, y] = spots[i]; const img = s.add.image(x, y - 10, 'vial_' + k).setDepth(38).setVisible(false); this.vials.push({ kind: k, img, x, y: y - 10, got: false }); });
   }
   tankX(i: number) { return this.mx - 34 + i * 34; }

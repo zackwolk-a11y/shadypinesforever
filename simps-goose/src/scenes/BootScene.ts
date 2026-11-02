@@ -3,13 +3,19 @@ import Phaser from 'phaser';
 import { generateAll } from '../art/registry';
 import daveUrl from '../assets/portrait_dave.png?inline';
 import gerryUrl from '../assets/portrait_gerry.png?inline';
+import daveSheet from '../assets/owner_dave.png?inline';
+import gerrySheet from '../assets/owner_gerry.png?inline';
 import { C } from '../art/palette';
 import { settings } from '../systems/settings';
 import { GS } from '../systems/gamestate';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
-  preload() { this.load.image('portrait_dave', daveUrl); this.load.image('portrait_gerry', gerryUrl); }
+  preload() {
+    this.load.image('portrait_dave', daveUrl); this.load.image('portrait_gerry', gerryUrl);
+    this.load.spritesheet('owner_dave', daveSheet, { frameWidth: 44, frameHeight: 64 });
+    this.load.spritesheet('owner_gerry', gerrySheet, { frameWidth: 44, frameHeight: 64 });
+  }
   create() {
     const g = this.add.graphics();
     g.fillStyle(C.blk2).fillRect(0, 0, 480, 270);

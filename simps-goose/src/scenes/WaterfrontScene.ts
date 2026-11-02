@@ -66,7 +66,7 @@ export class WaterfrontScene extends LevelScene {
     this.addPlatform(770, 116, 70, 5, 'oneway', 'branch'); const br = this.add.graphics().setDepth(20); br.fillStyle(C.wd2).fillRect(770, 116, 70, 5);
     this.addPickup('star', 790, 96); this.addPickup('leaf', 825, 96);
     // challenge 4: target behind the hedge
-    this.addPlatform(1000, F - 56, 18, 56, 'solid', 'hedge'); const hd = this.add.graphics().setDepth(20); hd.fillStyle(C.leaf2).fillRoundedRect(996, F - 60, 26, 60, 6).fillStyle(C.leaf1).fillRoundedRect(998, F - 58, 20, 20, 5);
+    this.addPlatform(996, F - 26, 26, 26, 'solid', 'hedge'); const hd = this.add.graphics().setDepth(20); hd.fillStyle(C.leaf2).fillRoundedRect(994, F - 28, 30, 28, 8).fillStyle(C.leaf1).fillRoundedRect(997, F - 26, 18, 10, 5); // a low hedge: just hop over
     this.switches.push(new Target(this, 1060, 196, bean(1060, 214)));
     // challenge 5: bubble bell opens the dock gate
     this.gatePlat = this.addPlatform(1336, F - 60, 8, 60, 'solid', 'gate');

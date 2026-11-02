@@ -407,7 +407,7 @@ export abstract class LevelScene extends Phaser.Scene {
       return;
     }
     GS.hearts = Math.max(0, GS.hearts - amount);
-    this.invuln = 1.4;
+    this.invuln = 2.4; // a longer safe window after every hit
     g.hurt(srcX);
     emote(this, g.x, g.y - 40, ['HONK?!', 'OOF!', 'BONK!'][GS.hearts % 3], { life: 800 });
     this.game.events.emit('hud:hearts', GS.hearts, GS.maxHearts);

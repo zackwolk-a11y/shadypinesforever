@@ -28,7 +28,7 @@ export class Goose {
   mode: GooseMode = 'play';
   private coyote = 0; private buffer = 0; private holdRun = 0;
   private flutter = 0; private honkCd = 0; private idleT = 0; private stepPhase = 0;
-  private oneShot: string | null = null; private oneShotLock = false;
+  private oneShot: string | null = null; private oneShotLock = false; private oneShotT = 0;
   private sq = { x: 1, y: 1 };
   private hurtT = 0; private dashT = 0; private dashDir = 1;
   private airDashUsed = false;
@@ -63,7 +63,7 @@ export class Goose {
 
   /** One-shot animation; lock = freeze horizontal control until done. */
   playOnce(name: string, lock = false) {
-    this.oneShot = name; this.oneShotLock = lock;
+    this.oneShot = name; this.oneShotLock = lock; this.oneShotT = 0;
     this.sprite.play('g_' + name, true);
   }
   playLoop(name: string) { this.oneShot = null; this.oneShotLock = false; this.sprite.play('g_' + name, true); }
@@ -115,8 +115,11 @@ export class Goose {
     } else if (this.mode === 'hurt') {
       this.hurtT -= dt;
       b.vx *= Math.pow(0.1, dt);
-      if (this.hurtT <= 0 && b.onGround) { this.mode = 'play'; }
+      // recover on landing, and never stay dazed for more than ~1.5 s (bubbles / moving islands / mid-air)
+      if ((this.hurtT <= 0 && b.onGround) || this.hurtT < -0.8) { this.mode = 'play'; this.oneShot = null; this.oneShotLock = false; }
     } else {
+      // a locked one-shot can never freeze controls for more than 1.2 s (e.g. interrupted animations)
+      this.oneShotT += dt; if (this.oneShotLock && this.oneShotT > 1.2) this.oneShotLock = false;
       const locked = this.oneShotLock || this.mode === 'locked';
       const d = locked ? 0 : dir;
       if (d !== 0) { this.facing = d as 1 | -1; this.holdRun += dt; } else this.holdRun = 0;

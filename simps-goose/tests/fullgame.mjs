@@ -168,27 +168,22 @@ async function mix(p, picks, fizzRight = 0) {
 {
   const p = await page('/?scene=carb');
   await wait(p, () => window.__SIMPS.boss?.bossPhase === 1, null, 10000);
-  let t0 = Date.now();
-  while (Date.now() - t0 < 60000 && (await p.evaluate(() => window.__SIMPS.boss.bossPhase)) === 1) {
-    const b = await p.evaluate(() => { const bb = window.__SIMPS.boss.bubblesB.find((b) => b.alive && !b.reflected); return bb ? { x: bb.x, y: bb.y } : null; });
-    if (b) { await tp(p, Math.max(30, b.x - 40), 280); await key(p, 'x', 1, 300); } else await p.waitForTimeout(150);
-  }
-  ok('Boss phase 1: honked bubbles hit the pressure switches', (await p.evaluate(() => window.__SIMPS.boss.bossPhase)) >= 2);
+  ok('Boss: one clear instruction on screen', await p.evaluate(() => window.__SIMPS.boss.hintLine.visible));
+  const honkBack = async (until) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < 90000 && !(await p.evaluate(until))) {
+      const b = await p.evaluate(() => { const bb = window.__SIMPS.boss.bubblesB.find((b) => b.alive && !b.reflected); return bb ? { x: bb.x, y: bb.y } : null; });
+      if (b) { await tp(p, Math.max(30, b.x - 40), 280); await key(p, 'ArrowRight'); await key(p, 'x', 1, 300); } else await p.waitForTimeout(150);
+    }
+  };
+  await honkBack(() => window.__SIMPS.boss.bossPhase >= 2);
+  ok('Boss phase 1: honked bubbles fly back into the machine', (await p.evaluate(() => window.__SIMPS.boss.bossPhase)) >= 2);
   await shot(p, 'L2-boss-phase2');
-  t0 = Date.now();
-  while (Date.now() - t0 < 60000 && (await p.evaluate(() => window.__SIMPS.boss.bossPhase)) === 2) {
-    const tap = await p.evaluate(() => { const b = window.__SIMPS.boss; const t = b.taps[b.flavor]; return { x: t.x, y: t.y + 20 }; });
-    await tp(p, tap.x, tap.y); await p.waitForTimeout(80); await key(p, 'e', 1, 350);
-  }
-  ok('Boss phase 2: matching flavor taps', (await p.evaluate(() => window.__SIMPS.boss.bossPhase)) >= 3);
-  await p.waitForTimeout(1500); await shot(p, 'L2-boss-phase3');
-  t0 = Date.now();
-  while (Date.now() - t0 < 40000 && !(await p.evaluate(() => window.__SIMPS.boss.over))) {
-    const v = await p.evaluate(() => { const v = window.__SIMPS.boss.valves3.find((v) => !v.on); return v ? { x: v.x, y: v.y + 22 } : null; });
-    if (!v) break;
-    await tp(p, v.x, v.y); await p.waitForTimeout(80); await key(p, 'e', 1, 400);
-  }
-  ok('Boss phase 3: all valves → Carbonator defeated', await p.evaluate(() => window.__SIMPS.boss.over));
+  await honkBack(() => window.__SIMPS.boss.bossPhase >= 3);
+  ok('Boss phase 2: same trick, faster', (await p.evaluate(() => window.__SIMPS.boss.bossPhase)) >= 3);
+  await p.waitForTimeout(1200); await shot(p, 'L2-boss-phase3');
+  await honkBack(() => window.__SIMPS.boss.over);
+  ok('Boss phase 3: Carbonator defeated', await p.evaluate(() => window.__SIMPS.boss.over));
   await p.waitForTimeout(2200); await shot(p, 'L2-boss-defeated');
   ok('Boss → fake ending', await wait(p, () => window.__SIMPS.game.scene.isActive('FakeEnd'), null, 10000));
   await p.close();

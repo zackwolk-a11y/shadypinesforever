@@ -118,7 +118,7 @@ export class FruitFlyer extends Enemy {
     this.t += dt; this.stun -= dt;
     if (this.stun > 0) { this.y += 40 * dt; return; }
     const g = s.goose;
-    if (this.diving <= 0 && Math.abs(g.x - this.x) < 80 && g.y > this.y && g.y - this.y < 160 && this.t > 1.5) {
+    if (this.diving <= 0 && Math.abs(g.x - this.x) < 60 && g.y > this.y && g.y - this.y < 140 && this.t > 3.5) {
       this.diving = 1.1; this.t = 0; const d = Math.hypot(g.x - this.x, g.y - 20 - this.y); this.vx = (g.x - this.x) / d * 150; this.vy = (g.y - 20 - this.y) / d * 150;
       this.sprite.stop(); this.sprite.setTexture('ff_dive'); SFX.whoosh();
     }

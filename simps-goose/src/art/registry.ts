@@ -7,6 +7,7 @@ import { C, R } from './palette';
 import { Px } from './px';
 import { buildGooseSheet, GOOSE_ANIMS, GF } from './goose';
 import { buildPeopleSheet, PEOPLE, PERSON_ANIMS, PF_W, PF_H } from './people';
+import { applyOwnerSprites } from './owners';
 import * as FX from './fx';
 import * as PR from './props';
 import * as BG from './backgrounds';
@@ -124,6 +125,7 @@ export function generateAll(scene: Phaser.Scene, onProgress?: (t: number) => voi
     if (scene.anims.exists(key)) continue;
     scene.anims.create({ key, frames: def.frames.map((_, i) => ({ key: 'p_' + k, frame: `${name}_${i}` })), frameRate: def.fps, repeat: def.loop ? -1 : 0 });
   }
+  applyOwnerSprites(scene, Object.keys(PERSON_ANIMS));
   if (!scene.anims.exists('door_open')) scene.anims.create({ key: 'door_open', frames: [0, 1, 2, 3].map((i) => ({ key: 'door' + i })), frameRate: 10, repeat: 0 });
   for (const [k, p] of [['flag', 'flag'], ['bigflag', 'bigFlag']]) if (!scene.anims.exists(k)) scene.anims.create({ key: k, frames: [0, 1, 2, 3].map((i) => ({ key: p + i })), frameRate: 6, repeat: -1 });
   const A = (key: string, frames: string[], fps: number, repeat = -1) => { if (!scene.anims.exists(key)) scene.anims.create({ key, frames: frames.map((k) => ({ key: k })), frameRate: fps, repeat }); };

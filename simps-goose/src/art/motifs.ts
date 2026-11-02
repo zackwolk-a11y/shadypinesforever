@@ -10,38 +10,67 @@ import { Px } from './px';
  * Trident: centre prong up, two side prongs curving up from a U crossbar,
  * shaft running down to an arrowhead. (cx, top) = tip of centre prong, h = total height.
  */
-export function tridentInto(g: Px, cx: number, top: number, h: number, col = C.red1, shade = C.red2, hi = C.red0) {
-  const s = h / 44; // design grid is 44 tall
-  const T = Math.max(1, Math.round(3 * s)); // stroke
-  const half = Math.max(1, Math.floor(T / 2));
-  const y = (v: number) => Math.round(top + v * s);
-  const x = (v: number) => Math.round(cx + v * s);
-  // centre shaft
-  g.rect(cx - half, y(5), T, y(36) - y(5), col);
-  // centre tip
-  g.poly([[cx + 0.5, y(0)], [x(4.2) + 0.5, y(7)], [x(-4.2) + 0.5, y(7)]], col);
-  // U crossbar + side prongs (stroke along an arc)
-  for (let a = 0; a <= Math.PI; a += 0.02 / Math.max(0.5, s)) {
-    const px = cx + Math.cos(a) * 10 * s, py = top + (20 + Math.sin(a) * 6) * s;
-    g.rect(Math.round(px - half), Math.round(py - half), T, T, col);
+const TRI_S = [
+  '#.#.#',
+  '#.#.#',
+  '#####',
+  '..#..',
+  '..#..',
+  '.###.',
+  '..#..',
+];
+const TRI_M = [
+  '#...#...#',
+  '#..###..#',
+  '#...#...#',
+  '#...#...#',
+  '#...#...#',
+  '.#..+..#.',
+  '..#####..',
+  '....+....',
+  '....+....',
+  '....+....',
+  '..#####..',
+  '...###...',
+  '....#....',
+];
+export function tridentInto(g: Px, cx0: number, top0: number, h: number, col = C.red1, shade = C.red2, hi = C.red0) {
+  // Crisp, symmetric, straight-stroked trident on whole pixels (no arcs → no wobble at any size).
+  const cx = Math.round(cx0), top = Math.round(top0);
+  if (h < 16) {
+    // small sizes: hand-placed pixels read far better than any scaled geometry
+    const pat = h < 10 ? TRI_S : TRI_M;
+    const oy = top + Math.max(0, Math.floor((h - pat.length) / 2)), ox = cx - Math.floor(pat[0].length / 2);
+    pat.forEach((row, r) => { for (let c = 0; c < row.length; c++) if (row[c] === '#') g.set(ox + c, oy + r, col); else if (row[c] === '+' ) g.set(ox + c, oy + r, h >= 12 ? shade : col); });
+    return;
   }
-  for (const d of [-1, 1]) {
-    // prong rising from crossbar end, flaring outward at the top
-    for (let v = 6; v <= 20; v += 0.25 / Math.max(0.5, s)) {
-      const flare = Math.max(0, (12 - v) / 12) * 3;
-      g.rect(Math.round(cx + d * (10 + flare) * s - half), Math.round(top + v * s), T, T, col);
+  const s = h / 44;                                       // design grid is 44 tall
+  const T = h < 12 ? 1 : h < 26 ? 2 : Math.max(3, Math.round(3 * s)); // stroke
+  const L = cx - Math.floor((T - 1) / 2);                  // left column of the centre stroke
+  const y = (v: number) => top + Math.round(v * s);
+  const side = Math.max(T + 2, Math.round(12.5 * s));      // side prong offset
+  /** sharp spear point: 1-2 px at the top, widening to stroke + 2*halfW (or the reverse for the bottom arrow) */
+  const point = (x0: number, yA: number, yB: number, halfW: number, up: boolean) => {
+    const n = Math.max(1, yB - yA), full = T + 2 * halfW, start = T % 2 ? 1 : 2;
+    for (let r = 0; r <= n; r++) {
+      const k = up ? r / n : (n - r) / n;
+      const w = Math.min(full, start + 2 * Math.round(k * (full - start) / 2));
+      g.rect(x0 + Math.floor((T - w) / 2), yA + r, w, 1, col);
     }
-    // barb tip pointing up/outward
-    const tx = cx + d * 13.5 * s, ty = top + 2 * s;
-    g.poly([[tx + 0.5, ty], [tx + d * -3.5 * s + 0.5, ty + 7 * s], [tx + d * 3 * s + 0.5, ty + 6 * s]], col);
+  };
+  const tipBot = Math.max(top + 2, y(9)), crossY = y(22), shaftBot = y(35);
+  point(L, top, tipBot, Math.max(1, Math.round(3.5 * s)), true);           // centre point
+  g.rect(L, tipBot + 1, T, shaftBot - tipBot - 1, col);                     // shaft
+  for (const d of [-1, 1]) {
+    const x0 = L + d * side, bTop = y(3), bBot = Math.max(bTop + 2, y(11));
+    point(x0, bTop, bBot, Math.max(1, Math.round(2.5 * s)), true);          // side points
+    g.rect(x0, bBot + 1, T, crossY - bBot - 1 + T, col);                     // side prongs
   }
-  // bottom arrowhead
-  g.poly([[cx + 0.5, y(44)], [x(5) + 0.5, y(34)], [x(-5) + 0.5, y(34)]], col);
-  // shading: right edge of shaft & highlight left
-  if (h >= 20) {
-    g.vline(cx + half, y(7), y(35), shade);
-    g.vline(cx - half, y(7), y(33), hi);
-  }
+  // crossbar (bottom row one px shorter each side = softly rounded U)
+  if (T >= 2) { g.rect(L - side, crossY, 2 * side + T, T - 1, col); g.rect(L - side + 1, crossY + T - 1, 2 * side + T - 2, 1, col); }
+  else g.rect(L - side, crossY, 2 * side + T, T, col);
+  point(L, shaftBot, Math.max(shaftBot + 2, y(44)), Math.max(1, Math.round(4.5 * s)), false); // bottom arrow
+  if (h >= 26) { g.vline(L + T - 1, tipBot + 1, shaftBot - 1, shade); g.vline(L, tipBot + 1, crossY - 1, hi); }
 }
 export function trident(h: number, col = C.red1, outline = true): Px {
   const w = Math.ceil(h * 0.75) + 4;
