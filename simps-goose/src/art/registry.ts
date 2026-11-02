@@ -5,7 +5,8 @@
 import Phaser from 'phaser';
 import { C, R } from './palette';
 import { Px } from './px';
-import { buildGooseSheet, GOOSE_ANIMS, GF } from './goose';
+import { buildGooseSheet, GOOSE_ANIMS, GF, type GooseStyle } from './goose';
+import { save } from '../systems/save';
 import { buildPeopleSheet, PEOPLE, PERSON_ANIMS, PF_W, PF_H } from './people';
 import { applyOwnerSprites } from './owners';
 import * as FX from './fx';
@@ -108,18 +109,20 @@ INGREDIENTS.forEach((ing) => { SINGLE['ing_' + ing.id] = () => F2.syrupBottleBig
 // expose to debug viewer
 for (const k of Object.keys(SINGLE)) registerSheet(k, () => SINGLE[k]().toCanvas());
 
+/** Build (or rebuild) the goose texture + animations in a colour style (Customize Goose). */
+export function installGoose(scene: Phaser.Scene, style: GooseStyle) {
+  for (const name of Object.keys(GOOSE_ANIMS)) if (scene.anims.exists('g_' + name)) scene.anims.remove('g_' + name);
+  const g = buildGooseSheet(style);
+  addSheet(scene, 'goose', g.sheet, g.frames, GF, GF);
+  for (const [name, def] of Object.entries(GOOSE_ANIMS)) scene.anims.create({ key: 'g_' + name, frames: def.frames.map((_, i) => ({ key: 'goose', frame: `${name}_${i}` })), frameRate: def.fps, repeat: def.loop ? -1 : 0 });
+}
 export function generateAll(scene: Phaser.Scene, onProgress?: (t: number) => void) {
   buildFonts(scene);
-  const g = buildGooseSheet();
-  addSheet(scene, 'goose', g.sheet, g.frames, GF, GF);
+  installGoose(scene, save().gooseStyle ?? 'canada');
   for (const k of Object.keys(PEOPLE)) { const s = buildPeopleSheet(k); addSheet(scene, 'p_' + k, s.sheet, s.frames, PF_W, PF_H); }
   const keys = Object.keys(SINGLE);
   keys.forEach((k, i) => { add(scene, k, SINGLE[k]()); onProgress?.((i + 1) / keys.length); });
   // animations
-  for (const [name, def] of Object.entries(GOOSE_ANIMS)) {
-    if (scene.anims.exists('g_' + name)) continue;
-    scene.anims.create({ key: 'g_' + name, frames: def.frames.map((_, i) => ({ key: 'goose', frame: `${name}_${i}` })), frameRate: def.fps, repeat: def.loop ? -1 : 0 });
-  }
   for (const k of Object.keys(PEOPLE)) for (const [name, def] of Object.entries(PERSON_ANIMS)) {
     const key = `p_${k}_${name}`;
     if (scene.anims.exists(key)) continue;

@@ -78,8 +78,8 @@ export class StockroomScene extends LevelScene {
     this.buildPart1();
     this.buildPart2();
     this.dave = new Person(this, 'dave', 56, F, { staff: true, depth: 24, facing: 1 }); this.people.push(this.dave);
-    this.forklift = this.add.image(498, F, 'forklift').setOrigin(0.5, 1).setDepth(26).setFlipX(true);
-    this.gerry = new Person(this, 'gerry', 500, F - 20, { staff: true, depth: 25, facing: -1 }); this.people.push(this.gerry);
+    this.forklift = this.add.image(360, F, 'forklift').setOrigin(0.5, 1).setDepth(26).setFlipX(true);
+    this.gerry = new Person(this, 'gerry', 362, F - 20, { staff: true, depth: 25, facing: -1 }); this.people.push(this.gerry);
     this.finishInit({ music: 'warehouse' });
     this.buildHud();
     this.addPrompt(this.key('use'), () => this.part === 1 && !this.carried && this.beltA?.state === 'wait' && Math.abs(this.goose.x - 76) < 26, () => this.stocked >= this.stockTotal, () => ({ x: 76, y: F - 50 }));
@@ -202,8 +202,9 @@ export class StockroomScene extends LevelScene {
   startPart1() {
     this.part = 1; this.drawMeter(); this.elapsedStock = 0;
     this.game.events.emit('hud:toast', 'PART 1: SHELF STACKING MADNESS', C.gold0, this.touch ? 'SIP: PICK UP / STACK   PUSH BIG BOXES' : 'E: PICK UP / STACK   WALK INTO BIG BOXES TO PUSH');
-    this.gerry.sprite.setPosition(LIFT_X + 40, F); this.gerry.facing = -1;
     this.tweens.killTweensOf([this.forklift, this.gerry.sprite]);
+    // Gerry hops off the forklift and walks over to run the lift
+    this.tweens.add({ targets: this.gerry.sprite, y: F, x: this.gerry.x - 12, duration: 300, ease: 'Quad.In', onComplete: () => this.gerry.walkTo(LIFT_X + 40, 110, () => { this.gerry.facing = -1; }) });
   }
   finishPart1() {
     this.part = 0;
@@ -260,7 +261,7 @@ export class StockroomScene extends LevelScene {
     if (bonus) achieve('special_delivery');
     const perfect = bonus && this.dropped === 0;
     this.game.events.emit('hud:toast', 'TRUCK LOADED!', C.gold0, bonus ? 'SPECIAL DELIVERY, EH! (BONUS TIMER BEATEN)' : 'ALL THREE DELIVERIES DONE');
-    if (perfect && !save().goldenOutfit) { update((s) => { s.goldenOutfit = true; }); this.time.delayedCall(2200, () => this.game.events.emit('hud:toast', 'GOLDEN GOOSE OUTFIT UNLOCKED!', C.gold0, 'EQUIP IT: TITLE MENU > CUSTOMIZE GOOSE')); }
+    if (perfect && !save().goldenOutfit) update((s) => { s.goldenOutfit = true; });
     this.time.delayedCall(1800, () => this.reward(perfect));
   }
   reward(perfect: boolean) {

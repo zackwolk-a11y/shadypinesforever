@@ -149,8 +149,7 @@ export abstract class LevelScene extends Phaser.Scene {
     const img = this.add.image(x, y, PICKUP_TEX[kind]).setDepth(38);
     let shade: Phaser.GameObjects.Image | undefined;
     if (kind === 'drop') { img.setTint(DROP_COLORS[i % DROP_COLORS.length]); shade = this.add.image(x, y, 'dropletShade').setDepth(39); }
-    // collected-before rares show as translucent "ghosts" (still collectable for score)
-    if (kind !== 'drop' && kind !== 'bean' && save().collected.includes(id)) img.setAlpha(0.45);
+    // collectibles always show in full colour (even ones found on an earlier run)
     this.pickups.push({ img, shade, x, y, kind, got: false, t: i * 0.4, id, data });
     this.totals[kind]++;
   }

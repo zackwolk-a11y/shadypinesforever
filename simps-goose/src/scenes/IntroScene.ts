@@ -36,7 +36,7 @@ export class IntroScene extends Phaser.Scene {
     // storefront dressing: Canadian flag on a bracket, bunting, glowing window bottle
     this.add.rectangle(STOREFRONT.x - 6, 64, 2, 34, C.st2).setOrigin(0.5, 0).setRotation(-0.5).setDepth(5);
     this.add.sprite(STOREFRONT.x - 30, 70, 'bigFlag0').setDepth(5).play('bigflag');
-    this.add.tileSprite(STOREFRONT.x - 12, 102, STOREFRONT.w + 24, 22, 'bunting').setOrigin(0).setDepth(5);
+    this.add.tileSprite(STOREFRONT.x - 12, 90, STOREFRONT.w + 24, 22, 'bunting').setOrigin(0).setDepth(5);
     const glow = this.add.image(STOREFRONT.winBottleX, 196, 'glow64').setTint(C.blu0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35).setDepth(6);
     this.tweens.add({ targets: glow, alpha: 0.6, scale: 1.2, duration: 900, yoyo: true, repeat: -1 });
     const bottle = this.add.image(STOREFRONT.winBottleX, 211, 'bigBottle').setOrigin(0.5, 1).setDepth(7);

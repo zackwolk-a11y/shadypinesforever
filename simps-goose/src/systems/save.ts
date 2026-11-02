@@ -29,11 +29,11 @@ export interface SaveData {
   fakeEndingSeen: boolean; trueEnding: boolean;
   checkpoint: { stage: StageId; x: number; y: number } | null;
   run: { score: number; hearts: number; time: number; coffee: string | null } | null;
-  powerHonk: boolean; doubleBubble: boolean; superBurp: boolean; stockDone: boolean; goldenOutfit: boolean; outfit: 'classic' | 'golden';
+  powerHonk: boolean; doubleBubble: boolean; superBurp: boolean; stockDone: boolean; goldenOutfit: boolean; outfit: 'classic' | 'golden'; gooseStyle: 'canada' | 'white';
   owners: { welcome: boolean; workshop: boolean; gerryLab: boolean };
 }
 const KEY = 'simps-goose-save-v2';
-const fresh = (): SaveData => ({ v: 2, unlocked: ['store'], completed: [], bestScore: 0, lastScore: 0, bestTime: 0, flavors: [], recipes: {}, cards: [], collected: [], achievements: [], coffee: null, coffees: [], fakeEndingSeen: false, trueEnding: false, checkpoint: null, run: null, powerHonk: false, doubleBubble: false, superBurp: false, stockDone: false, goldenOutfit: false, outfit: 'classic', owners: { welcome: false, workshop: false, gerryLab: false } });
+const fresh = (): SaveData => ({ v: 2, unlocked: ['store'], completed: [], bestScore: 0, lastScore: 0, bestTime: 0, flavors: [], recipes: {}, cards: [], collected: [], achievements: [], coffee: null, coffees: [], fakeEndingSeen: false, trueEnding: false, checkpoint: null, run: null, powerHonk: false, doubleBubble: false, superBurp: false, stockDone: false, goldenOutfit: false, outfit: 'classic', gooseStyle: 'canada', owners: { welcome: false, workshop: false, gerryLab: false } });
 let cache: SaveData | null = null;
 export function save(): SaveData {
   if (cache) return cache;

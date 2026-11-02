@@ -73,12 +73,12 @@
     {
       "name": "Mixer: Cola + Black Cherry = Cherry Rocket",
       "pass": true,
-      "info": "{\"recipe\":\"cherry_rocket\",\"q\":\"good\",\"power\":\"rocket\",\"isSuper\":false}"
+      "info": "{\"recipe\":\"cherry_rocket\",\"q\":\"over\",\"power\":\"rocket\",\"isSuper\":false}"
     },
     {
       "name": "Mixer: green-zone pumps rated GOOD or PERFECT",
-      "pass": true,
-      "info": "observed good"
+      "pass": false,
+      "info": "observed over"
     },
     {
       "name": "Cherry Rocket power granted",
@@ -93,7 +93,7 @@
     {
       "name": "Lab: dash ends on impact (goose not flung into the syrup vat)",
       "pass": true,
-      "info": "{\"key\":\"Lab\",\"phase\":\"play\",\"x\":656,\"y\":390,\"power\":\"rocket\",\"burp\":null,\"gtag\":\"floor\"}"
+      "info": "{\"key\":\"Lab\",\"phase\":\"play\",\"x\":661,\"y\":390,\"power\":\"rocket\",\"burp\":null,\"gtag\":\"floor\"}"
     },
     {
       "name": "Mixer: Blue Raspberry + Lemon Lime = Electric Fizz",
@@ -182,8 +182,8 @@
     },
     {
       "name": "Dimension frame rate playable (>=30 fps, headless software WebGL)",
-      "pass": false,
-      "info": "28 fps"
+      "pass": true,
+      "info": "33 fps"
     },
     {
       "name": "Dimension exit portal → Carbonation boss",
@@ -348,7 +348,7 @@
     {
       "name": "Ogopogo: SUPER BURP hits hard (3 HP) ",
       "pass": true,
-      "info": "40 -> 36"
+      "info": "40 -> 34"
     },
     {
       "name": "Ogopogo: DOUBLE BUBBLE burps two platform bubbles",
@@ -418,7 +418,7 @@
     {
       "name": "Mobile touch: move + jump in the Soda Dimension",
       "pass": true,
-      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":160,\"y\":371,\"power\":null,\"burp\":null,\"gtag\":null}"
+      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":165,\"y\":365,\"power\":null,\"burp\":null,\"gtag\":null}"
     }
   ],
   "errors": []

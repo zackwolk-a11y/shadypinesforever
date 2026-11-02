@@ -4,7 +4,7 @@
  * is rasterised to a 48x48 frame. Animations are lists of poses, so every frame shares
  * exactly the same proportions, palette, light direction and outline rules.
  */
-import { C, R } from './palette';
+import { C, R, type Ramp } from './palette';
 import { Px } from './px';
 
 export const GF = 48; // frame size
@@ -46,17 +46,33 @@ const BASE: Pose = {
   tail: 0, puff: 0, cheeks: 0, blush: 0, lump: -1, brow: 0, front: false, cup: 0, bellyRumble: 0,
 };
 
+/** Goose colour schemes. CANADA (default): black head + neck, white chinstrap, brown body, pale chest,
+ *  black tail, dark bill + feet. WHITE: the original farmyard goose. */
+export type GooseStyle = 'canada' | 'white';
+interface GPal { body: Ramp; chest: Ramp; head: Ramp; neck: [number, number, number]; wingD: Ramp; wingL: Ramp; tail: [number, number]; feather: number; belly: [number, number]; go: [number, number, number, number]; strap: boolean }
+const PALS: Record<GooseStyle, GPal> = {
+  white: { body: R.goose, chest: R.goose, head: R.goose, neck: [C.gw2, C.gw1, C.gw0], wingD: [C.gw2, C.gw3, C.gw3, C.gw4], wingL: [C.gw0, C.gw1, C.gw1, C.gw2], tail: [C.gw2, C.gw1], feather: C.gw3, belly: [C.gw3, C.gw2], go: [C.go0, C.go1, C.go2, C.go3], strap: false },
+  canada: {
+    body: [0xb39a7c, 0x96806a, 0x7a6655, 0x5b4b3f], chest: [0xf0e6d6, 0xdccdb6, 0xc2b096, 0xa08d75], head: [0x4a4a52, 0x33333a, 0x26262c, 0x1d1d22],
+    neck: [0x26262c, 0x33333a, 0x45454e], wingD: [0x6e5b4b, 0x5a4a3d, 0x5a4a3d, 0x463a30], wingL: [0xa48b70, 0x8c7660, 0x8c7660, 0x6e5b4b],
+    tail: [0x2a2a30, 0x3c3c44], feather: 0xd8cbb4, belly: [0xe6dccb, 0xd0c2aa], go: [0x5c5c64, 0x3a3a42, 0x2c2c33, 0x1f1f25], strap: true,
+  },
+};
+let STYLE: GooseStyle = 'canada';
+export const setGooseStyle = (s: GooseStyle) => { STYLE = s; };
+
 const rotp = (x: number, y: number, a: number) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
 
 export function drawGoose(pp: Partial<Pose>): Px {
   const p: Pose = { ...BASE, ...pp };
+  const P = PALS[STYLE];
   const g = new Px(GF, GF);
   const bcx = AX + p.bx, bcy = AY + p.by;
   const rx = (10 + p.puff * 1.5) * p.sx, ry = (7 + p.puff * 1.2) * p.sy;
 
   // ---------- legs + feet (behind body) ----------
   const hipY = bcy + ry * 0.55;
-  const legs: [[number, number], number][] = [[p.legB, C.go3], [p.legA, C.go2]];
+  const legs: [[number, number], number][] = [[p.legB, P.go[3]], [p.legA, P.go[2]]];
   if (!p.tuck) {
     for (const [[fdx, lift], col] of legs) {
       const fx = AX + fdx, fy = AY - lift;
@@ -64,14 +80,14 @@ export function drawGoose(pp: Partial<Pose>): Px {
       g.line(hx, hipY, fx, fy - 1, col);
       g.line(hx + 1, hipY, fx + 1, fy - 1, col);
       // webbed foot
-      const fc = col === C.go2 ? C.go1 : C.go2;
+      const fc = col === P.go[2] ? P.go[1] : P.go[2];
       g.poly([[fx - 1, fy - 1], [fx + 5, fy + 0.2], [fx + 5, fy + 1], [fx - 2, fy + 1]], fc);
-      g.set(fx + 4, fy, C.go3);
+      g.set(fx + 4, fy, P.go[3]);
     }
   } else {
     // tucked feet peeking under the body
-    g.rect(bcx - 2, bcy + ry - 1, 4, 2, C.go2);
-    g.rect(bcx + 2, bcy + ry - 1, 4, 2, C.go1);
+    g.rect(bcx - 2, bcy + ry - 1, 4, 2, P.go[2]);
+    g.rect(bcx + 2, bcy + ry - 1, 4, 2, P.go[1]);
   }
 
   // ---------- far wing (when spread) ----------
@@ -79,26 +95,26 @@ export function drawGoose(pp: Partial<Pose>): Px {
     const sh = [bcx + 2, bcy - 3];
     const a = -0.2 - p.wingFar * 1.5;
     const [wx, wy] = rotp(-6, 1, a);
-    g.shadedEllipse(sh[0] + wx + 1, sh[1] + wy - 1, 8, 4, [C.gw2, C.gw3, C.gw3, C.gw4], a);
+    g.shadedEllipse(sh[0] + wx + 1, sh[1] + wy - 1, 8, 4, P.wingD, a);
   }
 
   // ---------- tail ----------
   const tb = rotp(-rx + 1, -2, p.rot);
   const tx = bcx + tb[0], ty = bcy + tb[1];
   const tw = p.tail * 2;
-  g.poly([[tx + 3, ty - 3], [tx - 5, ty - 6 + tw], [tx - 4, ty - 3 + tw], [tx - 6, ty - 1 + tw], [tx + 3, ty + 3]], C.gw2);
-  g.poly([[tx + 3, ty - 2], [tx - 3, ty - 5 + tw], [tx + 3, ty + 1]], C.gw1);
+  g.poly([[tx + 3, ty - 3], [tx - 5, ty - 6 + tw], [tx - 4, ty - 3 + tw], [tx - 6, ty - 1 + tw], [tx + 3, ty + 3]], P.tail[0]);
+  g.poly([[tx + 3, ty - 2], [tx - 3, ty - 5 + tw], [tx + 3, ty + 1]], P.tail[1]);
 
   // ---------- body ----------
-  g.shadedEllipse(bcx, bcy, rx, ry, R.goose, p.rot);
+  g.shadedEllipse(bcx, bcy, rx, ry, P.body, p.rot);
   // chest bulge
   const ch = rotp(rx * 0.55, -ry * 0.15, p.rot);
-  g.shadedEllipse(bcx + ch[0], bcy + ch[1], rx * 0.5, ry * 0.85, R.goose, p.rot - 0.4);
+  g.shadedEllipse(bcx + ch[0], bcy + ch[1], rx * 0.5, ry * 0.85, P.chest, p.rot - 0.4);
   // belly shade band (gives volume)
   for (let x = Math.floor(bcx - rx + 3); x < bcx + rx - 3; x++) {
     const yy = bcy + ry * Math.sqrt(Math.max(0, 1 - ((x + 0.5 - bcx) / rx) ** 2)) - 1;
-    g.set(x, yy, C.gw3);
-    if (Px.bayer(x, 1) > 0.5) g.set(x, yy - 1, C.gw2);
+    g.set(x, yy, P.belly[0]);
+    if (Px.bayer(x, 1) > 0.5) g.set(x, yy - 1, P.belly[1]);
   }
 
   // ---------- neck ----------
@@ -119,14 +135,19 @@ export function drawGoose(pp: Partial<Pose>): Px {
     if (p.lump >= 0) r += Math.max(0, 1.8 - Math.abs(t - (1 - p.lump)) * 9);
     pts.push([x, y, r]);
   }
-  for (const [x, y, r] of pts) g.circle(x, y, r, C.gw2);
-  for (const [x, y, r] of pts) g.circle(x - 0.6, y - 0.4, r - 1, C.gw1);
-  for (const [x, y, r] of pts) if (r > 2.2) g.circle(x - 1.2, y - 0.6, r - 2.3, C.gw0);
+  for (const [x, y, r] of pts) g.circle(x, y, r, P.neck[0]);
+  for (const [x, y, r] of pts) g.circle(x - 0.6, y - 0.4, r - 1, P.neck[1]);
+  for (const [x, y, r] of pts) if (r > 2.2) g.circle(x - 1.2, y - 0.6, r - 2.3, P.neck[2]);
 
   // ---------- head ----------
   const hr = 4.6 + p.cheeks * 0.8;
-  g.shadedEllipse(hcx, hcy, hr + 0.4, hr - 0.2 + p.cheeks * 0.4, R.goose, p.tilt);
-  if (p.cheeks > 0) g.shadedEllipse(hcx + 2 * p.headDir, hcy + 1.5, 3 * p.cheeks + 1, 2.5 * p.cheeks + 0.5, R.goose);
+  g.shadedEllipse(hcx, hcy, hr + 0.4, hr - 0.2 + p.cheeks * 0.4, P.head, p.tilt);
+  if (p.cheeks > 0) g.shadedEllipse(hcx + 2 * p.headDir, hcy + 1.5, 3 * p.cheeks + 1, 2.5 * p.cheeks + 0.5, P.head);
+  if (P.strap) {
+    // the Canada goose's white chinstrap: a cheek patch sweeping under the chin
+    if (p.front) { g.shadedEllipse(hcx, hcy + 2.4, 4.2, 1.8, [0xffffff, 0xf4f1f6, 0xe2e0ea, 0xd3d2e4]); }
+    else { const d0 = p.headDir; g.shadedEllipse(hcx - 1.6 * d0, hcy + 2.3, 2.5, 1.9, [0xffffff, 0xf4f1f6, 0xe2e0ea, 0xd3d2e4], p.tilt + 0.5 * d0); }
+  }
 
   // ---------- beak ----------
   const dir = p.front ? 1 : p.headDir;
@@ -137,8 +158,8 @@ export function drawGoose(pp: Partial<Pose>): Px {
   };
   if (p.front) {
     // front-facing beak: a wide wedge pointing down-ish toward the viewer
-    g.poly([[hcx - 3, hcy + 1], [hcx + 3, hcy + 1], [hcx + 1, hcy + 6], [hcx - 1, hcy + 6]], C.go1);
-    g.hline(hcx - 2, hcx + 1, hcy + 1, C.go0);
+    g.poly([[hcx - 3, hcy + 1], [hcx + 3, hcy + 1], [hcx + 1, hcy + 6], [hcx - 1, hcy + 6]], P.go[1]);
+    g.hline(hcx - 2, hcx + 1, hcy + 1, P.go[0]);
     if (p.beak > 0.2) g.rect(hcx - 1, hcy + 3, 2, 2, C.red2);
   } else {
     const op = p.beak * 0.55;
@@ -147,13 +168,13 @@ export function drawGoose(pp: Partial<Pose>): Px {
       g.poly([B(3, 0), B(9, -0.2, -op), B(8, 1.2, op)], C.red2);
     }
     // lower jaw
-    g.poly([B(3, 0.6), B(8, 1.0, op), B(8, 2.0, op), B(3, 2.6)], C.go2);
+    g.poly([B(3, 0.6), B(8, 1.0, op), B(8, 2.0, op), B(3, 2.6)], P.go[2]);
     // upper jaw
-    g.poly([B(2.6, -2.2), B(4.5, -1.8, -op * 0.6), B(9.5, -0.2, -op), B(9.6, 0.8, -op), B(3, 0.9)], C.go1);
+    g.poly([B(2.6, -2.2), B(4.5, -1.8, -op * 0.6), B(9.5, -0.2, -op), B(9.6, 0.8, -op), B(3, 0.9)], P.go[1]);
     const hl = B(4, -1.4, -op * 0.5), hl2 = B(7, -0.6, -op);
-    g.line(hl[0], hl[1], hl2[0], hl2[1], C.go0);
+    g.line(hl[0], hl[1], hl2[0], hl2[1], P.go[0]);
     const ns = B(5, -0.6, -op * 0.6);
-    g.set(ns[0], ns[1], C.go3);
+    g.set(ns[0], ns[1], P.go[3]);
   }
 
   // ---------- near wing ----------
@@ -162,13 +183,13 @@ export function drawGoose(pp: Partial<Pose>): Px {
     const a = 0.25 - p.wing * 1.9 + p.rot;
     const [wx, wy] = rotp(-5.5, 1.5, a);
     const ex = sh[0] + wx, ey = sh[1] + wy;
-    g.shadedEllipse(ex, ey, 7.5 + p.puff, 4.4, [C.gw2, C.gw3, C.gw3, C.gw4], a);
-    g.shadedEllipse(ex - 0.6, ey - 0.6, 6.3 + p.puff, 3.3, [C.gw0, C.gw1, C.gw1, C.gw2], a);
+    g.shadedEllipse(ex, ey, 7.5 + p.puff, 4.4, P.wingD, a);
+    g.shadedEllipse(ex - 0.6, ey - 0.6, 6.3 + p.puff, 3.3, P.wingL, a);
     // primary feather tips
     for (let k = 0; k < 3; k++) {
       const [fx, fy] = rotp(-6 - k * 0.2, 1 + k * 1.2 - 1, a);
       const [fx2, fy2] = rotp(-3, 1 + k * 1.2 - 1, a);
-      g.line(ex + fx, ey + fy, ex + fx2, ey + fy2, C.gw3);
+      g.line(ex + fx, ey + fy, ex + fx2, ey + fy2, P.feather);
     }
   }
 
@@ -182,7 +203,8 @@ export function drawGoose(pp: Partial<Pose>): Px {
     switch (p.eye) {
       case 'normal':
       case 'mischief':
-        g.rect(ex, ey, 2, 2, C.ink); g.set(ex, ey, C.wht); g.set(ex + 1, ey + 2, C.ink);
+        if (P.strap) { g.rect(ex - 1, ey - 1, 4, 4, 0x15151a); g.rect(ex, ey, 2, 2, C.ink); g.set(ex, ey, C.wht); }
+        else { g.rect(ex, ey, 2, 2, C.ink); g.set(ex, ey, C.wht); g.set(ex + 1, ey + 2, C.ink); }
         break;
       case 'look':
         g.rect(ex + (p.pdx > 0 ? 1 : 0), ey + (p.pdy > 0 ? 1 : 0), 2, 2, C.ink);
@@ -229,7 +251,7 @@ export function drawGoose(pp: Partial<Pose>): Px {
     g.rect(cx + 3, cy - 3, 2, 3, C.ink); g.set(cx + 3, cy - 2, C.wht);
     if (p.cup > 1) { g.rect(cx - 2, cy - 6, 5, 1, C.cola1); }
   }
-  if (p.bellyRumble > 0) { for (let k = 0; k < 3; k++) g.set(bcx - 4 + k * 3, bcy + 3 + (k % 2), C.gw3); }
+  if (p.bellyRumble > 0) { for (let k = 0; k < 3; k++) g.set(bcx - 4 + k * 3, bcy + 3 + (k % 2), P.feather); }
   if (p.blush > 0) {
     const bp = p.front ? [hcx - 4, hcy + 1] : B(0, 1.8);
     g.set(bp[0], bp[1], C.pink); g.set(bp[0] + 1, bp[1], C.pink);
@@ -336,7 +358,8 @@ export const GOOSE_ANIMS: Record<string, AnimDef> = {
 };
 
 /** Render every animation into one sheet canvas. Returns frame rects keyed `anim_i`. */
-export function buildGooseSheet() {
+export function buildGooseSheet(style: GooseStyle = STYLE) {
+  const prev = STYLE; STYLE = style;
   const names = Object.keys(GOOSE_ANIMS);
   const cols = 8;
   const totalFrames = names.reduce((s, n) => s + GOOSE_ANIMS[n].frames.length, 0);
@@ -352,5 +375,6 @@ export function buildGooseSheet() {
       k++;
     });
   }
+  STYLE = prev;
   return { sheet, frames };
 }
