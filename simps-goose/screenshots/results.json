@@ -28,22 +28,22 @@
     {
       "name": "goose walks right",
       "pass": true,
-      "info": "42 → 121"
+      "info": "42 → 120"
     },
     {
       "name": "goose turns and walks left",
       "pass": true,
-      "info": "121 → 109"
+      "info": "120 → 110"
     },
     {
       "name": "jump leaves ground and lands",
       "pass": true,
-      "info": "apex-ish y=286, landed y=330"
+      "info": "apex-ish y=285, landed y=330"
     },
     {
       "name": "jump onto display crate",
-      "pass": true,
-      "info": "y=304 on crate1"
+      "pass": false,
+      "info": "y=330 on floor"
     },
     {
       "name": "honk makes customers react",
@@ -93,7 +93,7 @@
     {
       "name": "foam cloud lets goose clear the box wall",
       "pass": true,
-      "info": "x=1673"
+      "info": "x=1675"
     },
     {
       "name": "sip BLACK CHERRY → Cherry Blast",
@@ -133,7 +133,7 @@
     {
       "name": "floating bubble supports the goose",
       "pass": true,
-      "info": "{\"x\":2089,\"y\":212,\"ground\":true,\"gtag\":\"bubble\",\"mode\":\"play\",\"phase\":\"play\",\"power\":null,\"drops\":1,\"fountain\":2,\"wall\":true,\"bubbles\":8,\"anim\":\"g_land\"}"
+      "info": "{\"x\":2081,\"y\":214,\"ground\":true,\"gtag\":\"bubble\",\"mode\":\"play\",\"phase\":\"play\",\"power\":null,\"drops\":2,\"fountain\":2,\"wall\":true,\"bubbles\":8,\"anim\":\"g_land\"}"
     },
     {
       "name": "goose rides the bubble (still on it after 0.5s)",
@@ -148,12 +148,12 @@
     {
       "name": "trident lift is moving",
       "pass": true,
-      "info": "324.0 → 310.6"
+      "info": "324.0 → 309.4"
     },
     {
       "name": "bubble → elevated mezzanine (real jump)",
       "pass": true,
-      "info": "{\"x\":2201,\"y\":168,\"ground\":true,\"gtag\":\"mezz\",\"mode\":\"play\",\"phase\":\"play\",\"power\":null,\"drops\":2,\"fountain\":2,\"wall\":true,\"bubbles\":15,\"anim\":\"g_idle\"}"
+      "info": "{\"x\":2205,\"y\":168,\"ground\":true,\"gtag\":\"mezz\",\"mode\":\"play\",\"phase\":\"play\",\"power\":null,\"drops\":3,\"fountain\":2,\"wall\":true,\"bubbles\":15,\"anim\":\"g_idle\"}"
     },
     {
       "name": "pause and resume",
@@ -168,7 +168,7 @@
     {
       "name": "goose rides the giant bubble upward",
       "pass": true,
-      "info": "{\"x\":2318,\"y\":131,\"ground\":true,\"gtag\":\"mezz\",\"mode\":\"ride\",\"phase\":\"cutscene\",\"power\":null,\"drops\":2,\"fountain\":2,\"wall\":true,\"bubbles\":16,\"anim\":\"g_ride\"}"
+      "info": "{\"x\":2320,\"y\":134,\"ground\":true,\"gtag\":\"mezz\",\"mode\":\"ride\",\"phase\":\"cutscene\",\"power\":null,\"drops\":3,\"fountain\":2,\"wall\":true,\"bubbles\":16,\"anim\":\"g_ride\"}"
     },
     {
       "name": "freeze frame + demo end",
@@ -193,7 +193,7 @@
     {
       "name": "mobile: multi-touch RIGHT+JUMP jumps",
       "pass": true,
-      "info": "{\"x\":152,\"y\":301,\"ground\":false,\"gtag\":null,\"mode\":\"play\",\"phase\":\"play\",\"power\":null,\"drops\":1,\"fountain\":0,\"wall\":false,\"bubbles\":0,\"anim\":\"g_jump\"}"
+      "info": "{\"x\":150,\"y\":306,\"ground\":false,\"gtag\":null,\"mode\":\"play\",\"phase\":\"play\",\"power\":null,\"drops\":1,\"fountain\":0,\"wall\":false,\"bubbles\":0,\"anim\":\"g_jump\"}"
     },
     {
       "name": "mobile: HONK button honks",
