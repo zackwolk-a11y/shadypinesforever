@@ -53,10 +53,10 @@ interface GPal { body: Ramp; chest: Ramp; head: Ramp; neck: [number, number, num
 const PALS: Record<GooseStyle, GPal> = {
   white: { body: R.goose, chest: R.goose, head: R.goose, neck: [C.gw2, C.gw1, C.gw0], wingD: [C.gw2, C.gw3, C.gw3, C.gw4], wingL: [C.gw0, C.gw1, C.gw1, C.gw2], tail: [C.gw2, C.gw1], feather: C.gw3, belly: [C.gw3, C.gw2], go: [C.go0, C.go1, C.go2, C.go3], strap: false },
   canada: {
-    // softened: charcoal (not black) head/neck/tail, warm light-brown body, cream chest
-    body: [0xcdb99b, 0xb39f83, 0x96836b, 0x786856], chest: [0xf6eee0, 0xe6dac6, 0xcfc0a8, 0xb2a28a], head: [0x7a7a84, 0x64646e, 0x52525c, 0x44444d],
-    neck: [0x4c4c55, 0x5e5e68, 0x74747e], wingD: [0x8a7562, 0x766352, 0x766352, 0x5f5043], wingL: [0xbba184, 0xa48b70, 0xa48b70, 0x8a7562],
-    tail: [0x4e4e57, 0x63636d], feather: 0xe6dccb, belly: [0xeee5d6, 0xdcd0bc], go: [0x86868e, 0x64646c, 0x52525a, 0x404048], strap: true,
+    // matches the reference: white body, wings + tail; black head + neck with the white chinstrap; black bill + feet
+    body: R.goose, chest: R.goose, head: [0x4c4c55, 0x36363e, 0x2a2a31, 0x222228],
+    neck: [0x26262c, 0x33333a, 0x45454e], wingD: [C.gw2, C.gw3, C.gw3, C.gw4], wingL: [C.gw0, C.gw1, C.gw1, C.gw2],
+    tail: [C.gw2, C.gw1], feather: C.gw3, belly: [C.gw3, C.gw2], go: [0x5c5c64, 0x3c3c44, 0x2e2e35, 0x222228], strap: true,
   },
 
 };
@@ -148,7 +148,7 @@ export function drawGoose(pp: Partial<Pose>): Px {
   if (P.strap) {
     // the Canada goose's white chinstrap: a cheek patch sweeping under the chin
     if (p.front) { g.shadedEllipse(hcx, hcy + 2.4, 4.2, 1.8, [0xffffff, 0xf4f1f6, 0xe2e0ea, 0xd3d2e4]); }
-    else { const d0 = p.headDir; g.shadedEllipse(hcx - 1.6 * d0, hcy + 2.3, 2.5, 1.9, [0xffffff, 0xf4f1f6, 0xe2e0ea, 0xd3d2e4], p.tilt + 0.5 * d0); }
+    else { const d0 = p.headDir; g.shadedEllipse(hcx - 1.4 * d0, hcy + 2.1, 3.0, 2.3, [0xffffff, 0xf4f1f6, 0xe2e0ea, 0xd3d2e4], p.tilt + 0.5 * d0); }
   }
 
   // ---------- beak ----------
