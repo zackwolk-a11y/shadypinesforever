@@ -19,7 +19,7 @@ import { MUSIC } from '../audio/music';
 
 const CREDITS = [
   ['SIMPS: GOOSE ON THE LOOSE!', ''], ['', ''],
-  ['FOUNDERS', 'DAVE & GERRY'], ['DIRECTED BY', 'THE GOOSE'], ['LEAD HONKER', 'THE GOOSE'], ['CHIEF SIP OFFICER', 'THE GOOSE'],
+  ['FOUNDERS', 'DAVE & GERRY'], ['CREATIVE GOOSE-SULTANT', 'ZACHARY WOLK'], ['DIRECTED BY', 'THE GOOSE'], ['LEAD HONKER', 'THE GOOSE'], ['CHIEF SIP OFFICER', 'THE GOOSE'],
   ['FLAVOR SCIENTIST', 'A VERY TIRED LAB TECH'], ['FREE SAMPLES', 'SAM'], ['CHECKOUT + PATIENCE', 'JO'],
   ['SODA FOUNTAIN', 'FIZZ-O-MATIC (RETIRED)'], ['BUBBLE WRANGLING', 'CARBONATOR 3000 (ON LEAVE)'],
   ['BOX WALL', 'PLEASE DO NOT CLIMB'], ['CATERING', 'CREAM SODA, MOSTLY'], ['CONTINUITY', 'NONE. THERE IS A GOOSE.'],
@@ -77,7 +77,7 @@ export class FakeEndScene extends Phaser.Scene {
   }
   rollCredits() {
     this.fx = new FxSystem(this, 70);
-    this.credits = this.add.container(240, 280);
+    this.credits = this.add.container(240, 236);
     CREDITS.forEach(([a, b], i) => {
       const y = i * 22;
       if (!b) this.credits.add(txt(this, 0, y, a, { align: 'center', color: i === 0 || a === 'THE END' ? C.gold1 : C.wht }));
@@ -86,7 +86,7 @@ export class FakeEndScene extends Phaser.Scene {
     for (let i = 0; i < 6; i++) this.credits.add(this.add.image(i % 2 ? 150 : -150, 40 + i * 70, i % 2 ? 'leaf9' : 'trident13'));
     this.rolling = true;
     // the interruption
-    this.time.delayedCall(13000, () => this.interrupt());
+    this.time.delayedCall(8000, () => this.interrupt());
   }
   interrupt() {
     if (this.interrupted) return;

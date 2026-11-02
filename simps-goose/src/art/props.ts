@@ -266,17 +266,17 @@ export function baskets(): Px {
 }
 
 export function plant(): Px {
-  const g = new Px(34, 50);
-  const r = rng(5);
+  const g = new Px(58, 50); // wide enough that no leaf gets clipped at the edges
+  const r = rng(5), cx = 29;
   for (let i = 0; i < 9; i++) {
     const a = -Math.PI / 2 + (i - 4) * 0.33 + (r() - 0.5) * 0.2;
     const L = 14 + r() * 8;
-    const ex = 17 + Math.cos(a) * L, ey = 32 + Math.sin(a) * L;
-    g.line(17, 32, ex, ey, C.leaf2);
+    const ex = cx + Math.cos(a) * L, ey = 32 + Math.sin(a) * L;
+    g.line(cx, 32, ex, ey, C.leaf2);
     g.shadedEllipse(ex, ey, 6, 3.4, R.leaf, a);
     g.line(ex - Math.cos(a) * 4, ey - Math.sin(a) * 4, ex + Math.cos(a) * 4, ey + Math.sin(a) * 4, C.leaf2);
   }
-  g.poly([[7, 32], [27, 32], [24, 49], [10, 49]], C.wht); g.rect(7, 32, 20, 3, C.wl1); g.vline(23, 35, 48, C.wl2);
+  g.poly([[cx - 10, 32], [cx + 10, 32], [cx + 7, 49], [cx - 7, 49]], C.wht); g.rect(cx - 10, 32, 20, 3, C.wl1); g.vline(cx + 6, 35, 48, C.wl2);
   g.outline(C.ink);
   return g;
 }

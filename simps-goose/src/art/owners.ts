@@ -7,9 +7,9 @@ import Phaser from 'phaser';
 
 export const OWNER_FRAME = { w: 44, h: 64 };
 const MAP: Record<string, { f: number[]; fps: number }> = {
-  idle: { f: [0, 1, 2, 1], fps: 3 }, browse: { f: [0, 1, 2, 1], fps: 2 },
+  idle: { f: [0], fps: 1 }, browse: { f: [0], fps: 1 }, // standing still = one still frame (no throbbing)
   walk: { f: [3, 4, 5, 6, 7, 8], fps: 9 }, flee: { f: [9, 10, 11, 12, 13, 14], fps: 12 },
-  talk: { f: [0, 19, 1, 19], fps: 4 }, gesture: { f: [19, 20], fps: 3 }, point: { f: [20], fps: 1 },
+  talk: { f: [0, 19], fps: 3 }, gesture: { f: [19, 20], fps: 3 }, point: { f: [20], fps: 1 },
   pour: { f: [21], fps: 1 }, hold: { f: [21], fps: 1 }, catch: { f: [21], fps: 1 }, clip: { f: [21], fps: 1 },
   drink: { f: [22], fps: 1 }, toast: { f: [22, 21], fps: 2 },
   cheer: { f: [23, 24, 25, 26], fps: 5 }, wave: { f: [23, 0], fps: 3 }, laugh: { f: [24, 25], fps: 4 },

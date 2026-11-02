@@ -93,12 +93,12 @@
     {
       "name": "Lab: dash ends on impact (goose not flung into the syrup vat)",
       "pass": true,
-      "info": "{\"key\":\"Lab\",\"phase\":\"play\",\"x\":665,\"y\":390,\"power\":\"rocket\",\"burp\":null,\"gtag\":\"floor\"}"
+      "info": "{\"key\":\"Lab\",\"phase\":\"play\",\"x\":656,\"y\":390,\"power\":\"rocket\",\"burp\":null,\"gtag\":\"floor\"}"
     },
     {
       "name": "Mixer: Blue Raspberry + Lemon Lime = Electric Fizz",
       "pass": true,
-      "info": "{\"recipe\":\"electric_fizz\",\"q\":\"perfect\",\"power\":\"electric\",\"isSuper\":false}"
+      "info": "{\"recipe\":\"electric_fizz\",\"q\":\"good\",\"power\":\"electric\",\"isSuper\":false}"
     },
     {
       "name": "Lab: Electric Fizz zaps the target and opens the gate",
@@ -113,7 +113,7 @@
     {
       "name": "Mixer: unknown combo still gives a power (Mystery Fizz)",
       "pass": true,
-      "info": "{\"recipe\":null,\"q\":\"over\",\"power\":\"cream\",\"isSuper\":false}"
+      "info": "{\"recipe\":null,\"q\":\"good\",\"power\":\"cream\",\"isSuper\":false}"
     },
     {
       "name": "Lab: Super Soda gated behind Gerry's experiment",
@@ -182,8 +182,8 @@
     },
     {
       "name": "Dimension frame rate playable (>=30 fps, headless software WebGL)",
-      "pass": true,
-      "info": "31 fps"
+      "pass": false,
+      "info": "28 fps"
     },
     {
       "name": "Dimension exit portal → Carbonation boss",
@@ -191,17 +191,22 @@
       "info": ""
     },
     {
-      "name": "Boss phase 1: honked bubbles hit the pressure switches",
+      "name": "Boss: one clear instruction on screen",
       "pass": true,
       "info": ""
     },
     {
-      "name": "Boss phase 2: matching flavor taps",
+      "name": "Boss phase 1: honked bubbles fly back into the machine",
       "pass": true,
       "info": ""
     },
     {
-      "name": "Boss phase 3: all valves → Carbonator defeated",
+      "name": "Boss phase 2: same trick, faster",
+      "pass": true,
+      "info": ""
+    },
+    {
+      "name": "Boss phase 3: Carbonator defeated",
       "pass": true,
       "info": ""
     },
@@ -308,7 +313,7 @@
     {
       "name": "Stock-Up: achievements (work here, master stocker, special delivery)",
       "pass": true,
-      "info": "first_honk,double_bubble,bubble_trouble,perfect_mix,rainbow_soda,master_of_fizz,coffee_break,master_stocker,special_delivery,honk_if_you_work_here"
+      "info": "first_honk,double_bubble,bubble_trouble,rainbow_soda,master_of_fizz,coffee_break,master_stocker,special_delivery,honk_if_you_work_here"
     },
     {
       "name": "Stock-Up: perfect run unlocks the golden outfit",
@@ -373,7 +378,7 @@
     {
       "name": "Achievements saved (Friend of Ogopogo, Golden Goose)",
       "pass": true,
-      "info": "first_honk,double_bubble,bubble_trouble,perfect_mix,rainbow_soda,master_of_fizz,coffee_break,master_stocker,special_delivery,honk_if_you_work_here,friend_of_ogopogo,golden_goose"
+      "info": "first_honk,double_bubble,bubble_trouble,rainbow_soda,master_of_fizz,coffee_break,master_stocker,special_delivery,honk_if_you_work_here,friend_of_ogopogo,golden_goose"
     },
     {
       "name": "Golden Goose Token collected",
@@ -413,7 +418,7 @@
     {
       "name": "Mobile touch: move + jump in the Soda Dimension",
       "pass": true,
-      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":165,\"y\":368,\"power\":null,\"burp\":null,\"gtag\":null}"
+      "info": "{\"key\":\"Dimension\",\"phase\":\"play\",\"x\":80,\"y\":400,\"power\":null,\"burp\":null,\"gtag\":\"island\"} → {\"key\":\"Dimension\",\"phase\":\"play\",\"x\":160,\"y\":371,\"power\":null,\"burp\":null,\"gtag\":null}"
     }
   ],
   "errors": []

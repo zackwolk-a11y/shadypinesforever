@@ -54,7 +54,7 @@ export class StoreScene extends LevelScene {
   wsBubbles: { b: import('../entities/Bubbles').Bubble; x0: number; x1: number; ph: number; sp: number }[] = []; overfill: { img: Phaser.GameObjects.Image; x: number; y: number; t: number; dead: number }[] = [];
   gaugeImg: Phaser.GameObjects.Image | null = null;
   sampledAny = false; ropeLeft = true; checklistSeen = false; objT!: Phaser.GameObjects.BitmapText; objBg!: Phaser.GameObjects.Rectangle; checklist: Phaser.GameObjects.Container | null = null; pushBack = 0;
-  rope: Platform | null = null; ropeImg: Phaser.GameObjects.Image | null = null; returning = false; welcomeDone = false;
+  rope: Platform | null = null; ropeSign: Phaser.GameObjects.Container | null = null; daveNagT = 0; ropeImg: Phaser.GameObjects.Image | null = null; returning = false; welcomeDone = false;
   wallShelfHonks = 0;
   bumpedWall = 0;
   lampGlows: Phaser.GameObjects.Image[] = [];
@@ -71,7 +71,7 @@ export class StoreScene extends LevelScene {
   create() {
     this.demo = GS.mode === 'demo';
     this.returning = this.registry.get('fromStockroom') === true; this.registry.set('fromStockroom', false);
-    this.welcomeDone = this.returning || this.demo; this.workshopOn = false; this.workshopDone = false; this.seqIdx = 0; this.wsBubbles = []; this.overfill = []; this.finalSwitch = null; this.rope = null; this.ropeImg = null; this.sampledAny = this.returning; this.checklist = null; this.pushBack = 0; this.ropeLeft = true;
+    this.welcomeDone = this.returning || this.demo; this.workshopOn = false; this.workshopDone = false; this.seqIdx = 0; this.wsBubbles = []; this.overfill = []; this.finalSwitch = null; this.rope = null; this.ropeImg = null; this.ropeSign = null; this.daveNagT = 0; this.sampledAny = this.returning; this.checklist = null; this.pushBack = 0; this.ropeLeft = true;
     this.levelName = this.demo ? 'BUBBLE TROUBLE (DEMO)' : 'LEVEL 1: BUBBLE TROUBLE';
     this.initLevel({ w: WORLD_W, h: WORLD_H, floor: FLOOR, bg: C.blk2, spawn: { x: 40, y: FLOOR } });
     this.bottles = []; this.valves = []; this.lampGlows = []; this.wallShelfHonks = 0; this.bumpedWall = 0;
@@ -395,7 +395,10 @@ export class StoreScene extends LevelScene {
     this.add.image(STOCK_X, FLOOR, 'stockDoor').setOrigin(0.5, 1).setDepth(20);
     if (!save().stockDone) {
       this.ropeImg = this.add.image(1556, FLOOR, 'rope').setOrigin(0.5, 1).setDepth(33);
-      this.rope = this.addPlatform(1546, FLOOR - 40, 18, 40, 'solid', 'rope');
+      // full-height barrier (can't float over it with foam or bubbles): the stockroom comes first
+      this.rope = this.addPlatform(1546, CEIL, 18, FLOOR - CEIL, 'solid', 'rope');
+      this.ropeSign = this.add.container(1556, FLOOR - 74).setDepth(34);
+      this.ropeSign.add([this.add.rectangle(0, 0, 58, 22, C.ink).setStrokeStyle(1, C.red1), txt(this, 0, -8, 'STOCKROOM', { align: 'center', outline: false, color: C.gold0 }), txt(this, 0, 1, 'FIRST!', { align: 'center', outline: false, color: C.wht })]);
     }
   }
   atStockDoor() { const d = this.goose.x - STOCK_X; return d > -26 && d < 8; }
@@ -481,8 +484,8 @@ export class StoreScene extends LevelScene {
     this.seq.forEach((n, i) => sg.fillStyle(VALVE_COL[n]).fillCircle(WS.x + 170 + i * 13, 201, 5));
     this.add.existing(txt(this, WS.x + 183, 183, 'ORDER', { align: 'center', outline: false, color: C.ink })).setDepth(27);
     // final pressure switch
-    const img = this.add.image(WS.x + 214, FLOOR, 'wswitch0').setOrigin(0.5, 1).setDepth(30);
-    this.finalSwitch = { x: WS.x + 214, on: false, img };
+    const img = this.add.image(WS.x + 192, FLOOR, 'wswitch0').setOrigin(0.5, 1).setDepth(30);
+    this.finalSwitch = { x: WS.x + 192, on: false, img };
   }
   startWorkshop() {
     if (this.workshopOn || this.workshopDone) return;
@@ -550,7 +553,7 @@ export class StoreScene extends LevelScene {
   frameWorkshop(dt: number) {
     if (this.demo) return;
     const g = this.goose;
-    if (this.rope && save().stockDone) { this.rope.active = false; this.rope.x = -999; this.ropeImg?.destroy(); this.rope = null; }
+    if (this.rope && save().stockDone) { this.rope.active = false; this.rope.x = -999; this.ropeImg?.destroy(); this.ropeSign?.destroy(); this.rope = null; }
     // the rope only stops you going forward: if you somehow got past it you can always walk back
     if (this.rope) { if (g.x < 1530) this.ropeLeft = true; else if (g.x > 1572) this.ropeLeft = false; this.rope.active = this.ropeLeft; }
     // the box wall can always be shoved over from the far side, so running out of power never strands you
@@ -560,6 +563,17 @@ export class StoreScene extends LevelScene {
       if (this.pushBack > 0.5) { this.pushBack = 0; bw.topple(-1, this.world, (x, y) => this.fx.dust(x, y, 6)); emote(this, g.x, g.y - 44, 'SHOVE!', { life: 900 }); SFX.crash(); }
     } else if (g.body.hitWall !== -1) this.pushBack = 0;
     this.updateObjective();
+    // Dave keeps reminding the goose about the stockroom until it's done
+    if (this.rope && this.phase === 'play' && !this.dialogue) {
+      this.daveNagT -= dt;
+      const near = Math.abs(g.x - this.dave.x) < 200;
+      if (near && this.daveNagT <= 0 && (g.x > 1440 || this.sampledAny)) {
+        this.daveNagT = 9;
+        this.dave.lastLine = 0; this.dave.facing = g.x > this.dave.x ? 1 : -1;
+        this.dave.say(this.sampledAny ? "GOOSE! I NEED YOUR HELP IN THE STOCKROOM. IT'S THIS DOOR!" : 'TRY A SAMPLE, THEN COME HELP ME IN THE STOCKROOM!', 3400);
+        this.dave.act('point', 1.5); SFX.hey(this.dave.pitch);
+      }
+    }
     if (this.rope && this.phase === 'play' && g.x > 1500 && g.x < 1546 && this.goose.body.hitWall === 1) { this.dave.lastLine = this.dave.lastLine || 0; if (this.time.now - this.dave.lastLine > 2500) { this.dave.say('STOCKROOM FIRST! LEND US A WING?', 1800); this.dave.act('point', 1); } }
     if (!this.workshopOn && !this.workshopDone && this.phase === 'play' && g.x > WS.x - 40 && g.y > FLOOR - 40) {
       if (this.fountain.stage >= 2) this.startWorkshop();

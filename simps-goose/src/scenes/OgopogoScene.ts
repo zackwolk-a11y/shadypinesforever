@@ -165,7 +165,7 @@ export class OgopogoScene extends LevelScene {
     if (this.atkT <= 0 && this.stun <= 0 && this.ty < WATER) {
       this.atkT = rate;
       this.spawnWave();
-      if (this.bossPhase >= 2) { const d = g.x - this.hx; const img = this.add.image(this.hx - 20, this.hy + 14, 'dot4').setTint(C.blu0).setScale(2).setDepth(9); this.spits.push({ img, x: img.x, y: img.y, vx: d * 0.9, vy: -150, alive: true }); this.setFace('roar', 0.4); SFX.splash(0.3); }
+      if (this.bossPhase >= 2) { const d = g.x - this.hx; const img = this.add.image(this.hx - 20, this.hy + 14, 'bubble24').setTint(0xff5c96).setScale(1.3).setDepth(40); this.spits.push({ img, x: img.x, y: img.y, vx: d * 0.9, vy: -150, alive: true }); this.setFace('roar', 0.4); SFX.splash(0.3); }
     }
     if (this.bossPhase === 2) { this.diveT -= dt; if (this.diveT <= -4.5) { this.diveT = 0; this.dive(); } }
     if (this.bossPhase === 3) { this.charge = Math.min(1, this.charge + dt * 0.025); this.tx = 400 + Math.sin(this.t * 0.8) * 30; }
@@ -183,7 +183,8 @@ export class OgopogoScene extends LevelScene {
     }
     for (const s of this.spits) {
       if (!s.alive) continue;
-      s.vy += 300 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.img.setPosition(s.x, s.y);
+      s.vy += 300 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.img.setPosition(s.x, s.y).setScale(1.3 + Math.sin(this.t * 20) * 0.1);
+      if (Math.random() < dt * 20) this.fx.sparkle(s.x, s.y, 1, 0xffffff);
       if (overlap(this.gooseRect(), { x: s.x - 5, y: s.y - 5, w: 10, h: 10 })) { this.damage(s.x); s.alive = false; s.img.destroy(); continue; }
       if (s.y > WATER + 10) { s.alive = false; s.img.destroy(); this.fx.drops(s.x, WATER, C.blu0, 4); }
     }

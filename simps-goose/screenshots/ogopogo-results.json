@@ -2,7 +2,7 @@
   {
     "burp": "vanilla",
     "result": "defeated → true ending",
-    "secs": 29,
+    "secs": 32,
     "errors": 0
   },
   {
@@ -14,7 +14,7 @@
   {
     "burp": "hazelnut",
     "result": "defeated → true ending",
-    "secs": 32,
+    "secs": 33,
     "errors": 0
   },
   {
@@ -26,13 +26,13 @@
   {
     "burp": "lavender",
     "result": "defeated → true ending",
-    "secs": 31,
+    "secs": 34,
     "errors": 0
   },
   {
     "burp": "marshmallow",
     "result": "defeated → true ending",
-    "secs": 35,
+    "secs": 34,
     "errors": 0
   }
 ]
