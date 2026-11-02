@@ -5,7 +5,7 @@ All results below were produced by the automated suites against the **production
 | Suite | Result |
 |---|---|
 | Original vertical-slice checks (`tests/e2e.mjs`, demo mode) | **40/40** |
-| Full game (`tests/fullgame.mjs`, Levels 1–3, bosses, endings, saves, menus, touch) | **82/83** |
+| Full game (`tests/fullgame.mjs`, Levels 1–3, bosses, endings, saves, menus, touch) | **84/84** |
 | Every coffee defeats Ogopogo (`tests/ogopogo.mjs`) | **6/6** |
 | Page errors | 0 |
 
@@ -17,12 +17,12 @@ All results below were produced by the automated suites against the **production
 ## Ogopogo — every coffee
 | Coffee (Simps café syrup) | Result | Fight time with good positioning |
 |---|---|---|
-| vanilla | defeated → true ending | 29 s |
+| vanilla | defeated → true ending | 32 s |
 | saltedcaramel | defeated → true ending | 29 s |
-| hazelnut | defeated → true ending | 32 s |
+| hazelnut | defeated → true ending | 33 s |
 | peppermint | defeated → true ending | 38 s |
-| lavender | defeated → true ending | 31 s |
-| marshmallow | defeated → true ending | 35 s |
+| lavender | defeated → true ending | 34 s |
+| marshmallow | defeated → true ending | 34 s |
 
 ## Performance
 ```
@@ -51,7 +51,7 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Mixer: green-zone pumps rated GOOD or PERFECT | PASS | observed good |
 | Cherry Rocket power granted | PASS |  |
 | Lab: rocket dash smashes the fragile glass wall | PASS |  |
-| Lab: dash ends on impact (goose not flung into the syrup vat) | PASS | {"key":"Lab","phase":"play","x":669,"y":390,"power":"rocket","burp":null,"gtag":"floor"} |
+| Lab: dash ends on impact (goose not flung into the syrup vat) | PASS | {"key":"Lab","phase":"play","x":661,"y":390,"power":"rocket","burp":null,"gtag":"floor"} |
 | Mixer: Blue Raspberry + Lemon Lime = Electric Fizz | PASS | {"recipe":"electric_fizz","q":"good","power":"electric","isSuper":false} |
 | Lab: Electric Fizz zaps the target and opens the gate | PASS |  |
 | Lab: pressure lever starts the trident lift | PASS |  |
@@ -69,11 +69,12 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Dimension: all 5 enemy types present | PASS | BottleBot,FizzSprite,FoamMonster,FruitFlyer,SyrupSlug |
 | Dimension: collapsing foam pad gives way | PASS |  |
 | Dimension: checkpoint reached | PASS |  |
-| Dimension frame rate playable (>=30 fps, headless software WebGL) | **FAIL** | 28 fps |
+| Dimension frame rate playable (>=30 fps, headless software WebGL) | PASS | 30 fps |
 | Dimension exit portal → Carbonation boss | PASS |  |
-| Boss phase 1: honked bubbles hit the pressure switches | PASS |  |
-| Boss phase 2: matching flavor taps | PASS |  |
-| Boss phase 3: all valves → Carbonator defeated | PASS |  |
+| Boss: one clear instruction on screen | PASS |  |
+| Boss phase 1: honked bubbles fly back into the machine | PASS |  |
+| Boss phase 2: same trick, faster | PASS |  |
+| Boss phase 3: Carbonator defeated | PASS |  |
 | Boss → fake ending | PASS |  |
 | Fake ending: credits interrupted → Level 3 café | PASS |  |
 | Level 3 revealed + unlocked (progress kept) | PASS |  |
@@ -101,7 +102,7 @@ Measured in headless Chromium, where WebGL is rendered **in software on the CPU*
 | Store: rope gone once the Stock-Up is done | PASS |  |
 | Ogopogo: owner abilities carried in (Power Honk / Double Bubble / Super Burp) | PASS |  |
 | Ogopogo: Power Honk briefly stuns Ogopogo | PASS |  |
-| Ogopogo: SUPER BURP hits hard (3 HP)  | PASS | 40 -> 37 |
+| Ogopogo: SUPER BURP hits hard (3 HP)  | PASS | 40 -> 33 |
 | Ogopogo: DOUBLE BUBBLE burps two platform bubbles | PASS |  |
 | Celebration: Dave + Gerry arrive and talk | PASS |  |
 | Celebration: owners + crowd + Ogopogo soda cup on screen | PASS |  |
