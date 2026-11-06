@@ -604,5 +604,37 @@
  "sludge_puddle": {
   "w": 112,
   "h": 63
+ },
+ "hero_tongue_sheet": {
+  "w": 1600,
+  "h": 130,
+  "frameW": 200,
+  "frameH": 130,
+  "frames": 8,
+  "anchor": [
+   130,
+   62
+  ],
+  "tips": [
+   null,
+   null,
+   null,
+   [
+    -54.8,
+    50.8
+   ],
+   [
+    -85.1,
+    57.6
+   ],
+   null,
+   null,
+   null
+  ],
+  "heroBall": [
+   49.0,
+   37.5
+  ],
+  "scale": 0.4571
  }
 }

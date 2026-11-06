@@ -250,23 +250,32 @@ class Player {
     for (const e of Game.ents) { if (e.dead || !((e instanceof Enemy && e.wake) || e.isBoss)) continue; const hb = e.hitbox ? e.hitbox() : e, ex = hb.x + hb.w / 2, ey = hb.y + hb.h / 2, d = Math.hypot(ex - mx, ey - my); if (d > bd) continue; const dot = ((ex - mx) * base[0] + (ey - my) * base[1]) / (d || 1); if (dot < TONGUE.aimCone) continue; bd = d; best = [(ex - mx) / d, (ey - my) / d]; }
     return best || base;
   }
+  tongueFrame() { // which of the 8 supplied frames to show for the current phase
+    const g = this.tng, T = TONGUE; if (!g) return -1;
+    switch (g.ph) { case 'wind': return g.t < 4 ? 0 : 1; case 'launch': return g.t < 3 ? 2 : 3; case 'impact': return 4; case 'retract': return g.t < T.retract / 2 ? 5 : 6; case 'recover': return 7; }
+    return -1;
+  }
   updateTongue(L) {
     const g = this.tng; if (!g) { if (!this.grapple) this.tongueTip = null; return; }
-    g.t++; const T = TONGUE, max = T.range * (this.form === 'mega' ? 1.5 : 1), [mx, my] = heroMouth(this.cx, this.cy, this.face, this.form);
-    if (g.ph === 'wind') { if (g.t >= T.wind) { g.dir = this.tongueAim(); if (g.dir[0]) this.face = sign(g.dir[0]); g.ph = 'launch'; g.t = 0; AudioSys.play_sfx('whip'); } }
-    else if (g.ph === 'launch') { g.len = max * easeOutExpo(g.t / T.launch); if (g.t >= T.launch) { g.ph = 'impact'; g.t = 0; g.len = max; } }
-    else if (g.ph === 'impact') { g.len = max * (1 + Math.sin(g.t / T.impact * Math.PI) * .04); if (g.t >= T.impact) { g.ph = 'retract'; g.t = 0; g.from = g.len; AudioSys.play_sfx('slurp'); } }
-    else if (g.ph === 'retract') { const k = g.t / T.retract; g.len = g.from * Math.max(0, 1 - k * k * (2.2 - 1.2 * k)); if (g.t >= T.retract) { g.ph = 'recover'; g.t = 0; g.len = 0; } }
+    g.t++; const T = TONGUE;
+    if (g.ph === 'wind') { if (g.t >= T.wind) { g.dir = [this.face, 0]; g.ph = 'launch'; g.t = 0; AudioSys.play_sfx('whip'); } }
+    else if (g.ph === 'launch') { if (g.t >= T.launch) { g.ph = 'impact'; g.t = 0; } }
+    else if (g.ph === 'impact') { if (g.t >= T.impact) { g.ph = 'retract'; g.t = 0; AudioSys.play_sfx('slurp'); } }
+    else if (g.ph === 'retract') { if (g.t >= T.retract) { g.ph = 'recover'; g.t = 0; } }
     else if (g.ph === 'recover') { if (g.t >= T.recover) { this.tng = null; this.tongueTip = null; return; } }
-    if (g.ph === 'launch' || g.ph === 'impact' || g.ph === 'retract') {
-      const tx = mx + g.dir[0] * g.len, ty = my + g.dir[1] * g.len; this.tongueTip = [tx, ty, mx, my];
-      if ((g.ph === 'launch' || g.ph === 'impact') && !g.hit) {
-        // the tongue's own hitbox: a box riding the tip, live only while extending / at full reach; one damage event per strike
-        this.attack({ x: tx - 11, y: ty - 11, w: 22, h: 22, dmg: 2, kind: 'whip', dir: sign(g.dir[0]) || this.face, tongue: true, knock: 6, onHit: () => this.tongueHit(tx, ty) });
-        if (L.get(Math.floor(tx / TS), Math.floor(ty / TS)) === T_BREAK) { this.breakTiles(L, tx, ty - 4, ty + 4); this.tongueHit(tx, ty); }
-        if (g.target && g.onReach && Math.hypot(g.target.cx - tx, g.target.cy - ty) < 22) { g.onReach(); g.onReach = null; this.tongueHit(tx, ty); }
-      }
-    } else if (!this.grapple) this.tongueTip = null;
+    const fi = this.tongueFrame(), cyy = this.y + this.h / 2 - 4 + (this.onGround ? 0 : 0);
+    const tip = (g.ph === 'launch' || g.ph === 'impact' || g.ph === 'retract') ? tongueTipWorld(this.cx, cyy, this.face, fi, this.form === 'mega' ? 1.5 : 1) : null;
+    const [mx, my] = heroMouth(this.cx, this.cy, this.face, this.form);
+    g.len = tip ? Math.hypot(tip[0] - this.cx, tip[1] - cyy) : 0;
+    this.tongueTip = tip ? [tip[0], tip[1], mx, my] : (this.grapple ? this.tongueTip : null);
+    if (tip && (g.ph === 'launch' || g.ph === 'impact') && !g.hit) {
+      const [tx, ty] = tip;
+      // the tongue's own hitbox rides the drawn tongue tip; live only while it lashes out / at full reach; one damage event per strike
+      this.attack({ x: Math.min(tx, mx) - 8, y: ty - 12, w: Math.abs(tx - mx) * .5 + 20, h: 24, dmg: 2, kind: 'whip', dir: this.face, tongue: true, knock: 6, onHit: () => this.tongueHit(tx, ty) });
+      this.attack({ x: tx - 12, y: ty - 12, w: 24, h: 24, dmg: 2, kind: 'whip', dir: this.face, tongue: true, knock: 6, onHit: () => this.tongueHit(tx, ty) });
+      if (L.get(Math.floor(tx / TS), Math.floor(ty / TS)) === T_BREAK || L.get(Math.floor((tx + this.face * 6) / TS), Math.floor((ty - 10) / TS)) === T_BREAK) { this.breakTiles(L, tx, ty - 12, ty + 4); this.tongueHit(tx, ty); }
+      if (g.target && g.onReach && g.ph === 'impact') { g.onReach(); g.onReach = null; this.tongueHit(tx, ty); }
+    }
   }
   tongueHit(tx, ty) {
     const g = this.tng; if (!g || g.hit) return; g.hit = true;
@@ -347,8 +356,8 @@ class Player {
     const cyy = y - this.h / 2 - 4 + bob;
     // tongue behind face when whipping/grappling
     const tg = this.tng, tk = tg ? tg.t / (TONGUE[tg.ph] || 1) : 0;
-    let px2 = 0; if (tg && tg.ph === 'wind') { rot -= this.face * .2 * ease.out(tk); px2 = -this.face * 3 * tk; sy *= 1 - .06 * tk; } else if (tg && (tg.ph === 'launch' || tg.ph === 'impact')) { rot += this.face * .1; px2 = this.face * 3; } else if (tg && tg.ph === 'recover') rot -= this.face * .05 * (1 - tk);
-    if (this.tongueTip) { const [tx, ty, mx, my] = this.tongueTip; const wob = tg && tg.ph === 'retract' ? Math.sin(tg.t * 1.3) * 6 * (1 - tk) : 0; drawTongue(mx - cx + px2, my - cy + bob, tx - cx, ty - cy + wob, this.form === 'mega' ? 9 : 7, this.grapple ? 2 : 3 + wob * .3); }
+    let px2 = 0; if (tg && tg.ph === 'wind') px2 = -this.face * 2 * tk; else if (tg && (tg.ph === 'launch' || tg.ph === 'impact')) px2 = this.face * 2;
+    if (this.grapple && this.tongueTip) { const [tx, ty, mx, my] = this.tongueTip; drawTongue(mx - cx, my - cy + bob, tx - cx, ty - cy, this.form === 'mega' ? 9 : 7, 2); }
     // bone bash spin trail
     if (this.bashT > 0) { ctx.save(); ctx.globalAlpha = .5; ctx.strokeStyle = '#fff6d0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, cyy, 30 * (this.form === 'mega' ? 1.6 : 1), 0, 7); ctx.stroke(); ctx.restore(); rot = (26 - this.bashT) * .5; }
     // shadow
@@ -357,7 +366,8 @@ class Player {
     let mouth = this.screamT > 0 ? Math.min(1, this.screamT / 10) : 0;
     if (tg) mouth = tg.ph === 'wind' ? .45 + .5 * ease.out(tk) : tg.ph === 'recover' ? .9 * (1 - tk) : .95;
     if (this.gdir < 0) { sy = -sy; }
-    drawHero(x + px2, this.gdir < 0 ? this.y + this.h / 2 - cy : cyy, { closed: true, tongueIn: !tg && !this.grapple, face: this.face, sx, sy, rot, blink, mouth, form: this.form, aura: this.transT > 0 || this.scream > 40 || this.metal >= 100 && this.t % 30 < 15, flash: this.inv > 88 ? '#ff3a3a' : false });
+    if (tg && !this.isPig() && IMG.hero_tongue && IMG.hero_tongue.length) { drawTongueFrame(this.cx - cx + px2, this.y + this.h / 2 - 4 - cy, this.face, this.tongueFrame(), { scale: this.form === 'mega' ? 1.5 : 1, flash: this.inv > 88 ? '#ff3a3a' : false }); }
+    else drawHero(x + px2, this.gdir < 0 ? this.y + this.h / 2 - cy : cyy, { closed: true, tongueIn: !tg && !this.grapple, face: this.face, sx, sy, rot, blink, mouth, form: this.form, aura: this.transT > 0 || this.scream > 40 || this.metal >= 100 && this.t % 30 < 15, flash: this.inv > 88 ? '#ff3a3a' : false });
     if (this.scream > 10) { ctx.strokeStyle = `rgba(127,255,58,${this.scream / 60})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, cyy, 40 - (this.t % 10) * 2, 0, 7); ctx.stroke(); }
     if (this.stun) text('?!', x, cyy - 40, { color: '#ffe14d', align: 'center' });
     if (this.megaT > 0 && this.megaT < 180 && this.t % 20 < 10) text(Math.ceil(this.megaT / 60) + '', x, cyy - 60, { color: '#7fff3a', align: 'center', scale: 2 });

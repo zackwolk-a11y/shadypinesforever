@@ -48,7 +48,7 @@ async function boot() {
   draw();
   AudioSys.init();
   await loadAssets();
-  buildProceduralSprites(); buildIcons(); buildPigBodies(); bakeBikerFrames();
+  buildProceduralSprites(); buildIcons(); buildPigBodies(); bakeBikerFrames(); sliceTongueFrames();
   Save.load(); Touch.init(); applyTouchPref();
   if ('ontouchstart' in window && (Save.data.opt.touch || 'auto') === 'auto') Touch.enable();
   Title.open();

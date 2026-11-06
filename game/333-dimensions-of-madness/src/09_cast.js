@@ -21,7 +21,7 @@ function drawTongue(x0, y0, x1, y1, thick = 5, sag = 6, pal = ['#1a0306', '#e01a
   ctx.lineCap = 'butt';
 }
 // --------------------------------------------------------------------------- hero
-const HERO_FACE = -1; // the master art faces left
+const HERO_FACE = 1; // eyeball at the back of the head, matching the tongue-attack frames
 function drawHero(x, y, o = {}) {
   const mega = o.form === 'mega', img = o.closed ? (mega ? IMG.hero_big_closed : IMG.hero_closed) : (mega ? IMG.hero_big : IMG.hero), name = mega ? 'hero_big' : 'hero';
   const sc = (o.scale || 1) * (mega ? 1.08 * HD : HD);
@@ -138,6 +138,17 @@ function drawBiker(x, y, o = {}) {
   ctx.restore();
   ctx.restore();
 }
+// tongue-attack frames (supplied 8-frame strip, see tools/extract_tongue_frames.py)
+function sliceTongueFrames() { const m = META.hero_tongue_sheet, s = IMG.hero_tongue_sheet; IMG.hero_tongue = []; if (!m || !s) return; for (let i = 0; i < m.frames; i++) { const c = makeCanvas(m.frameW, m.frameH); c.ctx.drawImage(s, i * m.frameW, 0, m.frameW, m.frameH, 0, 0, m.frameW, m.frameH); IMG.hero_tongue.push(c); } }
+const TONGUE_TILT = .3; // tilt the drooping tongue up so it strikes at enemy height instead of digging into the floor
+function tongueBallPos(x, y, face, scale = 1) { const m = META.hero_tongue_sheet, c = A('hero').center, b = m.heroBall, flip = face !== HERO_FACE; return [x + (b[0] - c[0]) * HD * scale * (flip ? -1 : 1), y + (b[1] - c[1]) * HD * scale]; }
+function tongueTipWorld(x, y, face, fi, scale = 1) { // tip of the drawn tongue for frame fi, in world space (null = no tongue out)
+  const m = META.hero_tongue_sheet, tip = m.tips[fi] || (fi === 2 || fi === 5 ? [-30, 34] : fi === 6 ? [-22, 32] : null); if (!tip) return null;
+  const [bx, by] = tongueBallPos(x, y, face, scale), a = TONGUE_TILT, tx = tip[0] * Math.cos(a) - tip[1] * Math.sin(a), ty = tip[0] * Math.sin(a) + tip[1] * Math.cos(a), dir = face > 0 ? 1 : -1;
+  return [bx - tx * HD * scale * dir, by + ty * HD * scale]; }
+function drawTongueFrame(x, y, face, fi, o = {}) { // raw frames face LEFT
+  const m = META.hero_tongue_sheet, img = IMG.hero_tongue && IMG.hero_tongue[fi]; if (!img) return; const [bx, by] = tongueBallPos(x, y, face, o.scale || 1), tilt = fi >= 2 && fi <= 6 ? TONGUE_TILT : 0;
+  spr(img, bx, by, { ax: m.anchor[0], ay: m.anchor[1], flip: face > 0, sx: HD * (o.scale || 1) * (o.sx || 1), sy: HD * (o.scale || 1) * (o.sy || 1), rot: (face > 0 ? -tilt : tilt) + (o.rot || 0), flash: o.flash }); }
 // bake helper: run a draw function into an offscreen canvas (global ctx is swapped while baking)
 function withCtx(c, fn) { const saved = ctx; ctx = c.ctx; try { fn(); } finally { ctx = saved; } }
 // --------------------------------------------------------------------------- werewolf
