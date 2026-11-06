@@ -142,6 +142,12 @@ hero_anchors = {'mouth': (720, 760), 'eye': (300, 410), 'center': (640, 600), 't
 save('hero', hero, 96 / hero.size[1], anchors=hero_anchors, src_origin=ho)
 save('hero_big', hero, 150 / hero.size[1], anchors=hero_anchors, src_origin=ho)
 save('hero_title', hero, 230 / hero.size[1], anchors=hero_anchors, src_origin=ho)
+# closed-mouth variant (tongue retracted; built by tools/close_mouth.py) - same crop so anchors line up
+closed = Image.open(os.path.join(SRC, 'hero_monster_closed.png')).convert('RGBA')
+ca_ = np.asarray(closed).copy(); ca_[..., 3] = np.where(ca_[..., 3] > 140, 255, 0)
+closed = despeckle(Image.fromarray(ca_, 'RGBA')).crop(bb)
+save('hero_closed', closed, 96 / hero.size[1], anchors=hero_anchors, src_origin=ho)
+save('hero_big_closed', closed, 150 / hero.size[1], anchors=hero_anchors, src_origin=ho)
 
 # ---------------------------------------------------------------- lineup
 lineup = key_black(Image.open(os.path.join(SRC, 'cast_lineup.png')).convert('RGB'))

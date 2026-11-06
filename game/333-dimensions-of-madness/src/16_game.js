@@ -143,9 +143,8 @@ const Game = {
     // player attacks vs enemies & bosses
     if (p.attacks.length) for (const e of this.ents) {
       if (e.dead) continue;
-      if (e instanceof Enemy && e.wake) { for (const a of p.attacks) if (overlap(a, e)) { if (a.circle && dist(p.cx, p.cy, e.cx, e.cy) > a.circle) continue; if (e.hit(a.dmg, Object.assign({ dir: p.face }, a)) && a.kind === 'bash' && !p.onGround) { p.vy = -5.5; p.airSpun = false; FX.pop(e.cx, e.y - 8, 'BOING!', '#7fff3a'); } break; } }
-      else if (e.isBoss) { const hb = e.hitbox(); for (const a of p.attacks) if (overlap(a, hb)) { if (a.circle && dist(p.cx, p.cy, hb.x + hb.w / 2, hb.y + hb.h / 2) > a.circle + Math.max(hb.w, hb.h) / 2) continue; e.hit(a.dmg, a); break; } }
-      else if (e instanceof Pullable && p.tongueTip) { if (overlap(p.attacks[0], e)) e.pull(-p.face); }
+      if (e instanceof Enemy && e.wake) { for (const a of p.attacks) if (overlap(a, e)) { if (a.circle && dist(p.cx, p.cy, e.cx, e.cy) > a.circle) continue; const landed = e.hit(a.dmg, Object.assign({ dir: p.face }, a)); if (landed && a.onHit) a.onHit(e); if (landed && a.kind === 'bash' && !p.onGround) { p.vy = -5.5; p.airSpun = false; FX.pop(e.cx, e.y - 8, 'BOING!', '#7fff3a'); } break; } }
+      else if (e.isBoss) { const hb = e.hitbox(); for (const a of p.attacks) if (overlap(a, hb)) { if (a.circle && dist(p.cx, p.cy, hb.x + hb.w / 2, hb.y + hb.h / 2) > a.circle + Math.max(hb.w, hb.h) / 2) continue; if (e.hit(a.dmg, a) && a.onHit) a.onHit(e); break; } }
     }
     this.ents = this.ents.filter(e => !e.dead || e instanceof Trigger);
     if (L.solidEnts.some(s => s.dead)) L.solidEnts = L.solidEnts.filter(s => !s.dead);
@@ -193,7 +192,6 @@ const Game = {
   },
   // ------------------------------------------------------------------ gameplay helpers
   nearestHook(p) { let best = null, bd = 135; for (const e of this.ents) if (e instanceof Hook) { const d = dist(p.cx, p.cy, e.cx, e.cy); if (d < bd && e.cy < p.cy + 10) { bd = d; best = e; } } return best ? { x: best.cx, y: best.cy } : null; },
-  tonguePull(p) { for (const e of this.ents) if ((e instanceof Pullable || (e instanceof Enemy && e.wake)) && !e.dead && Math.abs(e.cy - p.cy) < 30 && sign(e.cx - p.cx) === p.face && Math.abs(e.cx - p.cx) < 120) { if (e.pull) e.pull(-p.face); else { e.vx = -p.face * 5; e.vy = -2; e.stun(40); } p.whipT = 16; p.melee = 'tongue'; p.whipDir = [p.face, 0]; AudioSys.play_sfx('slurp'); return true; } return false; },
   stunAll(x, y, r, t) { for (const e of this.ents) if (e instanceof Enemy && !e.dead && dist(x, y, e.cx, e.cy) < r) e.stun(t); },
   soundSwitch(x, y, r) { for (const e of this.ents) if (e instanceof SoundSwitch && dist(x, y, e.cx, e.cy) < r + 20) e.activate(); },
   onHeadbang(p) { for (const e of this.ents) if (e instanceof SoundSwitch && dist(p.cx, p.cy, e.cx, e.cy) < 80 && p.combo >= 3) e.activate(); },

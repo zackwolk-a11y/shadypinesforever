@@ -23,7 +23,7 @@ function drawTongue(x0, y0, x1, y1, thick = 5, sag = 6) {
 // --------------------------------------------------------------------------- hero
 const HERO_FACE = -1; // the master art faces left
 function drawHero(x, y, o = {}) {
-  const mega = o.form === 'mega', img = mega ? IMG.hero_big : IMG.hero, name = mega ? 'hero_big' : 'hero';
+  const mega = o.form === 'mega', img = o.closed ? (mega ? IMG.hero_big_closed : IMG.hero_closed) : (mega ? IMG.hero_big : IMG.hero), name = mega ? 'hero_big' : 'hero';
   const sc = (o.scale || 1) * (mega ? 1.08 * HD : HD);
   const flip = (o.face || -1) !== HERO_FACE, c = A(name).center, ax = c[0], ay = c[1];
   const sx = (o.sx || 1) * sc, sy = (o.sy || 1) * sc;
@@ -40,6 +40,8 @@ function drawHero(x, y, o = {}) {
   if (o.flash) return;
   // blink: green eyelid over the protruding eyeball
   if (o.blink) { const [ex, ey] = ap('eye'); P.e(ctx, ex, ey, 9 * scU, 7 * scU * o.blink, '#2a8a1a'); P.r(ctx, ex - 9 * scU, ey + 6 * scU * o.blink - 1, 18 * scU, 1, '#000'); }
+  // tongue resting inside the mouth (idle): a small curled tongue, never outside the face
+  if (o.tongueIn && !(o.mouth > 0)) { const [mx0, my0] = ap('mouth'), [hx, hy] = ap('center'); const tx = lerp(mx0, hx, .45), ty = lerp(my0, hy, .45) + 2 * scU + Math.sin(G.t * 3) * .6; P.e(ctx, tx, ty, 8 * scU, 5 * scU, '#1a0306'); P.e(ctx, tx, ty, 7 * scU, 4 * scU, '#e01a2a'); P.r(ctx, tx - 3 * scU, ty - 2 * scU, 3 * scU, 1, '#ff8a9a'); }
   // open maw for screams / bites
   if (o.mouth > 0) { const [mx, my] = ap('mouth'); const m = o.mouth; P.e(ctx, mx, my, 15 * scU * m + 2, 11 * scU * m + 2, '#000'); P.e(ctx, mx, my, 15 * scU * m, 11 * scU * m, '#5a0010'); P.e(ctx, mx, my + 5 * m, 8 * scU * m, 4 * scU * m, '#e01a2a'); for (let i = -2; i <= 2; i++) P.poly(ctx, [[mx + i * 5 * m * scU - 2, my - 10 * m * scU], [mx + i * 5 * m * scU + 2, my - 10 * m * scU], [mx + i * 5 * m * scU, my - 5 * m * scU]], '#fff3c0'); }
   // front overlays
