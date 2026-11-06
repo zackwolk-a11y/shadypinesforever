@@ -12,14 +12,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#07040b;touch-action
 canvas#screen{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;box-shadow:0 0 40px #3b0d55}
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
 #touch.on{display:block}
-.tb{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(40,200,60,.18);border:2px solid rgba(160,255,120,.45);color:#d8ffc0;font:bold 12px monospace;display:flex;align-items:center;justify-content:center;text-shadow:0 1px 0 #000}
+.tb{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(40,200,60,.10);border:2px solid rgba(160,255,120,.32);color:#d8ffc0;font:bold 12px monospace;display:flex;align-items:center;justify-content:center;text-shadow:0 1px 0 #000}
 .tb.down{background:rgba(120,255,80,.45)}
 #stick{position:absolute;left:18px;bottom:18px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.07);border:2px solid rgba(160,255,120,.35);pointer-events:auto}
+@media (max-height:430px){#touch{transform:scale(.82);transform-origin:100% 100%}#stick{transform:scale(1.2);transform-origin:0 100%}}
+#rotate{position:fixed;left:0;right:0;top:12px;text-align:center;color:#7fff3a;font:bold 14px monospace;display:none;text-shadow:0 2px 0 #000}
+@media (orientation:portrait) and (max-width:900px){#rotate{display:block}}
 #knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(160,255,120,.4)}
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="screen" width="640" height="360"></canvas></div>
+<div id="rotate">ROTATE YOUR DEVICE FOR THE FULL MADNESS ↻</div>
 <div id="touch"><div id="stick"><div id="knob"></div></div></div>
 <script>
 "use strict";
@@ -152,7 +156,7 @@ const KEYMAP = {
   Escape: 'pause', KeyP: 'pause', Enter: 'confirm', Backspace: 'back'
 };
 const Input = {
-  held: {}, pressed: {}, released: {}, _down: {}, _prev: {}, mode: 'keys', touchOn: false, anyPressed: false,
+  held: {}, pressed: {}, released: {}, _down: {}, _prev: {}, _latch: {}, mode: 'keys', touchOn: false, anyPressed: false,
   update() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = [...pads].find(p => p && p.connected);
@@ -170,7 +174,7 @@ const Input = {
     this.anyPressed = false;
     for (const a of ACTIONS) {
       const d = !!now[a];
-      this.pressed[a] = d && !this._prev[a];
+      this.pressed[a] = (d && !this._prev[a]) || !!this._latch[a]; this._latch[a] = false;
       this.released[a] = !d && this._prev[a];
       this.held[a] = d;
       if (this.pressed[a]) this.anyPressed = true;
@@ -180,7 +184,7 @@ const Input = {
   clear() { for (const a of ACTIONS) { this.pressed[a] = false; } }
 };
 window.addEventListener('keydown', e => {
-  const a = KEYMAP[e.code]; if (a) { Input._down[a] = true; e.preventDefault(); Input.mode = 'keys'; }
+  const a = KEYMAP[e.code]; if (a) { if (!Input._down[a]) Input._latch[a] = true; Input._down[a] = true; e.preventDefault(); Input.mode = 'keys'; }
   if (e.code === 'Escape') Input._down.back = true;
   if (e.code === 'F3') G.debug = !G.debug;
   AudioSys.unlock();
@@ -202,7 +206,7 @@ const Touch = {
       el.style.width = el.style.height = size + 'px';
       el.style.right = (-rx - size / 2) + 'px';
       if (ry === 'top') el.style.top = '10px'; else el.style.bottom = (-ry - size / 2) + 'px';
-      const on = e => { e.preventDefault(); Input._down[act] = true; el.classList.add('down'); AudioSys.unlock(); if (act === 'jump') Input._down.confirm = true; if (act === 'pause') Input._down.back = true; };
+      const on = e => { e.preventDefault(); Input._latch[act] = true; Input._down[act] = true; el.classList.add('down'); AudioSys.unlock(); if (act === 'jump') Input._down.confirm = true; if (act === 'pause') Input._down.back = true; };
       const off = e => { e.preventDefault(); Input._down[act] = false; el.classList.remove('down'); if (act === 'jump') Input._down.confirm = false; if (act === 'pause') Input._down.back = false; };
       el.addEventListener('touchstart', on, { passive: false }); el.addEventListener('touchend', off, { passive: false }); el.addEventListener('touchcancel', off, { passive: false });
       root.appendChild(el);
@@ -370,7 +374,8 @@ const AudioSys = {
   },
   stop() { this.song = null; },
   setIntensity(n) { this.targetIntensity = n; },
-  arrangement() { const s = this.song, i = this.intensity; return i >= 3 ? s.boss : i >= 2 ? s.combat : i <= 0 ? s.calm : s.explore; },
+  arrangement() { const s = this.song, i = this.intensity; if (i >= 3) return this.bossPhase >= 3 ? ['F', 'F', 'D', 'F', 'E'] : this.bossPhase === 2 ? ['F', 'E', 'F', 'C', 'D'] : s.boss; return i >= 2 ? s.combat : i <= 0 ? s.calm : s.explore; },
+  setBossPhase(n) { if (this.bossPhase !== n) { this.bossPhase = n; this.lastMood = -1; } },
   nextPart() {
     if (this.intensity !== this.targetIntensity || this.lastMood !== this.intensity) {
       this.intensity = this.targetIntensity; this.lastMood = this.intensity; this.arrIdx = 0;
@@ -1274,6 +1279,10 @@ class Builder {
     else if (kind === 'hook') { this.ground(4); this.spawn('hook', this.cx, this.gy - 11); const x = this.cx + 3; for (let k = 0; k < 4; k++) this.L.set(x + k, this.gy - 12, T_ONEWAY); this.spawn('shard', x + 2, this.gy - 14, { id }); this.ground(8); }
     else { const x = this.cx; this.ground(10); this.L.fill(x + 2, this.gy, x + 8, this.gy + 3, T_EMPTY); this.L.set(x + 2, this.gy, T_BREAK); this.L.set(x + 3, this.gy, T_BREAK); this.L.fill(x + 4, this.gy, x + 8, this.gy, T_SOLID); this.spawn('shard', x + 6, this.gy + 2, { id }); this.L.fill(x + 1, this.gy + 4, x + 9, this.L.h - 1, T_SOLID); }
   }
+  crateWall() { // a 7-high wall: push or tongue-yank the crate over, hop on it, climb past
+    this.ground(4); this.spawn('pull', this.cx + 1, this.gy - 2); this.ground(9); const x = this.cx; this.ground(2, false); this.L.fill(x, this.gy - 7, x + 1, this.gy - 1, T_SOLID); this.step(-7); this.ground(6); this.step(7); this.ground(4);
+    this.spawn('sign', x - 6, this.gy, { msg: 'TOO TALL! Push the crate, or yank it with GRAPPLE.' });
+  }
   arena(n, waves, o = {}) { // combat arena: camera locks, waves of enemies
     const x0 = this.cx; this.ground(n); this.spawn('arena', x0, this.gy, Object.assign({ w: n * TS, waves }, o));
   }
@@ -1304,6 +1313,7 @@ class Builder {
         case 'pool': this.ground(3); this.pool(this.RI(6, 10), this.RI(3, 5)); this.ground(3); break;
         case 'up': this.ground(4); this.step(-this.RI(2, 3)); this.ground(4); break;
         case 'down': this.ground(4); this.step(this.RI(2, 3)); this.ground(4); break;
+        case 'crate': this.crateWall(); break;
         case 'flyers': this.ground(10); this.spawn('enemy', this.cx - 6, this.gy - 6, { kind: this.pick(this.def.flyers || ['bookbat']) }); this.notes(3, -8, 3); break;
       }
     }
@@ -1688,7 +1698,8 @@ class Player {
     // ------------------------------------------------ grapple swinging
     if (this.grapple) { this.updateGrapple(L, left, right, up, down, P_); if (this.grapple) { this.postMove(L); return; } }
     // ------------------------------------------------ horizontal movement
-    const max = st.speed * (this.stun ? .4 : 1) * (swim ? .7 : 1);
+    this.sprint = !this.isPig() && H_('dash') && this.dashT === 0 && this.onGround && (left || right) && this.form !== 'mega';
+    const max = st.speed * (this.stun ? .4 : 1) * (swim ? .7 : 1) * (this.sprint ? 1.45 : 1);
     if (this.dashT > 0) {
       this.dashT--; this.vx = this.face * (this.form === 'pig' ? 5.2 : this.form === 'cow' ? 4.8 : 6); this.vy = this.onGround ? this.vy : Math.min(this.vy, .5);
       const dmg = this.form === 'pig' || this.form === 'cow' ? 3 : 2;
@@ -1740,7 +1751,9 @@ class Player {
   }
   postMove(L) {
     const wasG = this.onGround, vyBefore = this.vy;
-    this.riding = null; moveBody(this, L); this.hitWallLast = this.hitWall || (this.climb ? this.hitWallLast : 0);
+    this.riding = null; moveBody(this, L);
+    if (this.hitWall && L.solidEnts) for (const s of L.solidEnts) if (s.push && Math.abs((this.hitWall > 0 ? this.x + this.w : this.x) - (this.hitWall > 0 ? s.x : s.x + s.w)) < 3 && this.y + this.h > s.y + 4 && this.y < s.y + s.h) s.push(this.hitWall);
+    this.hitWallLast = this.hitWall || (this.climb ? this.hitWallLast : 0);
     if (this.form === 'bear' && !this.hitWall && this.climb) { const probe = this.hitWallLast > 0 ? this.x + this.w + 1 : this.x - 1; if (!L.solidAt(Math.floor(probe / TS), Math.floor(this.cy / TS))) this.hitWallLast = 0; }
     if (this.riding && this.riding.dx) this.x += this.riding.dx;
     if (!wasG && this.onGround) {
@@ -1917,6 +1930,7 @@ class Player {
     if (moving) { const b = Math.abs(Math.sin(this.t * .25)); sy *= 1 - b * .07; sx *= 1 + b * .05; }
     if (!this.onGround && !this.grapple) { sy *= this.vy < 0 ? 1.08 : .96; sx *= this.vy < 0 ? .94 : 1.04; }
     if (this.dashT > 0) rot = this.t * .55 * this.face;                       // Mosh Dash = rolling
+    else if (this.sprint && Math.abs(this.vx) > 3) { rot = this.t * .35 * this.face; if (this.t % 4 === 0) FX.dust(this.cx - this.face * 12, this.y + this.h, 1); }
     else if (Math.abs(this.vx) > 2.4 && this.onGround) rot = Math.sin(this.t * .3) * .12;
     if (this.bangT > 0) rot = Math.sin((14 - this.bangT) / 14 * Math.PI) * .5 * this.face;
     if (this.grapple) rot = -this.grapple.ang * .6;
@@ -2214,6 +2228,7 @@ class Pullable extends Ent { // crates the tongue can yank
   constructor(o) { super(o.x, o.y, 24, 24); this.solid = true; }
   update(L) { this.t++; this.vy = Math.min(this.vy + PHYS.grav, 6); const s = this.solid; this.solid = false; moveBody(this, L); this.solid = s; this.vx *= .85; }
   pull(dir) { this.vx = dir * 5; AudioSys.play_sfx('slurp'); }
+  push(dir) { this.vx = dir * 1.6; }
   draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); P.r(ctx, x - 1, y - 1, 26, 26, '#000'); P.r(ctx, x, y, 24, 24, '#a0662a'); P.l(ctx, x, y, x + 24, y + 24, '#5a3a10', 2); P.l(ctx, x + 24, y, x, y + 24, '#5a3a10', 2); P.r(ctx, x, y, 24, 2, '#d0965a'); }
 }
 class AmpTotem extends Ent { // destroyed only by guitar-powered METAL SCREAM / mega
@@ -2222,6 +2237,11 @@ class AmpTotem extends Ent { // destroyed only by guitar-powered METAL SCREAM / 
   blow() { if (this.dead) return; this.dead = true; this.solid = false; AudioSys.play_sfx('explode'); AudioSys.play_sfx('riff'); Cam.shake(8, 20); FX.burst(this.cx, this.cy, 40, ['#c9a227', '#333', '#ff3a1a', '#fff'], { speed: 5, size: 3 }); FX.notes(this.cx, this.cy, 8); }
   draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); P.r(ctx, x - 1, y - 1, 34, 50, '#000'); P.r(ctx, x, y, 32, 48, '#1c1c20'); P.r(ctx, x + 2, y + 2, 28, 5, '#c9a227'); P.e(ctx, x + 16, y + 20, 10, 10, '#333'); P.e(ctx, x + 16, y + 38, 6, 6, '#333'); text('MAX', x + 16, y + 9, { color: '#ff3a3a', align: 'center', shadow: false });
     if (this.t % 40 < 20 && dist(Game.player.cx, Game.player.cy, this.cx, this.cy) < 200) text('METAL SCREAM!', x + 16, y - 12, { color: '#7fff3a', align: 'center', outline: true }); }
+}
+class Sign extends Ent { // wooden hint sign
+  constructor(o) { super(o.x, o.y - 26, 22, 26); this.msg = o.msg; }
+  draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); O.r(x + 9, y + 10, 4, 16, '#6a4a2a', 1); O.r(x, y, 22, 13, '#c8a070', 1); P.r(ctx, x + 3, y + 4, 16, 1, '#5a3a1a'); P.r(ctx, x + 3, y + 8, 12, 1, '#5a3a1a');
+    const p = Game.player; if (Math.abs(p.cx - this.cx) < 70) { const lines = wrapText(this.msg, 30); const w = 6 + Math.max(...lines.map(l => textWidth(l))); panel(x + 11 - w / 2, y - 14 - lines.length * 9, w, lines.length * 9 + 4, { rim: '#c8a070' }); lines.forEach((l, i) => text(l, x + 11, y - 12 - lines.length * 9 + i * 9, { color: '#fff', align: 'center' })); } }
 }
 class Decoy extends Ent {
   constructor(x, y) { super(x - 13, y - 30, 26, 30); this.life = 240; Game.decoy = this; }
@@ -2283,7 +2303,7 @@ class Boss extends Ent {
     this.hp -= dmg; this.flash = 8; this.inv = 12; AudioSys.play_sfx('enemyHit'); FX.burst(a && a.x !== undefined ? a.x : this.cx, this.cy, 8, '#fff'); G.hitstop = 3;
     if (AudioSys.onBeatWindow(.18)) Game.player.metal = Math.min(100, Game.player.metal + 4);
     const f = this.hp / this.maxHp;
-    if (this.phase < this.phases.length && f <= this.phases[this.phase]) { this.phase++; this.onPhase(this.phase); AudioSys.setIntensity(3); HUD.banner('PHASE ' + this.phase, '#ff5bd1'); Cam.shake(6, 20); AudioSys.play_sfx('stinger'); }
+    if (this.phase < this.phases.length && f <= this.phases[this.phase]) { this.phase++; this.onPhase(this.phase); AudioSys.setIntensity(3); AudioSys.setBossPhase(this.phase); HUD.banner('PHASE ' + this.phase, '#ff5bd1'); Cam.shake(6, 20); AudioSys.play_sfx('stinger'); }
     if (this.hp <= 0) this.defeat();
     return true;
   }
@@ -2606,7 +2626,13 @@ class FeedbackBoss extends Boss {
   constructor(x, y, o) { super(x - 110, y - 250, 220, 200, o); this.name = 'THE ETERNAL FEEDBACK'; this.setHp(60); this.ground = y; this.cx0 = x; this.static = 0; this.echo = null; this.phases = [1, .7, .4]; this.shield = 0; }
   hitbox() { return { x: this.cx0 - 50, y: this.y + 40, w: 100, h: 110 }; }
   onPhase(p) { if (p === 2) HUD.banner('ECHO CHAMBER', '#b04bff'); if (p === 3) { HUD.banner('THE FINAL SONG — PLAY ON THE BEAT!', '#7fff3a'); this.shield = 1; Game.flag('finalPhase'); } }
-  hit(dmg, a) { if (this.phase >= 3 && this.shield > 0 && a && a.kind !== 'scream' && a.kind !== 'ally') { FX.pop(this.cx, this.y, 'SCREAM ON THE BEAT!', '#7fff3a'); return false; } return super.hit(dmg, a); }
+  hit(dmg, a) {
+    if (this.phase >= 3 && a && a.kind !== 'ally') {
+      if (this.shield > 0 && a.kind !== 'scream') { if (!this.msgT || this.t - this.msgT > 40) { FX.pop(this.cx, this.y, 'WAIT FOR YOUR BAND — THEN SCREAM!', '#7fff3a'); this.msgT = this.t; } return false; }
+      if (a.kind === 'scream') { const onBeat = AudioSys.onBeatWindow(.22); if (!onBeat && this.shield > 0) { FX.pop(this.cx, this.y, 'OFF BEAT!', '#ff3a3a'); return false; } dmg += onBeat ? 3 : 0; if (onBeat) FX.pop(this.cx, this.y - 20, 'PERFECT PITCH!', '#7fff3a'); }
+    }
+    return super.hit(dmg, a);
+  }
   update(L) {
     if (!this.commonUpdate()) return; const p = Game.player; this.static = (this.static + 1) % 1000; this.y = this.ground - 250 + Math.sin(this.t * .02) * 12;
     switch (this.state) {
@@ -2618,7 +2644,16 @@ class FeedbackBoss extends Boss {
       case 'echoCow': if (this.st === 1) { this.echo = { kind: 'cow', x: p.cx, y: Cam.y - 80 }; AudioSys.play_sfx('moo'); } if (this.st < 40) this.echo.x = lerp(this.echo.x, p.cx, .1); else { this.echo.y += 9; if (this.echo.y > this.ground - 40) { Cam.shake(6, 12); FX.ring(this.echo.x, this.ground, 90, '#fff'); Game.bossAttack({ x: this.echo.x - 60, y: this.ground - 20, w: 120, h: 20 }); this.echo = null; this.go('idle'); break; } Game.bossAttack({ x: this.echo.x - 30, y: this.echo.y - 30, w: 60, h: 60 }); } break;
       case 'echoGloop': if (this.st === 1) { this.echo = { kind: 'gloop', x: p.cx, t: 0 }; AudioSys.play_sfx('gloop'); } this.echo.t++; if (this.echo.t > 40 && this.echo.t < 100) Game.bossAttack({ x: this.echo.x - 50, y: this.ground - 30, w: 100, h: 30 }); if (this.echo.t > 110) { this.echo = null; this.go('idle'); } break;
     }
-    if (this.phase >= 3) { this.shield = 1; }
+    if (this.phase >= 3) {
+      this.shield = this.shieldDown > 0 ? 0 : 1; if (this.shieldDown > 0) this.shieldDown--;
+      this.allyT = (this.allyT || 0) + 1;
+      if (this.allyT % 360 === 60) { const a = ['pigs', 'razz', 'udderly', 'barnaby', 'gloop'][Math.floor(this.allyT / 360) % 5]; this.allyEvent = { k: a, t: 0 }; }
+      if (this.allyEvent) { const e = this.allyEvent; e.t++;
+        if (e.t === 1) { HUD.banner({ pigs: 'THE PIGS STAMPEDE!', razz: 'RAZZ RAMS THE AMP!', udderly: 'UDDERLY DIVE-BOMBS!', barnaby: 'BARNABY HOWLS THE SHIELD DOWN!', gloop: 'THE GLOOP HOLDS IT STILL!' }[e.k], '#7fff3a', 'SCREAM ON THE BEAT NOW!'); AudioSys.play_sfx({ pigs: 'oink', razz: 'rev', udderly: 'moo', barnaby: 'howl', gloop: 'gloop' }[e.k], { pitch: 1 }); this.shieldDown = 220; }
+        if (e.k === 'gloop' && e.t < 200) this.y = this.ground - 250;
+        if (e.t === 40) { Cam.shake(8, 20); FX.ring(this.cx0, this.y + 100, 120, '#7fff3a'); super.hit(2, { kind: 'ally' }); }
+        if (e.t > 220) this.allyEvent = null; }
+    }
     if (overlap(this.hitbox(), p)) p.hurt(1, this.cx0);
   }
   draw(cx, cy) {
@@ -2634,6 +2669,13 @@ class FeedbackBoss extends Boss {
     for (const s of [-1, 1]) { O.e(x + s * 50, y + 80, 30 + pulse * 3, 30 + pulse * 3, '#000'); P.e(ctx, x + s * 50, y + 80, 22, 22, ang); P.e(ctx, x + s * 50, y + 80, 8, 8, '#fff'); }
     O.r(x - 70, y + 130, 140, 30 + pulse * 10, '#000'); for (let i = 0; i < 20; i++) { const h = Math.abs(Math.sin(t * .3 + i * .7)) * (24 + pulse * 10); P.r(ctx, x - 66 + i * 7, y + 145 - h / 2, 5, h, ang); }
     if (this.shield > 0) { ctx.strokeStyle = `rgba(127,255,58,${.4 + pulse * .3})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x, y + 95, 130, 120, 0, 0, 7); ctx.stroke(); }
+    if (this.allyEvent) { const e = this.allyEvent, k = e.t / 60, gy = this.ground - cy;
+      if (e.k === 'pigs') { const px = -60 + e.t * 5; drawPig('trufflina', px + 40, gy, { face: 1, state: 'run', t: k }); drawPig('porkington', px, gy, { face: 1, state: 'run', t: k + .2 }); drawPig('hamwise', px - 36, gy, { face: 1, state: 'run', t: k + .4, prop: 'kazoo' }); }
+      if (e.k === 'razz') drawBiker(-80 + e.t * 7, gy, { face: 1, t: k, speed: 2, turbo: true, wheelie: .25 });
+      if (e.k === 'udderly') drawCow(x - 200 + e.t * 4, y - 60 + Math.min(e.t, 40) * 3, { face: 1, t: k, scale: .5, rot: .5, cape: 10, capeStretch: 8 });
+      if (e.k === 'barnaby') { drawWolf(60, gy, { face: 1, t: k, scale: .55, rot: -.35, arm: -.4 }); if (e.t % 10 === 0) FX.ring(60 + cx, this.ground - 90, 160, '#fff', 20, 2); }
+      if (e.k === 'gloop') { drawSludge(x + 30, gy + 4, { t: k, scale: .7, sx: 1.8, sy: .5, wobble: 2 }); }
+    }
     if (this.echo) { const e = this.echo; ctx.save(); ctx.globalAlpha = .7; if (e.kind === 'wolf') drawWolf(e.x - cx, this.ground - cy, { face: 1, t: t / 60, scale: .6, arm: 1.5, flash: '#b04bff' }); if (e.kind === 'cow') drawCow(e.x - cx, e.y - cy + 50, { face: 1, t: t / 60, scale: .5, flash: '#b04bff', rot: .8 }); if (e.kind === 'gloop') { if (e.t < 40) { ctx.fillStyle = '#b04bff'; ctx.fillRect(e.x - cx - 50, this.ground - cy - 4, 100, 4); } else drawSludge(e.x - cx + 20, this.ground - cy, { scale: .35, sy: Math.min(1, (e.t - 40) / 15), flash: '#b04bff', t: t / 60 }); } ctx.restore(); }
   }
 }
@@ -2723,7 +2765,7 @@ function updateVehicle(pl, L) {
   const I = Input; pl.t++; pl.attacks = [];
   if (pl.dead) { pl.dead++; if (pl.dead > 80) Game.respawn(); return; }
   if (pl.inv > 0) pl.inv--;
-  const boost = I.held.dash && pl.boost > 0; if (boost) { pl.boost -= 1; if (pl.t % 2 === 0) FX.add({ x: pl.x, y: pl.y + pl.h - 6, vx: -3, vy: R(-.5, .5), col: pick(['#ff3a1a', '#ffa01a', '#fff36b']), size: 3, life: 14, grav: 0 }); } else pl.boost = Math.min(100, (pl.boost || 0) + .15);
+  if (pl.boost === undefined) pl.boost = 100; const boost = I.held.dash && pl.boost > 0; if (boost) { pl.boost -= .9; if (pl.t % 2 === 0) FX.add({ x: pl.x, y: pl.y + pl.h - 6, vx: -3, vy: R(-.5, .5), col: pick(['#ff3a1a', '#ffa01a', '#fff36b']), size: 3, life: 14, grav: 0 }); } else if (!I.held.dash) pl.boost = Math.min(100, pl.boost + .25);
   const target = (I.held.right ? 5.2 : I.held.left ? 2.4 : 4.2) + (boost ? 2.4 : 0); pl.vx = approach(pl.vx, target, .08); pl.face = 1;
   if (I.pressed.jump && pl.onGround) { pl.vy = -7.2; AudioSys.play_sfx('jump'); }
   pl.vy = Math.min(pl.vy + PHYS.grav * (I.held.jump && pl.vy < 0 ? .7 : 1), 7);
@@ -2738,6 +2780,7 @@ function updateVehicle(pl, L) {
   if (overlapsHazard(pl, L)) pl.hurt(1);
   if (pl.y > L.h * TS + 30) pl.fallOut();
   if (pl.t % 4 === 0 && pl.onGround) FX.dust(pl.x, pl.y + pl.h, 1);
+  if (pl.onGround && !overlapsHazard(pl, L)) { const tx = Math.floor((pl.x - 40) / TS), ty = Math.floor((pl.y + pl.h + 2) / TS); if (L.solidAt(tx, ty) && ++pl.safeT > 4) pl.safe = { x: pl.x - 40, y: pl.y - 4 }; } else pl.safeT = 0;
   AudioSys.setEngine(true, .4 + pl.vx / 10);
 }
 function drawVehicle(pl, cx, cy) {
@@ -2800,34 +2843,36 @@ const LEVELS = [
         build(B) { B.ground(20); B.npc('hamwise', 'L3_hamwise', 8, { face: -1 }); B.ground(12); B.spawn('housesite', B.cx - 8, B.gy, { kind: 'straw' });
           const straw = []; const put = (dx, dy) => B.spawn('collect', B.cx + dx, B.gy - dy, { kind: 'straw', flag: 'straw' });
           B.ground(10); put(-4, 2); B.gap(3); B.ground(8); B.step(-3); B.ground(6); put(-3, 6); B.step(3); B.ground(8); B.hookGap(12); put(-6, 4); B.ground(6); B.enemy('puppet', -3);
-          B.shard('high'); B.ground(4); put(-2, 2); B.platforms(3, 3); put(-6, 5); B.ground(8); B.tower(5); put(-8, 12); B.ground(6); put(-3, 2); B.ground(10); B.shard('wall');
+          B.shard('high'); B.ground(4); put(-2, 2); B.platforms(3, 3); put(-6, 5); B.ground(8); B.tower(5); put(-8, 12); B.ground(6); put(-3, 2); B.ground(10); B.shard('wall'); B.auto(5, ['flat', 'gap', 'steps', 'plats', 'enemy', 'hook']); B.arena(26, [['puppet', 'puppet', 'soldier'], ['soldier', 'puppet', 'puppet', 'soldier']]); B.auto(3, ['flat', 'up', 'down']);
           B.spawn('quest', B.cx, B.gy, { flag: 'straw', need: 6, scene: 'L3_strawDone' }); B.ground(20); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
       { name: 'Chapter 2: HAMWISE TAKES FLIGHT', intro: 'L3c2_intro', party: ['hamwise'], theme: 'meadow', song: 'pigs', wind: true,
         build(B) { B.ground(16); B.gap(5); B.ground(6); B.step(-3); B.ground(4); B.gap(7); B.ground(6); B.enemy('puppet', -3); B.platforms(2, 2); B.ground(5); B.step(-3); B.ground(4); B.gap(9); B.ground(8); B.shard('high');
-          B.checkpoint(); B.ground(6); B.spikes(5); B.ground(4); B.step(-4); B.ground(3); B.gap(10); B.ground(6); B.enemy('soldier', -2); B.ground(8); B.crumble(8); B.ground(6); B.shard('under'); B.ground(4); B.gap(8); B.ground(10); B.exit(); } },
+          B.checkpoint(); B.auto(5, ['gap', 'plats', 'spikes', 'up', 'down', 'crumble']); B.checkpoint(); B.ground(6); B.spikes(5); B.ground(4); B.step(-4); B.ground(3); B.gap(10); B.ground(6); B.enemy('soldier', -2); B.ground(8); B.crumble(8); B.ground(6); B.shard('under'); B.ground(4); B.gap(8); B.ground(10); B.exit(); } },
       { name: 'Chapter 3: THE STICK HOUSE', intro: 'L3c3_intro', party: ['porkington', 'hamwise'], theme: 'meadow', song: 'pigs',
         build(B) { B.ground(14); const bp = (len, kind = 'bridge') => { B.spawn('blueprint', B.cx - 2, B.gy - 1, { len, kind }); };
           B.ground(4); bp(9); B.gap(7); B.ground(8); B.enemy('puppet', -3); B.ground(4); B.L.fill(B.cx, B.gy - 8, B.cx + 2, B.gy - 1, T_SOLID); B.spawn('blueprint', B.cx - 1, B.gy - 1, { len: 9, kind: 'ladder' }); B.cx += 3; B.step(-8); B.ground(8); B.shard('high'); B.step(8); B.ground(6);
-          B.checkpoint(); B.ground(4); bp(11); B.gap(9); B.ground(6); B.enemy('soldier', -2); B.ground(6); B.spawn('switch', B.cx + 4, B.gy - 6, { link: 'h1' }); B.ground(10); B.spawn('door', B.cx - 2, B.gy - 1, { link: 'h1', hgt: 5 }); B.ground(6); B.shard('wall');
+          B.checkpoint(); B.ground(4); bp(11); B.gap(9); B.ground(6); B.enemy('soldier', -2); B.ground(6); B.spawn('switch', B.cx + 4, B.gy - 6, { link: 'h1' }); B.ground(10); B.spawn('door', B.cx - 2, B.gy - 1, { link: 'h1', hgt: 5 }); B.ground(6); B.shard('wall'); B.checkpoint();
+          for (let i = 0; i < 3; i++) { B.auto(2, ['flat', 'enemy', 'steps']); B.ground(4); bp(9 + i); B.gap(7 + i); B.ground(6); }
           B.ground(4); B.spawn('housesite', B.cx + 8, B.gy, { kind: 'stick' }); for (let i = 0; i < 4; i++) B.spawn('blueprint', B.cx + 2 + i * 4, B.gy - 1, { len: 2, kind: 'ladder', onBuild: 'stick' });
           B.spawn('quest', B.cx + 20, B.gy, { flag: 'stick', need: 4, scene: 'L3_stickDone', silent: true }); B.ground(30); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
       { name: 'Chapter 4: HOG WILD HIGHWAY', intro: 'L3c4_intro', party: ['hamwise', 'porkington'], theme: 'meadow', song: 'chase',
         build(B) { B.ground(10); B.spawn('chasezone', B.cx, B.gy, { scroll: 2.0, rider: 'barnaby', lines: ['LITTLE PIGS, LITTLE PIGS!', 'Hit the gas, Razz!', 'I am contractually obligated to huff!', 'BACON BACON BACON!'] });
           B.ground(14); B.gap(4); B.ground(8); B.spawn('blueprint', B.cx - 1, B.gy - 1, { len: 9 }); B.gap(7); B.ground(10); B.step(-2); B.ground(8); B.gap(6); B.ground(8); B.spikes(3); B.ground(8); B.step(2); B.ground(6);
           B.spawn('blueprint', B.cx - 1, B.gy - 1, { len: 10 }); B.gap(8); B.ground(10); B.enemy('puppet', -3); B.ground(8); B.gap(7); B.ground(10); B.shard('high'); B.ground(10); B.step(-2); B.ground(12); B.gap(5); B.ground(14);
+          for (let i = 0; i < 4; i++) { B.ground(8); B.spawn('blueprint', B.cx - 1, B.gy - 1, { len: 9 }); B.gap(7); B.ground(10); B.gap(4); B.ground(6); B.spikes(2); B.ground(8); }
           B.spawn('chaseend', B.cx, B.gy, { scene: 'L3_truffPunch' }); B.ground(14); B.exit(); } },
       { name: 'Chapter 5: THE BRICK HOUSE', intro: 'L3c5_intro', party: ['monster', 'trufflina', 'porkington', 'hamwise'], theme: 'farm', song: 'L3',
         build(B) { B.ground(12); for (let i = 0; i < 3; i++) B.spawn('brick', B.cx + 4 + i * 3, B.gy - 2);
           const site = B.cx + 14; B.ground(28); for (let y = 0; y < 2; y++) for (let x = 0; x < 4; x++) B.spawn('slot', site + x, B.gy - 1 - y, { group: 'house' });
           B.ground(6); B.wall(4); B.ground(4); B.spawn('brick', B.cx, B.gy - 2); B.ground(6); B.gap(3); B.ground(6); B.spawn('brick', B.cx - 2, B.gy - 2); B.enemy('soldier', -4); B.ground(6); B.tower(4); B.spawn('brick', B.cx - 5, B.gy - 9); B.ground(6); B.shard('wall'); B.spawn('brick', B.cx - 1, B.gy - 2); B.ground(6); B.wall(3); B.ground(3); B.spawn('brick', B.cx, B.gy - 2); B.ground(8); B.shard('under'); B.spawn('brick', B.cx - 2, B.gy - 2);
-          B.spawn('quest', site, B.gy, { flag: 'houseBrick', need: 8, scene: 'L3_brickDone', silent: true }); B.ground(10); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
+          B.spawn('quest', site, B.gy, { flag: 'houseBrick', need: 8, scene: 'L3_brickDone', silent: true }); B.ground(4); B.arena(28, [['puppet', 'soldier', 'puppet'], ['soldier', 'soldier', 'puppet', 'puppet'], ['soldier', 'puppet', 'soldier', 'puppet', 'soldier']]); B.ground(10); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
       { name: 'Chapter 6: HUFF, PUFF AND SHRED', intro: 'L3c6_intro', theme: 'farm', song: 'wolf', boss: true,
         build(B) { B.ground(14); B.shard('high'); B.ground(4); bossArena(B, 'wolf', 40, { ver: 1, scene: 'L3_bossIntro' }); } },
       { name: 'Chapter 7: THE CONCERT', intro: 'L3c7_intro', theme: 'stage', song: 'pigs', concert: 'pigs', build(B) { B.ground(60); } }
     ] },
   { id: 'L4', name: "Mother Monster's Nightmare", world: 0, theme: 'castle', song: 'L4', enemies: ['candle', 'soldier', 'puppet'], flyers: ['bookbat'], intro: 'L4_intro', diff: 1.6,
     build(B) { B.ground(14); B.auto(5, ['flat', 'flyers', 'gap', 'steps', 'crumble', 'spikes']); B.shard('high'); B.checkpoint(); B.npc('gloopkin', 'L4_book', 4, { face: -1 }); B.ground(10);
-      B.auto(4, ['tower', 'hook', 'flyers', 'wall']); B.shard('wall'); B.checkpoint(); B.arena(26, [['candle', 'bookbat', 'soldier'], ['bookbat', 'bookbat', 'soldier', 'candle']]);
+      B.auto(4, ['tower', 'hook', 'flyers', 'wall']); B.crateWall(); B.shard('wall'); B.checkpoint(); B.arena(26, [['candle', 'bookbat', 'soldier'], ['bookbat', 'bookbat', 'soldier', 'candle']]);
       B.auto(5, ['crumble', 'moving', 'flyers', 'spikes', 'plats']); B.shard('hook'); B.ground(6); B.exit(); } },
   { id: 'L5', name: "The Puppet King's Revenge", world: 0, theme: 'theater', song: 'L5', enemies: ['puppet', 'soldier'], flyers: ['bookbat'], intro: 'L5_intro', diff: 1.8,
     build(B) { B.ground(14); B.auto(4, ['flat', 'plats', 'hook', 'enemy', 'wall']); B.shard('under'); B.checkpoint(); B.auto(4, ['moving', 'spikes', 'flyers', 'tower']); B.shard('high'); B.shard('hook'); bossArena(B, 'puppetking', 42, { scene: 'L5_boss' }); } },
@@ -2850,7 +2895,7 @@ const LEVELS = [
     build(B) { B.ground(14); B.auto(4, ['flat', 'plats', 'enemy', 'hook', 'tower']); B.npc('bear', 'L11_bear', 6, { face: -1 }); B.ground(14); B.shard('high'); B.checkpoint(); B.auto(4, ['flyers', 'spikes', 'moving', 'steps']); B.shard('wall'); B.shard('hook'); bossArena(B, 'wolf', 42, { ver: 2, scene: 'L11_boss' }); } },
   { id: 'L12', name: 'Electric Mansion', world: 2, theme: 'mansion', song: 'L12', enemies: ['candle', 'spark'], flyers: ['spark'], intro: 'L12_intro', diff: 3,
     build(B) { B.ground(14); B.auto(4, ['zap', 'flyers', 'flat', 'steps']); B.shard('under'); B.checkpoint(); B.ground(4); B.spawn('switch', B.cx + 3, B.gy - 7, { link: 'm1', timed: 300 }); B.ground(8); B.zap(4); B.ground(4); B.spawn('door', B.cx - 1, B.gy - 1, { link: 'm1', hgt: 6 }); B.ground(6);
-      B.auto(4, ['tower', 'beat', 'zap', 'hook']); B.shard('high'); B.checkpoint(); B.arena(26, [['spark', 'candle', 'spark'], ['spark', 'spark', 'candle', 'candle']]); B.auto(3, ['moving', 'zap', 'flyers']); B.shard('wall'); B.exit(); } },
+      B.auto(4, ['tower', 'beat', 'zap', 'hook']); B.crateWall(); B.shard('high'); B.checkpoint(); B.arena(26, [['spark', 'candle', 'spark'], ['spark', 'spark', 'candle', 'candle']]); B.auto(3, ['moving', 'zap', 'flyers']); B.shard('wall'); B.exit(); } },
   { id: 'L13', name: 'The Impossible Door', world: 2, theme: 'void', song: 'L13', enemies: ['hand', 'shroom'], flyers: ['hand'], intro: 'L13_intro', diff: 3.2, ceiling: true,
     build(B) { B.ground(14); B.spawn('portal', B.cx, B.gy, { pair: 'a', to: 'a2' }); B.ground(6); B.gap(14); B.spawn('portal', B.cx + 2, B.gy, { pair: 'a2' }); B.ground(10);
       B.spawn('gravity', B.cx + 4, B.gy - 2); B.ground(30); B.spawn('gravity', B.cx - 4, 2); B.ground(6); B.shard('high'); B.checkpoint();
@@ -2869,7 +2914,7 @@ const LEVELS = [
     build(B) { B.ground(14); B.auto(4, ['pool', 'conveyor', 'enemy', 'pool']); B.shard('under'); B.checkpoint(); B.auto(4, ['zap', 'pool', 'hook', 'conveyor', 'moving']); B.shard('high'); B.checkpoint(); B.arena(28, [['fish', 'fish', 'can'], ['fish', 'can', 'can', 'fish']]); B.auto(3, ['pool', 'tower', 'crumble']); B.shard('wall'); B.exit(); } },
   { id: 'L19', name: 'Puppet Riot', world: 3, theme: 'prison', song: 'L19', enemies: ['teddy', 'puppet', 'soldier'], intro: 'L19_intro', diff: 4.1,
     build(B) { B.ground(14); B.auto(4, ['flat', 'enemy', 'wall', 'zap']); B.shard('wall'); B.checkpoint(); for (let i = 0; i < 3; i++) { B.ground(4); B.spawn('switch', B.cx + 2, B.gy - 6, { link: 'p' + i, timed: 240 }); B.ground(8); B.spawn('door', B.cx - 1, B.gy - 1, { link: 'p' + i, hgt: 6 }); B.ground(4); B.npc('roadie', 'rescue', 2); B.ground(6); B.enemy('teddy', -3); }
-      B.shard('high'); B.checkpoint(); B.arena(28, [['teddy', 'teddy', 'puppet'], ['soldier', 'teddy', 'teddy', 'soldier']]); B.auto(4, ['spikes', 'tower', 'hook', 'zap']); B.shard('hook'); B.exit(); } },
+      B.shard('high'); B.crateWall(); B.checkpoint(); B.arena(28, [['teddy', 'teddy', 'puppet'], ['soldier', 'teddy', 'teddy', 'soldier']]); B.auto(4, ['spikes', 'tower', 'hook', 'zap']); B.shard('hook'); B.exit(); } },
   { id: 'L20', name: 'Carnival of Bad Decisions', world: 3, theme: 'bigtop', song: 'L20', enemies: ['clown', 'ticket', 'balloon'], flyers: ['balloon'], intro: 'L20_intro', diff: 4.3,
     build(B) { B.ground(14); B.auto(5, ['plats', 'moving', 'enemy', 'flyers', 'spikes']); B.shard('high'); B.shard('wall'); B.checkpoint(); B.auto(2, ['hook', 'tower']); B.shard('hook'); bossArena(B, 'clown', 44, { scene: 'L20_boss' }); } },
   // ========================================================= WORLD 5 — GARBAGE KINGDOM
@@ -2897,7 +2942,7 @@ const LEVELS = [
     } },
   { id: 'L22', name: 'The Garbage Children', world: 4, theme: 'junk', song: 'L22', enemies: ['toy', 'rat', 'bag'], intro: 'L22_intro', diff: 4.6,
     build(B) { B.ground(14); B.auto(3, ['flat', 'enemy', 'steps']); for (let i = 0; i < 4; i++) { B.auto(2, ['gap', 'plats', 'hook', 'wall', 'enemy', 'crumble']); B.npc('roadie', 'rescue', 3); B.ground(8); if (i === 1) { B.shard('high'); B.checkpoint(); } }
-      B.shard('wall'); B.arena(28, [['toy', 'toy', 'rat'], ['bag', 'toy', 'toy', 'bag']]); B.auto(3, ['tower', 'spikes', 'moving']); B.shard('hook'); B.exit(); } },
+      B.shard('wall'); B.crateWall(); B.arena(28, [['toy', 'toy', 'rat'], ['bag', 'toy', 'toy', 'bag']]); B.auto(3, ['tower', 'spikes', 'moving']); B.shard('hook'); B.exit(); } },
   { id: 'L23', name: 'Dumpster Derby', world: 4, theme: 'derby', song: 'L23', enemies: ['rat'], intro: 'L23_intro', diff: 4.8, race: true,
     build(B) { B.ground(30, false); B.spawn('racestart', 6, B.gy);
       for (let i = 0; i < 26; i++) { const k = B.RI(0, 6);
@@ -2917,7 +2962,7 @@ const LEVELS = [
     build(B) { B.ground(16); B.npc('hamwise', 'L26_pigs', 4, { face: -1 }); B.ground(10); B.auto(3, ['flat', 'enemy', 'beat']); B.shard('wall'); B.npc('razz', 'L26_razz', 4, { face: -1 }); B.ground(16); B.checkpoint();
       B.auto(4, ['hook', 'beat', 'enemy', 'tower']); B.npc('udderly', 'L26_cow', 4, { face: -1 }); B.ground(14); B.shard('high'); B.auto(3, ['plats', 'enemy', 'moving']); B.shard('hook'); B.exit(); } },
   { id: 'L27', name: 'The Worst Soundcheck Ever', world: 5, theme: 'rock', song: 'L27', enemies: ['speaker', 'roadie', 'amp'], intro: 'L27_intro', diff: 5.6,
-    build(B) { B.ground(14); for (let i = 0; i < 3; i++) { B.ground(4); B.spawn('soundswitch', B.cx + 2, B.gy - 4, { link: 's' + i }); B.ground(8); B.spawn('door', B.cx - 1, B.gy - 1, { link: 's' + i, hgt: 7 }); B.ground(4); B.beatBridge(12); B.ground(4); B.spawn('amp', B.cx, B.gy - 1); B.ground(6); if (i === 1) { B.shard('high'); B.checkpoint(); } }
+    build(B) { B.ground(14); for (let i = 0; i < 3; i++) { B.ground(4); B.spawn('soundswitch', B.cx + 2, B.gy - 4, { link: 's' + i }); B.ground(8); B.spawn('door', B.cx - 1, B.gy - 1, { link: 's' + i, hgt: 7 }); B.ground(4); B.beatBridge(12); B.ground(4); B.spawn('amp', B.cx, B.gy - 1); B.ground(4); B.gapFill(10); B.spawn('mplat', B.cx + 3, B.gy, { beat: true, w: 4, range: 0 }); B.cx += 10; B.ground(6); if (i === 1) { B.shard('high'); B.checkpoint(); } }
       B.shard('wall'); B.arena(28, [['speaker', 'roadie', 'roadie'], ['amp', 'speaker', 'roadie', 'amp']]); B.auto(4, ['beat', 'zap', 'hook', 'tower']); B.shard('hook'); B.exit(); } },
   { id: 'L28', name: 'The Interdimensional Mosh Pit', world: 5, theme: 'rock', song: 'L28', enemies: ['roadie', 'gloopkin', 'clown', 'cultcow', 'puppet'], intro: 'L28_intro', diff: 5.8, allyCow: true,
     build(B) { B.ground(14); B.arena(30, [['puppet', 'soldier', 'cable'], ['loop', 'carton', 'cultcow', 'bacon'], ['shroom', 'spark', 'felt']]); B.shard('wall'); B.checkpoint();
@@ -3242,6 +3287,7 @@ const Game = {
       case 'collect': this.add(new Collectable(s)); this.need[s.flag] = (this.need[s.flag] || 0) + 1; break;
       case 'pull': { const p = this.add(new Pullable(s)); L.solidEnts.push(p); break; }
       case 'amp': { const a = this.add(new AmpTotem(s)); L.solidEnts.push(a); break; }
+      case 'sign': this.add(new Sign(s)); break;
       case 'housesite': this.add(new HouseSite(s)); break;
       case 'quest': this.add(new Quest(s)); break;
       case 'chasezone': case 'scrollzone': this.add(new ChaseZone(Object.assign({ collapse: s.type === 'scrollzone' }, s))); break;
@@ -3477,7 +3523,7 @@ const Game = {
     wind() { for (let i = 0; i < 60; i++) FX.add({ x: Cam.x + R(W), y: Cam.y + R(H), vx: 8, vy: R(-1, 1), col: '#fff8', size: 2, life: 50, grav: 0 }); },
     nextChapter() { Game.cutscene.nextChapter = true; Game.cutscene.i = Game.cutscene.steps.length; },
     lockArena() { const g = Game.bossGate; if (!g) return; const L = Game.L; L.camLock = { x0: g.o.x0, x1: g.o.x0 + g.o.w }; const tx = Math.floor(g.o.x0 / TS) - 1; for (let ty = 0; ty < g.o.gy; ty++) L.tiles[L.idx(tx, ty)] = T_WALL; AudioSys.setIntensity(3); },
-    spawnBoss() { const g = Game.bossGate; if (!g) return; const C = BOSS_CLASSES[g.o.kind]; const b = new C(g.o.x0 + g.o.w * .7, g.o.gy * TS, g.o); Game.add(b); Game.boss = b; Game.bossHits = Game.player.hitTaken; HUD.bossIntro = 120; AudioSys.setIntensity(3); },
+    spawnBoss() { const g = Game.bossGate; if (!g) return; const C = BOSS_CLASSES[g.o.kind]; const b = new C(g.o.x0 + g.o.w * .7, g.o.gy * TS, g.o); Game.add(b); Game.boss = b; Game.bossHits = Game.player.hitTaken; HUD.bossIntro = 120; AudioSys.setIntensity(3); AudioSys.setBossPhase(1); },
     gloopkins() { for (let i = 0; i < 3; i++) { const e = new Enemy({ kind: 'gloopkin', x: Game.player.cx + 100 + i * 40, y: Game.player.y - 30 }); e.wake = true; Game.add(e); } },
     ally() { if (!Game.ally) Game.add(new UdderlyAlly(Game.player.cx - 60, Game.player.cy - 80)); },
     give(f) { if (Save.form(f)) { HUD.banner('UNLOCKED: ' + FORMS[f].name, '#7fff3a', FORMS[f].desc); AudioSys.play_sfx('power'); Game.player.transT = 60; } },
@@ -3518,6 +3564,7 @@ const HUD = {
     spr(ICON.note, W - 60, 30); text('x' + Game.levelStats.notes, W - 50, 20, { color: '#ffe14d', outline: true });
     for (let i = 0; i < 3; i++) { const got = Game.levelStats.shards[i], had = Game.shardsHave(i); ctx.globalAlpha = got ? 1 : had ? .45 : .18; ctx.drawImage(ICON.shard, W - 50 + i * 15, 34); ctx.globalAlpha = 1; }
     if (Save.data.summons.length && !p.isPig()) { const k = Save.data.summons[p.summonSel % Save.data.summons.length]; text('SUMMON: ' + SUMMONS[k].name, W - 8, H - 12, { color: p.metal >= 50 ? '#5bd4ff' : '#557', align: 'right', outline: true }); }
+    if (p.vehicle) { text('BOOST', 8, H - 24, { color: '#ffa01a', outline: true }); P.r(ctx, 44, H - 24, 80, 6, '#300'); P.r(ctx, 44, H - 24, 80 * (p.boost || 0) / 100, 6, '#ffa01a'); text('HOLD ' + K().dash, 130, H - 24, { color: '#888', outline: true }); }
     if (Game.party && Game.party.length > 1) { text('SWITCH: ' + K().form, 8, H - 12, { color: '#ff8ab0', outline: true }); }
     if (Game.quest && !Game.quest.silent) { const f = Game.quest.flag; panel(W / 2 - 80, 6, 160, 12, { rim: '#ffd860' }); text((HUD.questLabel || 'QUEST') + ': ' + (Game.flags[f] || 0) + '/' + Game.quest.need, W / 2, 9, { color: '#ffd860', align: 'center' }); }
     else if (Game.quest && Game.quest.silent && Game.need[Game.quest.flag]) { panel(W / 2 - 60, 6, 120, 12, { rim: '#ffd860' }); text('BUILD: ' + (Game.flags[Game.quest.flag] || 0) + '/' + Game.quest.need, W / 2, 9, { color: '#ffd860', align: 'center' }); }
@@ -3656,7 +3703,7 @@ const Results = {
 const WorldMap = {
   sel: 0, t: 0,
   nodes: null,
-  layout() { if (this.nodes) return; this.nodes = LEVELS.map((l, i) => { const w = l.world, k = i % 5; const bx = 40 + w * 100, x = bx + [10, 50, 30, 70, 40][k], y = 260 - k * 40 + (w % 2 ? -10 : 0); return { x, y, l }; }); },
+  layout() { if (this.nodes) return; this.nodes = LEVELS.map((l, i) => { const w = l.world, k = i % 5; const bx = 40 + w * 100, x = bx + [10, 50, 30, 70, 40][k], y = 276 - k * 37 + (w % 2 ? -6 : 0); return { x, y, l }; }); },
   open(focus) { this.layout(); G.state = 'map'; AudioSys.play('map'); this.sel = clamp((focus || Save.data.unlocked) - 1, 0, Math.min(Save.data.unlocked, 30) - 1); this.t = 0; Game.L = null; Save.write(); },
   update() {
     this.t++; if (Menus.update()) return; const max = Math.min(Save.data.unlocked, 30) - 1;
@@ -3825,8 +3872,9 @@ const Ending = {
 // ============================================================================
 G.hitstop = 0; G.fps = 60;
 function update() {
-  Input.update(); AudioSys.schedule();
-  if (G.hitstop > 0) { G.hitstop--; return; }
+  AudioSys.schedule();
+  if (G.hitstop > 0) { G.hitstop--; return; } // input is not sampled during hit-stop, so presses carry over
+  Input.update();
   switch (G.state) {
     case 'title': Title.update(); break;
     case 'map': WorldMap.update(); break;

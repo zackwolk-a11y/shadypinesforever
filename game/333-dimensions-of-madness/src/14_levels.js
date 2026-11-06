@@ -45,34 +45,36 @@ const LEVELS = [
         build(B) { B.ground(20); B.npc('hamwise', 'L3_hamwise', 8, { face: -1 }); B.ground(12); B.spawn('housesite', B.cx - 8, B.gy, { kind: 'straw' });
           const straw = []; const put = (dx, dy) => B.spawn('collect', B.cx + dx, B.gy - dy, { kind: 'straw', flag: 'straw' });
           B.ground(10); put(-4, 2); B.gap(3); B.ground(8); B.step(-3); B.ground(6); put(-3, 6); B.step(3); B.ground(8); B.hookGap(12); put(-6, 4); B.ground(6); B.enemy('puppet', -3);
-          B.shard('high'); B.ground(4); put(-2, 2); B.platforms(3, 3); put(-6, 5); B.ground(8); B.tower(5); put(-8, 12); B.ground(6); put(-3, 2); B.ground(10); B.shard('wall');
+          B.shard('high'); B.ground(4); put(-2, 2); B.platforms(3, 3); put(-6, 5); B.ground(8); B.tower(5); put(-8, 12); B.ground(6); put(-3, 2); B.ground(10); B.shard('wall'); B.auto(5, ['flat', 'gap', 'steps', 'plats', 'enemy', 'hook']); B.arena(26, [['puppet', 'puppet', 'soldier'], ['soldier', 'puppet', 'puppet', 'soldier']]); B.auto(3, ['flat', 'up', 'down']);
           B.spawn('quest', B.cx, B.gy, { flag: 'straw', need: 6, scene: 'L3_strawDone' }); B.ground(20); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
       { name: 'Chapter 2: HAMWISE TAKES FLIGHT', intro: 'L3c2_intro', party: ['hamwise'], theme: 'meadow', song: 'pigs', wind: true,
         build(B) { B.ground(16); B.gap(5); B.ground(6); B.step(-3); B.ground(4); B.gap(7); B.ground(6); B.enemy('puppet', -3); B.platforms(2, 2); B.ground(5); B.step(-3); B.ground(4); B.gap(9); B.ground(8); B.shard('high');
-          B.checkpoint(); B.ground(6); B.spikes(5); B.ground(4); B.step(-4); B.ground(3); B.gap(10); B.ground(6); B.enemy('soldier', -2); B.ground(8); B.crumble(8); B.ground(6); B.shard('under'); B.ground(4); B.gap(8); B.ground(10); B.exit(); } },
+          B.checkpoint(); B.auto(5, ['gap', 'plats', 'spikes', 'up', 'down', 'crumble']); B.checkpoint(); B.ground(6); B.spikes(5); B.ground(4); B.step(-4); B.ground(3); B.gap(10); B.ground(6); B.enemy('soldier', -2); B.ground(8); B.crumble(8); B.ground(6); B.shard('under'); B.ground(4); B.gap(8); B.ground(10); B.exit(); } },
       { name: 'Chapter 3: THE STICK HOUSE', intro: 'L3c3_intro', party: ['porkington', 'hamwise'], theme: 'meadow', song: 'pigs',
         build(B) { B.ground(14); const bp = (len, kind = 'bridge') => { B.spawn('blueprint', B.cx - 2, B.gy - 1, { len, kind }); };
           B.ground(4); bp(9); B.gap(7); B.ground(8); B.enemy('puppet', -3); B.ground(4); B.L.fill(B.cx, B.gy - 8, B.cx + 2, B.gy - 1, T_SOLID); B.spawn('blueprint', B.cx - 1, B.gy - 1, { len: 9, kind: 'ladder' }); B.cx += 3; B.step(-8); B.ground(8); B.shard('high'); B.step(8); B.ground(6);
-          B.checkpoint(); B.ground(4); bp(11); B.gap(9); B.ground(6); B.enemy('soldier', -2); B.ground(6); B.spawn('switch', B.cx + 4, B.gy - 6, { link: 'h1' }); B.ground(10); B.spawn('door', B.cx - 2, B.gy - 1, { link: 'h1', hgt: 5 }); B.ground(6); B.shard('wall');
+          B.checkpoint(); B.ground(4); bp(11); B.gap(9); B.ground(6); B.enemy('soldier', -2); B.ground(6); B.spawn('switch', B.cx + 4, B.gy - 6, { link: 'h1' }); B.ground(10); B.spawn('door', B.cx - 2, B.gy - 1, { link: 'h1', hgt: 5 }); B.ground(6); B.shard('wall'); B.checkpoint();
+          for (let i = 0; i < 3; i++) { B.auto(2, ['flat', 'enemy', 'steps']); B.ground(4); bp(9 + i); B.gap(7 + i); B.ground(6); }
           B.ground(4); B.spawn('housesite', B.cx + 8, B.gy, { kind: 'stick' }); for (let i = 0; i < 4; i++) B.spawn('blueprint', B.cx + 2 + i * 4, B.gy - 1, { len: 2, kind: 'ladder', onBuild: 'stick' });
           B.spawn('quest', B.cx + 20, B.gy, { flag: 'stick', need: 4, scene: 'L3_stickDone', silent: true }); B.ground(30); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
       { name: 'Chapter 4: HOG WILD HIGHWAY', intro: 'L3c4_intro', party: ['hamwise', 'porkington'], theme: 'meadow', song: 'chase',
         build(B) { B.ground(10); B.spawn('chasezone', B.cx, B.gy, { scroll: 2.0, rider: 'barnaby', lines: ['LITTLE PIGS, LITTLE PIGS!', 'Hit the gas, Razz!', 'I am contractually obligated to huff!', 'BACON BACON BACON!'] });
           B.ground(14); B.gap(4); B.ground(8); B.spawn('blueprint', B.cx - 1, B.gy - 1, { len: 9 }); B.gap(7); B.ground(10); B.step(-2); B.ground(8); B.gap(6); B.ground(8); B.spikes(3); B.ground(8); B.step(2); B.ground(6);
           B.spawn('blueprint', B.cx - 1, B.gy - 1, { len: 10 }); B.gap(8); B.ground(10); B.enemy('puppet', -3); B.ground(8); B.gap(7); B.ground(10); B.shard('high'); B.ground(10); B.step(-2); B.ground(12); B.gap(5); B.ground(14);
+          for (let i = 0; i < 4; i++) { B.ground(8); B.spawn('blueprint', B.cx - 1, B.gy - 1, { len: 9 }); B.gap(7); B.ground(10); B.gap(4); B.ground(6); B.spikes(2); B.ground(8); }
           B.spawn('chaseend', B.cx, B.gy, { scene: 'L3_truffPunch' }); B.ground(14); B.exit(); } },
       { name: 'Chapter 5: THE BRICK HOUSE', intro: 'L3c5_intro', party: ['monster', 'trufflina', 'porkington', 'hamwise'], theme: 'farm', song: 'L3',
         build(B) { B.ground(12); for (let i = 0; i < 3; i++) B.spawn('brick', B.cx + 4 + i * 3, B.gy - 2);
           const site = B.cx + 14; B.ground(28); for (let y = 0; y < 2; y++) for (let x = 0; x < 4; x++) B.spawn('slot', site + x, B.gy - 1 - y, { group: 'house' });
           B.ground(6); B.wall(4); B.ground(4); B.spawn('brick', B.cx, B.gy - 2); B.ground(6); B.gap(3); B.ground(6); B.spawn('brick', B.cx - 2, B.gy - 2); B.enemy('soldier', -4); B.ground(6); B.tower(4); B.spawn('brick', B.cx - 5, B.gy - 9); B.ground(6); B.shard('wall'); B.spawn('brick', B.cx - 1, B.gy - 2); B.ground(6); B.wall(3); B.ground(3); B.spawn('brick', B.cx, B.gy - 2); B.ground(8); B.shard('under'); B.spawn('brick', B.cx - 2, B.gy - 2);
-          B.spawn('quest', site, B.gy, { flag: 'houseBrick', need: 8, scene: 'L3_brickDone', silent: true }); B.ground(10); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
+          B.spawn('quest', site, B.gy, { flag: 'houseBrick', need: 8, scene: 'L3_brickDone', silent: true }); B.ground(4); B.arena(28, [['puppet', 'soldier', 'puppet'], ['soldier', 'soldier', 'puppet', 'puppet'], ['soldier', 'puppet', 'soldier', 'puppet', 'soldier']]); B.ground(10); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
       { name: 'Chapter 6: HUFF, PUFF AND SHRED', intro: 'L3c6_intro', theme: 'farm', song: 'wolf', boss: true,
         build(B) { B.ground(14); B.shard('high'); B.ground(4); bossArena(B, 'wolf', 40, { ver: 1, scene: 'L3_bossIntro' }); } },
       { name: 'Chapter 7: THE CONCERT', intro: 'L3c7_intro', theme: 'stage', song: 'pigs', concert: 'pigs', build(B) { B.ground(60); } }
     ] },
   { id: 'L4', name: "Mother Monster's Nightmare", world: 0, theme: 'castle', song: 'L4', enemies: ['candle', 'soldier', 'puppet'], flyers: ['bookbat'], intro: 'L4_intro', diff: 1.6,
     build(B) { B.ground(14); B.auto(5, ['flat', 'flyers', 'gap', 'steps', 'crumble', 'spikes']); B.shard('high'); B.checkpoint(); B.npc('gloopkin', 'L4_book', 4, { face: -1 }); B.ground(10);
-      B.auto(4, ['tower', 'hook', 'flyers', 'wall']); B.shard('wall'); B.checkpoint(); B.arena(26, [['candle', 'bookbat', 'soldier'], ['bookbat', 'bookbat', 'soldier', 'candle']]);
+      B.auto(4, ['tower', 'hook', 'flyers', 'wall']); B.crateWall(); B.shard('wall'); B.checkpoint(); B.arena(26, [['candle', 'bookbat', 'soldier'], ['bookbat', 'bookbat', 'soldier', 'candle']]);
       B.auto(5, ['crumble', 'moving', 'flyers', 'spikes', 'plats']); B.shard('hook'); B.ground(6); B.exit(); } },
   { id: 'L5', name: "The Puppet King's Revenge", world: 0, theme: 'theater', song: 'L5', enemies: ['puppet', 'soldier'], flyers: ['bookbat'], intro: 'L5_intro', diff: 1.8,
     build(B) { B.ground(14); B.auto(4, ['flat', 'plats', 'hook', 'enemy', 'wall']); B.shard('under'); B.checkpoint(); B.auto(4, ['moving', 'spikes', 'flyers', 'tower']); B.shard('high'); B.shard('hook'); bossArena(B, 'puppetking', 42, { scene: 'L5_boss' }); } },
@@ -95,7 +97,7 @@ const LEVELS = [
     build(B) { B.ground(14); B.auto(4, ['flat', 'plats', 'enemy', 'hook', 'tower']); B.npc('bear', 'L11_bear', 6, { face: -1 }); B.ground(14); B.shard('high'); B.checkpoint(); B.auto(4, ['flyers', 'spikes', 'moving', 'steps']); B.shard('wall'); B.shard('hook'); bossArena(B, 'wolf', 42, { ver: 2, scene: 'L11_boss' }); } },
   { id: 'L12', name: 'Electric Mansion', world: 2, theme: 'mansion', song: 'L12', enemies: ['candle', 'spark'], flyers: ['spark'], intro: 'L12_intro', diff: 3,
     build(B) { B.ground(14); B.auto(4, ['zap', 'flyers', 'flat', 'steps']); B.shard('under'); B.checkpoint(); B.ground(4); B.spawn('switch', B.cx + 3, B.gy - 7, { link: 'm1', timed: 300 }); B.ground(8); B.zap(4); B.ground(4); B.spawn('door', B.cx - 1, B.gy - 1, { link: 'm1', hgt: 6 }); B.ground(6);
-      B.auto(4, ['tower', 'beat', 'zap', 'hook']); B.shard('high'); B.checkpoint(); B.arena(26, [['spark', 'candle', 'spark'], ['spark', 'spark', 'candle', 'candle']]); B.auto(3, ['moving', 'zap', 'flyers']); B.shard('wall'); B.exit(); } },
+      B.auto(4, ['tower', 'beat', 'zap', 'hook']); B.crateWall(); B.shard('high'); B.checkpoint(); B.arena(26, [['spark', 'candle', 'spark'], ['spark', 'spark', 'candle', 'candle']]); B.auto(3, ['moving', 'zap', 'flyers']); B.shard('wall'); B.exit(); } },
   { id: 'L13', name: 'The Impossible Door', world: 2, theme: 'void', song: 'L13', enemies: ['hand', 'shroom'], flyers: ['hand'], intro: 'L13_intro', diff: 3.2, ceiling: true,
     build(B) { B.ground(14); B.spawn('portal', B.cx, B.gy, { pair: 'a', to: 'a2' }); B.ground(6); B.gap(14); B.spawn('portal', B.cx + 2, B.gy, { pair: 'a2' }); B.ground(10);
       B.spawn('gravity', B.cx + 4, B.gy - 2); B.ground(30); B.spawn('gravity', B.cx - 4, 2); B.ground(6); B.shard('high'); B.checkpoint();
@@ -114,7 +116,7 @@ const LEVELS = [
     build(B) { B.ground(14); B.auto(4, ['pool', 'conveyor', 'enemy', 'pool']); B.shard('under'); B.checkpoint(); B.auto(4, ['zap', 'pool', 'hook', 'conveyor', 'moving']); B.shard('high'); B.checkpoint(); B.arena(28, [['fish', 'fish', 'can'], ['fish', 'can', 'can', 'fish']]); B.auto(3, ['pool', 'tower', 'crumble']); B.shard('wall'); B.exit(); } },
   { id: 'L19', name: 'Puppet Riot', world: 3, theme: 'prison', song: 'L19', enemies: ['teddy', 'puppet', 'soldier'], intro: 'L19_intro', diff: 4.1,
     build(B) { B.ground(14); B.auto(4, ['flat', 'enemy', 'wall', 'zap']); B.shard('wall'); B.checkpoint(); for (let i = 0; i < 3; i++) { B.ground(4); B.spawn('switch', B.cx + 2, B.gy - 6, { link: 'p' + i, timed: 240 }); B.ground(8); B.spawn('door', B.cx - 1, B.gy - 1, { link: 'p' + i, hgt: 6 }); B.ground(4); B.npc('roadie', 'rescue', 2); B.ground(6); B.enemy('teddy', -3); }
-      B.shard('high'); B.checkpoint(); B.arena(28, [['teddy', 'teddy', 'puppet'], ['soldier', 'teddy', 'teddy', 'soldier']]); B.auto(4, ['spikes', 'tower', 'hook', 'zap']); B.shard('hook'); B.exit(); } },
+      B.shard('high'); B.crateWall(); B.checkpoint(); B.arena(28, [['teddy', 'teddy', 'puppet'], ['soldier', 'teddy', 'teddy', 'soldier']]); B.auto(4, ['spikes', 'tower', 'hook', 'zap']); B.shard('hook'); B.exit(); } },
   { id: 'L20', name: 'Carnival of Bad Decisions', world: 3, theme: 'bigtop', song: 'L20', enemies: ['clown', 'ticket', 'balloon'], flyers: ['balloon'], intro: 'L20_intro', diff: 4.3,
     build(B) { B.ground(14); B.auto(5, ['plats', 'moving', 'enemy', 'flyers', 'spikes']); B.shard('high'); B.shard('wall'); B.checkpoint(); B.auto(2, ['hook', 'tower']); B.shard('hook'); bossArena(B, 'clown', 44, { scene: 'L20_boss' }); } },
   // ========================================================= WORLD 5 — GARBAGE KINGDOM
@@ -142,7 +144,7 @@ const LEVELS = [
     } },
   { id: 'L22', name: 'The Garbage Children', world: 4, theme: 'junk', song: 'L22', enemies: ['toy', 'rat', 'bag'], intro: 'L22_intro', diff: 4.6,
     build(B) { B.ground(14); B.auto(3, ['flat', 'enemy', 'steps']); for (let i = 0; i < 4; i++) { B.auto(2, ['gap', 'plats', 'hook', 'wall', 'enemy', 'crumble']); B.npc('roadie', 'rescue', 3); B.ground(8); if (i === 1) { B.shard('high'); B.checkpoint(); } }
-      B.shard('wall'); B.arena(28, [['toy', 'toy', 'rat'], ['bag', 'toy', 'toy', 'bag']]); B.auto(3, ['tower', 'spikes', 'moving']); B.shard('hook'); B.exit(); } },
+      B.shard('wall'); B.crateWall(); B.arena(28, [['toy', 'toy', 'rat'], ['bag', 'toy', 'toy', 'bag']]); B.auto(3, ['tower', 'spikes', 'moving']); B.shard('hook'); B.exit(); } },
   { id: 'L23', name: 'Dumpster Derby', world: 4, theme: 'derby', song: 'L23', enemies: ['rat'], intro: 'L23_intro', diff: 4.8, race: true,
     build(B) { B.ground(30, false); B.spawn('racestart', 6, B.gy);
       for (let i = 0; i < 26; i++) { const k = B.RI(0, 6);
@@ -162,7 +164,7 @@ const LEVELS = [
     build(B) { B.ground(16); B.npc('hamwise', 'L26_pigs', 4, { face: -1 }); B.ground(10); B.auto(3, ['flat', 'enemy', 'beat']); B.shard('wall'); B.npc('razz', 'L26_razz', 4, { face: -1 }); B.ground(16); B.checkpoint();
       B.auto(4, ['hook', 'beat', 'enemy', 'tower']); B.npc('udderly', 'L26_cow', 4, { face: -1 }); B.ground(14); B.shard('high'); B.auto(3, ['plats', 'enemy', 'moving']); B.shard('hook'); B.exit(); } },
   { id: 'L27', name: 'The Worst Soundcheck Ever', world: 5, theme: 'rock', song: 'L27', enemies: ['speaker', 'roadie', 'amp'], intro: 'L27_intro', diff: 5.6,
-    build(B) { B.ground(14); for (let i = 0; i < 3; i++) { B.ground(4); B.spawn('soundswitch', B.cx + 2, B.gy - 4, { link: 's' + i }); B.ground(8); B.spawn('door', B.cx - 1, B.gy - 1, { link: 's' + i, hgt: 7 }); B.ground(4); B.beatBridge(12); B.ground(4); B.spawn('amp', B.cx, B.gy - 1); B.ground(6); if (i === 1) { B.shard('high'); B.checkpoint(); } }
+    build(B) { B.ground(14); for (let i = 0; i < 3; i++) { B.ground(4); B.spawn('soundswitch', B.cx + 2, B.gy - 4, { link: 's' + i }); B.ground(8); B.spawn('door', B.cx - 1, B.gy - 1, { link: 's' + i, hgt: 7 }); B.ground(4); B.beatBridge(12); B.ground(4); B.spawn('amp', B.cx, B.gy - 1); B.ground(4); B.gapFill(10); B.spawn('mplat', B.cx + 3, B.gy, { beat: true, w: 4, range: 0 }); B.cx += 10; B.ground(6); if (i === 1) { B.shard('high'); B.checkpoint(); } }
       B.shard('wall'); B.arena(28, [['speaker', 'roadie', 'roadie'], ['amp', 'speaker', 'roadie', 'amp']]); B.auto(4, ['beat', 'zap', 'hook', 'tower']); B.shard('hook'); B.exit(); } },
   { id: 'L28', name: 'The Interdimensional Mosh Pit', world: 5, theme: 'rock', song: 'L28', enemies: ['roadie', 'gloopkin', 'clown', 'cultcow', 'puppet'], intro: 'L28_intro', diff: 5.8, allyCow: true,
     build(B) { B.ground(14); B.arena(30, [['puppet', 'soldier', 'cable'], ['loop', 'carton', 'cultcow', 'bacon'], ['shroom', 'spark', 'felt']]); B.shard('wall'); B.checkpoint();

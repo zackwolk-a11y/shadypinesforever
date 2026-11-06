@@ -75,7 +75,8 @@ class Player {
     // ------------------------------------------------ grapple swinging
     if (this.grapple) { this.updateGrapple(L, left, right, up, down, P_); if (this.grapple) { this.postMove(L); return; } }
     // ------------------------------------------------ horizontal movement
-    const max = st.speed * (this.stun ? .4 : 1) * (swim ? .7 : 1);
+    this.sprint = !this.isPig() && H_('dash') && this.dashT === 0 && this.onGround && (left || right) && this.form !== 'mega';
+    const max = st.speed * (this.stun ? .4 : 1) * (swim ? .7 : 1) * (this.sprint ? 1.45 : 1);
     if (this.dashT > 0) {
       this.dashT--; this.vx = this.face * (this.form === 'pig' ? 5.2 : this.form === 'cow' ? 4.8 : 6); this.vy = this.onGround ? this.vy : Math.min(this.vy, .5);
       const dmg = this.form === 'pig' || this.form === 'cow' ? 3 : 2;
@@ -127,7 +128,9 @@ class Player {
   }
   postMove(L) {
     const wasG = this.onGround, vyBefore = this.vy;
-    this.riding = null; moveBody(this, L); this.hitWallLast = this.hitWall || (this.climb ? this.hitWallLast : 0);
+    this.riding = null; moveBody(this, L);
+    if (this.hitWall && L.solidEnts) for (const s of L.solidEnts) if (s.push && Math.abs((this.hitWall > 0 ? this.x + this.w : this.x) - (this.hitWall > 0 ? s.x : s.x + s.w)) < 3 && this.y + this.h > s.y + 4 && this.y < s.y + s.h) s.push(this.hitWall);
+    this.hitWallLast = this.hitWall || (this.climb ? this.hitWallLast : 0);
     if (this.form === 'bear' && !this.hitWall && this.climb) { const probe = this.hitWallLast > 0 ? this.x + this.w + 1 : this.x - 1; if (!L.solidAt(Math.floor(probe / TS), Math.floor(this.cy / TS))) this.hitWallLast = 0; }
     if (this.riding && this.riding.dx) this.x += this.riding.dx;
     if (!wasG && this.onGround) {
@@ -304,6 +307,7 @@ class Player {
     if (moving) { const b = Math.abs(Math.sin(this.t * .25)); sy *= 1 - b * .07; sx *= 1 + b * .05; }
     if (!this.onGround && !this.grapple) { sy *= this.vy < 0 ? 1.08 : .96; sx *= this.vy < 0 ? .94 : 1.04; }
     if (this.dashT > 0) rot = this.t * .55 * this.face;                       // Mosh Dash = rolling
+    else if (this.sprint && Math.abs(this.vx) > 3) { rot = this.t * .35 * this.face; if (this.t % 4 === 0) FX.dust(this.cx - this.face * 12, this.y + this.h, 1); }
     else if (Math.abs(this.vx) > 2.4 && this.onGround) rot = Math.sin(this.t * .3) * .12;
     if (this.bangT > 0) rot = Math.sin((14 - this.bangT) / 14 * Math.PI) * .5 * this.face;
     if (this.grapple) rot = -this.grapple.ang * .6;

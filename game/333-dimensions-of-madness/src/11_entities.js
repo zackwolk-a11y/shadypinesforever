@@ -259,6 +259,7 @@ class Pullable extends Ent { // crates the tongue can yank
   constructor(o) { super(o.x, o.y, 24, 24); this.solid = true; }
   update(L) { this.t++; this.vy = Math.min(this.vy + PHYS.grav, 6); const s = this.solid; this.solid = false; moveBody(this, L); this.solid = s; this.vx *= .85; }
   pull(dir) { this.vx = dir * 5; AudioSys.play_sfx('slurp'); }
+  push(dir) { this.vx = dir * 1.6; }
   draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); P.r(ctx, x - 1, y - 1, 26, 26, '#000'); P.r(ctx, x, y, 24, 24, '#a0662a'); P.l(ctx, x, y, x + 24, y + 24, '#5a3a10', 2); P.l(ctx, x + 24, y, x, y + 24, '#5a3a10', 2); P.r(ctx, x, y, 24, 2, '#d0965a'); }
 }
 class AmpTotem extends Ent { // destroyed only by guitar-powered METAL SCREAM / mega
@@ -267,6 +268,11 @@ class AmpTotem extends Ent { // destroyed only by guitar-powered METAL SCREAM / 
   blow() { if (this.dead) return; this.dead = true; this.solid = false; AudioSys.play_sfx('explode'); AudioSys.play_sfx('riff'); Cam.shake(8, 20); FX.burst(this.cx, this.cy, 40, ['#c9a227', '#333', '#ff3a1a', '#fff'], { speed: 5, size: 3 }); FX.notes(this.cx, this.cy, 8); }
   draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); P.r(ctx, x - 1, y - 1, 34, 50, '#000'); P.r(ctx, x, y, 32, 48, '#1c1c20'); P.r(ctx, x + 2, y + 2, 28, 5, '#c9a227'); P.e(ctx, x + 16, y + 20, 10, 10, '#333'); P.e(ctx, x + 16, y + 38, 6, 6, '#333'); text('MAX', x + 16, y + 9, { color: '#ff3a3a', align: 'center', shadow: false });
     if (this.t % 40 < 20 && dist(Game.player.cx, Game.player.cy, this.cx, this.cy) < 200) text('METAL SCREAM!', x + 16, y - 12, { color: '#7fff3a', align: 'center', outline: true }); }
+}
+class Sign extends Ent { // wooden hint sign
+  constructor(o) { super(o.x, o.y - 26, 22, 26); this.msg = o.msg; }
+  draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); O.r(x + 9, y + 10, 4, 16, '#6a4a2a', 1); O.r(x, y, 22, 13, '#c8a070', 1); P.r(ctx, x + 3, y + 4, 16, 1, '#5a3a1a'); P.r(ctx, x + 3, y + 8, 12, 1, '#5a3a1a');
+    const p = Game.player; if (Math.abs(p.cx - this.cx) < 70) { const lines = wrapText(this.msg, 30); const w = 6 + Math.max(...lines.map(l => textWidth(l))); panel(x + 11 - w / 2, y - 14 - lines.length * 9, w, lines.length * 9 + 4, { rim: '#c8a070' }); lines.forEach((l, i) => text(l, x + 11, y - 12 - lines.length * 9 + i * 9, { color: '#fff', align: 'center' })); } }
 }
 class Decoy extends Ent {
   constructor(x, y) { super(x - 13, y - 30, 26, 30); this.life = 240; Game.decoy = this; }

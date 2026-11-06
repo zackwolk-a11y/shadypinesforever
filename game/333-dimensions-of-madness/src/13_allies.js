@@ -81,7 +81,7 @@ function updateVehicle(pl, L) {
   const I = Input; pl.t++; pl.attacks = [];
   if (pl.dead) { pl.dead++; if (pl.dead > 80) Game.respawn(); return; }
   if (pl.inv > 0) pl.inv--;
-  const boost = I.held.dash && pl.boost > 0; if (boost) { pl.boost -= 1; if (pl.t % 2 === 0) FX.add({ x: pl.x, y: pl.y + pl.h - 6, vx: -3, vy: R(-.5, .5), col: pick(['#ff3a1a', '#ffa01a', '#fff36b']), size: 3, life: 14, grav: 0 }); } else pl.boost = Math.min(100, (pl.boost || 0) + .15);
+  if (pl.boost === undefined) pl.boost = 100; const boost = I.held.dash && pl.boost > 0; if (boost) { pl.boost -= .9; if (pl.t % 2 === 0) FX.add({ x: pl.x, y: pl.y + pl.h - 6, vx: -3, vy: R(-.5, .5), col: pick(['#ff3a1a', '#ffa01a', '#fff36b']), size: 3, life: 14, grav: 0 }); } else if (!I.held.dash) pl.boost = Math.min(100, pl.boost + .25);
   const target = (I.held.right ? 5.2 : I.held.left ? 2.4 : 4.2) + (boost ? 2.4 : 0); pl.vx = approach(pl.vx, target, .08); pl.face = 1;
   if (I.pressed.jump && pl.onGround) { pl.vy = -7.2; AudioSys.play_sfx('jump'); }
   pl.vy = Math.min(pl.vy + PHYS.grav * (I.held.jump && pl.vy < 0 ? .7 : 1), 7);
@@ -96,6 +96,7 @@ function updateVehicle(pl, L) {
   if (overlapsHazard(pl, L)) pl.hurt(1);
   if (pl.y > L.h * TS + 30) pl.fallOut();
   if (pl.t % 4 === 0 && pl.onGround) FX.dust(pl.x, pl.y + pl.h, 1);
+  if (pl.onGround && !overlapsHazard(pl, L)) { const tx = Math.floor((pl.x - 40) / TS), ty = Math.floor((pl.y + pl.h + 2) / TS); if (L.solidAt(tx, ty) && ++pl.safeT > 4) pl.safe = { x: pl.x - 40, y: pl.y - 4 }; } else pl.safeT = 0;
   AudioSys.setEngine(true, .4 + pl.vx / 10);
 }
 function drawVehicle(pl, cx, cy) {

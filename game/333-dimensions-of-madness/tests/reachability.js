@@ -30,6 +30,7 @@ const { chromium } = require('playwright'); const path = require('path');
       for (const e of Gm.ents) { const n = e.constructor.name; if (n === 'MovingPlat') { const o = e.o, x0 = Math.floor(o.x / 16), y0 = Math.floor(o.y / 16), r = Math.ceil(o.range / 16); for (let k = 0; k <= r; k++) for (let w = 0; w < (o.w || 4); w++) { if (o.vert) { if (T(x0 + w, y0 - k) === 0) L.tiles[L.idx(x0 + w, y0 - k)] = 2; } else if (T(x0 + k + w, y0) === 0) L.tiles[L.idx(x0 + k + w, y0)] = 2; } }
         if (n === 'Coaster') { const x0 = Math.floor(e.x / 16), y0 = Math.floor((e.y + 4) / 16); for (let k = 0; k < e.len / 16 + 3; k++) if (T(x0 + k, y0) === 0 || T(x0 + k, y0) === 5) L.tiles[L.idx(x0 + k, y0)] = 2; } }
       const portals = Gm.ents.filter(e => e.constructor.name === 'Portal');
+      const crates = Gm.ents.filter(e => e.constructor.name === 'Pullable').map(e => [Math.floor(e.cx / 16), Math.floor((e.y + e.h) / 16)]);
       const sx = Math.floor((Gm.player.x + 13) / 16); let sy = Math.floor((Gm.player.y + Gm.player.h) / 16); for (let k = 0; k < 30 && !stand(sx, sy); k++) sy++;
       if (stand(sx, sy)) { seen[key(sx, sy)] = 1; q.push([sx, sy]); }
       const clearCol = (x, y0, y1) => { for (let y = Math.min(y0, y1) - 2; y <= Math.max(y0, y1) - 1; y++) if (!passable(x, y)) return false; return true; };
@@ -38,6 +39,7 @@ const { chromium } = require('playwright'); const path = require('path');
         const tryAdd = (nx, ny) => { if (nx >= 0 && nx < Wd && ny > 0 && ny < Hd && stand(nx, ny) && !seen[key(nx, ny)]) { seen[key(nx, ny)] = 1; q.push([nx, ny]); } };
         const up = T(x, y) === 8 ? 10 : maxUp + (swim && liquidOK(x, y) ? 3 : 0);
         for (let dy = -up; dy <= 14; dy++) { const reach = T(x, y) === 8 ? 6 : dy <= 0 ? reachAt(-dy) : Math.max(reachAt(0), 0) + Math.floor(dy / 2) + (glide ? 10 : 0); if (reach < 0) continue; for (let dx = -reach; dx <= reach; dx++) { const nx = x + dx, ny = y + dy; if (ny <= 0 || ny >= Hd) continue; if (dy < 0 && !clearCol(x, y, ny)) continue; tryAdd(nx, ny); } }
+        for (const c of crates) if (Math.abs(c[0] - x) <= 16 && Math.abs(c[1] - y) <= 3) for (let dx = -3; dx <= 3; dx++) for (let dy = -(maxUp + 2); dy <= 0; dy++) if (clearCol(x, y, y + dy)) tryAdd(x + dx, y + dy);
         for (const [hx, hy] of hooks) if (Math.abs(hx - x) <= 9 && y - hy <= maxUp + 7 && y > hy) for (let dx = -10; dx <= 10; dx++) for (let dy = -3; dy <= 12; dy++) tryAdd(hx + dx, hy + dy);
         for (const pt of portals) if (pt.to && Math.abs(Math.floor(pt.cx / 16) - x) <= 1 && Math.abs(Math.floor((pt.y + pt.h) / 16) - y) <= 1) { const d = portals.find(o => o.pair === pt.to); if (d) { let dx2 = Math.floor((d.cx + 24) / 16), dy2 = Math.floor((d.y + d.h) / 16); for (let k = 0; k < 4 && !stand(dx2, dy2); k++) dy2++; tryAdd(dx2, dy2); } }
       }

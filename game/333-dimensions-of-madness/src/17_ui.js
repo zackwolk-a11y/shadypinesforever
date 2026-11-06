@@ -23,6 +23,7 @@ const HUD = {
     spr(ICON.note, W - 60, 30); text('x' + Game.levelStats.notes, W - 50, 20, { color: '#ffe14d', outline: true });
     for (let i = 0; i < 3; i++) { const got = Game.levelStats.shards[i], had = Game.shardsHave(i); ctx.globalAlpha = got ? 1 : had ? .45 : .18; ctx.drawImage(ICON.shard, W - 50 + i * 15, 34); ctx.globalAlpha = 1; }
     if (Save.data.summons.length && !p.isPig()) { const k = Save.data.summons[p.summonSel % Save.data.summons.length]; text('SUMMON: ' + SUMMONS[k].name, W - 8, H - 12, { color: p.metal >= 50 ? '#5bd4ff' : '#557', align: 'right', outline: true }); }
+    if (p.vehicle) { text('BOOST', 8, H - 24, { color: '#ffa01a', outline: true }); P.r(ctx, 44, H - 24, 80, 6, '#300'); P.r(ctx, 44, H - 24, 80 * (p.boost || 0) / 100, 6, '#ffa01a'); text('HOLD ' + K().dash, 130, H - 24, { color: '#888', outline: true }); }
     if (Game.party && Game.party.length > 1) { text('SWITCH: ' + K().form, 8, H - 12, { color: '#ff8ab0', outline: true }); }
     if (Game.quest && !Game.quest.silent) { const f = Game.quest.flag; panel(W / 2 - 80, 6, 160, 12, { rim: '#ffd860' }); text((HUD.questLabel || 'QUEST') + ': ' + (Game.flags[f] || 0) + '/' + Game.quest.need, W / 2, 9, { color: '#ffd860', align: 'center' }); }
     else if (Game.quest && Game.quest.silent && Game.need[Game.quest.flag]) { panel(W / 2 - 60, 6, 120, 12, { rim: '#ffd860' }); text('BUILD: ' + (Game.flags[Game.quest.flag] || 0) + '/' + Game.quest.need, W / 2, 9, { color: '#ffd860', align: 'center' }); }
@@ -161,7 +162,7 @@ const Results = {
 const WorldMap = {
   sel: 0, t: 0,
   nodes: null,
-  layout() { if (this.nodes) return; this.nodes = LEVELS.map((l, i) => { const w = l.world, k = i % 5; const bx = 40 + w * 100, x = bx + [10, 50, 30, 70, 40][k], y = 260 - k * 40 + (w % 2 ? -10 : 0); return { x, y, l }; }); },
+  layout() { if (this.nodes) return; this.nodes = LEVELS.map((l, i) => { const w = l.world, k = i % 5; const bx = 40 + w * 100, x = bx + [10, 50, 30, 70, 40][k], y = 276 - k * 37 + (w % 2 ? -6 : 0); return { x, y, l }; }); },
   open(focus) { this.layout(); G.state = 'map'; AudioSys.play('map'); this.sel = clamp((focus || Save.data.unlocked) - 1, 0, Math.min(Save.data.unlocked, 30) - 1); this.t = 0; Game.L = null; Save.write(); },
   update() {
     this.t++; if (Menus.update()) return; const max = Math.min(Save.data.unlocked, 30) - 1;

@@ -93,6 +93,7 @@ const Game = {
       case 'collect': this.add(new Collectable(s)); this.need[s.flag] = (this.need[s.flag] || 0) + 1; break;
       case 'pull': { const p = this.add(new Pullable(s)); L.solidEnts.push(p); break; }
       case 'amp': { const a = this.add(new AmpTotem(s)); L.solidEnts.push(a); break; }
+      case 'sign': this.add(new Sign(s)); break;
       case 'housesite': this.add(new HouseSite(s)); break;
       case 'quest': this.add(new Quest(s)); break;
       case 'chasezone': case 'scrollzone': this.add(new ChaseZone(Object.assign({ collapse: s.type === 'scrollzone' }, s))); break;
@@ -328,7 +329,7 @@ const Game = {
     wind() { for (let i = 0; i < 60; i++) FX.add({ x: Cam.x + R(W), y: Cam.y + R(H), vx: 8, vy: R(-1, 1), col: '#fff8', size: 2, life: 50, grav: 0 }); },
     nextChapter() { Game.cutscene.nextChapter = true; Game.cutscene.i = Game.cutscene.steps.length; },
     lockArena() { const g = Game.bossGate; if (!g) return; const L = Game.L; L.camLock = { x0: g.o.x0, x1: g.o.x0 + g.o.w }; const tx = Math.floor(g.o.x0 / TS) - 1; for (let ty = 0; ty < g.o.gy; ty++) L.tiles[L.idx(tx, ty)] = T_WALL; AudioSys.setIntensity(3); },
-    spawnBoss() { const g = Game.bossGate; if (!g) return; const C = BOSS_CLASSES[g.o.kind]; const b = new C(g.o.x0 + g.o.w * .7, g.o.gy * TS, g.o); Game.add(b); Game.boss = b; Game.bossHits = Game.player.hitTaken; HUD.bossIntro = 120; AudioSys.setIntensity(3); },
+    spawnBoss() { const g = Game.bossGate; if (!g) return; const C = BOSS_CLASSES[g.o.kind]; const b = new C(g.o.x0 + g.o.w * .7, g.o.gy * TS, g.o); Game.add(b); Game.boss = b; Game.bossHits = Game.player.hitTaken; HUD.bossIntro = 120; AudioSys.setIntensity(3); AudioSys.setBossPhase(1); },
     gloopkins() { for (let i = 0; i < 3; i++) { const e = new Enemy({ kind: 'gloopkin', x: Game.player.cx + 100 + i * 40, y: Game.player.y - 30 }); e.wake = true; Game.add(e); } },
     ally() { if (!Game.ally) Game.add(new UdderlyAlly(Game.player.cx - 60, Game.player.cy - 80)); },
     give(f) { if (Save.form(f)) { HUD.banner('UNLOCKED: ' + FORMS[f].name, '#7fff3a', FORMS[f].desc); AudioSys.play_sfx('power'); Game.player.transT = 60; } },

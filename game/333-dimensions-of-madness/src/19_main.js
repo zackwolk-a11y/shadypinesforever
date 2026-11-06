@@ -3,8 +3,9 @@
 // ============================================================================
 G.hitstop = 0; G.fps = 60;
 function update() {
-  Input.update(); AudioSys.schedule();
-  if (G.hitstop > 0) { G.hitstop--; return; }
+  AudioSys.schedule();
+  if (G.hitstop > 0) { G.hitstop--; return; } // input is not sampled during hit-stop, so presses carry over
+  Input.update();
   switch (G.state) {
     case 'title': Title.update(); break;
     case 'map': WorldMap.update(); break;

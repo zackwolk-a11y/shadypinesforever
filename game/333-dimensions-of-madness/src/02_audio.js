@@ -140,7 +140,8 @@ const AudioSys = {
   },
   stop() { this.song = null; },
   setIntensity(n) { this.targetIntensity = n; },
-  arrangement() { const s = this.song, i = this.intensity; return i >= 3 ? s.boss : i >= 2 ? s.combat : i <= 0 ? s.calm : s.explore; },
+  arrangement() { const s = this.song, i = this.intensity; if (i >= 3) return this.bossPhase >= 3 ? ['F', 'F', 'D', 'F', 'E'] : this.bossPhase === 2 ? ['F', 'E', 'F', 'C', 'D'] : s.boss; return i >= 2 ? s.combat : i <= 0 ? s.calm : s.explore; },
+  setBossPhase(n) { if (this.bossPhase !== n) { this.bossPhase = n; this.lastMood = -1; } },
   nextPart() {
     if (this.intensity !== this.targetIntensity || this.lastMood !== this.intensity) {
       this.intensity = this.targetIntensity; this.lastMood = this.intensity; this.arrIdx = 0;

@@ -17,7 +17,7 @@ class Boss extends Ent {
     this.hp -= dmg; this.flash = 8; this.inv = 12; AudioSys.play_sfx('enemyHit'); FX.burst(a && a.x !== undefined ? a.x : this.cx, this.cy, 8, '#fff'); G.hitstop = 3;
     if (AudioSys.onBeatWindow(.18)) Game.player.metal = Math.min(100, Game.player.metal + 4);
     const f = this.hp / this.maxHp;
-    if (this.phase < this.phases.length && f <= this.phases[this.phase]) { this.phase++; this.onPhase(this.phase); AudioSys.setIntensity(3); HUD.banner('PHASE ' + this.phase, '#ff5bd1'); Cam.shake(6, 20); AudioSys.play_sfx('stinger'); }
+    if (this.phase < this.phases.length && f <= this.phases[this.phase]) { this.phase++; this.onPhase(this.phase); AudioSys.setIntensity(3); AudioSys.setBossPhase(this.phase); HUD.banner('PHASE ' + this.phase, '#ff5bd1'); Cam.shake(6, 20); AudioSys.play_sfx('stinger'); }
     if (this.hp <= 0) this.defeat();
     return true;
   }
@@ -340,7 +340,13 @@ class FeedbackBoss extends Boss {
   constructor(x, y, o) { super(x - 110, y - 250, 220, 200, o); this.name = 'THE ETERNAL FEEDBACK'; this.setHp(60); this.ground = y; this.cx0 = x; this.static = 0; this.echo = null; this.phases = [1, .7, .4]; this.shield = 0; }
   hitbox() { return { x: this.cx0 - 50, y: this.y + 40, w: 100, h: 110 }; }
   onPhase(p) { if (p === 2) HUD.banner('ECHO CHAMBER', '#b04bff'); if (p === 3) { HUD.banner('THE FINAL SONG — PLAY ON THE BEAT!', '#7fff3a'); this.shield = 1; Game.flag('finalPhase'); } }
-  hit(dmg, a) { if (this.phase >= 3 && this.shield > 0 && a && a.kind !== 'scream' && a.kind !== 'ally') { FX.pop(this.cx, this.y, 'SCREAM ON THE BEAT!', '#7fff3a'); return false; } return super.hit(dmg, a); }
+  hit(dmg, a) {
+    if (this.phase >= 3 && a && a.kind !== 'ally') {
+      if (this.shield > 0 && a.kind !== 'scream') { if (!this.msgT || this.t - this.msgT > 40) { FX.pop(this.cx, this.y, 'WAIT FOR YOUR BAND — THEN SCREAM!', '#7fff3a'); this.msgT = this.t; } return false; }
+      if (a.kind === 'scream') { const onBeat = AudioSys.onBeatWindow(.22); if (!onBeat && this.shield > 0) { FX.pop(this.cx, this.y, 'OFF BEAT!', '#ff3a3a'); return false; } dmg += onBeat ? 3 : 0; if (onBeat) FX.pop(this.cx, this.y - 20, 'PERFECT PITCH!', '#7fff3a'); }
+    }
+    return super.hit(dmg, a);
+  }
   update(L) {
     if (!this.commonUpdate()) return; const p = Game.player; this.static = (this.static + 1) % 1000; this.y = this.ground - 250 + Math.sin(this.t * .02) * 12;
     switch (this.state) {
@@ -352,7 +358,16 @@ class FeedbackBoss extends Boss {
       case 'echoCow': if (this.st === 1) { this.echo = { kind: 'cow', x: p.cx, y: Cam.y - 80 }; AudioSys.play_sfx('moo'); } if (this.st < 40) this.echo.x = lerp(this.echo.x, p.cx, .1); else { this.echo.y += 9; if (this.echo.y > this.ground - 40) { Cam.shake(6, 12); FX.ring(this.echo.x, this.ground, 90, '#fff'); Game.bossAttack({ x: this.echo.x - 60, y: this.ground - 20, w: 120, h: 20 }); this.echo = null; this.go('idle'); break; } Game.bossAttack({ x: this.echo.x - 30, y: this.echo.y - 30, w: 60, h: 60 }); } break;
       case 'echoGloop': if (this.st === 1) { this.echo = { kind: 'gloop', x: p.cx, t: 0 }; AudioSys.play_sfx('gloop'); } this.echo.t++; if (this.echo.t > 40 && this.echo.t < 100) Game.bossAttack({ x: this.echo.x - 50, y: this.ground - 30, w: 100, h: 30 }); if (this.echo.t > 110) { this.echo = null; this.go('idle'); } break;
     }
-    if (this.phase >= 3) { this.shield = 1; }
+    if (this.phase >= 3) {
+      this.shield = this.shieldDown > 0 ? 0 : 1; if (this.shieldDown > 0) this.shieldDown--;
+      this.allyT = (this.allyT || 0) + 1;
+      if (this.allyT % 360 === 60) { const a = ['pigs', 'razz', 'udderly', 'barnaby', 'gloop'][Math.floor(this.allyT / 360) % 5]; this.allyEvent = { k: a, t: 0 }; }
+      if (this.allyEvent) { const e = this.allyEvent; e.t++;
+        if (e.t === 1) { HUD.banner({ pigs: 'THE PIGS STAMPEDE!', razz: 'RAZZ RAMS THE AMP!', udderly: 'UDDERLY DIVE-BOMBS!', barnaby: 'BARNABY HOWLS THE SHIELD DOWN!', gloop: 'THE GLOOP HOLDS IT STILL!' }[e.k], '#7fff3a', 'SCREAM ON THE BEAT NOW!'); AudioSys.play_sfx({ pigs: 'oink', razz: 'rev', udderly: 'moo', barnaby: 'howl', gloop: 'gloop' }[e.k], { pitch: 1 }); this.shieldDown = 220; }
+        if (e.k === 'gloop' && e.t < 200) this.y = this.ground - 250;
+        if (e.t === 40) { Cam.shake(8, 20); FX.ring(this.cx0, this.y + 100, 120, '#7fff3a'); super.hit(2, { kind: 'ally' }); }
+        if (e.t > 220) this.allyEvent = null; }
+    }
     if (overlap(this.hitbox(), p)) p.hurt(1, this.cx0);
   }
   draw(cx, cy) {
@@ -368,6 +383,13 @@ class FeedbackBoss extends Boss {
     for (const s of [-1, 1]) { O.e(x + s * 50, y + 80, 30 + pulse * 3, 30 + pulse * 3, '#000'); P.e(ctx, x + s * 50, y + 80, 22, 22, ang); P.e(ctx, x + s * 50, y + 80, 8, 8, '#fff'); }
     O.r(x - 70, y + 130, 140, 30 + pulse * 10, '#000'); for (let i = 0; i < 20; i++) { const h = Math.abs(Math.sin(t * .3 + i * .7)) * (24 + pulse * 10); P.r(ctx, x - 66 + i * 7, y + 145 - h / 2, 5, h, ang); }
     if (this.shield > 0) { ctx.strokeStyle = `rgba(127,255,58,${.4 + pulse * .3})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x, y + 95, 130, 120, 0, 0, 7); ctx.stroke(); }
+    if (this.allyEvent) { const e = this.allyEvent, k = e.t / 60, gy = this.ground - cy;
+      if (e.k === 'pigs') { const px = -60 + e.t * 5; drawPig('trufflina', px + 40, gy, { face: 1, state: 'run', t: k }); drawPig('porkington', px, gy, { face: 1, state: 'run', t: k + .2 }); drawPig('hamwise', px - 36, gy, { face: 1, state: 'run', t: k + .4, prop: 'kazoo' }); }
+      if (e.k === 'razz') drawBiker(-80 + e.t * 7, gy, { face: 1, t: k, speed: 2, turbo: true, wheelie: .25 });
+      if (e.k === 'udderly') drawCow(x - 200 + e.t * 4, y - 60 + Math.min(e.t, 40) * 3, { face: 1, t: k, scale: .5, rot: .5, cape: 10, capeStretch: 8 });
+      if (e.k === 'barnaby') { drawWolf(60, gy, { face: 1, t: k, scale: .55, rot: -.35, arm: -.4 }); if (e.t % 10 === 0) FX.ring(60 + cx, this.ground - 90, 160, '#fff', 20, 2); }
+      if (e.k === 'gloop') { drawSludge(x + 30, gy + 4, { t: k, scale: .7, sx: 1.8, sy: .5, wobble: 2 }); }
+    }
     if (this.echo) { const e = this.echo; ctx.save(); ctx.globalAlpha = .7; if (e.kind === 'wolf') drawWolf(e.x - cx, this.ground - cy, { face: 1, t: t / 60, scale: .6, arm: 1.5, flash: '#b04bff' }); if (e.kind === 'cow') drawCow(e.x - cx, e.y - cy + 50, { face: 1, t: t / 60, scale: .5, flash: '#b04bff', rot: .8 }); if (e.kind === 'gloop') { if (e.t < 40) { ctx.fillStyle = '#b04bff'; ctx.fillRect(e.x - cx - 50, this.ground - cy - 4, 100, 4); } else drawSludge(e.x - cx + 20, this.ground - cy, { scale: .35, sy: Math.min(1, (e.t - 40) / 15), flash: '#b04bff', t: t / 60 }); } ctx.restore(); }
   }
 }

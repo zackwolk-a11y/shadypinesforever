@@ -197,6 +197,10 @@ class Builder {
     else if (kind === 'hook') { this.ground(4); this.spawn('hook', this.cx, this.gy - 11); const x = this.cx + 3; for (let k = 0; k < 4; k++) this.L.set(x + k, this.gy - 12, T_ONEWAY); this.spawn('shard', x + 2, this.gy - 14, { id }); this.ground(8); }
     else { const x = this.cx; this.ground(10); this.L.fill(x + 2, this.gy, x + 8, this.gy + 3, T_EMPTY); this.L.set(x + 2, this.gy, T_BREAK); this.L.set(x + 3, this.gy, T_BREAK); this.L.fill(x + 4, this.gy, x + 8, this.gy, T_SOLID); this.spawn('shard', x + 6, this.gy + 2, { id }); this.L.fill(x + 1, this.gy + 4, x + 9, this.L.h - 1, T_SOLID); }
   }
+  crateWall() { // a 7-high wall: push or tongue-yank the crate over, hop on it, climb past
+    this.ground(4); this.spawn('pull', this.cx + 1, this.gy - 2); this.ground(9); const x = this.cx; this.ground(2, false); this.L.fill(x, this.gy - 7, x + 1, this.gy - 1, T_SOLID); this.step(-7); this.ground(6); this.step(7); this.ground(4);
+    this.spawn('sign', x - 6, this.gy, { msg: 'TOO TALL! Push the crate, or yank it with GRAPPLE.' });
+  }
   arena(n, waves, o = {}) { // combat arena: camera locks, waves of enemies
     const x0 = this.cx; this.ground(n); this.spawn('arena', x0, this.gy, Object.assign({ w: n * TS, waves }, o));
   }
@@ -227,6 +231,7 @@ class Builder {
         case 'pool': this.ground(3); this.pool(this.RI(6, 10), this.RI(3, 5)); this.ground(3); break;
         case 'up': this.ground(4); this.step(-this.RI(2, 3)); this.ground(4); break;
         case 'down': this.ground(4); this.step(this.RI(2, 3)); this.ground(4); break;
+        case 'crate': this.crateWall(); break;
         case 'flyers': this.ground(10); this.spawn('enemy', this.cx - 6, this.gy - 6, { kind: this.pick(this.def.flyers || ['bookbat']) }); this.notes(3, -8, 3); break;
       }
     }

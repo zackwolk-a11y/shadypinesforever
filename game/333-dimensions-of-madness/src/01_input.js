@@ -10,7 +10,7 @@ const KEYMAP = {
   Escape: 'pause', KeyP: 'pause', Enter: 'confirm', Backspace: 'back'
 };
 const Input = {
-  held: {}, pressed: {}, released: {}, _down: {}, _prev: {}, mode: 'keys', touchOn: false, anyPressed: false,
+  held: {}, pressed: {}, released: {}, _down: {}, _prev: {}, _latch: {}, mode: 'keys', touchOn: false, anyPressed: false,
   update() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = [...pads].find(p => p && p.connected);
@@ -28,7 +28,7 @@ const Input = {
     this.anyPressed = false;
     for (const a of ACTIONS) {
       const d = !!now[a];
-      this.pressed[a] = d && !this._prev[a];
+      this.pressed[a] = (d && !this._prev[a]) || !!this._latch[a]; this._latch[a] = false;
       this.released[a] = !d && this._prev[a];
       this.held[a] = d;
       if (this.pressed[a]) this.anyPressed = true;
@@ -38,7 +38,7 @@ const Input = {
   clear() { for (const a of ACTIONS) { this.pressed[a] = false; } }
 };
 window.addEventListener('keydown', e => {
-  const a = KEYMAP[e.code]; if (a) { Input._down[a] = true; e.preventDefault(); Input.mode = 'keys'; }
+  const a = KEYMAP[e.code]; if (a) { if (!Input._down[a]) Input._latch[a] = true; Input._down[a] = true; e.preventDefault(); Input.mode = 'keys'; }
   if (e.code === 'Escape') Input._down.back = true;
   if (e.code === 'F3') G.debug = !G.debug;
   AudioSys.unlock();
@@ -60,7 +60,7 @@ const Touch = {
       el.style.width = el.style.height = size + 'px';
       el.style.right = (-rx - size / 2) + 'px';
       if (ry === 'top') el.style.top = '10px'; else el.style.bottom = (-ry - size / 2) + 'px';
-      const on = e => { e.preventDefault(); Input._down[act] = true; el.classList.add('down'); AudioSys.unlock(); if (act === 'jump') Input._down.confirm = true; if (act === 'pause') Input._down.back = true; };
+      const on = e => { e.preventDefault(); Input._latch[act] = true; Input._down[act] = true; el.classList.add('down'); AudioSys.unlock(); if (act === 'jump') Input._down.confirm = true; if (act === 'pause') Input._down.back = true; };
       const off = e => { e.preventDefault(); Input._down[act] = false; el.classList.remove('down'); if (act === 'jump') Input._down.confirm = false; if (act === 'pause') Input._down.back = false; };
       el.addEventListener('touchstart', on, { passive: false }); el.addEventListener('touchend', off, { passive: false }); el.addEventListener('touchcancel', off, { passive: false });
       root.appendChild(el);
