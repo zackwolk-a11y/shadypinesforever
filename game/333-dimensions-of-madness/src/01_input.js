@@ -45,7 +45,7 @@ window.addEventListener('blur', () => { Input._down = {}; });
 
 // ---------------------------------------------------------------- touch controls
 const Touch = {
-  buttons: [['jump', 'JUMP', -68, -62, 92], ['whip', 'ATTACK', -172, -44, 80], ['pause', 'II', -36, 'top', 34]],
+  buttons: [['jump', 'JUMP', -64, -70, 92], ['whip', 'ATTACK', -196, -50, 84], ['pause', 'II', -36, 'top', 34]],
   init() {
     const root = document.getElementById('touch');
     for (const [act, label, rx, ry, size] of this.buttons) {
