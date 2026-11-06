@@ -76,7 +76,7 @@ const Game = {
     if (sub.concert) { /* concert chapter starts from its intro scene */ }
   },
   decorateLevel(L, sub) { // campaign-wide: a set-piece spectacle, themed power-ups and generous checkpoints
-    const arenas = this.ents.filter(e => e instanceof Arena || e instanceof BossGate).map(e => [e.x - 80, e.x + (e.o && e.o.w || 600) + 80]);
+    const arenas = this.ents.filter(e => e instanceof Arena || e instanceof BossGate || e instanceof BikerEncounter).map(e => [e.x - 80, e.x + (e.o && e.o.w || 600) + 80]);
     const free = tx => !arenas.some(([a, b]) => tx * TS > a && tx * TS < b);
     const flatAt = frac => { for (let tx = Math.floor(L.w * frac); tx < L.w - 10; tx++) { const gy = this.groundY(L, tx); if (gy < L.h * TS - 48 && this.groundY(L, tx + 1) === gy && this.groundY(L, tx - 1) === gy && free(tx)) return [tx, gy]; } return null; };
     if (sub.spectacle) { const p = sub.vertical ? [8, 0] : flatAt(.42); if (p) this.add(new SetPiece({ x: p[0] * TS, kind: sub.spectacle })); }
@@ -112,6 +112,7 @@ const Game = {
       case 'bigamp': this.add(new BigAmp(s)); break;
       case 'meganote': this.add(new MegaNote(s)); break;
       case 'setpiece': this.add(new SetPiece(s)); break;
+      case 'bikerfight': if (!this.ents.some(e => e instanceof BikerEncounter)) this.add(new BikerEncounter(s)); break;
       case 'housesite': this.add(new HouseSite(s)); break;
       case 'quest': this.add(new Quest(s)); break;
       case 'chasezone': case 'scrollzone': this.add(new ChaseZone(Object.assign({ collapse: s.type === 'scrollzone' }, s))); break;
@@ -260,6 +261,7 @@ const Game = {
     if (this.def.race || this.sub.race) { this.player.vehicle = true; if (this.racer) this.racer.x = Math.min(this.racer.x, cp.x - 40); }
     FX.ring(this.player.cx, this.player.cy, 50, '#7fff3a', 30); AudioSys.play_sfx('transform');
     if (this.boss || (this.bossGate && this.bossGate.used && !this.ents.some(e => e.isBoss && e.defeated))) { for (const e of this.ents) if (e.isBoss) e.dead = true; this.boss = null; L.camLock = null; if (this.bossGate) { this.bossGate.used = false; } L.wind = 0; L.gravity = 1; AudioSys.setEngine(false); AudioSys.setIntensity(1); const a = this.ents.find(e => e instanceof Arena); }
+    for (const e of this.ents) if (e.onPlayerRespawn) e.onPlayerRespawn(L);
     for (const e of this.ents) if (e instanceof Arena && e.active) { e.active = false; e.wave = -1; e.walls(false); L.camLock = null; for (const s of e.spawned) s.dead = true; }
     if (this.chase) { L.scrollX = Math.max(0, cp.x - 80); Cam.x = L.scrollX; if (this.chaser) this.chaser.x = Cam.x - 100; }
     Cam.follow(L, this.player.cx, this.player.cy, 1, true);
@@ -282,6 +284,7 @@ const Game = {
     Save.write();
     Results.show(this.def, this.levelStats, () => {
       if (id === 'L30') { Ending.start(); return; }
+      if (this.def.nextDirect) { Game.loadLevel(LEVEL_BY_ID[this.def.nextDirect], 0); return; }
       const outro = id === 'L3' ? 'L3_outro' : null;
       if (outro) { this.runScene(outro, {}, () => WorldMap.open(this.def.num + 1)); this.finishing = false; G.state = 'level'; } else WorldMap.open(this.def.num + 1);
     });

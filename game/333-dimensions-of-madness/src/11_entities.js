@@ -297,7 +297,7 @@ class Trigger extends Ent {
 }
 class NPC extends Ent { // static cast member that talks when approached (draws via rig)
   constructor(o) { super(o.x, o.y - 40, 30, 40); this.who = o.who; this.scene = o.scene; this.talked = false; this.o = o; this.face = o.face || -1; this.anim = 'idle'; }
-  update(L) { this.t++; if (this.leaveT && --this.leaveT <= 0) { this.dead = true; FX.ring(this.cx, this.cy, 30, '#9fff8a'); FX.notes(this.cx, this.y, 4); return; } const p = Game.player; if (this.scene && !this.talked && Math.abs(p.cx - this.cx) < 60 && Math.abs(p.cy - this.cy) < 60 && !Game.cutscene) { this.talked = true; Game.runScene(this.scene, { npc: this }); } if (this.who) Save.see(this.who); }
+  update(L) { this.t++; if (this.rideOff) { this.x += Math.min(7, (this.rideT = (this.rideT || 0) + 1) * .25); this.anim = 'go'; if (this.t % 3 === 0) FX.smoke(this.x, this.y + this.h - 8, -2); if (this.x > Cam.x + VW + 200) this.dead = true; return; } if (this.leaveT && --this.leaveT <= 0) { this.dead = true; FX.ring(this.cx, this.cy, 30, '#9fff8a'); FX.notes(this.cx, this.y, 4); return; } const p = Game.player; if (this.scene && !this.talked && Math.abs(p.cx - this.cx) < 60 && Math.abs(p.cy - this.cy) < 60 && !Game.cutscene) { this.talked = true; Game.runScene(this.scene, { npc: this }); } if (this.who) Save.see(this.who); }
   draw(cx, cy) { drawActor(this.who, this.cx - cx, this.y + this.h - cy, { face: this.face, t: this.t / 60, anim: this.anim }); if (this.scene && !this.talked) text('!', this.cx - cx, this.y - cy - 30 + Math.sin(this.t * .1) * 2, { color: '#ffe14d', align: 'center', outline: true, scale: 2 }); }
 }
 // generic "draw any cast member" used by NPCs, cutscene actors, concert, ending

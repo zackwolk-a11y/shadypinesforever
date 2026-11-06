@@ -32,9 +32,9 @@ const STORY = {
   L1_cheer: [S => { S.sfx('cheer'); FX.confetti(Game.player.cx, Game.player.y - 120, 40); HUD.banner('THE CROWD GOES WILD!', '#ffe14d', 'for... walking. Low bar.'); }],
   L1_ready: [S => { S.sfx('stinger'); S.sfx('cheer'); FX.confetti(Game.player.cx, Game.player.y - 120, 80); S.shake(6, 20); HUD.banner("YOU'RE READY.", '#7fff3a', 'GO MAKE A MESS!'); }],
   L2_intro: [S => { S.title('BACKSTAGE BEDLAM', 'The venue is collapsing into a puppet show'); return 80; }, ['monster', 'Backstage smell like socks and fear. Good smell.'], ['narrator', 'The dimensional quake has animated every prop, puppet and patch cable in the building. They want autographs. With teeth.']],
-  L2_razz: [S => { S.sfx('rev'); return 30; }, ['razz', 'WHOA WHOA WHOA. Are you the head that exploded out of that amp?'],     ['razz', 'Name\'s RAZZ VROOMBERG. I need that SCREAM for my band!'],
-    ['monster', 'No. Scream is mine. Also scream broke universe.'], ['razz', 'Then I\'ll TAKE it. Nobody outruns a hand-built chopper, lettuce-face!'],
-    S => { S.sfx('rev'); S.shake(4, 30); S.banner('RUN!!!', '#ff3a3a'); return 30; }],
+  L2_razz: [S => { S.sfx('rev'); return 20; }, ['razz', 'Name\'s RAZZ VROOMBERG. I need that SCREAM for my band!'], ['monster', 'No. Scream is mine.'],
+    ['razz', 'Then meet me at the loading dock, pickle-face. Bring your tongue. I\'m bringing MINE.'], ['narrator', 'Nobody knew Razz had a tongue like that. Nobody wanted to.'],
+    S => { const n = Game.cutscene.o.npc; if (n) { n.rideOff = true; n.face = 1; } S.sfx('rev'); return 20; }],
   L2_crash: [S => { S.sfx('explode'); S.shake(10, 40); return 40; }, ['razz', 'OW. My chopper! My HAIR! Okay, okay. You\'re fast. For a head.'], ['razz', 'This isn\'t over, pickle! I know a guy with a wolf problem. You\'re gonna LOVE him.'], ['monster', 'Me no love wolves. Me love snacks.']],
   // ----------------------------------------------------------- LEVEL 333
   L3c1_intro: [S => { S.music('L3'); S.card('LEVEL 333', 'THE THREE LITTLE PIGS'); return 130; }, S => { S.title('CHAPTER 1: THE STRAW HOUSE', 'Grab straw. Build a house. What could go wrong?'); return 40; },

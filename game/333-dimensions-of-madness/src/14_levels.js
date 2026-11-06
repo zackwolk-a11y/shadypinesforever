@@ -36,16 +36,16 @@ const LEVELS = [
       B.spawn('setpiece', B.cx, B.gy, { kind: 'stagecollapse' }); B.ground(30); B.auto(3, ['flat', 'up', 'down', 'enemy']); B.spawn('power', B.cx - 4, B.gy - 3, { kind: 'pig' }); B.ground(4); B.wall(4); B.ground(6); B.wall(4);
       B.auto(3, ['plats', 'enemy', 'steps']); B.shard('hook'); B.ground(4); B.exit();
     } },
-  { id: 'L2', name: 'Backstage Bedlam', world: 0, theme: 'backstage', song: 'L2', enemies: ['puppet', 'amp', 'cable'], flyers: ['bookbat'], intro: 'L2_intro', diff: 1.3,
+  { id: 'L2', name: 'Backstage Bedlam', world: 0, theme: 'backstage', song: 'L2', enemies: ['puppet', 'amp', 'cable'], flyers: ['bookbat'], intro: 'L2_intro', diff: 1.3, nextDirect: 'L3',
     build(B) {
       B.ground(16); B.auto(6, ['flat', 'gap', 'steps', 'wall', 'enemy']); B.shard('wall'); B.checkpoint();
-      B.ground(6); B.conveyor(10, 1); B.enemy('amp', 2); B.ground(10); B.auto(5, ['plats', 'hook', 'enemy', 'spikes']); B.shard('high');
-      B.arena(28, [['puppet', 'amp', 'puppet'], ['cable', 'cable', 'puppet', 'amp']]); B.checkpoint();
-      B.npc('razz', 'L2_razz', 6, { face: -1 }); B.ground(16);
-      // CHASE: Razz on his motorcycle chases you through the backstage corridors
-      B.spawn('chasezone', B.cx, B.gy, { scroll: 2.35, lines: ['Hand over that SCREAM, pickle-face!', 'I need it for my band, VROOMBERG AND THE VROOMS!', 'Nobody outruns a custom chopper!', 'Is that a TONGUE? Gross! Respect!'] });
-      B.ground(18); B.gap(3); B.ground(10); B.wall(3); B.ground(8); B.step(-2); B.ground(10); B.platforms(2, 3); B.ground(8); B.step(2); B.ground(6); B.spikes(3); B.ground(10); B.gap(4); B.ground(8); B.wall(4); B.ground(12); B.hookGap(12); B.ground(10); B.step(-2); B.ground(14); B.shard('under'); B.ground(12);
-      B.spawn('chaseend', B.cx, B.gy, { scene: 'L2_crash' }); B.ground(12); B.exit();
+      B.ground(6); B.conveyor(10, 1); B.enemy('amp', 2); B.ground(10); B.auto(5, ['plats', 'hook', 'enemy', 'spikes', 'flat']); B.shard('high'); B.checkpoint();
+      B.npc('razz', 'L2_razz', 6, { face: -1 }); B.ground(22);
+      B.auto(6, ['flat', 'gap', 'enemy', 'conveyor', 'steps', 'wall']); B.shard('under'); B.auto(3, ['flat', 'plats', 'enemy']);
+      // ---- the designated fight zone: Razz Vroomberg, Biker Dread
+      B.ground(6); B.checkpoint(); B.ground(6); const x0 = B.cx; B.ground(25, false);
+      B.spawn('bikerfight', x0, B.gy, { x0: x0 * TS, w: 25 * TS, gy: B.gy });
+      B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); B.cx += 2;
     } },
   { id: 'L3', label: '333', name: 'THE THREE LITTLE PIGS', world: 0, theme: 'meadow', song: 'L3', enemies: ['puppet', 'soldier'], diff: 1.5, big: true,
     chapters: [
@@ -183,7 +183,7 @@ const LEVELS = [
   { id: 'L30', name: 'THE FINAL SONG', world: 5, theme: 'final', song: 'L30', enemies: ['roadie', 'speaker'], intro: 'L30_intro', diff: 6.2, allyCow: true,
     build(B) { B.ground(16); B.npc('barnaby', 'L30_rally', 6, { face: -1 }); B.ground(16); B.auto(5, ['beat', 'enemy', 'hook']); B.shard('wall'); B.shard('high'); B.shard('hook'); B.checkpoint(); bossArena(B, 'feedback', 46, { scene: 'L30_boss' }); } }
 ];
-const SPECTACLE = {"L2": "bikejump", "L4": "moonface", "L5": "strings", "L6": "milkflood", "L7": "crash", "L8": "cowstomp", "L9": "milkflood", "L10": "cowstomp", "L11": "moonface", "L12": "stagecollapse", "L13": "portalstorm", "L14": "strings", "L15": "portalstorm", "L16": "ridebreak", "L17": "ridebreak", "L18": "milkflood", "L19": "crash", "L20": "ridebreak", "L21": "swallow", "L22": "swallow", "L23": "bikejump", "L24": "ampfall", "L25": "swallow", "L26": "bikejump", "L27": "ampfall", "L28": "cowstomp", "L29": "stagecollapse", "L30": "moonface"}, WORLD_POWERS = [["pig", "slime"], ["cow", "slime"], ["wolf", "slime"], ["pig", "wolf"], ["slime", "pig"], ["wolf", "cow"]];
+const SPECTACLE = {"L2": "ampfall", "L4": "moonface", "L5": "strings", "L6": "milkflood", "L7": "crash", "L8": "cowstomp", "L9": "milkflood", "L10": "cowstomp", "L11": "moonface", "L12": "stagecollapse", "L13": "portalstorm", "L14": "strings", "L15": "portalstorm", "L16": "ridebreak", "L17": "ridebreak", "L18": "milkflood", "L19": "crash", "L20": "ridebreak", "L21": "swallow", "L22": "swallow", "L23": "bikejump", "L24": "ampfall", "L25": "swallow", "L26": "bikejump", "L27": "ampfall", "L28": "cowstomp", "L29": "stagecollapse", "L30": "moonface"}, WORLD_POWERS = [["pig", "slime"], ["cow", "slime"], ["wolf", "slime"], ["pig", "wolf"], ["slime", "pig"], ["wolf", "cow"]];
 LEVELS.forEach((l, i) => { l.num = i + 1; l.label = l.label || String(i + 1); l.spectacle = SPECTACLE[l.id]; if (!['L1', 'L3', 'L21', 'L23'].includes(l.id)) l.powers = WORLD_POWERS[l.world]; });
 const LEVEL_BY_ID = Object.fromEntries(LEVELS.map(l => [l.id, l]));
 // unlock rewards when a level is completed

@@ -10,14 +10,14 @@ function anchorPos(name, key, x, y, flip, scale = 1, ax, ay) {
   const dx = (a[0] - ax) * (flip ? -1 : 1) * scale, dy = (a[1] - ay) * scale; return [x + dx, y + dy];
 }
 // --------------------------------------------------------------------------- tongue
-function drawTongue(x0, y0, x1, y1, thick = 5, sag = 6) {
+function drawTongue(x0, y0, x1, y1, thick = 5, sag = 6, pal = ['#1a0306', '#e01a2a', '#ff7a8a']) {
   const mx = (x0 + x1) / 2, my = (y0 + y1) / 2 + sag;
   const path = () => { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx, my, x1, y1); };
   ctx.lineCap = 'round';
-  ctx.strokeStyle = '#1a0306'; ctx.lineWidth = thick + 3; path(); ctx.stroke();
-  ctx.strokeStyle = '#e01a2a'; ctx.lineWidth = thick; path(); ctx.stroke();
-  ctx.strokeStyle = '#ff7a8a'; ctx.lineWidth = Math.max(1, thick / 3); ctx.beginPath(); ctx.moveTo(x0, y0 - thick / 4); ctx.quadraticCurveTo(mx, my - thick / 3, x1, y1 - thick / 4); ctx.stroke();
-  P.e(ctx, x1, y1, thick * .9 + 1.5, thick * .8 + 1.5, '#1a0306'); P.e(ctx, x1, y1, thick * .9, thick * .8, '#ff2a3a'); P.r(ctx, x1 - 1, y1 - 2, 2, 1, '#ffb0b8');
+  ctx.strokeStyle = pal[0]; ctx.lineWidth = thick + 3; path(); ctx.stroke();
+  ctx.strokeStyle = pal[1]; ctx.lineWidth = thick; path(); ctx.stroke();
+  ctx.strokeStyle = pal[2]; ctx.lineWidth = Math.max(1, thick / 3); ctx.beginPath(); ctx.moveTo(x0, y0 - thick / 4); ctx.quadraticCurveTo(mx, my - thick / 3, x1, y1 - thick / 4); ctx.stroke();
+  P.e(ctx, x1, y1, thick * .9 + 1.5, thick * .8 + 1.5, pal[0]); P.e(ctx, x1, y1, thick * .9, thick * .8, pal[1]); P.r(ctx, x1 - 1, y1 - 2, 2, 1, '#ffb0b8');
   ctx.lineCap = 'butt';
 }
 // --------------------------------------------------------------------------- hero
@@ -124,13 +124,22 @@ function drawBiker(x, y, o = {}) {
   }
   // rider with suspension bob and flowing rainbow hair (column warp, stronger toward the trailing hair)
   const ry = -vib - (o.bounce || 0);
+  ctx.save();
+  if (o.riderRot || o.riderDX || o.riderDY) { const hp = an.seat; ctx.translate(hp[0] + (o.riderDX || 0), hp[1] + (o.riderDY || 0)); ctx.rotate(o.riderRot || 0); ctx.translate(-hp[0], -hp[1]); }
+  const rimg = o.riderFlash ? flashOf(rider, o.riderFlash) : rider;
   for (let c = 0; c < rider.width; c += 2) {
-    const u = c / rider.width, amp = u < .55 ? (1 - u / .55) * (2 + spd * 3) : 0;
+    const u = c / rider.width, amp = u < .55 ? (1 - u / .55) * (2 + spd * 3 + (o.hairBoost || 0)) : 0;
     const dy = Math.sin(t * 16 - u * 9) * amp;
-    ctx.drawImage(rider, c, 0, 2, rider.height, c, ry + dy, 2, rider.height);
+    ctx.drawImage(rimg, c, 0, 2, rider.height, c, ry + dy, 2, rider.height);
   }
+  // mouth (open for the tongue attack / yelling)
+  if (o.mouthOpen) { const [mx, my] = an.mouth; P.e(ctx, mx, my + ry, 5 + 4 * o.mouthOpen, 3 + 6 * o.mouthOpen, '#1a0306'); P.e(ctx, mx, my + ry + 2 * o.mouthOpen, 3 + 2 * o.mouthOpen, 2 + 3 * o.mouthOpen, '#ff6aa8'); }
+  if (o.dizzy) for (let i = 0; i < 3; i++) { const a2 = t * 6 + i * 2.1; PP.star(ctx, an.head[0] + Math.cos(a2) * 22, an.head[1] - 34 + Math.sin(a2) * 6 + ry, 5, '#ffe14d'); }
+  ctx.restore();
   ctx.restore();
 }
+// bake helper: run a draw function into an offscreen canvas (global ctx is swapped while baking)
+function withCtx(c, fn) { const saved = ctx; ctx = c.ctx; try { fn(); } finally { ctx = saved; } }
 // --------------------------------------------------------------------------- werewolf
 function drawWolf(x, y, o = {}) {
   const flip = (o.face || 1) < 0, t = o.t || G.t, body = IMG.wolf_body, arm = IMG.wolf_arm; if (!body) return;

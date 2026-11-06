@@ -207,7 +207,7 @@ rider, orr = cut(lineup, box=(1003, 22, 1528, split_y))
 bike, obk = cut(lineup, box=(1003, split_y, 1528, 428))
 BS = 195 / 525
 banc = {'rearWheel': (1085, 336), 'frontWheel': (1430, 336), 'seat': (1230, 250), 'exhaust': (1010, 360),
-        'head': (1340, 120), 'hair': (1180, 100)}
+        'head': (1340, 120), 'hair': (1180, 100), 'mouth': (1318, 177)}
 save('biker', biker_full, BS, anchors=banc, src_origin=ob)
 save('biker_rider', rider, BS, anchors=banc, src_origin=orr, do_outline=False)
 save('biker_bike', bike, BS, anchors=banc, src_origin=obk, do_outline=False)
