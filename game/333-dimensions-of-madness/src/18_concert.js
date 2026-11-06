@@ -1,7 +1,7 @@
 // ============================================================================
 // Concerts (rhythm game) and the ending celebration
 // ============================================================================
-const LANES = [{ act: 'jump', alt: 'left', col: '#7fff3a', label: 'JUMP' }, { act: 'whip', alt: 'down', col: '#ff3a6a', label: 'WHIP' }, { act: 'spit', alt: 'up', col: '#5bd4ff', label: 'SPIT' }, { act: 'bash', alt: 'right', col: '#ffe14d', label: 'BASH' }];
+const LANES = [{ act: 'jump', alt: 'left', col: '#7fff3a', label: 'JUMP' }, { act: 'whip', alt: 'right', col: '#ff5bd1', label: 'ATTACK' }];
 const Concert = {
   start(song, final) {
     this.song = song; this.final = final; G.state = 'concert'; AudioSys.play(song, true); AudioSys.setIntensity(2);
@@ -12,8 +12,8 @@ const Concert = {
   pos() { const b = AudioSys.beat(); return b.beat + b.phase; },
   update() {
     this.t++; const pos = this.pos();
-    if (this.startBeat === null) { this.startBeat = Math.floor(pos) + 4; for (let i = 0; i < this.len; i++) { const beat = this.startBeat + 4 + i; const dens = i > this.len * .5 ? .85 : .65; if (this.r() < dens) this.notes.push({ b: beat, lane: Math.floor(this.r() * 4), hit: false, miss: false }); if (i > this.len * .4 && this.r() < .3) this.notes.push({ b: beat + .5, lane: Math.floor(this.r() * 4), hit: false, miss: false }); if (this.final && i % 16 === 15) this.notes.push({ b: beat, lane: (Math.floor(this.r() * 4) + 2) % 4, hit: false, miss: false }); } this.total = this.notes.length; }
-    for (let l = 0; l < 4; l++) {
+    if (this.startBeat === null) { this.startBeat = Math.floor(pos) + 4; for (let i = 0; i < this.len; i++) { const beat = this.startBeat + 4 + i; const dens = i > this.len * .5 ? .85 : .65; if (this.r() < dens) this.notes.push({ b: beat, lane: Math.floor(this.r() * LANES.length), hit: false, miss: false }); if (i > this.len * .4 && this.r() < .3) this.notes.push({ b: beat + .5, lane: Math.floor(this.r() * LANES.length), hit: false, miss: false }); if (this.final && i % 16 === 15) this.notes.push({ b: beat, lane: (Math.floor(this.r() * LANES.length) + 1) % LANES.length, hit: false, miss: false }); } this.total = this.notes.length; }
+    for (let l = 0; l < LANES.length; l++) {
       if (Input.pressed[LANES[l].act] || Input.pressed[LANES[l].alt]) {
         let best = null, bd = .3; for (const n of this.notes) if (!n.hit && !n.miss && n.lane === l) { const d = Math.abs(n.b - pos); if (d < bd) { bd = d; best = n; } }
         if (best) { best.hit = true; this.hits++; const perfect = bd < .1; this.combo++; this.maxCombo = Math.max(this.maxCombo, this.combo); this.score += (perfect ? 300 : 120) * (1 + Math.floor(this.combo / 10)); this.crowd = Math.min(1, this.crowd + .03); this.judge = { s: perfect ? 'PERFECT!' : 'GOOD', col: perfect ? '#ff5bd1' : '#7fff3a', t: 30 }; AudioSys.play_sfx('headbang', { combo: this.combo + l }); this.fx.push({ lane: l, t: 14 }); }
@@ -49,8 +49,8 @@ const Concert = {
     for (let i = 0; i < 46; i++) { const x = i * 14 + 4, jump = (this.crowd > .4 && (i + Math.floor(pos)) % 3 === 0 && kick) ? 4 : 0; ctx.fillStyle = hsl(i * 37 % 360, 30, 20); ctx.beginPath(); ctx.arc(x, 232 - jump, 6, 0, 7); ctx.fill(); ctx.fillRect(x - 6, 232 - jump, 12, 20); if (this.crowd > .7 && i % 4 === 0) { ctx.fillRect(x - 1, 216 - jump, 2, 10); ctx.fillRect(x - 3, 214 - jump, 2, 4); ctx.fillRect(x + 1, 214 - jump, 2, 4); } }
     // highway
     const hx = W / 2 - 100, hitY = 330; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(hx, 240, 200, 120);
-    for (let l = 0; l < 4; l++) { const lx = hx + 25 + l * 50; P.r(ctx, lx - 1, 240, 2, 120, '#333'); const lit = this.fx.find(f => f.lane === l); O.e(lx, hitY, 14, 6, lit ? LANES[l].col : '#222'); text(Input.mode === 'touch' || Input.mode === 'pad' ? LANES[l].label : ['Z/←', 'X/↓', 'C/↑', 'V/→'][l].replace('↓', 'v').replace('↑', '^').replace('←', '<').replace('→', '>'), lx, 344, { color: LANES[l].col, align: 'center' }); }
-    for (const n of this.notes) { if (n.hit) continue; const y = hitY - (n.b - pos) * 40; if (y < 236 || y > 360) continue; const lx = hx + 25 + n.lane * 50; O.e(lx, y, 11, 5, n.miss ? '#444' : LANES[n.lane].col); P.r(ctx, lx - 5, y - 2, 4, 1, '#fff8'); }
+    for (let l = 0; l < LANES.length; l++) { const lx = hx + 50 + l * 100; P.r(ctx, lx - 1, 240, 2, 120, '#333'); const lit = this.fx.find(f => f.lane === l); O.e(lx, hitY, 14, 6, lit ? LANES[l].col : '#222'); text(Input.mode === 'touch' || Input.mode === 'pad' ? LANES[l].label : ['SPACE', 'X'][l], lx, 344, { color: LANES[l].col, align: 'center' }); }
+    for (const n of this.notes) { if (n.hit) continue; const y = hitY - (n.b - pos) * 40; if (y < 236 || y > 360) continue; const lx = hx + 50 + n.lane * 100; O.e(lx, y, 16, 6, n.miss ? '#444' : LANES[n.lane].col); P.r(ctx, lx - 5, y - 2, 4, 1, '#fff8'); }
     // HUD
     text('SCORE ' + this.score, 10, 10, { color: '#fff', outline: true }); text('COMBO x' + this.combo, 10, 22, { color: '#ffe14d', outline: true });
     text('CROWD', W - 110, 10, { color: '#fff' }); P.r(ctx, W - 110, 22, 100, 6, '#300'); P.r(ctx, W - 110, 22, 100 * this.crowd, 6, this.crowd > .6 ? '#7fff3a' : this.crowd > .3 ? '#ffe14d' : '#ff3a3a');

@@ -139,7 +139,7 @@ hero = despeckle(Image.fromarray(ha, 'RGBA'))
 bb = hero.getbbox(); hero = hero.crop(bb); ho = bb[:2]
 hero_anchors = {'mouth': (720, 760), 'eye': (300, 410), 'center': (640, 600), 'tongueTip': (380, 1000),
                 'top': (640, 200), 'bottom': (640, 900), 'eyeR': (790, 450)}
-save('hero', hero, 64 / hero.size[1], anchors=hero_anchors, src_origin=ho)
+save('hero', hero, 96 / hero.size[1], anchors=hero_anchors, src_origin=ho)
 save('hero_big', hero, 150 / hero.size[1], anchors=hero_anchors, src_origin=ho)
 save('hero_title', hero, 230 / hero.size[1], anchors=hero_anchors, src_origin=ho)
 
@@ -153,7 +153,7 @@ arm_poly = [(282, 92), (330, 60), (470, 58), (470, 200), (420, 230), (405, 300),
 wolf_full, o = cut(lineup, box=wolf_box, exclude=wolf_ex)
 wolf_body, o = cut(lineup, box=wolf_box, exclude=wolf_ex + [arm_poly])
 wolf_arm, oa = cut(lineup, pts=arm_poly)
-WS = 150 / 650
+WS = 225 / 650
 wa = {'shoulder': (375, 280), 'mouth': (260, 420), 'eye': (290, 255), 'feet': (200, 700), 'center': (220, 380), 'hand': (230, 520)}
 save('wolf', wolf_full, WS, anchors=wa, src_origin=o)
 save('wolf_body', wolf_body, WS, anchors=wa, src_origin=o)
@@ -169,7 +169,7 @@ pigC = [(705, 165), (740, 135), (790, 122), (850, 128), (872, 160), (905, 185), 
         (905, 300), (860, 300), (820, 320), (760, 322), (718, 300), (700, 250)]
 for nm, poly, ex in (('pig_hamwise', pigB, []), ('pig_porkington', pigA, [pigC, pigB]), ('pig_trufflina', pigC, [])):
     im, o2 = cut(lineup, pts=poly, exclude=ex)
-    save(nm, im, 30 / 200, src_origin=o2)
+    save(nm, im, 45 / 200, src_origin=o2)
     save(nm + '_portrait', im, 96 / 200, src_origin=o2)
 # full group (story cards / encyclopedia)
 pig_group, og = cut(lineup, box=(455, 10, 912, 470), exclude=[[(455, 400), (912, 400), (912, 470), (700, 470), (700, 460), (580, 460), (455, 470)][:0]] if False else [])
@@ -186,7 +186,7 @@ cape_poly = [(398, 520), (520, 500), (690, 508), (705, 545), (668, 600), (652, 7
 cow_full, oc = cut(lineup, pts=cow_poly)
 cow_body, oc2 = cut(lineup, pts=cow_poly, exclude=[cape_poly])
 cow_cape, ocp = cut(lineup, pts=cape_poly)
-CS = 150 / 700
+CS = 225 / 700
 ca = {'neck': (690, 540), 'head': (840, 560), 'fist': (1040, 540), 'feet': (610, 910), 'center': (760, 650), 'mouth': (800, 640)}
 save('cow', cow_full, CS, anchors=ca, src_origin=oc)
 save('cow_body', cow_body, CS, anchors=ca, src_origin=oc2)
@@ -199,7 +199,7 @@ biker_full, ob = cut(lineup, box=biker_box)
 split_y = 258
 rider, orr = cut(lineup, box=(1003, 22, 1528, split_y))
 bike, obk = cut(lineup, box=(1003, split_y, 1528, 428))
-BS = 130 / 525
+BS = 195 / 525
 banc = {'rearWheel': (1085, 336), 'frontWheel': (1430, 336), 'seat': (1230, 250), 'exhaust': (1010, 360),
         'head': (1340, 120), 'hair': (1180, 100)}
 save('biker', biker_full, BS, anchors=banc, src_origin=ob)
@@ -218,7 +218,7 @@ yy, xx = np.mgrid[0:hh, 0:ww]
 cx, cy, rx, ry = ww - 1, hh * 0.62, ww * 0.20, hh * 0.75
 edge = ((xx - (ww - rx)) / rx) ** 2 + ((yy - cy) / ry) ** 2 > 1
 sl[..., 3] = np.where(edge & (xx > ww - rx), 0, sl[..., 3]); sludge = Image.fromarray(sl, 'RGBA')
-SS = 170 / 606
+SS = 255 / 606
 sa = {'mouth': (1230, 830), 'eyeL': (1210, 680), 'eyeR': (1420, 740), 'center': (1150, 760), 'top': (1300, 450)}
 save('sludge', sludge, SS, anchors=sa, src_origin=os_)
 save('sludge_portrait', sludge, 120 / 606, anchors=sa, src_origin=os_)
@@ -227,7 +227,7 @@ fpoly = [(1080, 600), (1160, 520), (1260, 470), (1300, 430), (1380, 440), (1440,
 face, ofc = cut(lineup, pts=fpoly)
 fa = np.asarray(face).copy(); hh, ww = fa.shape[:2]; yy, xx = np.mgrid[0:hh, 0:ww]
 fa[..., 3] = np.where(((xx - ww/2) / (ww/2)) ** 2 + ((yy - hh*0.55) / (hh*0.58)) ** 2 > 1, 0, fa[..., 3]); face = Image.fromarray(fa, 'RGBA')
-save('gloopkin', face, 30 / 580, src_origin=ofc)
+save('gloopkin', face, 45 / 580, src_origin=ofc)
 save('gloop_face', face, 52 / 580, src_origin=ofc)
 puddle, opd = cut(lineup, box=(0, 708, 572, 1024), exclude=[[(380, 708), (572, 708), (572, 830), (480, 830)]])
 save('sludge_puddle', puddle, 110 / 572, src_origin=opd)

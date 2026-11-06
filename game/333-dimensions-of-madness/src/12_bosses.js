@@ -33,11 +33,7 @@ class WolfBoss extends Boss {
     this.phases = this.ver === 1 ? [1, .66, .33] : this.ver === 2 ? [1, .5] : [1, .66, .33]; this.ground = y; this.claw = 0; this.sxx = 1; this.syy = 1; this.rot = 0; this.enraged = false;
   }
   hitbox() { return { x: this.x + 8, y: this.y + 20, w: this.w - 16, h: this.h - 20 }; }
-  onPhase(p) {
-    if (this.ver === 1 && p === 2) { this.go('callBike'); }
-    if ((this.ver === 1 && p === 3) || (this.ver === 2 && p === 2) || (this.ver === 3 && p === 3)) { this.enraged = true; this.go('howl'); }
-    if (this.ver === 3 && p === 2) this.go('callBike');
-  }
+  onPhase(p) { if (p === this.phases.length) { this.enraged = true; this.go('howl'); } }
   update(L) {
     if (!this.commonUpdate()) return; const p = Game.player, dx = p.cx - this.cx, spd = this.enraged ? 1.5 : 1;
     this.arm = lerp(this.arm, this.armT || 0, .25); this.claw = Math.max(0, this.claw - .05); this.sxx = lerp(this.sxx, 1, .15); this.syy = lerp(this.syy, 1, .15); this.rot = lerp(this.rot, 0, .1);
@@ -46,7 +42,7 @@ class WolfBoss extends Boss {
     switch (this.state) {
       case 'intro': if (this.st > 60) this.go('think'); break;
       case 'think': this.armT = 0; this.face = sign(dx) || -1; this.x += this.face * .6 * spd;
-        if (this.st > 50 / spd) { const r = R(); const far = Math.abs(dx) > 150; this.go(far ? (r < .5 ? 'huff' : 'leap0') : r < .55 ? 'claw' : r < .8 ? 'leap0' : 'huff'); if (this.ver === 2 && r < .25) this.go('treeLeap'); }
+        if (this.st > 70 / spd) { const r = R(), far = Math.abs(dx) > 150, third = this.ver === 2 ? 'treeLeap' : 'huff'; this.go(far ? (r < .5 ? third : 'leap0') : r < .6 ? 'claw' : 'leap0'); }
         break;
       case 'claw': this.armT = -.6; this.face = sign(dx) || this.face; if (this.st === 18) { this.armT = 2.2; this.claw = 1; AudioSys.play_sfx('whip'); AudioSys.play_sfx('growl'); this.vx = this.face * 4; }
         if (this.st > 18 && this.st < 30) { this.x += this.face * 3; Game.bossAttack({ x: this.face > 0 ? this.x + this.w - 10 : this.x - 40, y: this.y + 20, w: 50, h: 70 }); }
@@ -64,7 +60,7 @@ class WolfBoss extends Boss {
         if (this.st >= 150) { Game.L.wind = 0; this.go('think'); }
         break;
       case 'howl': this.rot = -.35; this.armT = -.5; if (this.st === 10) { AudioSys.play_sfx('howl'); Cam.shake(5, 50); } if (this.st % 12 === 0 && this.st < 60) FX.ring(this.cx, this.y + 20, 140, '#fff', 20, 3);
-        if (this.st === 40 && p.onGround) p.stun = 40; if (this.st > 70) this.go('think'); break;
+        if (this.st > 70) this.go('think'); break;
       case 'callBike': // Barnaby whistles; Razz's motorcycle roars in and the werewolf rides it
         this.vulnerable = false; if (this.st === 1) { AudioSys.play_sfx('rev'); HUD.banner('RAZZ ROLLS IN!', '#5bd4ff'); }
         if (this.st > 50) { this.bike = { x: Game.L.camLock ? Game.L.camLock.x0 - 120 : Cam.x - 120, dir: 1, passes: 0, spd: 0 }; this.go('bike'); } break;
@@ -85,7 +81,6 @@ class WolfBoss extends Boss {
     }
     if (this.state !== 'bike') { const a = Game.L.camLock; if (a) this.x = clamp(this.x, a.x0 + 10, a.x1 - this.w - 10); }
     if (this.state !== 'bike' && this.state !== 'crash') this.contactDmg();
-    if (this.enraged && this.t % 50 === 0 && this.state === 'think' && this.ver !== 2) Game.add(new EnemyShot(p.cx + R(-60, 60), Cam.y - 10, 0, 2, 'brick'));
   }
   draw(cx, cy) {
     const x = this.cx - cx, y = this.y + this.h - cy, flash = this.flash > 0 ? '#fff' : this.enraged && this.t % 20 < 3 ? '#ff3a3a' : false;
@@ -112,7 +107,7 @@ class CowBoss extends Boss {
     switch (this.state) {
       case 'intro': this.y = this.ground - 160 + Math.sin(this.t * .05) * 8; if (this.st > 60) this.go('hover'); break;
       case 'hover': this.face = sign(p.cx - this.cx) || -1; this.x = lerp(this.x, p.cx - this.w / 2 - this.face * 120, .02); this.y = lerp(this.y, this.ground - 170 + Math.sin(this.t * .06) * 14, .05);
-        if (this.st > 70 / spd) this.go(pick(this.phase === 1 ? ['swoop', 'charge'] : this.phase === 2 ? ['swoop', 'stomp', 'charge'] : ['stomp', 'cape', 'swoop', 'charge'])); break;
+        if (this.st > 80 / spd) this.go(pick(this.phase === 1 ? ['swoop', 'charge'] : ['swoop', 'stomp', 'charge'])); break;
       case 'swoop': { if (this.st === 1) { this.sx0 = this.x; this.tx = p.cx; AudioSys.play_sfx('flap'); AudioSys.play_sfx('moo'); }
         const k = this.st / (70 / spd); this.x = lerp(this.sx0, this.tx - this.w / 2 + this.face * 220, k); this.y = this.ground - 170 + Math.sin(k * Math.PI) * 130; this.rot = .3 * this.face * Math.cos(k * Math.PI); this.cape = 7; this.capeStretch = 6;
         if (this.st % 4 === 0) FX.add({ x: this.cx - this.face * 30, y: this.cy, vx: -this.face, vy: 0, col: '#ff3a3a', size: 2, life: 20, grav: 0 });
@@ -139,7 +134,7 @@ class OverlordBoss extends Boss {
     if (--this.assistT <= 0 && Game.ally) { this.assistT = 420; Game.ally.dive(this.cx, this.y + 40); }
     switch (this.state) {
       case 'intro': if (this.st > 80) this.go('walk'); break;
-      case 'walk': this.x += Math.sin(this.legT * .5) * 1.2; if (this.st > 80 / spd) this.go(pick(this.phase === 1 ? ['cannon', 'stomp'] : ['cannon', 'laser', 'stomp', 'summon'])); break;
+      case 'walk': this.x += Math.sin(this.legT * .5) * 1.2; if (this.st > 90 / spd) this.go(pick(this.phase === 1 ? ['cannon', 'stomp'] : ['cannon', 'laser', 'stomp'])); break;
       case 'cannon': this.mouthOpen = 1; if (this.st % 16 === 0 && this.st < 80) { const a = Math.atan2(p.cy - (this.y + 50), p.cx - (this.x + 120)); Game.add(new EnemyShot(this.x + 130, this.y + 50, Math.cos(a) * 3.5, Math.sin(a) * 3.5 - 2, 'glob')); AudioSys.play_sfx('spit'); } if (this.st > 100) this.go('walk'); break;
       case 'laser': if (this.st < 40) { this.laser = this.st / 40 * .3; } else if (this.st < 120) { this.laser = 1; this.lAng = lerp(.2, 1.1, (this.st - 40) / 80); AudioSys.play_sfx(this.st % 8 === 0 ? 'laser' : ''); const ex = this.x + 130, ey = this.y + 35; for (let d = 30; d < 500; d += 16) Game.bossAttack({ x: ex + Math.cos(Math.PI - this.lAng) * d - 6, y: ey + Math.sin(this.lAng) * d - 6, w: 12, h: 12 }); } else { this.laser = 0; this.go('walk'); } break;
       case 'stomp': if (this.st === 30 || this.st === 70) { Cam.shake(7, 14); AudioSys.play_sfx('rumble'); FX.ring(this.x + 40, this.ground, 140, '#fff', 20, 4); Game.bossAttack({ x: this.x - 100, y: this.ground - 14, w: 300, h: 14 }); for (let i = 0; i < 2; i++) Game.add(new EnemyShot(Cam.x + R(W), Cam.y - 10, 0, 2.2, 'glob')); } if (this.st > 100) this.go('walk'); break;
@@ -174,13 +169,13 @@ class OverlordBoss extends Boss {
 // ---------------------------------------------------------------------------- PUPPET KING
 class PuppetKing extends Boss {
   constructor(x, y, o) { super(x - 70, y - 300, 140, 120, o); this.name = 'THE PUPPET KING'; this.setHp(36); this.ground = y; this.hands = [{ x: -90, y: 0, hp: 6, vy: 0, st: 'hover', t: 0 }, { x: 90, y: 0, hp: 6, vy: 0, st: 'hover', t: 60 }]; this.headY = y - 300; this.cx0 = x; }
-  hitbox() { return this.phase >= 2 ? { x: this.cx0 - 45, y: this.headY + 20, w: 90, h: 80 } : { x: -999, y: -999, w: 0, h: 0 }; }
-  handBox(h) { return { x: this.cx0 + h.x - 22, y: this.ground - 60 - h.y - 20, w: 44, h: 40 }; }
+  hitbox() { return this.phase >= 2 ? { x: this.cx0 - 50, y: this.headY + 20, w: 100, h: 104 } : { x: -999, y: -999, w: 0, h: 0 }; }
+  handBox(h) { return { x: this.cx0 + h.x - 24, y: this.ground - 48 - h.y, w: 48, h: 48 }; }
   update(L) {
     if (!this.commonUpdate()) return; const p = Game.player;
     this.vulnerable = this.phase >= 2 || this.hands.every(h => h.hp <= 0);
     if (this.phase === 1 && this.hands.every(h => h.hp <= 0)) { this.phase = 2; this.onPhaseVis(); }
-    this.headY = lerp(this.headY, this.phase >= 2 ? this.ground - 170 + Math.sin(this.t * .03) * 30 : this.ground - 290, .02);
+    this.headY = lerp(this.headY, this.phase >= 2 ? this.ground - 124 + Math.sin(this.t * .03) * 8 : this.ground - 290, .02);
     for (const h of this.hands) {
       if (h.hp <= 0 && this.phase < 3) { h.y = lerp(h.y, -40, .05); continue; }
       h.t++;
@@ -227,8 +222,7 @@ class DevourerBoss extends Boss {
       case 'portal': if (this.st === 1) { this.portal = { x: p.cx + pick([-1, 1]) * 120, y: this.ground - 80 }; AudioSys.play_sfx('zap'); } this.y = Cam.y - 300; if (this.st > 60) { this.x = this.portal.x - this.w / 2; this.y = this.portal.y - this.h / 2; this.go('emerge'); AudioSys.play_sfx('bite'); Cam.shake(6, 14); } break;
       case 'emerge': this.mouthT = 1; Game.bossAttack({ x: this.x + 40, y: this.y + 40, w: this.w - 80, h: this.h - 80 }); if (this.st > 70) { this.portal = null; this.go('hover'); } break;
     }
-    if (this.phase >= 3) { this.invT = (this.invT || 0) + 1; const cyc = this.invT % 1200; if (cyc === 1) { L.gravity = -1; HUD.banner('REALITY INVERTED!', '#b04bff'); AudioSys.play_sfx('transform'); } if (cyc === 540) { L.gravity = 1; HUD.toast('GRAVITY RESTORED', '#b04bff'); } }
-    if (this.phase >= 3 && this.t % 70 === 0) Game.add(new EnemyShot(Cam.x + R(W), L.gravity < 0 ? Cam.y + H : Cam.y - 10, 0, L.gravity < 0 ? -2 : 2, 'spark'));
+
   }
   draw(cx, cy) {
     const x = this.cx - cx, y = this.cy - cy, t = this.t, fl = this.flash > 0;
@@ -245,11 +239,11 @@ class DevourerBoss extends Boss {
 // ---------------------------------------------------------------------------- CARNIVAL COLOSSUS (mech clown)
 class ClownBoss extends Boss {
   constructor(x, y, o) { super(x - 70, y - 220, 140, 220, o); this.name = 'THE CARNIVAL COLOSSUS'; this.setHp(45); this.ground = y; this.cx0 = x; this.spring = 0; this.arms = 0; this.headOff = null; }
-  hitbox() { return this.headOff ? { x: this.headOff.x - 40, y: this.headOff.y - 40, w: 80, h: 80 } : { x: this.cx0 - 40, y: this.y - 10 - this.spring, w: 80, h: 80 }; }
+  hitbox() { return this.headOff ? { x: this.headOff.x - 40, y: this.headOff.y - 40, w: 80, h: 80 } : { x: this.cx0 - 50, y: this.y - 10 - this.spring, w: 100, h: this.ground - this.y + 10 + this.spring }; }
   onPhase(p) { if (p === 3) { this.headOff = { x: this.cx0, y: this.y + 30, vx: 3, vy: -6 }; HUD.banner('HIS HEAD CAME OFF!', '#ff3a3a'); AudioSys.play_sfx('boing'); } }
   update(L) {
     if (!this.commonUpdate()) return; const p = Game.player; this.spring = Math.sin(this.t * .06) * 20; this.arms += .02 * this.phase;
-    if (this.headOff) { const h = this.headOff, a = L.camLock || { x0: Cam.x, x1: Cam.x + W }; h.vy += .3; h.x += h.vx; h.y += h.vy; if (h.y > this.ground - 40) { h.y = this.ground - 40; h.vy = -8 - R(3); AudioSys.play_sfx('boing'); Cam.shake(3, 6); } if (h.x < a.x0 + 40 || h.x > a.x1 - 40) h.vx *= -1; Game.bossAttack(this.hitbox()); }
+    if (this.headOff) { const h = this.headOff, a = L.camLock || { x0: Cam.x, x1: Cam.x + W }; h.vy += .3; h.x += h.vx; h.y += h.vy; if (h.y > this.ground - 40) { h.y = this.ground - 40; h.vy = -5 - R(2); AudioSys.play_sfx('boing'); Cam.shake(3, 6); } if (h.x < a.x0 + 40 || h.x > a.x1 - 40) h.vx *= -1; Game.bossAttack(this.hitbox()); }
     switch (this.state) {
       case 'intro': if (this.st > 70) this.go('idle'); break;
       case 'idle': if (this.st > 70) this.go(pick(['knives', 'balloons', this.phase >= 2 ? 'spin' : 'knives'])); break;
@@ -257,7 +251,7 @@ class ClownBoss extends Boss {
       case 'balloons': if (this.st % 30 === 0 && this.st < 90) { const e = new Enemy({ kind: 'balloon', x: this.cx0 + R(-80, 80), y: this.y + 40 }); e.home.y = this.ground - 80 - R(60); e.wake = true; Game.add(e); AudioSys.play_sfx('pop'); } if (this.st > 110) this.go('idle'); break;
       case 'spin': this.arms += .15; for (const s of [0, Math.PI]) { const ax = this.cx0 + Math.cos(this.arms + s) * 130, ay = this.y + 120 + Math.sin(this.arms + s) * 90; Game.bossAttack({ x: ax - 16, y: ay - 16, w: 32, h: 32 }); } if (this.st > 160) this.go('idle'); break;
     }
-    const body = { x: this.cx0 - 50, y: this.y + 90, w: 100, h: 130 }; if (overlap(body, p) && this.state !== 'intro') p.hurt(1, this.cx0);
+    const body = { x: this.cx0 - 34, y: this.y + 90, w: 68, h: 130 }; if (overlap(body, p) && this.state !== 'intro' && this.t % 30 === 0) p.hurt(1, this.cx0);
   }
   draw(cx, cy) {
     const x = this.cx0 - cx, y = this.y - cy, fl = this.flash > 0, t = this.t;
@@ -285,6 +279,7 @@ class HeapBoss extends Boss {
   }
   hitbox() { if (this.blobs) return { x: -999, y: 0, w: 0, h: 0 }; return { x: this.cx0 - 70, y: this.ground - 140 - this.stretch, w: 140, h: 140 + this.stretch }; }
   get vulnerableNow() { return !this.armor || this.junk.filter(j => j.alive).length <= 4; }
+  hit(dmg, a) { if (this.armor && !this.vulnerableNow && !this.blobs && dmg > 0 && this.inv <= 0) { this.inv = 10; let n = 0; for (const j of this.junk) if (j.alive && n < 3) { j.alive = false; j.regen = 900; n++; FX.debris(this.cx0 + Math.cos(j.a) * j.r, this.ground - 90 + Math.sin(j.a) * j.r * .6, 'junk', 4); } AudioSys.play_sfx('break'); FX.pop(this.cx0, this.ground - 160, 'CLANG! ARMOUR OFF!', '#ffd23a'); return true; } return super.hit(dmg, a); }
   onPhase(p) {
     if (p === 2) { this.armor = false; HUD.banner('THE GOLDEN GLOOP EMERGES!', '#ffd23a'); for (const j of this.junk) if (j.alive) { j.alive = false; FX.debris(this.cx0 + Math.cos(j.a) * j.r, this.ground - 90 + Math.sin(j.a) * j.r * .6, 'junk', 3); } Save.see('gloop'); }
     if (p === 3) this.go('split');
@@ -294,12 +289,12 @@ class HeapBoss extends Boss {
     // junk armour orbits and REGENERATES unless kept smashed
     for (const j of this.junk) {
       j.a += .008; const jx = this.cx0 + Math.cos(j.a) * j.r, jy = this.ground - 90 + Math.sin(j.a) * j.r * .6;
-      if (this.armor) { if (j.alive) { for (const a of p.attacks) if (overlap(a, { x: jx - j.w / 2, y: jy - j.h / 2, w: j.w, h: j.h })) { j.alive = false; j.regen = 600; AudioSys.play_sfx('break'); FX.debris(jx, jy, 'junk', 5); } if (dist(jx, jy, p.cx, p.cy) < 16) p.hurt(1, jx); }
+      if (this.armor) { if (j.alive) { for (const a of p.attacks) if (overlap(a, { x: jx - j.w / 2, y: jy - j.h / 2, w: j.w, h: j.h })) { j.alive = false; j.regen = 900; AudioSys.play_sfx('break'); FX.debris(jx, jy, 'junk', 5); } if (dist(jx, jy, p.cx, p.cy) < 16) p.hurt(1, jx); }
         else if (--j.regen <= 0) { j.alive = true; FX.ring(jx, jy, 16, '#ffd23a'); AudioSys.play_sfx('gloop'); } }
     }
     switch (this.state) {
       case 'intro': if (this.st > 80) this.go('idle'); break;
-      case 'idle': this.stretch = lerp(this.stretch, 0, .1); if (this.st > 60) this.go(pick(this.armor ? ['throw', 'throw', 'slam'] : ['slam', 'stretch', 'throw', 'wave'])); break;
+      case 'idle': this.stretch = lerp(this.stretch, 0, .1); if (this.st > 70) this.go(pick(['throw', 'slam'])); break;
       case 'throw': if (this.st % 18 === 0 && this.st < 70) { const a = Math.atan2(p.cy - (this.ground - 150), p.cx - this.cx0); Game.add(new EnemyShot(this.cx0, this.ground - 150, Math.cos(a) * 4, Math.sin(a) * 4 - 2, this.armor ? 'brick' : 'glob')); AudioSys.play_sfx('throw'); } if (this.st > 90) this.go('idle'); break;
       case 'slam': if (this.st < 40) this.stretch = this.st * 2.5; else if (this.st === 40) { this.stretch = -30; Cam.shake(8, 16); AudioSys.play_sfx('gloop'); AudioSys.play_sfx('rumble'); FX.ring(this.cx0, this.ground, 150, '#ffd23a', 20, 4); Game.bossAttack({ x: this.cx0 - 200, y: this.ground - 14, w: 400, h: 14 }); for (const s of [-1, 1]) Game.add(new EnemyShot(this.cx0 + s * 80, this.ground - 10, s * 3.5, 0, 'wave')); } else this.stretch = lerp(this.stretch, 0, .1); if (this.st > 80) this.go('idle'); break;
       case 'stretch': { // sludge arm stretches across the arena
@@ -307,7 +302,7 @@ class HeapBoss extends Boss {
       case 'wave': if (this.st % 25 === 0 && this.st < 80) Game.add(new EnemyShot(this.cx0, this.ground - 12, (sign(p.cx - this.cx0) || 1) * 3, 0, 'wave')); if (this.st > 100) this.go('idle'); break;
       case 'split': // splits into three gloops which must each be hit, then reforms
         if (this.st === 1) { AudioSys.play_sfx('squish'); this.blobs = [-1, 0, 1].map(s => ({ x: this.cx0 + s * 40, y: this.ground, vx: s * 3 + R(-1, 1), vy: -6, hp: 3, flash: 0 })); HUD.toast('IT SPLIT! HIT ALL THREE!', '#ffd23a'); }
-        for (const b of this.blobs) { if (b.hp <= 0) continue; b.vy += .3; b.x += b.vx; b.y += b.vy; if (b.y > this.ground) { b.y = this.ground; b.vy = -5 - R(3); b.vx = sign(p.cx - b.x) * R(1, 3); AudioSys.play_sfx('gloop'); } const a = L.camLock; if (a) b.x = clamp(b.x, a.x0 + 30, a.x1 - 30); if (b.flash) b.flash--;
+        for (const b of this.blobs) { if (b.hp <= 0) continue; b.vy += .3; b.x += b.vx; b.y += b.vy; if (b.y > this.ground) { b.y = this.ground; b.vy = -3.5 - R(2); b.vx = sign(p.cx - b.x) * R(1, 3); AudioSys.play_sfx('gloop'); } const a = L.camLock; if (a) b.x = clamp(b.x, a.x0 + 30, a.x1 - 30); if (b.flash) b.flash--;
           const box = { x: b.x - 24, y: b.y - 40, w: 48, h: 40 }; if (overlap(box, p)) p.hurt(1, b.x);
           for (const at of p.attacks) if (overlap(at, box) && !b.flash) { b.hp--; b.flash = 12; AudioSys.play_sfx('squish'); FX.slime(b.x, b.y - 20, 10, ['#ffd23a', '#c8902a']); if (b.hp <= 0) { this.hp -= 4; FX.pop(b.x, b.y - 50, 'SPLAT!', '#ffd23a'); } }
           for (const e of Game.ents) if (e instanceof SlimeBall && e.friendly && overlap(e, box) && !b.flash) { b.hp--; b.flash = 12; e.splat(); if (b.hp <= 0) this.hp -= 4; } }
@@ -338,20 +333,17 @@ class HeapBoss extends Boss {
 // ---------------------------------------------------------------------------- THE ETERNAL FEEDBACK (final)
 class FeedbackBoss extends Boss {
   constructor(x, y, o) { super(x - 110, y - 250, 220, 200, o); this.name = 'THE ETERNAL FEEDBACK'; this.setHp(60); this.ground = y; this.cx0 = x; this.static = 0; this.echo = null; this.phases = [1, .7, .4]; this.shield = 0; }
-  hitbox() { return { x: this.cx0 - 50, y: this.y + 40, w: 100, h: 110 }; }
+  hitbox() { return { x: this.cx0 - 80, y: this.y + 60, w: 160, h: 136 }; }
   onPhase(p) { if (p === 2) HUD.banner('ECHO CHAMBER', '#b04bff'); if (p === 3) { HUD.banner('THE FINAL SONG — PLAY ON THE BEAT!', '#7fff3a'); this.shield = 1; Game.flag('finalPhase'); } }
   hit(dmg, a) {
-    if (this.phase >= 3 && a && a.kind !== 'ally') {
-      if (this.shield > 0 && a.kind !== 'scream') { if (!this.msgT || this.t - this.msgT > 40) { FX.pop(this.cx, this.y, 'WAIT FOR YOUR BAND — THEN SCREAM!', '#7fff3a'); this.msgT = this.t; } return false; }
-      if (a.kind === 'scream') { const onBeat = AudioSys.onBeatWindow(.22); if (!onBeat && this.shield > 0) { FX.pop(this.cx, this.y, 'OFF BEAT!', '#ff3a3a'); return false; } dmg += onBeat ? 3 : 0; if (onBeat) FX.pop(this.cx, this.y - 20, 'PERFECT PITCH!', '#7fff3a'); }
-    }
+    if (this.phase >= 3 && a && a.kind !== 'ally' && this.shield > 0) { if (!this.msgT || this.t - this.msgT > 40) { FX.pop(this.cx, this.y, 'WAIT FOR YOUR BAND!', '#7fff3a'); this.msgT = this.t; } return false; }
     return super.hit(dmg, a);
   }
   update(L) {
-    if (!this.commonUpdate()) return; const p = Game.player; this.static = (this.static + 1) % 1000; this.y = this.ground - 250 + Math.sin(this.t * .02) * 12;
+    if (!this.commonUpdate()) return; const p = Game.player; this.static = (this.static + 1) % 1000; this.y = this.ground - 196 + Math.sin(this.t * .02) * 6;
     switch (this.state) {
       case 'intro': if (this.st > 90) this.go('idle'); break;
-      case 'idle': if (this.st > 60) this.go(this.phase === 1 ? pick(['wall', 'rings']) : this.phase === 2 ? pick(['echoWolf', 'echoCow', 'echoGloop', 'rings']) : pick(['wall', 'rings', 'echoWolf'])); break;
+      case 'idle': if (this.st > 70) this.go(this.phase === 1 ? pick(['wall', 'rings']) : pick(['wall', 'rings', 'echoWolf'])); break;
       case 'wall': if (this.st % 50 === 1 && this.st < 150) { const gap = RI(0, 2); for (let i = 0; i < 4; i++) if (i !== gap) Game.add(new EnemyShot(this.cx0 - 60, this.ground - 16 - i * 34, -2.6, 0, 'wave')); AudioSys.play_sfx('laser'); } if (this.st > 170) this.go('idle'); break;
       case 'rings': if (this.st % 10 === 0 && this.st < 60) for (let a = 0; a < 6.283; a += .785) Game.add(new EnemyShot(this.cx0, this.y + 100, Math.cos(a + this.st) * 2.2, Math.sin(a + this.st) * 2.2, 'ring')); if (this.st > 90) this.go('idle'); break;
       case 'echoWolf': if (this.st === 1) { this.echo = { kind: 'wolf', x: Cam.x - 60, dir: 1 }; AudioSys.play_sfx('howl'); } this.echo.x += 6; Game.bossAttack({ x: this.echo.x - 30, y: this.ground - 80, w: 60, h: 80 }); if (this.echo.x > Cam.x + W + 60) { this.echo = null; this.go('idle'); } break;
@@ -361,14 +353,14 @@ class FeedbackBoss extends Boss {
     if (this.phase >= 3) {
       this.shield = this.shieldDown > 0 ? 0 : 1; if (this.shieldDown > 0) this.shieldDown--;
       this.allyT = (this.allyT || 0) + 1;
-      if (this.allyT % 360 === 60) { const a = ['pigs', 'razz', 'udderly', 'barnaby', 'gloop'][Math.floor(this.allyT / 360) % 5]; this.allyEvent = { k: a, t: 0 }; }
+      if (this.allyT % 300 === 40) { const a = ['pigs', 'razz', 'udderly', 'barnaby', 'gloop'][Math.floor(this.allyT / 300) % 5]; this.allyEvent = { k: a, t: 0 }; }
       if (this.allyEvent) { const e = this.allyEvent; e.t++;
-        if (e.t === 1) { HUD.banner({ pigs: 'THE PIGS STAMPEDE!', razz: 'RAZZ RAMS THE AMP!', udderly: 'UDDERLY DIVE-BOMBS!', barnaby: 'BARNABY HOWLS THE SHIELD DOWN!', gloop: 'THE GLOOP HOLDS IT STILL!' }[e.k], '#7fff3a', 'SCREAM ON THE BEAT NOW!'); AudioSys.play_sfx({ pigs: 'oink', razz: 'rev', udderly: 'moo', barnaby: 'howl', gloop: 'gloop' }[e.k], { pitch: 1 }); this.shieldDown = 220; }
+        if (e.t === 1) { HUD.banner({ pigs: 'THE PIGS STAMPEDE!', razz: 'RAZZ RAMS THE AMP!', udderly: 'UDDERLY DIVE-BOMBS!', barnaby: 'BARNABY HOWLS THE SHIELD DOWN!', gloop: 'THE GLOOP HOLDS IT STILL!' }[e.k], '#7fff3a', 'SHIELD DOWN - ATTACK!!'); AudioSys.play_sfx({ pigs: 'oink', razz: 'rev', udderly: 'moo', barnaby: 'howl', gloop: 'gloop' }[e.k], { pitch: 1 }); this.shieldDown = 220; }
         if (e.k === 'gloop' && e.t < 200) this.y = this.ground - 250;
         if (e.t === 40) { Cam.shake(8, 20); FX.ring(this.cx0, this.y + 100, 120, '#7fff3a'); super.hit(2, { kind: 'ally' }); }
         if (e.t > 220) this.allyEvent = null; }
     }
-    if (overlap(this.hitbox(), p)) p.hurt(1, this.cx0);
+    if (overlap({ x: this.cx0 - 60, y: this.y + 120, w: 120, h: 60 }, p) && this.t % 30 === 0) p.hurt(1, this.cx0);
   }
   draw(cx, cy) {
     const x = this.cx0 - cx, y = this.y - cy, t = this.t, fl = this.flash > 0;

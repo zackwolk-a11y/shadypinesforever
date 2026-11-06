@@ -9,24 +9,12 @@ const HUD = {
   update() { for (const t of this.toasts) t.t--; this.toasts = this.toasts.filter(t => t.t > 0); for (const b of this.banners) b.t--; this.banners = this.banners.filter(b => b.t > 0); if (this.bossIntro > 0) this.bossIntro--; },
   draw() {
     const p = Game.player; if (!p) return;
-    // hearts
-    for (let i = 0; i < p.maxHp; i++) spr(i < p.hp ? ICON.heart : ICON.heartE, 12 + i * 10, 18, { sx: 1.2, sy: 1.2 });
-    // METAL meter
-    const mx = 8, my = 24; panel(mx + 2, my + 2, 82, 8, { rim: p.metal >= 100 ? (G.t * 8 % 2 < 1 ? '#7fff3a' : '#fff') : '#3a6a2a', bg: '#0a0a0a' });
-    const g = ctx.createLinearGradient(mx, 0, mx + 82, 0); g.addColorStop(0, '#2a8a1a'); g.addColorStop(1, '#c8ff3a'); ctx.fillStyle = g; ctx.fillRect(mx + 2, my + 2, 82 * p.metal / 100, 8);
-    ctx.drawImage(ICON.metal, mx + 86, my + 1); text('METAL', mx + 4, my + 3, { color: '#fff', shadow: '#000' });
-    if (p.combo > 1) text('x' + p.combo + ' COMBO', mx + 4, my + 14, { color: '#ffe14d', outline: true });
-    if (p.scream > 0) { P.r(ctx, mx + 2, my + 24, 82, 3, '#222'); P.r(ctx, mx + 2, my + 24, 82 * p.scream / 60, 3, p.scream >= 60 ? '#fff' : '#7fff3a'); }
-    const who = p.isPig() ? PIGS[p.char].name.toUpperCase() : FORMS[p.form].name; text(who, mx + 4, my + 30, { color: p.isPig() ? '#ff8ab0' : '#7fff3a', outline: true });
-    // right: notes + shards + level
-    const def = Game.def; text((def.label === '333' ? 'LEVEL 333' : 'LEVEL ' + def.label), W - 8, 6, { color: '#fff', align: 'right', outline: true });
-    spr(ICON.note, W - 60, 30); text('x' + Game.levelStats.notes, W - 50, 20, { color: '#ffe14d', outline: true });
-    for (let i = 0; i < 3; i++) { const got = Game.levelStats.shards[i], had = Game.shardsHave(i); ctx.globalAlpha = got ? 1 : had ? .45 : .18; ctx.drawImage(ICON.shard, W - 50 + i * 15, 34); ctx.globalAlpha = 1; }
-    if (Save.data.summons.length && !p.isPig()) { const k = Save.data.summons[p.summonSel % Save.data.summons.length]; text('SUMMON: ' + SUMMONS[k].name, W - 8, H - 12, { color: p.metal >= 50 ? '#5bd4ff' : '#557', align: 'right', outline: true }); }
-    if (p.vehicle) { text('BOOST', 8, H - 24, { color: '#ffa01a', outline: true }); P.r(ctx, 44, H - 24, 80, 6, '#300'); P.r(ctx, 44, H - 24, 80 * (p.boost || 0) / 100, 6, '#ffa01a'); text('HOLD ' + K().dash, 130, H - 24, { color: '#888', outline: true }); }
-    if (Game.party && Game.party.length > 1) { text('SWITCH: ' + K().form, 8, H - 12, { color: '#ff8ab0', outline: true }); }
-    if (Game.quest && !Game.quest.silent) { const f = Game.quest.flag; panel(W / 2 - 80, 6, 160, 12, { rim: '#ffd860' }); text((HUD.questLabel || 'QUEST') + ': ' + (Game.flags[f] || 0) + '/' + Game.quest.need, W / 2, 9, { color: '#ffd860', align: 'center' }); }
-    else if (Game.quest && Game.quest.silent && Game.need[Game.quest.flag]) { panel(W / 2 - 60, 6, 120, 12, { rim: '#ffd860' }); text('BUILD: ' + (Game.flags[Game.quest.flag] || 0) + '/' + Game.quest.need, W / 2, 9, { color: '#ffd860', align: 'center' }); }
+    // hearts (big, chunky)
+    for (let i = 0; i < p.maxHp; i++) { const full = i < p.hp, bump = full && i === p.hp - 1 ? Math.sin(G.t * 6) * .12 : 0; spr(full ? ICON.heart : ICON.heartE, 18 + i * 20, 26, { sx: 2.4 + bump, sy: 2.4 + bump }); }
+    // collectible counter
+    panel(W - 84, 8, 74, 22, { rim: '#ffe14d', bg: 'rgba(26,11,34,.75)' }); spr(ICON.note, W - 72, 28, { sx: 1.8, sy: 1.8 }); text(String(Game.levelStats.notes), W - 54, 13, { color: '#ffe14d', scale: 2, outline: true });
+    // current power-up
+    if (p.powerT > 0 && POWERS[p.form] || p.form === 'mega') { const c = POWERS[p.form] ? POWERS[p.form].col : '#7fff3a'; panel(10, 44, 96, 26, { rim: c, bg: 'rgba(26,11,34,.75)' }); drawHero(26, 57, { face: 1, form: p.form, sx: .3, sy: .3 }); text(FORMS[p.form].name.replace(' POWER', '!'), 42, 49, { color: c, outline: true }); P.r(ctx, 42, 60, 58, 5, '#000'); P.r(ctx, 42, 60, 58 * Math.min(1, p.powerT / (p.powerMax || POWER_TIME)), 5, c); }
     // boss bar
     const b = Game.boss; if (b && !b.defeated) {
       const bw = 300, bx = W / 2 - bw / 2, by = H - 30; panel(bx, by, bw, 10, { rim: '#ff3a3a', bg: '#200' });
@@ -65,9 +53,9 @@ const Menus = {
 };
 const MH = Menus.handlers;
 MH.pause = {
-  items: () => ['RESUME', 'RESTART FROM CHECKPOINT', 'RESTART LEVEL', 'TRANSFORMATIONS', 'MONSTER ENCYCLOPEDIA', 'OPTIONS', 'CONTROLS', 'QUIT TO WORLD MAP'],
+  items: () => ['RESUME', 'RESTART FROM CHECKPOINT', 'RESTART LEVEL', 'POWER-UPS & PALS', 'MONSTER ENCYCLOPEDIA', 'OPTIONS', 'CONTROLS', 'QUIT TO WORLD MAP'],
   update(m) { const it = this.items(); m.sel = navList(it.length, m.sel); if (Input.pressed.back || Input.pressed.pause) { Menus.close(); return; }
-    if (Input.pressed.confirm) { const c = it[m.sel]; if (c === 'RESUME') Menus.close(); else if (c === 'RESTART FROM CHECKPOINT') { Menus.close(); Game.player.die(); } else if (c === 'RESTART LEVEL') { Menus.stack = []; Game.restartLevel(); } else if (c === 'TRANSFORMATIONS') Menus.open('forms'); else if (c === 'MONSTER ENCYCLOPEDIA') Menus.open('ency'); else if (c === 'OPTIONS') Menus.open('options'); else if (c === 'CONTROLS') Menus.open('controls'); else { Menus.stack = []; Save.write(); WorldMap.open(); } } },
+    if (Input.pressed.confirm) { const c = it[m.sel]; if (c === 'RESUME') Menus.close(); else if (c === 'RESTART FROM CHECKPOINT') { Menus.close(); Game.player.die(); } else if (c === 'RESTART LEVEL') { Menus.stack = []; Game.restartLevel(); } else if (c === 'POWER-UPS & PALS') Menus.open('forms'); else if (c === 'MONSTER ENCYCLOPEDIA') Menus.open('ency'); else if (c === 'OPTIONS') Menus.open('options'); else if (c === 'CONTROLS') Menus.open('controls'); else { Menus.stack = []; Save.write(); WorldMap.open(); } } },
   draw(m) { ctx.fillStyle = 'rgba(8,0,16,.78)'; ctx.fillRect(0, 0, W, H); text('PAUSED', W / 2, 50, { color: '#7fff3a', align: 'center', scale: 3, outline: true, wave: 1 }); text(Game.def.label === '333' ? 'LEVEL 333 — ' + (Game.sub.name || '') : 'LEVEL ' + Game.def.label + ' — ' + Game.def.name, W / 2, 84, { color: '#fff', align: 'center' }); panel(W / 2 - 120, 106, 240, 140); drawList(this.items(), m.sel, W / 2 - 100, 116, { w: 220 }); }
 };
 MH.options = {
@@ -93,15 +81,15 @@ MH.options = {
 MH.confirmErase = { update(m) { if (Input.pressed.left || Input.pressed.right) m.sel = 1 - m.sel; if (Input.pressed.back) Menus.close(); if (Input.pressed.confirm) { if (m.sel === 1) { Save.reset(); Menus.stack = []; Title.open(); } else Menus.close(); } },
   draw(m) { ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillRect(0, 0, W, H); panel(W / 2 - 130, 140, 260, 70, { rim: '#ff3a3a' }); text('ERASE ALL PROGRESS?', W / 2, 152, { color: '#ff3a3a', align: 'center' }); text((m.sel === 0 ? '► ' : '  ') + 'NO', W / 2 - 50, 180, { color: m.sel === 0 ? '#fff' : '#888', align: 'center' }); text((m.sel === 1 ? '► ' : '  ') + 'YES, ERASE', W / 2 + 50, 180, { color: m.sel === 1 ? '#fff' : '#888', align: 'center' }); } };
 MH.controls = { update(m) { if (Input.pressed.back || Input.pressed.confirm) Menus.close(); },
-  draw() { ctx.fillStyle = 'rgba(8,0,16,.94)'; ctx.fillRect(0, 0, W, H); text('CONTROLS', W / 2, 24, { color: '#7fff3a', align: 'center', scale: 2, outline: true });
-    const rows = [['MOVE', 'ARROWS / WASD', 'D-PAD / STICK'], ['JUMP / CONFIRM', 'SPACE / Z / K', 'A'], ['TONGUE WHIP', 'X / J', 'X'], ['SLIME SPIT', 'C / L', 'B'], ['BONE BASH', 'V / I', 'Y'], ['MOSH DASH', 'SHIFT / ;', 'RB / RT'], ['METAL SCREAM (hold)', 'B / O', 'LT'], ['TONGUE GRAPPLE', 'E / U  (or UP+WHIP)', 'LB'], ['HEADBANG', 'H / N', 'L3'], ['TRANSFORM / SWITCH PIG', 'Q / T', 'R3'], ['SUMMON (DOWN+ = cycle)', 'R / G', 'SELECT'], ['PAUSE / SKIP', 'ESC / P', 'START'], ['DROP THROUGH PLATFORM', 'DOWN + JUMP', 'DOWN + A']];
-    text('ACTION', 40, 52, { color: '#ffe14d' }); text('KEYBOARD', 250, 52, { color: '#ffe14d' }); text('GAMEPAD', 470, 52, { color: '#ffe14d' });
-    rows.forEach((r, i) => { text(r[0], 40, 68 + i * 18, { color: '#fff' }); text(r[1], 250, 68 + i * 18, { color: '#aaa' }); text(r[2], 470, 68 + i * 18, { color: '#aaa' }); });
-    text('Touch: virtual stick on the left, action buttons on the right. Tap screen to advance dialogue.', W / 2, H - 22, { color: '#888', align: 'center' }); } };
-MH.forms = { update(m) { if (Input.pressed.back || Input.pressed.confirm) Menus.close(); m.sel = navList(7, m.sel); },
-  draw(m) { ctx.fillStyle = 'rgba(8,0,16,.94)'; ctx.fillRect(0, 0, W, H); text('TRANSFORMATIONS & ALLIES', W / 2, 20, { color: '#7fff3a', align: 'center', scale: 2, outline: true });
-    const fs = ['normal', 'pig', 'wolf', 'cow', 'bear', 'clown', 'mega']; fs.forEach((f, i) => { const got = Save.data.forms.includes(f), y = 50 + i * 38, s = i === m.sel; if (s) P.r(ctx, 20, y - 4, W - 40, 36, 'rgba(127,255,58,.12)'); if (got) drawHero(50, y + 14, { face: 1, form: f, sx: f === 'mega' ? .38 : .5, sy: f === 'mega' ? .38 : .5 }); else spr(ICON.lock, 50, y + 22); text(got ? FORMS[f].name : '??? LOCKED', 80, y + 4, { color: got ? '#7fff3a' : '#555' }); text(got ? FORMS[f].desc : 'Keep playing to unlock this form.', 80, y + 16, { color: got ? '#ddd' : '#444' }); });
-    let y = 50; text('SUMMONS (cost 50 METAL)', 440, y - 12, { color: '#5bd4ff' }); for (const k in SUMMONS) { const got = Save.data.summons.includes(k); text(got ? SUMMONS[k].name : '???', 440, y + 4, { color: got ? '#5bd4ff' : '#555' }); wrapText(got ? SUMMONS[k].desc : 'Not yet befriended.', 30).forEach((l, i) => text(l, 440, y + 16 + i * 10, { color: '#999' })); y += 52; } } };
+  draw() { ctx.fillStyle = 'rgba(8,0,16,.94)'; ctx.fillRect(0, 0, W, H); text('CONTROLS', W / 2, 30, { color: '#7fff3a', align: 'center', scale: 3, outline: true });
+    const rows = [['MOVE', 'ARROWS / WASD', 'STICK / D-PAD', 'LEFT STICK'], ['JUMP', 'SPACE / Z', 'A', 'JUMP'], ['ATTACK', 'X / J / C / SHIFT', 'X  B  Y  RB', 'ATTACK'], ['PAUSE', 'ESC / P', 'START', 'II']];
+    text('KEYBOARD', 250, 90, { color: '#ffe14d' }); text('GAMEPAD', 400, 90, { color: '#ffe14d' }); text('TOUCH', 530, 90, { color: '#ffe14d' });
+    rows.forEach((r, i) => { text(r[0], 60, 112 + i * 26, { color: '#fff', scale: 2 }); text(r[1], 250, 116 + i * 26, { color: '#aaa' }); text(r[2], 400, 116 + i * 26, { color: '#aaa' }); text(r[3], 530, 116 + i * 26, { color: '#aaa' }); });
+    ['ATTACK is smart: it whips, smashes walls, spins in the air, rolls when you run,', 'swings from hooks, builds houses and flips switches - whatever makes sense.', 'Grab glowing bubbles for temporary PIG, WOLF, COW or SLIME power!'].forEach((l, i) => text(l, W / 2, 240 + i * 14, { color: '#5bd4ff', align: 'center' })); } };
+MH.forms = { update(m) { if (Input.pressed.back || Input.pressed.confirm) Menus.close(); },
+  draw(m) { ctx.fillStyle = 'rgba(8,0,16,.94)'; ctx.fillRect(0, 0, W, H); text('POWER-UPS & PALS', W / 2, 20, { color: '#7fff3a', align: 'center', scale: 2, outline: true });
+    ['pig', 'wolf', 'cow', 'slime'].forEach((f, i) => { const y = 60 + i * 52, P_ = POWERS[f]; drawHero(60, y + 18, { face: 1, form: f, sx: .6, sy: .6 }); text(P_.label, 100, y + 4, { color: P_.col, scale: 2 }); text(FORMS[f].desc, 100, y + 24, { color: '#ddd' }); });
+    text('PALS (they help automatically)', 430, 50, { color: '#5bd4ff' }); [['THE THREE PIGS', 'Honk, throw sticks, punch.'], ['CAPTAIN UDDERLY', 'Delivers COW POWER from the sky.'], ['RAZZ VROOMBERG', 'Jumps his chopper over you. Show-off.']].forEach((r, i) => { text(r[0], 430, 70 + i * 36, { color: '#fff' }); text(r[1], 430, 82 + i * 36, { color: '#999' }); }); } };
 MH.ency = {
   keys: () => Object.keys(ENCY),
   update(m) { const ks = this.keys(), cols = 6; if (m.detail) { if (Input.pressed.back || Input.pressed.confirm) { m.detail = false; AudioSys.play_sfx('back'); } return; }
@@ -135,9 +123,9 @@ MH.jukebox = {
     drawHero(510, 160 + (b.phase < .15 ? 3 : 0), { face: 1, sx: .9, sy: .9, rot: Math.sin(b.phase * Math.PI * 2) * .15, mouth: b.phase < .3 ? .6 : 0 }); }
 };
 MH.mapmenu = {
-  items: ['CONTINUE', 'TRANSFORMATIONS & ALLIES', 'MONSTER ENCYCLOPEDIA', 'MONSTER JUKEBOX', 'ACHIEVEMENTS', 'OPTIONS', 'CONTROLS', 'TITLE SCREEN'],
+  items: ['CONTINUE', 'POWER-UPS & PALS', 'MONSTER ENCYCLOPEDIA', 'MONSTER JUKEBOX', 'ACHIEVEMENTS', 'OPTIONS', 'CONTROLS', 'TITLE SCREEN'],
   update(m) { m.sel = navList(this.items.length, m.sel); if (Input.pressed.back || Input.pressed.pause) { Menus.close(); return; }
-    if (Input.pressed.confirm) { const c = this.items[m.sel]; ({ 'CONTINUE': () => Menus.close(), 'TRANSFORMATIONS & ALLIES': () => Menus.open('forms'), 'MONSTER ENCYCLOPEDIA': () => Menus.open('ency'), 'MONSTER JUKEBOX': () => Menus.open('jukebox'), 'ACHIEVEMENTS': () => Menus.open('ach'), 'OPTIONS': () => Menus.open('options'), 'CONTROLS': () => Menus.open('controls'), 'TITLE SCREEN': () => { Menus.stack = []; Title.open(); } })[c](); } },
+    if (Input.pressed.confirm) { const c = this.items[m.sel]; ({ 'CONTINUE': () => Menus.close(), 'POWER-UPS & PALS': () => Menus.open('forms'), 'MONSTER ENCYCLOPEDIA': () => Menus.open('ency'), 'MONSTER JUKEBOX': () => Menus.open('jukebox'), 'ACHIEVEMENTS': () => Menus.open('ach'), 'OPTIONS': () => Menus.open('options'), 'CONTROLS': () => Menus.open('controls'), 'TITLE SCREEN': () => { Menus.stack = []; Title.open(); } })[c](); } },
   draw(m) { ctx.fillStyle = 'rgba(8,0,16,.8)'; ctx.fillRect(0, 0, W, H); text('MENU', W / 2, 60, { color: '#7fff3a', align: 'center', scale: 3, outline: true }); panel(W / 2 - 120, 106, 240, 140); drawList(this.items, m.sel, W / 2 - 100, 116); }
 };
 MH.resume333 = { update(m) { if (Input.pressed.up || Input.pressed.down) m.sel = 1 - m.sel; if (Input.pressed.back) { Menus.close(); return; } if (Input.pressed.confirm) { const ch = m.sel === 0 ? Save.data.ch333 : 0; Menus.stack = []; Game.loadLevel(LEVEL_BY_ID.L3, ch); } },

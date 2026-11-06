@@ -6,6 +6,7 @@ class UdderlyAlly extends Ent { // Captain Udderly flies alongside and assists i
   dive(tx, ty) { this.mode = 'dive'; this.st = 0; this.tx = tx; this.ty = ty; AudioSys.play_sfx('moo'); HUD.toast('CAPTAIN UDDERLY: "HOLY HEIFER, HOLD ON!"', '#fff'); }
   update(L) {
     this.t++; this.st++; const p = Game.player;
+    if (this.mode === 'follow' && this.t % 1500 === 600 && p.form === 'normal') { Game.add(new PowerUp({ x: this.cx, y: this.cy, kind: 'cow', drop: true })); HUD.toast('UDDERLY: "SPECIAL DELIVERY, CITIZEN!"', '#fff'); AudioSys.play_sfx('moo'); }
     if (this.mode === 'follow') { this.x = lerp(this.x, p.cx - p.face * 70, .04); this.y = lerp(this.y, p.cy - 90 + Math.sin(this.t * .05) * 10, .05); this.face = sign(p.cx - this.cx) || 1; }
     else if (this.mode === 'dive') { const k = Math.min(1, this.st / 30); this.x = lerp(this.x, this.tx, k * .3); this.y = lerp(this.y, this.ty, k * .3); this.face = sign(this.tx - this.cx) || 1;
       if (dist(this.cx, this.cy, this.tx, this.ty) < 30 || this.st > 60) { this.mode = 'follow'; Cam.shake(6, 14); AudioSys.play_sfx('bash'); FX.ring(this.tx, this.ty, 60, '#fff'); for (const e of Game.ents) if (e.isBoss && !e.defeated) { if (e.state !== 'dying' && e.go) { e.hit(3, { kind: 'ally' }); if (e instanceof OverlordBoss) e.go('stunned'); } } } }
@@ -81,14 +82,13 @@ function updateVehicle(pl, L) {
   const I = Input; pl.t++; pl.attacks = [];
   if (pl.dead) { pl.dead++; if (pl.dead > 80) Game.respawn(); return; }
   if (pl.inv > 0) pl.inv--;
-  if (pl.boost === undefined) pl.boost = 100; const boost = I.held.dash && pl.boost > 0; if (boost) { pl.boost -= .9; if (pl.t % 2 === 0) FX.add({ x: pl.x, y: pl.y + pl.h - 6, vx: -3, vy: R(-.5, .5), col: pick(['#ff3a1a', '#ffa01a', '#fff36b']), size: 3, life: 14, grav: 0 }); } else if (!I.held.dash) pl.boost = Math.min(100, pl.boost + .25);
+  if (pl.boost === undefined) pl.boost = 100; const boost = I.held.whip && pl.boost > 0; if (boost) { pl.boost -= .9; if (pl.t % 2 === 0) FX.add({ x: pl.x, y: pl.y + pl.h - 6, vx: -3, vy: R(-.5, .5), col: pick(['#ff3a1a', '#ffa01a', '#fff36b']), size: 3, life: 14, grav: 0 }); } else if (!I.held.whip) pl.boost = Math.min(100, pl.boost + .25);
   const target = (I.held.right ? 5.2 : I.held.left ? 2.4 : 4.2) + (boost ? 2.4 : 0); pl.vx = approach(pl.vx, target, .08); pl.face = 1;
   if (I.pressed.jump && pl.onGround) { pl.vy = -7.2; AudioSys.play_sfx('jump'); }
   pl.vy = Math.min(pl.vy + PHYS.grav * (I.held.jump && pl.vy < 0 ? .7 : 1), 7);
   // tongue still works from the kart: whip obstacles
   if (I.pressed.whip && pl.whipCd <= 0) { pl.whipT = 14; pl.whipCd = 18; AudioSys.play_sfx('whip'); } if (pl.whipCd > 0) pl.whipCd--;
   if (pl.whipT > 0) { pl.whipT--; const [mx, my] = [pl.cx + 10, pl.y + 4]; const ext = (14 - pl.whipT < 5 ? (14 - pl.whipT) / 5 : pl.whipT / 9) * 60; pl.tongueTip = [mx + ext, my, mx, my]; pl.attack({ x: mx + ext - 8, y: my - 8, w: 16, h: 16, dmg: 2, kind: 'whip' }); } else pl.tongueTip = null;
-  if (I.pressed.spit && pl.spitCd <= 0) { pl.spitCd = 16; Game.add(new SlimeBall(pl.cx + 10, pl.y, 8, -1, true)); AudioSys.play_sfx('spit'); } if (pl.spitCd > 0) pl.spitCd--;
   const wasG = pl.onGround; moveBody(pl, L);
   if (pl.hitWall) { if (pl.breakTiles(L, pl.x + pl.w + 2, pl.y + 2, pl.y + pl.h - 2)) { pl.vx = 2.5; Cam.shake(4, 8); } else { pl.hurt(1, pl.x + 40); pl.vx = -2; pl.vy = -3; } }
   if (!wasG && pl.onGround) { FX.dust(pl.cx, pl.y + pl.h, 6); AudioSys.play_sfx('land'); }
@@ -109,4 +109,4 @@ function drawVehicle(pl, cx, cy) {
   P.r(ctx, -20, -18, 40, 4, '#3a7a3a'); text('#333', 0, -10, { color: '#ffe14d', align: 'center', shadow: '#000' });
   ctx.restore();
 }
-function I_mouth(pl) { return Input.held.dash && pl.boost > 0 ? .8 : 0; }
+function I_mouth(pl) { return Input.held.whip && pl.boost > 0 ? .8 : 0; }

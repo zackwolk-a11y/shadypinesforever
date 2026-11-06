@@ -6,4 +6,5 @@ node tools/build.js
 node tests/reachability.js
 node tests/mechanics.js
 node tests/smoke.js > /tmp/smoke.log && grep -q "PAGE ERRORS: \[\]" /tmp/smoke.log && echo "SMOKE: no runtime errors in any level"
+node tests/bosses.js
 node tests/platform.js

@@ -2,11 +2,9 @@
 // Input: keyboard, gamepad, touchscreen -> unified actions
 // ============================================================================
 const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'whip', 'spit', 'bash', 'dash', 'scream', 'grapple', 'headbang', 'transform', 'summon', 'pause', 'confirm', 'back'];
-const KEYMAP = {
+const KEYMAP = { // three buttons: MOVE, JUMP, ATTACK (+ pause). 'whip' is the internal name of ATTACK.
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
-  Space: 'jump', KeyZ: 'jump', KeyK: 'jump', KeyX: 'whip', KeyJ: 'whip', KeyC: 'spit', KeyL: 'spit', KeyV: 'bash', KeyI: 'bash',
-  ShiftLeft: 'dash', ShiftRight: 'dash', Semicolon: 'dash', KeyB: 'scream', KeyO: 'scream', KeyE: 'grapple', KeyU: 'grapple',
-  KeyH: 'headbang', KeyN: 'headbang', KeyQ: 'transform', KeyT: 'transform', KeyR: 'summon', KeyG: 'summon',
+  Space: 'jump', KeyZ: 'jump', KeyK: 'jump', KeyX: 'whip', KeyJ: 'whip', KeyC: 'whip', ShiftLeft: 'whip', ShiftRight: 'whip', KeyL: 'whip',
   Escape: 'pause', KeyP: 'pause', Enter: 'confirm', Backspace: 'back'
 };
 const Input = {
@@ -18,11 +16,10 @@ const Input = {
     if (pad) {
       const b = i => pad.buttons[i] && pad.buttons[i].pressed, ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
       const map = { left: b(14) || ax < -.4, right: b(15) || ax > .4, up: b(12) || ay < -.5, down: b(13) || ay > .5,
-        jump: b(0), whip: b(2), spit: b(1), bash: b(3), dash: b(5) || b(7), scream: b(6), grapple: b(4), headbang: b(10),
-        transform: b(11), summon: b(8), pause: b(9) };
+        jump: b(0), whip: b(2) || b(1) || b(3) || b(5) || b(7), pause: b(9) };
       for (const k in map) if (map[k]) { now[k] = true; this.mode = 'pad'; }
       if (map.jump) now.confirm = true;
-      if (map.spit) now.back = true;
+      if (b(1)) now.back = true;
     }
     if (now.jump) now.confirm = true;
     this.anyPressed = false;
@@ -48,15 +45,11 @@ window.addEventListener('blur', () => { Input._down = {}; });
 
 // ---------------------------------------------------------------- touch controls
 const Touch = {
-  buttons: [
-    ['jump', 'JUMP', -70, -60, 58], ['whip', 'WHIP', -140, -40, 50], ['spit', 'SPIT', -125, -110, 44], ['bash', 'BASH', -60, -135, 44],
-    ['dash', 'DASH', -195, -95, 42], ['scream', 'SCRM', -200, -30, 42], ['grapple', 'HOOK', -255, -55, 38], ['headbang', 'BANG', -255, -115, 38],
-    ['transform', 'FORM', -150, -175, 36], ['summon', 'SUMN', -205, -160, 36], ['pause', 'II', -50, 'top', 34]
-  ],
+  buttons: [['jump', 'JUMP', -68, -62, 92], ['whip', 'ATTACK', -172, -44, 80], ['pause', 'II', -36, 'top', 34]],
   init() {
     const root = document.getElementById('touch');
     for (const [act, label, rx, ry, size] of this.buttons) {
-      const el = document.createElement('div'); el.className = 'tb'; el.textContent = label;
+      const el = document.createElement('div'); el.className = 'tb'; el.dataset.a = act; el.textContent = label;
       el.style.width = el.style.height = size + 'px';
       el.style.right = (-rx - size / 2) + 'px';
       if (ry === 'top') el.style.top = '10px'; else el.style.bottom = (-ry - size / 2) + 'px';

@@ -22,7 +22,7 @@ const FX = {
   },
   draw(cx, cy) {
     for (const p of this.list) {
-      const x = Math.round(p.x - cx), y = Math.round(p.y - cy); if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
+      const x = Math.round(p.x - cx), y = Math.round(p.y - cy); if (x < -20 || x > VW + 20 || y < -20 || y > VH + 20) continue;
       const a = p.fade || p.type === 'smoke' ? p.life / p.max : 1;
       switch (p.type) {
         case 'star': ctx.drawImage(ICON.star, x - 7, y - 6); break;
@@ -31,6 +31,8 @@ const FX = {
         case 'straw': ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); P.r(ctx, -4, -1, 8, 2, '#ffd860'); ctx.restore(); break;
         case 'stick': ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); P.r(ctx, -6, -1, 12, 2, '#8a5a2a'); ctx.restore(); break;
         case 'brick': ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); P.r(ctx, -4, -2, 8, 4, '#c24a2a'); P.r(ctx, -4, -2, 8, 1, '#e87a5a'); ctx.restore(); break;
+        case 'hat': ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); P.r(ctx, -6, -1, 12, 3, '#0a060e'); P.r(ctx, -4, -7, 8, 7, '#0a060e'); P.r(ctx, -5, -1, 10, 2, p.col); P.r(ctx, -3, -6, 6, 5, p.col); ctx.restore(); break;
+        case 'twinkle': { const s2 = Math.sin(p.life / p.max * Math.PI) * 6; PP.star(ctx, x, y, s2 + 1, '#ffe14d'); break; }
         case 'junk': ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); P.r(ctx, -3, -3, 6, 6, p.col || '#8a8a8a'); ctx.restore(); break;
         default: ctx.globalAlpha = a; ctx.fillStyle = p.col; ctx.fillRect(x, y, p.size, p.size); ctx.globalAlpha = 1;
       }
@@ -44,11 +46,14 @@ const Cam = {
   x: 0, y: 0, shakeT: 0, shakeA: 0, zoom: 1, tx: 0, ty: 0,
   shake(a = 3, t = 12) { if (Save.data && Save.data.opt && Save.data.opt.shake === false) return; this.shakeA = Math.max(this.shakeA, a); this.shakeT = Math.max(this.shakeT, t); },
   follow(L, px, py, facing, instant) {
-    let tx = px - W / 2 + facing * 40, ty = py - H * .58;
-    if (L.camLock) { tx = clamp(tx, L.camLock.x0, L.camLock.x1 - W); }
-    tx = clamp(tx, 0, L.w * TS - W); ty = clamp(ty, 0, L.h * TS - H);
-    if (L.autoScroll) tx = Math.max(this.x, L.scrollX); // auto-scroll levels drive camera
-    if (instant) { this.x = tx; this.y = ty; } else { this.x = lerp(this.x, tx, L.autoScroll ? 1 : .12); this.y = lerp(this.y, ty, .1); }
+    // hero sits centre-left with a smoothed look-ahead; vertical deadzone avoids bobbing
+    this.look = lerp(this.look || 0, facing * VW * .12, instant ? 1 : .025);
+    let tx = px - VW / 2 + this.look, ty = this.ty0 === undefined ? py - VH * .56 : this.ty0;
+    const want = py - VH * .56; if (instant || Math.abs(want - ty) > 18) ty = lerp(ty, want, instant ? 1 : .08); this.ty0 = ty;
+    if (L.camLock) { tx = clamp(tx, L.camLock.x0, L.camLock.x1 - VW); }
+    tx = clamp(tx, 0, L.w * TS - VW); ty = clamp(ty, 0, L.h * TS - VH);
+    if (L.autoScroll) tx = Math.max(this.x, L.scrollX);
+    if (instant) { this.x = tx; this.y = ty; } else { this.x = lerp(this.x, tx, L.autoScroll ? 1 : .1); this.y = lerp(this.y, ty, .1); }
     if (this.shakeT > 0) { this.shakeT--; } else this.shakeA *= .8;
   },
   ox() { return this.shakeT > 0 ? R(-this.shakeA, this.shakeA) : 0; }, oy() { return this.shakeT > 0 ? R(-this.shakeA, this.shakeA) : 0; }
@@ -62,12 +67,12 @@ function drawLighting(L, cx) {
       ctx.restore(); break;
     case 'disco': ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 5; i++) { const x = W / 2 + Math.sin(t * (.6 + i * .17) + i) * 300, y = 80 + Math.cos(t * .5 + i) * 60; const g = ctx.createRadialGradient(x, y, 0, x, y, 120); g.addColorStop(0, hsl((t * 60 + i * 70) % 360, 90, 55, .18)); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x - 120, y - 120, 240, 240); } ctx.restore(); break;
     case 'lightning': if ((Math.floor(t * 10) % 53) === 0 || (Math.floor(t * 10) % 53) === 2) { ctx.fillStyle = 'rgba(200,220,255,.25)'; ctx.fillRect(0, 0, W, H); } break;
-    case 'psy': ctx.save(); ctx.globalCompositeOperation = 'overlay'; ctx.fillStyle = hsl((t * 30) % 360, 80, 50, .12); ctx.fillRect(0, 0, W, H); ctx.restore(); break;
-    case 'flicker': if (Math.random() < .02) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, W, H); } break;
+    case 'psy': ctx.save(); ctx.globalCompositeOperation = 'overlay'; ctx.fillStyle = hsl((t * 30) % 360, 80, 50, .07); ctx.fillRect(0, 0, W, H); ctx.restore(); break;
+    case 'flicker': break;
     case 'alarm': ctx.fillStyle = `rgba(255,30,0,${(Math.sin(t * 4) * .5 + .5) * .1})`; ctx.fillRect(0, 0, W, H); break;
     case 'search': { const x = W / 2 + Math.sin(t * .8) * 260; const g = ctx.createRadialGradient(x, H - 80, 0, x, H - 80, 90); g.addColorStop(0, 'rgba(255,255,200,.18)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); break; }
-    case 'moon': { ctx.fillStyle = 'rgba(20,0,40,.15)'; ctx.fillRect(0, 0, W, H); break; }
+    case 'moon': break;
   }
   // vignette
-  const v = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * .85); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.45)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * .85); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(20,0,40,.22)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
 }

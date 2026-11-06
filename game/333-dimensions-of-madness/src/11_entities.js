@@ -40,12 +40,12 @@ const FLYING = { bookbat: 1, spark: 1, hand: 1, candle: 1, lava: 1, balloon: 1 }
 class Enemy extends Ent {
   constructor(o) {
     const d = ENEMY_DEFS[o.kind] || ENEMY_DEFS.puppet, img = o.kind === 'gloopkin' ? IMG.gloopkin : (SPR[o.kind] || SPR.puppet)[0];
-    const sc = o.small ? .65 : 1;
-    super(o.x, o.y, Math.max(12, (img.width - 4) * .8 * sc), (img.height - 2) * sc);
-    this.kind = o.kind; this.def = d; this.hp = Math.ceil(d.hp * (o.small ? .5 : 1) * (Game.diffMul || 1)); this.stunT = 0; this.flash = 0; this.dir = -1; this.home = { x: this.x, y: this.y };
+    const sc = (o.small ? .65 : 1) * (o.kind === 'gloopkin' ? 1.2 : 1.4);
+    const isz = o.kind === 'gloopkin' ? HD : 1; super(o.x, o.y, Math.max(12, (img.width * isz - 4) * .8 * sc), (img.height * isz - 2) * sc);
+    this.kind = o.kind; this.def = d; this.hp = Math.min(3, Math.ceil(d.hp * (o.small ? .5 : 1) * .7)); this.stunT = 0; this.flash = 0; this.dir = -1; this.home = { x: this.x, y: this.y };
     this.small = o.small; this.sc = sc; this.cool = RI(40, 120); this.stepUp = false; this.boss = false; this.score = 10;
     this.y = o.y + TS * 2 - this.h; if (FLYING[this.kind]) this.y = o.y;
-    this.wake = false;
+    this.wake = false; this.react = o.react; if (o.tough) this.hp = o.tough;
   }
   update(L) {
     this.t++; if (this.flash > 0) this.flash--;
@@ -78,7 +78,7 @@ class Enemy extends Ent {
   hit(dmg, a = {}) {
     if (this.dead || this.flash > 0) return false;
     if (dmg <= 0) { this.stunT = Math.max(this.stunT, 120); return false; }
-    this.hp -= dmg; this.flash = 8; this.vx = (a.dir || sign(this.cx - Game.player.cx) || 1) * (a.knock || 2.5); this.vy = -2.5; AudioSys.play_sfx('enemyHit');
+    this.lastDir = a.dir; this.hp -= dmg; this.flash = 8; this.vx = (a.dir || sign(this.cx - Game.player.cx) || 1) * (a.knock || 2.5); this.vy = -2.5; AudioSys.play_sfx('enemyHit');
     FX.burst(this.cx, this.cy, 6, '#fff', { speed: 2 }); G.hitstop = 2;
     if (AudioSys.onBeatWindow(.18)) { Game.player.metal = Math.min(100, Game.player.metal + 4); FX.pop(this.cx, this.y - 6, 'ON BEAT!', '#7fff3a'); }
     if (this.hp <= 0) this.kill();
@@ -88,7 +88,9 @@ class Enemy extends Ent {
   kill(explode) {
     if (this.dead) return; this.dead = true; AudioSys.play_sfx('squish');
     const cols = this.kind === 'gloopkin' ? ['#c8902a', '#ffd23a', '#8a5a10'] : ['#7fff3a', '#fff', '#ff5bd1'];
-    FX.burst(this.cx, this.cy, 16, cols, { speed: 3.5, size: 3 }); FX.pop(this.cx, this.y, '+' + this.score, '#ffe14d');
+    FX.burst(this.cx, this.cy, 16, cols, { speed: 3.5, size: 3 }); FX.pop(this.cx, this.y, pick(['BONK!', 'POW!', 'SPLAT!', 'YEET!', 'WHAM!', 'KA-BOING!']), '#ffe14d');
+    const kind = this.react ? this.react : this.kind === 'gloopkin' ? 'slime' : this.kind === 'puppet' || this.kind === 'soldier' || this.kind === 'felt' ? pick(['apart', 'fly', 'bg']) : pick(REACTIONS);
+    if (kind === 'slime') FX.slime(this.cx, this.cy, 24, ['#ffd23a', '#c8902a', '#fff0a0']); else Game.add(new Ragdoll(this, this.lastDir || sign(this.cx - Game.player.cx) || 1, kind)); Game.levelStats.launched = (Game.levelStats.launched || 0) + 1; Save.data.launched = (Save.data.launched || 0) + 1; if (Save.data.launched >= 50) Save.achieve('launch50');
     Game.player.metal = Math.min(100, Game.player.metal + 3); Game.levelStats.kills++;
     if (this.def.split && !this.small) for (const s of [-1, 1]) { const e = new Enemy({ kind: this.kind, x: this.cx, y: this.y, small: true }); e.y = this.y; e.vx = s * 2.5; e.vy = -4; e.wake = true; Game.add(e); }
     if (explode || this.def.explode) { FX.ring(this.cx, this.cy, 40, '#ff5bd1'); if (dist(this.cx, this.cy, Game.player.cx, Game.player.cy) < 40) Game.player.hurt(1, this.cx); }
@@ -159,7 +161,7 @@ class Note extends Ent {
   constructor(x, y, drop) { super(x, y, 10, 12); this.base = y; this.drop = drop; if (drop) { this.vy = -3; this.vx = R(-1, 1); } }
   update(L) { this.t++; if (this.drop) { this.vy += .2; this.x += this.vx; this.y += this.vy; if (L.solidAt(Math.floor(this.cx / TS), Math.floor((this.y + this.h) / TS))) { this.vy = -Math.abs(this.vy) * .4; this.vx *= .7; this.y -= 1; } }
     const p = Game.player; const mag = p.tongueTip ? dist(this.cx, this.cy, p.tongueTip[0], p.tongueTip[1]) < 20 : false;
-    if (overlap(this, p) || mag) { this.dead = true; Game.levelStats.notes++; Save.data.notes++; AudioSys.play_sfx('note'); FX.burst(this.cx, this.cy, 4, '#ffe14d', { speed: 1.5 }); if (Save.data.notes >= 1000) Save.achieve('notes1000'); } }
+    if (overlap(this, p) || mag) { this.dead = true; Game.levelStats.notes++; Save.data.notes++; AudioSys.play_sfx('note'); Game.noteMilestone(); FX.burst(this.cx, this.cy, 4, '#ffe14d', { speed: 1.5 }); if (Save.data.notes >= 1000) Save.achieve('notes1000'); } }
   draw(cx, cy) { const s = Math.abs(Math.cos(this.t * .06)); spr(ICON.note, this.cx - cx, Math.round(this.y - cy + Math.sin(this.t * .08) * 2) + 10, { sx: Math.max(.2, s) }); }
 }
 class Shard extends Ent {
@@ -177,7 +179,7 @@ class Heart extends Ent {
 class Hook extends Ent {
   constructor(x, y) { super(x - 6, y - 6, 12, 12); }
   get hx() { return this.cx; }
-  draw(cx, cy) { const x = this.cx - cx, y = this.cy - cy; P.l(ctx, x, y - 6, x, y - 40, '#555', 2); spr(ICON.hook, x, y + 6); const p = Game.player; if (!p.grapple && dist(p.cx, p.cy, this.cx, this.cy) < 130 && !p.onGround) { ctx.strokeStyle = `rgba(255,122,138,${.5 + Math.sin(G.t * 10) * .3})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 10, 0, 7); ctx.stroke(); } }
+  draw(cx, cy) { const x = this.cx - cx, y = this.cy - cy; P.l(ctx, x, y - 6, x, y - 40, '#555', 2); spr(ICON.hook, x, y + 6); const p = Game.player; if (!p.grapple && dist(p.cx, p.cy, this.cx, this.cy) < 130 && !p.onGround) { ctx.strokeStyle = `rgba(255,122,138,${.5 + Math.sin(G.t * 10) * .3})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 10, 0, 7); ctx.stroke(); text('ATTACK!', x, y - 26, { color: '#ff7a8a', align: 'center', outline: true }); } }
 }
 class MovingPlat extends Ent {
   constructor(o) { super(o.x, o.y, (o.w || 4) * TS, 8); this.solid = true; this.oneway = true; this.o = o; this.x0 = o.x; this.y0 = o.y; this.dx = 0; this.vy = 0; }
@@ -252,8 +254,8 @@ class BrickSlot extends Ent {
 }
 class Collectable extends Ent { // straw bundles / sticks for house building quests
   constructor(o) { super(o.x, o.y, 16, 14); this.kind = o.kind; this.flagName = o.flag; }
-  update(L) { this.t++; if (overlap(this, Game.player)) { this.dead = true; Game.flag(this.flagName); AudioSys.play_sfx('note'); FX.debris(this.cx, this.cy, this.kind === 'straw' ? 'straw' : 'stick', 6); FX.pop(this.cx, this.y, (Game.flags[this.flagName] || 0) + ' / ' + (Game.need[this.flagName] || '?'), '#ffd860'); } }
-  draw(cx, cy) { spr(this.kind === 'straw' ? ICON.straw : ICON.stick, this.cx - cx, this.y + 14 - cy + Math.sin(this.t * .1) * 2); }
+  update(L) { this.t++; if (overlap(this, Game.player)) { this.dead = true; Game.flag(this.flagName); AudioSys.play_sfx('note'); FX.debris(this.cx, this.cy, this.kind === 'straw' ? 'straw' : 'stick', 6); FX.pop(this.cx, this.y, '+1 ' + this.kind.toUpperCase() + '!', '#ffd860'); } }
+  draw(cx, cy) { const ic = this.kind === 'straw' ? ICON.straw : this.kind === 'brick' ? ICON.brick : ICON.stick; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,230,120,.25)'; ctx.beginPath(); ctx.arc(this.cx - cx, this.cy - cy, 14, 0, 7); ctx.fill(); ctx.restore(); spr(ic, this.cx - cx, this.y + 14 - cy + Math.sin(this.t * .1) * 2, { sx: 1.3, sy: 1.3 }); }
 }
 class Pullable extends Ent { // crates the tongue can yank
   constructor(o) { super(o.x, o.y, 24, 24); this.solid = true; }
@@ -264,10 +266,10 @@ class Pullable extends Ent { // crates the tongue can yank
 }
 class AmpTotem extends Ent { // destroyed only by guitar-powered METAL SCREAM / mega
   constructor(o) { super(o.x, o.y - 48 + 16, 32, 48); this.solid = true; this.hp = 1; }
-  update(L) { this.t++; const p = Game.player; if (p.form === 'mega' && overlap({ x: p.x - 4, y: p.y, w: p.w + 8, h: p.h }, this)) this.blow(); }
+  update(L) { this.t++; if (this.fallY < 0) { this.fallY = Math.min(0, this.fallY + 7); if (this.fallY === 0) { FX.dust(this.cx, this.y + this.h, 16); } } const p = Game.player; if ((p.form === 'mega' || p.dashT > 0 && p.form !== 'normal') && overlap({ x: p.x - 4, y: p.y, w: p.w + 8, h: p.h }, this)) this.blow(); }
   blow() { if (this.dead) return; this.dead = true; this.solid = false; AudioSys.play_sfx('explode'); AudioSys.play_sfx('riff'); Cam.shake(8, 20); FX.burst(this.cx, this.cy, 40, ['#c9a227', '#333', '#ff3a1a', '#fff'], { speed: 5, size: 3 }); FX.notes(this.cx, this.cy, 8); }
-  draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); P.r(ctx, x - 1, y - 1, 34, 50, '#000'); P.r(ctx, x, y, 32, 48, '#1c1c20'); P.r(ctx, x + 2, y + 2, 28, 5, '#c9a227'); P.e(ctx, x + 16, y + 20, 10, 10, '#333'); P.e(ctx, x + 16, y + 38, 6, 6, '#333'); text('MAX', x + 16, y + 9, { color: '#ff3a3a', align: 'center', shadow: false });
-    if (this.t % 40 < 20 && dist(Game.player.cx, Game.player.cy, this.cx, this.cy) < 200) text('METAL SCREAM!', x + 16, y - 12, { color: '#7fff3a', align: 'center', outline: true }); }
+  draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy + (this.fallY || 0)); P.r(ctx, x - 1, y - 1, 34, 50, '#000'); P.r(ctx, x, y, 32, 48, '#1c1c20'); P.r(ctx, x + 2, y + 2, 28, 5, '#c9a227'); P.e(ctx, x + 16, y + 20, 10, 10, '#333'); P.e(ctx, x + 16, y + 38, 6, 6, '#333'); text('MAX', x + 16, y + 9, { color: '#ff3a3a', align: 'center', shadow: false });
+    if (this.t % 40 < 20 && dist(Game.player.cx, Game.player.cy, this.cx, this.cy) < 200) text('ATTACK IT!', x + 16, y - 12, { color: '#7fff3a', align: 'center', outline: true }); }
 }
 class Sign extends Ent { // wooden hint sign
   constructor(o) { super(o.x, o.y - 26, 22, 26); this.msg = o.msg; }
@@ -280,7 +282,7 @@ class Decoy extends Ent {
   draw(cx, cy) { drawHero(this.cx - cx, this.cy - cy - 4, { face: 1, form: 'clown', alpha: .65 + Math.sin(this.t * .3) * .2, sy: 1 + Math.sin(this.t * .2) * .05 }); }
 }
 class Arena extends Ent { // locks camera and spawns waves
-  constructor(o) { super(o.x, 0, o.w, 9999); this.o = o; this.wave = -1; this.active = false; this.done = false; this.spawned = []; }
+  constructor(o) { super(o.x, 0, o.w, 9999); this.o = Object.assign({}, o, { waves: o.waves.slice(0, 2).map(w => w.slice(0, 3)) }); this.wave = -1; this.active = false; this.done = false; this.spawned = []; }
   update(L) {
     if (this.done) return; const p = Game.player;
     if (!this.active && p.x > this.x + 40 && p.x < this.x + this.w) { this.active = true; L.camLock = { x0: this.x - 16, x1: this.x + this.w + 16 }; AudioSys.setIntensity(2); this.next(); HUD.banner('FIGHT!', '#ff3a3a'); this.walls(true); }

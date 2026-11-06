@@ -6,7 +6,7 @@ const T_EMPTY = 0, T_SOLID = 1, T_ONEWAY = 2, T_BREAK = 3, T_SPIKE = 4, T_LIQ = 
 const CHUNK = 32;
 class Level {
   constructor(def) {
-    this.def = def; this.w = def.w || 400; this.h = def.h || 24;
+    this.def = def; this.w = def.w || 1400; this.h = def.h || 24;
     this.tiles = new Uint8Array(this.w * this.h); this.theme = THEMES[def.theme]; this.seed = hashStr(def.id);
     this.props = []; this.spawns = []; this.crumbles = new Map(); this.beatPhase = 0; this.dirty = new Set();
     this.tileset = buildTileset(this.theme, this.seed); this.bg = buildBackground(this.theme, this.seed); this.propImgs = buildProps(this.theme, this.seed);
@@ -23,8 +23,8 @@ class Level {
     switch (t) {
       case T_SOLID: case T_BREAK: case T_SPRING: case T_CONVL: case T_CONVR: case T_WALL: return true;
       case T_CRUMBLE: { const c = this.crumbles.get(this.idx(tx, ty)); return !c || c.t < 40; }
-      case T_BEATA: return this.beatOn === true;
-      case T_BEATB: return this.beatOn === false;
+      case T_BEATA: return this.beatOn === true || (this.beatFlip > 0 && forBody === Game.player);
+      case T_BEATB: return this.beatOn === false || (this.beatFlip > 0 && forBody === Game.player);
     }
     return false;
   }
@@ -34,51 +34,54 @@ class Level {
   update() {
     // rhythm machinery: beat blocks flip every 2 beats of the music
     const b = AudioSys.beat(); const on = Math.floor(b.beat / 2) % 2 === 0;
-    if (on !== this.beatOn) { this.beatOn = on; this.beatFlip = 10; if (this.hasBeat) { this.dirtyAll(); } }
+    if (on !== this.beatOn) { this.beatOn = on; this.beatFlip = 14; if (this.hasBeat) { this.dirtyAll(); } }
     if (this.beatFlip > 0) this.beatFlip--;
     for (const [k, c] of this.crumbles) { c.t++; if (c.t === 40) { this.dirty.add(Math.floor((k % this.w) / CHUNK)); FX.burst((k % this.w) * TS + 8, Math.floor(k / this.w) * TS + 4, 6, '#a07a4a'); } if (c.t > 260) { this.crumbles.delete(k); this.dirty.add(Math.floor((k % this.w) / CHUNK)); } }
   }
   dirtyAll() { for (let i = 0; i * CHUNK < this.w; i++) this.dirty.add(i); }
   // ---------- rendering
-  buildChunks() { this.chunks = []; for (let i = 0; i * CHUNK < this.w; i++) { this.chunks.push(makeCanvas(CHUNK * TS, this.h * TS)); this.renderChunk(i); } this.dirty.clear(); }
+  buildChunks() { this.chunks = []; for (let i = 0; i * CHUNK < this.w; i++) { this.chunks.push(makeCanvas(CHUNK * HTS, this.h * HTS)); this.renderChunk(i); } this.dirty.clear(); }
   renderChunk(i) {
-    const c = this.chunks[i], x = c.ctx, T = this.tileset; x.clearRect(0, 0, c.width, c.height);
-    const r = mulberry(this.seed + i * 31);
-    for (let ty = 0; ty < this.h; ty++) for (let lx = 0; lx < CHUNK; lx++) {
-      const tx = i * CHUNK + lx; if (tx >= this.w) break; const t = this.tiles[ty * this.w + tx], px = lx * TS, py = ty * TS;
-      const sol = v => v === T_SOLID;
+    const c = this.chunks[i], x = c.ctx, T = this.tileset, S = HTS; x.clearRect(0, 0, c.width, c.height);
+    const sol = v => v === T_SOLID || v === T_BREAK;
+    const x0 = i * CHUNK;
+    // pass 1: tile bodies
+    for (let ty = 0; ty < this.h; ty++) for (let lx = -1; lx <= CHUNK; lx++) {
+      const tx = x0 + lx; if (tx < 0 || tx >= this.w) continue; const t = this.tiles[ty * this.w + tx], px = lx * S, py = ty * S;
       switch (t) {
-        case T_SOLID:
-          x.drawImage(T.solid[(tx * 7 + ty * 13) % 3], px, py);
-          if (!sol(this.get(tx, ty - 1)) && this.get(tx, ty - 1) !== T_BREAK) x.drawImage(T.cap, px, py);
-          if (!sol(this.get(tx - 1, ty)) && this.get(tx - 1, ty) !== T_WALL) x.drawImage(T.edgeL, px, py);
-          if (!sol(this.get(tx + 1, ty)) && this.get(tx + 1, ty) !== T_WALL) x.drawImage(T.edgeR, px, py);
-          if (!sol(this.get(tx, ty + 1)) && ty < this.h - 1) x.drawImage(T.edgeB, px, py);
-          if (ty > 0 && sol(this.get(tx, ty - 1)) && r() < .04) { x.fillStyle = '#0003'; x.fillRect(px + 4, py + 5, 3, 2); }
-          break;
+        case T_SOLID: x.drawImage(T.solid[(tx * 7 + ty * 13) % 3], px, py); if (!sol(this.get(tx, ty + 1)) && ty < this.h - 1) { x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(px, py + S - 5, S, 5); } break;
         case T_ONEWAY: x.drawImage(T.oneway, px, py); break;
         case T_BREAK: x.drawImage(T.brk, px, py); break;
         case T_SPIKE: x.drawImage(T.spike, px, py); break;
-        case T_CRUMBLE: { const cc = this.crumbles.get(this.idx(tx, ty)); if (!cc || cc.t < 40) x.drawImage(T.crumble, px + (cc ? (cc.t % 4 < 2 ? 1 : -1) : 0), py); break; }
+        case T_CRUMBLE: { const cc = this.crumbles.get(this.idx(tx, ty)); if (!cc || cc.t < 40) x.drawImage(T.crumble, px + (cc ? (cc.t % 4 < 2 ? 1.5 : -1.5) : 0), py); break; }
         case T_BEATA: x.drawImage(this.beatOn ? T.beatOn : T.beatOff, px, py); break;
         case T_BEATB: x.drawImage(this.beatOn === false ? T.beatOnB : T.beatOffB, px, py); break;
         case T_LIQF: x.drawImage(T.liquidFill, px, py); break;
       }
     }
+    // pass 2: thick cartoon outline around solid masses + overhanging caps
+    x.fillStyle = INK;
+    for (let ty = 0; ty < this.h; ty++) for (let lx = -1; lx <= CHUNK; lx++) {
+      const tx = x0 + lx; if (tx < 0 || tx >= this.w) continue; const t = this.tiles[ty * this.w + tx]; if (t !== T_SOLID) continue; const px = lx * S, py = ty * S;
+      const up = this.get(tx, ty - 1), lf = this.get(tx - 1, ty), rt = this.get(tx + 1, ty);
+      if (!sol(lf) && lf !== T_WALL) x.fillRect(px, py, 3, S); if (!sol(rt) && rt !== T_WALL) x.fillRect(px + S - 3, py, 3, S);
+      if (!sol(this.get(tx, ty + 1)) && ty < this.h - 1) x.fillRect(px, py + S - 3, S, 3);
+      if (!sol(up) && up !== T_SPIKE) { x.drawImage(T.caps[(tx * 3 + ty) % 3], px, py - T.capH); x.fillStyle = INK; }
+    }
   }
   drawTiles(cx, cy) {
     for (const i of this.dirty) if (this.chunks[i]) this.renderChunk(i); this.dirty.clear();
     const T = this.tileset, f = Math.floor(G.t * 8) % 4;
-    const i0 = Math.max(0, Math.floor(cx / (CHUNK * TS))), i1 = Math.min(this.chunks.length - 1, Math.floor((cx + W) / (CHUNK * TS)));
-    for (let i = i0; i <= i1; i++) ctx.drawImage(this.chunks[i], Math.round(i * CHUNK * TS - cx), Math.round(-cy));
-    // animated tiles
-    const tx0 = Math.floor(cx / TS) - 1, tx1 = Math.ceil((cx + W) / TS) + 1, ty0 = Math.max(0, Math.floor(cy / TS)), ty1 = Math.min(this.h - 1, Math.ceil((cy + H) / TS));
+    const i0 = Math.max(0, Math.floor(cx / (CHUNK * TS))), i1 = Math.min(this.chunks.length - 1, Math.floor((cx + VW) / (CHUNK * TS)));
+    for (let i = i0; i <= i1; i++) { const ch = this.chunks[i]; ctx.drawImage(ch, Math.round((i * CHUNK * TS - cx) * ZOOM) / ZOOM, Math.round(-cy * ZOOM) / ZOOM, ch.width * HD, ch.height * HD); }
+    const tx0 = Math.floor(cx / TS) - 1, tx1 = Math.ceil((cx + VW) / TS) + 1, ty0 = Math.max(0, Math.floor(cy / TS)), ty1 = Math.min(this.h - 1, Math.ceil((cy + VH) / TS));
+    const dt = (img, tx, ty) => ctx.drawImage(img, Math.round((tx * TS - cx) * ZOOM) / ZOOM, Math.round((ty * TS - cy) * ZOOM) / ZOOM, img.width * HD, img.height * HD);
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = Math.max(0, tx0); tx <= Math.min(this.w - 1, tx1); tx++) {
-      const t = this.tiles[ty * this.w + tx]; const px = Math.round(tx * TS - cx), py = Math.round(ty * TS - cy);
-      if (t === T_LIQ) ctx.drawImage(T.liquid[(f + tx) % 4], px, py);
-      else if (t === T_CONVL) ctx.drawImage(T.conv[3 - f], px, py); else if (t === T_CONVR) ctx.drawImage(T.conv[f], px, py);
-      else if (t === T_SPRING) ctx.drawImage(T.spring[this.springAnim && this.springAnim[tx + ',' + ty] > 0 ? 1 : 0], px, py);
-      else if (t === T_ZAP) ctx.drawImage(T.zap[(f + tx) % 4], px, py);
+      const t = this.tiles[ty * this.w + tx];
+      if (t === T_LIQ) dt(T.liquid[(f + tx) % 4], tx, ty);
+      else if (t === T_CONVL) dt(T.conv[3 - f], tx, ty); else if (t === T_CONVR) dt(T.conv[f], tx, ty);
+      else if (t === T_SPRING) dt(T.spring[this.springAnim && this.springAnim[tx + ',' + ty] > 0 ? 1 : 0], tx, ty);
+      else if (t === T_ZAP) dt(T.zap[(f + tx) % 4], tx, ty);
     }
   }
 }

@@ -2,6 +2,7 @@
 // THE 333 DIMENSIONS OF MADNESS — core utilities, canvas, bitmap font
 // ============================================================================
 const W = 640, H = 360, TS = 16;
+const ZOOM = 1.5, VW = W / ZOOM, VH = H / ZOOM, HD = 1 / ZOOM; // world camera zoom; cast sprites are exported at 1.5x and drawn at HD
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;

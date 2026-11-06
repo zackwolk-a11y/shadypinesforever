@@ -20,7 +20,7 @@ const URL = 'file://' + path.resolve(__dirname, '../333-dimensions-of-madness.ht
   await mp.goto(URL); await mp.waitForFunction(() => window.DIM333 && DIM333.G.state === 'title');
   await mp.tap('#screen'); await mp.waitForTimeout(300);
   const touchOn = await mp.evaluate(() => document.getElementById('touch').classList.contains('on') && document.querySelectorAll('.tb').length);
-  ok(touchOn >= 10, 'touch controls shown on mobile (' + touchOn + ' buttons)');
+  ok(touchOn === 3, 'only JUMP, ATTACK and pause on the touch screen (' + touchOn + ' buttons)');
   await mp.screenshot({ path: OUT + '/mobile_title.png' });
   await mp.evaluate(() => { DIM333.load(0); }); await mp.waitForTimeout(300);
   for (let i = 0; i < 14; i++) { await mp.tap('#screen'); await mp.waitForTimeout(60); }

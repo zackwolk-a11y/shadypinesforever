@@ -42,7 +42,7 @@ const AudioSys = {
       const lpre = ac.createGain(); lpre.gain.value = 3;
       const lws = ac.createWaveShaper(); lws.curve = this.distCurve;
       const llp = ac.createBiquadFilter(); llp.type = 'lowpass'; llp.frequency.value = 3600;
-      const lout = ac.createGain(); lout.gain.value = .05;
+      const lout = ac.createGain(); lout.gain.value = .075;
       const dl = ac.createDelay(1); dl.delayTime.value = .33; const fb = ac.createGain(); fb.gain.value = .32;
       lpre.connect(lws); lws.connect(llp); llp.connect(lout); lout.connect(this.music); lout.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(this.music);
       this.lead = lpre; this.leadDelay = dl;
@@ -124,6 +124,7 @@ const AudioSys = {
   hat(t, open, vol = 1) { this.noiseHit(t, this.drums, 'highpass', 7800, .5, .22 * vol, open ? .2 : .035); },
   crash(t, vol = 1) { this.noiseHit(t, this.drums, 'highpass', 4500, .4, .45 * vol, 1.3, .9); },
   tom(t, f, vol = 1) { const g = this.ac.createGain(); g.connect(this.drums); g.gain.setValueAtTime(.9 * vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .25); const o = this.osc('sine', f, t, t + .26, g); o.frequency.exponentialRampToValueAtTime(f * .55, t + .2); },
+  cowbell(t, vol = 1) { const bp = this.ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 800; bp.Q.value = 3; const g = this.ac.createGain(); bp.connect(g); g.connect(this.drums); g.gain.setValueAtTime(.35 * vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .18); this.osc('square', 560, t, t + .2, bp); this.osc('square', 845, t, t + .2, bp); },
   clang(t, vol = 1) {
     const bp = this.ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 4;
     const g = this.ac.createGain(); bp.connect(g); g.connect(this.drums); g.gain.setValueAtTime(.5 * vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .35);
@@ -172,7 +173,8 @@ const AudioSys = {
     if (I >= 2 && p.dk && st % 2 === 1) this.kick(t, .55);
     if (ev.g && I >= 1) this.guitar(t, ev.g[0], ev.g[1] * sd, ev.g[2], ev.g[3] !== false);
     if (ev.b) this.bassNote(t, ev.b[0], ev.b[1] * sd);
-    if (ev.l && (I >= 1 || p.leadAlways)) this.leadNote(t, ev.l[0], ev.l[1] * sd, ev.l[2]);
+    if (ev.l && (I >= 1 || p.leadAlways)) this.leadNote(t, ev.l[0], ev.l[1] * sd, ev.l[2], ev.l[3] || 1);
+    if (ev.cb) this.cowbell(t, ev.cb);
     if (ev.o) this.organ(t, ev.o[0], ev.o[1] * sd);
     if (ev.z) this.kazoo(t, ev.z[0], ev.z[1] * sd);
     if (ev.p) this.pad(t, ev.p[0], ev.p[1] * sd);

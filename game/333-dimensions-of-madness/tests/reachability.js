@@ -45,12 +45,12 @@ const { chromium } = require('playwright'); const path = require('path');
       }
       // targets
       const reachableNear = (px, py, r = 2) => { const tx = Math.floor(px / 16), ty = Math.floor(py / 16); for (let dx = -r; dx <= r; dx++) for (let dy = -1; dy <= 6; dy++) { const k = key(tx + dx, ty + dy); if (tx + dx >= 0 && tx + dx < Wd && ty + dy < Hd && ty + dy >= 0 && seen[k]) return true; } return false; };
-      const targets = Gm.ents.filter(e => ['Exit', 'BossGate', 'Collectable', 'BrickItem', 'Shard', 'ChaseEnd', 'FinishLine', 'Quest'].includes(e.constructor.name));
+      const targets = Gm.ents.filter(e => ['Exit', 'BossGate', 'Collectable', 'BrickItem', 'Shard', 'ChaseEnd', 'FinishLine', 'Quest', 'HouseSite'].includes(e.constructor.name));
       const colReach = px => { const tx = Math.floor(px / 16); for (let dx = -2; dx <= 2; dx++) for (let y = 0; y < Hd; y++) if (tx + dx >= 0 && tx + dx < Wd && seen[key(tx + dx, y)]) return true; return false; };
       const nearSeen = (tx, r) => { for (let dx = -r; dx <= r; dx++) for (let y = 0; y < Hd; y++) if (tx + dx >= 0 && tx + dx < Wd && seen[key(tx + dx, y)]) return true; return false; };
       const hookReach = e => hooks.some(([hx, hy]) => Math.abs(hx * 16 - e.cx) < 100 && Math.abs(hy * 16 - e.cy) < 100 && nearSeen(hx, 9));
       const bad = targets.filter(e => { const n = e.constructor.name; if (n === 'BossGate' || n === 'ChaseEnd' || n === 'FinishLine' || n === 'Quest') return !colReach(e.cx); return !reachableNear(e.cx, e.y + e.h - 2, n === 'Shard' ? 4 : 3) && !(n === 'Collectable' && hookReach(e)); }).map(e => e.constructor.name + '@' + Math.floor(e.x / 16) + ',' + Math.floor(e.y / 16));
-      const hasEnd = targets.some(e => ['Exit', 'BossGate', 'ChaseEnd', 'FinishLine', 'Quest'].includes(e.constructor.name)) || Gm.sub.concert;
+      const hasEnd = targets.some(e => ['Exit', 'BossGate', 'ChaseEnd', 'FinishLine', 'Quest', 'HouseSite'].includes(e.constructor.name)) || Gm.sub.concert;
       out.push({ id: lv.id + (lv.chapters ? '.' + (ch + 1) : ''), cells: seen.reduce((a, v) => a + v, 0), bad, hasEnd });
     }));
     return out;

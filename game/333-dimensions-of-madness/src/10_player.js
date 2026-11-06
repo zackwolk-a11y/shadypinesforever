@@ -1,15 +1,16 @@
 // ============================================================================
 // Player: the green monster (Moshmouth) + temporary pig heroes
 // ============================================================================
-const FORMS = {
-  normal: { name: 'MOSHMOUTH', speed: 2.5, jump: 6.5, desc: 'Tongue, slime, bones, mosh and scream.' },
-  pig: { name: 'PIG MODE', speed: 3.2, jump: 6.4, desc: 'Charge through walls. Whip = HEADBUTT. Dash = PIG CHARGE.' },
-  wolf: { name: 'WOLF MODE', speed: 2.8, jump: 7.4, desc: 'Double LEAP. Scream = HOWL (stuns everything nearby).' },
-  cow: { name: 'COW MODE', speed: 2.1, jump: 6.0, desc: 'Down in air = HEAVY STOMP. Dash = HORN CHARGE.' },
-  bear: { name: 'BEAR MODE', speed: 2.3, jump: 6.2, desc: 'Hold toward walls to CLIMB. Whip = SMASH.' },
-  clown: { name: 'CLOWN MODE', speed: 2.6, jump: 7.0, desc: 'Springy BOUNCE. Scream = spawn exploding DECOY.' },
-  mega: { name: 'MEGA MONSTER', speed: 2.9, jump: 6.8, desc: 'Gigantic! Smash everything. Costs a full METAL meter.' }
+const FORMS = { // transformations are now temporary power-ups collected in levels
+  normal: { name: 'MOSHMOUTH', speed: 2.5, jump: 6.6, desc: 'Tongue, bones and a terrible attitude.' },
+  pig: { name: 'PIG POWER', speed: 3.3, jump: 6.6, desc: 'ATTACK = unstoppable pig charge!' },
+  wolf: { name: 'WOLF POWER', speed: 2.9, jump: 7.4, desc: 'ATTACK = HOWL shockwave. Double jump!' },
+  cow: { name: 'COW POWER', speed: 2.4, jump: 6.6, desc: 'ATTACK = horn charge. In the air = MEGA STOMP!' },
+  slime: { name: 'SLIME POWER', speed: 2.6, jump: 6.6, desc: 'ATTACK = triple slime spit!' },
+  mega: { name: 'MEGA MONSTER', speed: 2.9, jump: 6.8, desc: 'Gigantic! Smash everything!' },
+  bear: { name: 'BEAR', speed: 2.3, jump: 6.2, desc: '' }, clown: { name: 'CLOWN', speed: 2.6, jump: 7.0, desc: '' }
 };
+const POWER_TIME = 1200;
 const PIG_STATS = {
   hamwise: { w: 16, h: 20, speed: 2.5, jump: 6.0, desc: 'Glides on his straw hat. Kazoo HONK stuns.' },
   porkington: { w: 16, h: 26, speed: 2.3, jump: 6.4, desc: 'Throws sticks. BUILDS bridges at blueprints.' },
@@ -58,10 +59,11 @@ class Player {
   // ------------------------------------------------------------------ update
   update(L) {
     this.t++; this.attacks = []; const I = Input, st = this.stats();
-    if (this.dead) { this.dead++; if (this.dead > 80) Game.respawn(); return; }
+    if (this.dead) { this.dead++; if (this.dead > 50) Game.respawn(); return; }
     if (this.inv > 0) this.inv--; if (this.transT > 0) this.transT--; if (this.stun > 0) this.stun--;
     if (--this.blinkT < 0) this.blinkT = 90 + RI(0, 160);
-    if (this.megaT > 0) { this.megaT--; this.metal = Math.max(0, this.metal - 100 / 900); if (this.megaT === 0) { this.setForm('normal'); HUD.toast('MEGA MODE WORE OFF', '#7fff3a'); } }
+    if (this.powerT > 0 && !Game.cutscene) { this.powerT--; if (this.powerT === 0) { this.setForm('normal'); HUD.toast('POWER-UP WORE OFF', '#fff'); } }
+    if (this.atkCd > 0) this.atkCd--;
     if (this.comboT > 0 && --this.comboT === 0) this.combo = 0;
     const frozen = this.frozen || Game.cutscene;
     const left = !frozen && I.held.left, right = !frozen && I.held.right, up = !frozen && I.held.up, down = !frozen && I.held.down;
@@ -69,14 +71,16 @@ class Player {
     // timers
     ['whipCd', 'spitCd', 'bashCd', 'dashCd', 'screamCd'].forEach(k => { if (this[k] > 0) this[k]--; });
     if (this.whipT > 0) this.whipT--; if (this.bashT > 0) this.bashT--; if (this.screamT > 0) this.screamT--; if (this.bangT > 0) this.bangT--;
-    if (this.jumpBuf > 0) this.jumpBuf--; if (P_('jump')) this.jumpBuf = 8;
-    if (this.onGround) { this.coyote = 7; this.airJumps = this.form === 'wolf' ? 1 : 0; this.airDash = true; } else if (this.coyote > 0) this.coyote--;
+    if (this.jumpBuf > 0) this.jumpBuf--; if (P_('jump')) this.jumpBuf = 10;
+    if (this.onGround) { this.airSpun = false; this.coyote = 9; this.airJumps = this.form === 'wolf' ? 1 : 0; this.airDash = true; } else if (this.coyote > 0) this.coyote--;
     const swim = inLiquid(this, L) && !L.liquidHazard;
     // ------------------------------------------------ grapple swinging
     if (this.grapple) { this.updateGrapple(L, left, right, up, down, P_); if (this.grapple) { this.postMove(L); return; } }
     // ------------------------------------------------ horizontal movement
-    this.sprint = !this.isPig() && H_('dash') && this.dashT === 0 && this.onGround && (left || right) && this.form !== 'mega';
-    const max = st.speed * (this.stun ? .4 : 1) * (swim ? .7 : 1) * (this.sprint ? 1.45 : 1);
+    if ((left || right) && !(left && right) && this.dashT === 0) this.runT = Math.min(80, (this.runT || 0) + (this.onGround ? 1 : 0)); else this.runT = Math.max(0, (this.runT || 0) - 4);
+    if (this.hitWall) this.runT = 0;
+    this.sprint = this.runT > 45 && this.onGround;
+    const max = st.speed * (this.stun ? .4 : 1) * (swim ? .7 : 1) * (1 + Math.min(1, this.runT / 70) * .32);
     if (this.dashT > 0) {
       this.dashT--; this.vx = this.face * (this.form === 'pig' ? 5.2 : this.form === 'cow' ? 4.8 : 6); this.vy = this.onGround ? this.vy : Math.min(this.vy, .5);
       const dmg = this.form === 'pig' || this.form === 'cow' ? 3 : 2;
@@ -121,8 +125,6 @@ class Player {
     // ------------------------------------------------ abilities
     if (!this.isPig()) this.monsterAbilities(L, up, down, P_, H_, I);
     else this.pigAbilities(L, up, down, P_, H_);
-    if (P_('transform')) { if (Game.party) Game.switchPig(); else Game.openTransform(); }
-    if (P_('summon') && !this.isPig()) Game.summon();
     this.dropThrough = down && H_('jump') && this.onGround;
     this.postMove(L);
   }
@@ -170,57 +172,50 @@ class Player {
     this.attack({ x: this.cx - r, y: this.y + this.h - 30, w: r * 2, h: 40, dmg, kind: 'stomp' });
     for (let dx = -2; dx <= 2; dx++) { const tx = Math.floor(this.cx / TS) + dx, ty = Math.floor((this.y + this.h + 4) / TS); if (L.get(tx, ty) === T_BREAK) { L.set(tx, ty, T_EMPTY); FX.burst(tx * TS + 8, ty * TS + 8, 10, L.theme.g); } }
   }
-  // ------------------------------------------------------------------ monster abilities
-  monsterAbilities(L, up, down, P_, H_, I) {
+  // ------------------------------------------------------------------ ONE BUTTON: contextual ATTACK
+  setPower(kind) { this.setForm(kind); this.powerT = POWER_TIME; this.powerMax = POWER_TIME; }
+  monsterAbilities(L, up, down, P_, H_) {
+    if (P_('whip')) { if (this.atkCd > 0) this.atkBuf = 8; else this.contextAttack(L, up, down); }
+    else if (this.atkBuf > 0 && --this.atkBuf >= 0 && this.atkCd === 0) { this.atkBuf = 0; this.contextAttack(L, up, down); }
     const f = this.form, big = f === 'mega' ? 1.6 : 1;
-    // whip / headbutt / smash
-    if (P_('whip') && this.whipCd === 0) {
-      if (f === 'pig') { this.whipT = 12; this.whipCd = 20; this.vx += this.face * 2; AudioSys.play_sfx('bash'); this.melee = 'butt'; }
-      else if (f === 'bear') { this.whipT = 16; this.whipCd = 24; AudioSys.play_sfx('growl'); this.melee = 'smash'; }
-      else { this.whipT = 16; this.whipCd = 18; this.whipDir = up ? [0, -1] : [this.face, 0]; AudioSys.play_sfx('whip'); this.melee = 'tongue'; }
-      this.onBeatBonus();
-    }
     if (this.whipT > 0) {
       if (this.melee === 'tongue') {
-        const k = 16 - this.whipT, ext = (k < 6 ? k / 6 : this.whipT / 10) * 58 * big;
+        const k = 16 - this.whipT, ext = (k < 5 ? k / 5 : this.whipT / 11) * 62 * big;
         const [mx, my] = heroMouth(this.cx, this.cy, this.face, f); const tx = mx + this.whipDir[0] * ext, ty = my + this.whipDir[1] * ext - (this.whipDir[1] ? 0 : 2);
         this.tongueTip = [tx, ty, mx, my];
-        this.attack({ x: tx - 8, y: ty - 8, w: 16, h: 16, dmg: f === 'mega' ? 2 : 1, kind: 'whip', dir: this.face, tongue: true });
-      } else {
-        const rng = this.melee === 'smash' ? 30 : 22; const k = this.whipT;
-        if (k > 4) this.attack({ x: this.face > 0 ? this.x + this.w - 4 : this.x - rng + 4, y: this.y - 4, w: rng, h: this.h + 8, dmg: this.melee === 'smash' ? 3 : 2, kind: this.melee, dir: this.face, knock: 6 });
-        if (this.melee === 'smash' && k === 10) this.breakTiles(L, this.face > 0 ? this.x + this.w + 8 : this.x - 8, this.y - 8, this.y + this.h - 2);
-        if (this.melee === 'butt' && k === 8) this.breakTiles(L, this.face > 0 ? this.x + this.w + 4 : this.x - 4, this.y + 2, this.y + this.h - 2);
+        this.attack({ x: tx - 10, y: ty - 10, w: 20, h: 20, dmg: 2, kind: 'whip', dir: this.face, tongue: true, knock: 5 });
+        if (k === 4) this.breakTiles(L, tx, ty - 4, ty + 4);
       }
     } else this.tongueTip = null;
-    // grapple: dedicated button, or whip while holding up with a hook nearby
-    if ((P_('grapple') || (P_('whip') && up)) && !this.onGround) { const h = Game.nearestHook(this); if (h) this.startGrapple(h); }
-    else if (P_('grapple')) { const h = Game.nearestHook(this); if (h) this.startGrapple(h); else Game.tonguePull(this); }
-    // slime spit
-    if (P_('spit') && this.spitCd === 0 && Game.countEnts(e => e instanceof SlimeBall && e.friendly) < 4) {
-      this.spitCd = 16; const [mx, my] = heroMouth(this.cx, this.cy, this.face, f);
-      Game.add(new SlimeBall(mx, my - 2, this.face * (5 + Math.abs(this.vx) * .3), up ? -4 : -1.2, true, f === 'mega' ? 2 : 1)); AudioSys.play_sfx('spit'); this.onBeatBonus();
-    }
-    // bone bash
-    if (P_('bash') && this.bashCd === 0) { this.bashT = 26; this.bashCd = 34; AudioSys.play_sfx('bash'); this.onBeatBonus(); if (!this.onGround) this.vy = Math.min(this.vy, -1); }
-    if (this.bashT > 0) { const r = 30 * big; this.attack({ x: this.cx - r, y: this.cy - r, w: r * 2, h: r * 2, dmg: 2, kind: 'bash', reflect: true }); if (this.bashT % 6 === 0) AudioSys.play_sfx('whip'); }
-    // mosh dash / pig charge / horn charge
-    if (P_('dash') && this.dashCd === 0 && (this.onGround || this.airDash)) {
-      this.dashT = f === 'pig' || f === 'cow' ? 28 : 18; this.dashCd = 40; if (!this.onGround) this.airDash = false; this.vy = 0;
-      AudioSys.play_sfx(f === 'pig' ? 'oink' : f === 'cow' ? 'moo' : 'dash', { pitch: 1 }); FX.ring(this.cx, this.cy, 24, '#fff', 10, 2);
-    }
-    // cow stomp
-    if (f === 'cow' && down && P_('jump') && !this.onGround) { this.stompT = 1; AudioSys.play_sfx('moo'); }
-    if (f === 'cow' && down && P_('bash') && !this.onGround) { this.stompT = 1; this.bashT = 0; }
-    // scream: hold to charge, release to unleash (wolf: instant howl; clown: decoy)
-    if (f === 'wolf' && P_('scream') && this.screamCd === 0) { this.screamCd = 90; this.screamT = 40; AudioSys.play_sfx('howl'); FX.ring(this.cx, this.cy, 170, '#ddd', 40, 3); Game.stunAll(this.cx, this.cy, 170, 180); this.attack({ x: this.cx - 170, y: this.cy - 170, w: 340, h: 340, dmg: 0, kind: 'howl' }); }
-    else if (f === 'clown' && P_('scream') && this.screamCd === 0) { this.screamCd = 70; Game.add(new Decoy(this.cx, this.y + this.h)); AudioSys.play_sfx('honk'); }
-    else if (f !== 'wolf' && f !== 'clown') {
-      if (H_('scream') && this.screamCd === 0) { this.scream = Math.min(60, this.scream + 1); if (this.scream % 12 === 1) AudioSys.play_sfx('charge'); if (this.scream > 10) FX.add({ x: this.cx + R(-20, 20), y: this.cy + R(-20, 20), vx: 0, vy: 0, col: '#7fff3a', size: 2, life: 10, grav: 0 }); }
-      if (!H_('scream') && this.scream > 0) this.unleashScream(L);
-    }
-    // headbang: rhythm meter
-    if (P_('headbang')) this.headbang();
+    if (this.bashT > 0) { const r = 30 * big; this.attack({ x: this.cx - r, y: this.cy - r, w: r * 2, h: r * 2, dmg: 2, kind: 'bash', reflect: true, knock: 6 }); if (this.bashT % 6 === 0) { AudioSys.play_sfx('whip'); for (const dx of [-r * .8, r * .8]) this.breakTiles(L, this.cx + dx, this.y + 2, this.y + this.h - 2); } }
+    if (this.form === 'wolf' && this.screamT > 0 && this.screamT % 8 === 0) FX.ring(this.cx, this.cy, 150, '#fff', 20, 3);
+  }
+  contextAttack(L, up, down) {
+    const f = this.form, G_ = Game; this.atkCd = 14; this.idleT = 0; const air = !this.onGround || Math.abs(this.vy) > 1;
+    const near = (cls, r) => G_.ents.find(e => !e.dead && e instanceof cls && Math.abs(e.cx - this.cx) < r && Math.abs(e.cy - this.cy) < r + 20);
+    // 1) power-up attacks
+    if (f === 'slime') { const [mx, my] = heroMouth(this.cx, this.cy, this.face, f); for (const a of [-.25, 0, .25]) G_.add(new SlimeBall(mx, my - 2, this.face * 5.5, -1.5 + a * 6, true, 2)); AudioSys.play_sfx('spit'); this.screamT = 10; return; }
+    if (f === 'wolf') { this.screamT = 30; this.atkCd = 40; AudioSys.play_sfx('howl'); Cam.shake(4, 16); FX.ring(this.cx, this.cy, 150, '#fff', 30, 4); G_.stunAll(this.cx, this.cy, 150, 150); this.attack({ x: this.cx - 150, y: this.cy - 120, w: 300, h: 240, dmg: 2, kind: 'howl', circle: 150 }); G_.megaScream(this.cx, this.cy, 150); return; }
+    if (f === 'pig') { this.dashT = 30; this.atkCd = 30; AudioSys.play_sfx('oink', { pitch: 1 }); FX.ring(this.cx, this.cy, 24, '#ff8ab0', 10, 2); return; }
+    if (f === 'cow') { if (air) { this.stompT = 1; AudioSys.play_sfx('moo'); } else { this.dashT = 28; this.atkCd = 30; AudioSys.play_sfx('moo'); } return; }
+    if (f === 'mega') { this.bashT = 26; this.atkCd = 20; AudioSys.play_sfx('bash'); Cam.shake(3, 8); return; }
+    // 2) grapple: in the air near a hook
+    if (air) { const h = G_.nearestHook(this); if (h) { this.startGrapple(h); return; } }
+    // 3) interact with things nearby
+    const sw = G_.ents.find(e => !e.dead && e instanceof Switch && !e.on && Math.abs(e.cx - this.cx) < 70 && Math.abs(e.cy - this.cy) < 90); if (sw) { this.whipT = 16; this.melee = 'tongue'; this.whipDir = [sign(sw.cx - this.cx) || this.face, 0]; this.face = this.whipDir[0]; sw.activate(); AudioSys.play_sfx('whip'); return; }
+    const bp = G_.ents.find(e => !e.dead && e instanceof Blueprint && !e.built && this.cx > e.x - 40 && this.cx < e.x + e.w + 40 && Math.abs(e.y - this.y) < 80); if (bp) { bp.build(); return; }
+    const site = G_.ents.find(e => !e.dead && e instanceof HouseSite && !e.built && !e.gone && Math.abs(e.cx - this.cx) < 90); if (site) { site.activate(); return; }
+    const amp = near(AmpTotem, 70); if (amp) { this.bashT = 20; amp.blow(); return; }
+    const crate = G_.ents.find(e => !e.dead && e instanceof Pullable && Math.abs(e.cy - this.cy) < 30 && Math.abs(e.cx - this.cx) < 140 && Math.abs(e.cx - this.cx) > 30); if (crate) { crate.pull(sign(this.cx - crate.cx)); this.whipT = 16; this.melee = 'tongue'; this.face = sign(crate.cx - this.cx); this.whipDir = [this.face, 0]; return; }
+    // 4) breakable wall right in front -> bone bash
+    const fx = this.face > 0 ? this.x + this.w + 10 : this.x - 10; let brk = false; for (let y = this.y + 2; y < this.y + this.h; y += 8) if (L.get(Math.floor(fx / TS), Math.floor(y / TS)) === T_BREAK) brk = true;
+    if (brk) { this.bashT = 20; AudioSys.play_sfx('bash'); this.breakTiles(L, fx, this.y + 2, this.y + this.h - 2); this.breakTiles(L, fx + this.face * 16, this.y + 2, this.y + this.h - 2); return; }
+    // 5) in the air -> aerial bone spin
+    if (air) { if (this.airSpun) { this.whipT = 16; this.melee = 'tongue'; this.whipDir = up ? [0, -1] : [this.face, 0]; AudioSys.play_sfx('whip'); return; } this.airSpun = true; this.bashT = 22; AudioSys.play_sfx('bash'); return; }
+    // 6) running fast -> rolling attack
+    if (this.runT > 45 && Math.abs(this.vx) > 2.6) { this.dashT = 22; this.atkCd = 26; AudioSys.play_sfx('dash'); FX.ring(this.cx, this.cy, 24, '#fff', 10, 2); return; }
+    // 7) default -> tongue whip (up if holding up)
+    this.whipT = 16; this.melee = 'tongue'; this.whipDir = up ? [0, -1] : [this.face, 0]; AudioSys.play_sfx('whip');
   }
   unleashScream(L) {
     const c = this.scream / 60, mega = this.metal >= 100 || this.form === 'mega'; this.scream = 0; this.screamCd = 50; this.screamT = 36;
@@ -334,7 +329,9 @@ class Player {
 class PigFollower {
   constructor(id, x, y) { this.id = id; this.x = x; this.y = y; this.w = 16; this.h = 20; this.vx = 0; this.vy = 0; this.face = 1; this.onGround = false; this.t = 0; this.stepUp = true; }
   update(L, target, slot) {
-    this.t++; const tx = target.cx - target.face * (28 + slot * 22), d = tx - (this.x + this.w / 2);
+    this.t++; this.cool = (this.cool || 0) - 1;
+    if (this.cool <= 0 && Game.boss && !Game.boss.defeated && Math.abs(Game.boss.cx - this.x) < 220 && this.t % 360 === 0) { this.cool = 90; const bz = Game.boss; FX.pop(this.x, this.y - 30, { hamwise: 'HONK!!', porkington: 'STICK ATTACK!', trufflina: 'PIG PUNCH!' }[this.id], '#ff8ab0'); AudioSys.play_sfx(this.id === 'hamwise' ? 'honk' : 'bash'); bz.inv = 0; bz.hit(1, { kind: 'ally' }); }
+    if (this.cool <= 0) { const e = Game.ents.find(e => e instanceof Enemy && !e.dead && e.wake && Math.abs(e.cx - this.x) < 90 && Math.abs(e.cy - this.y) < 50); if (e) { this.cool = 70; if (this.id === 'hamwise') { e.stun(120); AudioSys.play_sfx('honk'); FX.ring(this.x + 8, this.y + 10, 50, '#ffd860', 16, 2); FX.pop(this.x, this.y - 30, 'HONK!', '#ffd860'); } else if (this.id === 'porkington') { Game.add(new StickProj(this.x + 8, this.y + 4, sign(e.cx - this.x) * 4.5, -2.5)); AudioSys.play_sfx('throw'); } else { e.hit(2, { dir: sign(e.cx - this.x), knock: 7 }); AudioSys.play_sfx('bash'); FX.pop(this.x, this.y - 30, 'KAPOW!', '#ff3a4a'); } } } const tx = target.cx - target.face * (28 + slot * 22), d = tx - (this.x + this.w / 2);
     this.vx = approach(this.vx, clamp(d * .08, -2.6, 2.6), .3); if (Math.abs(d) > 4) this.face = sign(d);
     if (this.onGround && (this.hitWall || (target.y + target.h < this.y - 20 && Math.abs(d) < 60))) this.vy = -6;
     this.vy = Math.min(this.vy + PHYS.grav, 6); moveBody(this, L);

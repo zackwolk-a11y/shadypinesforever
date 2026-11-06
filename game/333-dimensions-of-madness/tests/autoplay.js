@@ -13,17 +13,17 @@ const OUT = '/tmp/claude-0/auto'; fs.mkdirSync(OUT, { recursive: true });
       const solid = (tx, ty) => Gm.L.solidAt(tx, ty) || Gm.L.onewayAt(tx, ty);
       for (f = 0; f < maxFrames; f++) {
         if (D.G.state === 'results' || D.G.state === 'map' || D.G.state === 'ending') return { done: true, f, why: D.G.state };
-        if (D.G.state === 'concert') { const c = D.Concert; for (const k in I) I[k] = false; if (c.done) { I.confirm = f % 10 < 5; } else { const pos = c.pos(); for (const n of c.notes) if (!n.hit && !n.miss && Math.abs(n.b - pos) < .05) I[['jump', 'whip', 'spit', 'bash'][n.lane]] = true; } D.run(1); for (const k in I) I[k] = false; continue; }
+        if (D.G.state === 'concert') { const c = D.Concert; for (const k in I) I[k] = false; if (c.done) { I.confirm = f % 10 < 5; } else { const pos = c.pos(); for (const n of c.notes) if (!n.hit && !n.miss && Math.abs(n.b - pos) < .05) D.Input._latch[['jump', 'whip'][n.lane]] = true; } D.run(1); for (const k in I) I[k] = false; continue; }
         if (Gm.def.id !== startDef || Gm.chapter !== startCh) return { done: true, f, why: 'nextChapter' };
         if (D.Menus.stack.length) { D.Menus.stack = []; }
         for (const k in I) I[k] = false;
         if (Gm.cutscene) { if (f % 2) I.confirm = true; D.skipScene(); D.run(1); continue; }
         if (D.G.state !== 'level') { I.confirm = f % 10 < 5; D.run(1); continue; }
         const pl = Gm.player, L = Gm.L, tx = Math.floor((pl.x + pl.w + 4) / 16), fy = Math.floor((pl.y + pl.h - 1) / 16), cx = pl.x + pl.w / 2;
-        if (pl.vehicle) { I.right = true; const ahead = Math.floor((pl.x + pl.w + 30) / 16); let gapA = true; for (let ty = fy + 1; ty < L.h; ty++) if (solid(ahead, ty)) gapA = false; if (gapA || solid(ahead, fy) || solid(ahead, fy - 1)) I.jump = true; if (f % 20 === 0) I.whip = true; I.dash = true; D.run(1); maxX = Math.max(maxX, pl.x); continue; }
+        if (pl.vehicle) { I.right = true; const ahead = Math.floor((pl.x + pl.w + 30) / 16); let gapA = true; for (let ty = fy + 1; ty < L.h; ty++) if (solid(ahead, ty)) gapA = false; if (gapA || solid(ahead, fy) || solid(ahead, fy - 1)) I.jump = true; if (f % 20 === 0) I.whip = true; I.whip = true; if (I.jump) D.Input._latch.jump = true; D.run(1); maxX = Math.max(maxX, pl.x); continue; }
         // quest helpers: go toward uncollected quest items / bricks / blueprints when on screen
         let goal = null;
-        const quest = Gm.ents.filter(e => !e.dead && ((e.constructor.name === 'Collectable') || (e.constructor.name === 'BrickItem' && !pl.carry) || (e.constructor.name === 'BrickSlot' && pl.carry && !e.filled) || (e.constructor.name === 'Blueprint' && !e.built)));
+        const quest = Gm.ents.filter(e => !e.dead && ((e.constructor.name === 'Collectable') || (e.constructor.name === 'BrickItem' && !pl.carry) || (e.constructor.name === 'BrickSlot' && pl.carry && !e.filled) || (e.constructor.name === 'Blueprint' && !e.built) || (e.constructor.name === 'HouseSite' && !e.built)));
         if (quest.length) { quest.sort((a, b2) => Math.abs(a.cx - cx) - Math.abs(b2.cx - cx)); const q = quest[0]; if (Math.abs(q.cx - cx) < 400) goal = q; }
         // boss: fight
         const boss = Gm.boss && !Gm.boss.defeated ? Gm.boss : null; const enemy = Gm.ents.find(e => e.constructor.name === 'Enemy' && !e.dead && e.wake && Math.abs(e.cx - cx) < 90 && Math.abs(e.cy - pl.cy) < 60);
@@ -33,7 +33,8 @@ const OUT = '/tmp/claude-0/auto'; fs.mkdirSync(OUT, { recursive: true });
         const totem = Gm.ents.find(e => e.constructor.name === 'AmpTotem' && !e.dead && e.cx > cx && e.cx - cx < 140); if (totem && !boss) { I.headbang = f % 30 === 0; if (pl.metal < 100) { pl.metal = Math.min(100, pl.metal + .5); } I.scream = f % 90 < 70; }
         let dir = 1;
         if (boss) { const hb = boss.hitbox(); const bx = hb.x + hb.w / 2; dir = bx > cx + 30 ? 1 : bx < cx - 30 ? -1 : (f % 120 < 60 ? 1 : -1); pl.face = sign(bx - cx) || 1; I.whip = f % 8 === 0; I.bash = f % 30 === 0; I.spit = f % 12 === 4; I.jump = f % 50 < 18; I.headbang = f % 23 === 0; if (pl.metal >= 50 && D.Save.data.summons.length) I.summon = f % 200 === 0; I.scream = f % 120 > 70; if (pl.metal >= 100) I.scream = f % 140 > 70; }
-        else if (goal) { dir = goal.cx > cx + 4 ? 1 : goal.cx < cx - 4 ? -1 : 0; if (goal.constructor.name === 'Blueprint') { if (pl.char !== 'porkington' && Gm.party && Gm.party.includes('porkington') && f % 30 === 0) I.transform = true; else if (pl.char === 'porkington' && cx > goal.x && cx < goal.x + goal.w) { I.whip = f % 6 === 0; dir = 0; } dir = goal.cx > cx + 4 ? 1 : 0; if (cx > goal.x + 4 && cx < goal.x + goal.w) dir = 0; }
+        else if (goal) { dir = goal.cx > cx + 4 ? 1 : goal.cx < cx - 4 ? -1 : 0; if (goal.constructor.name === 'HouseSite' && Math.abs(goal.cx - cx) < 60) { I.whip = f % 6 === 0; dir = 0; }
+          if (goal.constructor.name === 'Blueprint') { if (cx > goal.x - 30 && cx < goal.x + goal.w + 30) { I.whip = f % 6 === 0; } } if (false) { if (pl.char !== 'porkington' && Gm.party && Gm.party.includes('porkington') && f % 30 === 0) I.transform = true; else if (pl.char === 'porkington' && cx > goal.x && cx < goal.x + goal.w) { I.whip = f % 6 === 0; dir = 0; } dir = goal.cx > cx + 4 ? 1 : 0; if (cx > goal.x + 4 && cx < goal.x + goal.w) dir = 0; }
           if (goal.constructor.name === 'BrickSlot' && Math.abs(goal.cx - cx) < 30) { I.whip = f % 6 === 0; dir = 0; if (pl.char === 'monster') dir = sign(goal.cx - cx); }
           if (goal.cy < pl.y - 20 && pl.onGround && Math.abs(goal.cx - cx) < 80) I.jump = true; }
         if (!boss && !goal) dir = 1;
@@ -59,6 +60,7 @@ const OUT = '/tmp/claude-0/auto'; fs.mkdirSync(OUT, { recursive: true });
         if (modeT > 0) { modeT--; if (mode === 1) { I.right = false; I.left = modeT > 30; I.jump = modeT < 30; } if (mode === 2) { I.jump = true; I.dash = modeT % 15 === 0; } if (mode === 3) { I.up = true; I.grapple = modeT % 10 === 0; I.jump = modeT % 20 < 10; } if (mode === 0) { I.down = true; I.jump = modeT % 20 < 4; } }
         if (Gm.party && Gm.party.length > 1 && stuck > 200 && f % 90 === 0 && !(goal && goal.constructor.name === 'Blueprint')) I.transform = true;
         if (goal && goal.constructor.name === 'BrickItem' && pl.char !== 'trufflina' && pl.char !== 'monster' && f % 40 === 0) I.transform = true;
+        { const atk = I.whip || I.bash || I.spit || I.dash || I.grapple || I.scream || I.headbang; for (const k of ['bash', 'spit', 'dash', 'grapple', 'scream', 'headbang', 'summon', 'transform']) I[k] = false; I.whip = false; if (atk && f % 3 === 0) D.Input._latch.whip = true; if (I.jump && pl.onGround && f % 2 === 0) D.Input._latch.jump = true; }
         D.run(1); maxX = Math.max(maxX, pl.x);
       }
       return { done: false, state: D.G.state, f, maxX: Math.round(maxX), w: Gm.L.w * 16, x: Math.round(Gm.player.x), y: Math.round(Gm.player.y), boss: !!(Gm.boss && !Gm.boss.defeated), bossHp: Gm.boss ? Gm.boss.hp : null, quest: Gm.quest ? (Gm.flags[Gm.quest.flag] || 0) + '/' + Gm.quest.need : null };

@@ -24,33 +24,34 @@ function drawTongue(x0, y0, x1, y1, thick = 5, sag = 6) {
 const HERO_FACE = -1; // the master art faces left
 function drawHero(x, y, o = {}) {
   const mega = o.form === 'mega', img = mega ? IMG.hero_big : IMG.hero, name = mega ? 'hero_big' : 'hero';
-  const sc = (o.scale || 1) * (mega ? .72 : 1);
+  const sc = (o.scale || 1) * (mega ? 1.08 * HD : HD);
   const flip = (o.face || -1) !== HERO_FACE, c = A(name).center, ax = c[0], ay = c[1];
   const sx = (o.sx || 1) * sc, sy = (o.sy || 1) * sc;
-  const ap = k => { const a = A(name)[k]; let dx = (a[0] - ax) * sx, dy = (a[1] - ay) * sy; if (flip) dx = -dx; const cs = Math.cos(o.rot || 0), sn = Math.sin(o.rot || 0); return [x + dx * cs - dy * sn, y + dx * sn + dy * cs]; };
+  const scU = sc / HD; const ap = k => { const a = A(name)[k]; let dx = (a[0] - ax) * sx, dy = (a[1] - ay) * sy; if (flip) dx = -dx; const cs = Math.cos(o.rot || 0), sn = Math.sin(o.rot || 0); return [x + dx * cs - dy * sn, y + dx * sn + dy * cs]; };
   if (mega) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 10, x, y, 80); g.addColorStop(0, 'rgba(127,255,58,.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x - 80, y - 80, 160, 160); ctx.restore(); }
   if (o.aura) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .5 + Math.sin(G.t * 20) * .2; spr(flashOf(img, '#7fff3a'), x, y, { ax, ay, flip, sx: sx * 1.12, sy: sy * 1.12, rot: o.rot }); ctx.restore(); }
   // form overlays drawn behind the head
-  if (o.form === 'pig') { const [tx, ty] = ap('center'); const bx = tx + (flip ? -24 : 24) * sc; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(bx, ty + 4, 4, 0, 5); ctx.stroke(); ctx.strokeStyle = '#ff8ab0'; ctx.lineWidth = 2; ctx.stroke(); }
-  if (o.form === 'clown') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { P.e(ctx, tx + s * (22 + i * 4) * sc, ty + (6 + i * 6) * sc, 8 * sc, 7 * sc, '#000'); P.e(ctx, tx + s * (22 + i * 4) * sc, ty + (6 + i * 6) * sc, 7 * sc, 6 * sc, ['#b04bff', '#ff5bd1', '#5bd4ff'][i]); } }
-  if (o.form === 'bear') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) { P.e(ctx, tx + s * 15 * sc, ty + 2, 8 * sc, 8 * sc, '#1a0a00'); P.e(ctx, tx + s * 15 * sc, ty + 2, 7 * sc, 7 * sc, '#7a4520'); P.e(ctx, tx + s * 15 * sc, ty + 3, 3.5 * sc, 3.5 * sc, '#d49a6a'); } }
-  if (o.form === 'wolf') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) { P.poly(ctx, [[tx + s * 6 * sc, ty + 8], [tx + s * 20 * sc, ty - 12 * sc], [tx + s * 24 * sc, ty + 10]], '#111'); P.poly(ctx, [[tx + s * 8 * sc, ty + 7], [tx + s * 19 * sc, ty - 9 * sc], [tx + s * 22 * sc, ty + 9]], '#9a9aa8'); P.poly(ctx, [[tx + s * 12 * sc, ty + 6], [tx + s * 18 * sc, ty - 3 * sc], [tx + s * 19 * sc, ty + 7]], '#d48b9c'); } }
+  if (o.form === 'pig') { const [tx, ty] = ap('center'); const bx = tx + (flip ? -24 : 24) * scU; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(bx, ty + 4, 4, 0, 5); ctx.stroke(); ctx.strokeStyle = '#ff8ab0'; ctx.lineWidth = 2; ctx.stroke(); }
+  if (o.form === 'clown') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { P.e(ctx, tx + s * (22 + i * 4) * scU, ty + (6 + i * 6) * scU, 8 * scU, 7 * scU, '#000'); P.e(ctx, tx + s * (22 + i * 4) * scU, ty + (6 + i * 6) * scU, 7 * scU, 6 * scU, ['#b04bff', '#ff5bd1', '#5bd4ff'][i]); } }
+  if (o.form === 'bear') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) { P.e(ctx, tx + s * 15 * scU, ty + 2, 8 * scU, 8 * scU, '#1a0a00'); P.e(ctx, tx + s * 15 * scU, ty + 2, 7 * scU, 7 * scU, '#7a4520'); P.e(ctx, tx + s * 15 * scU, ty + 3, 3.5 * scU, 3.5 * scU, '#d49a6a'); } }
+  if (o.form === 'wolf') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) { P.poly(ctx, [[tx + s * 6 * scU, ty + 8], [tx + s * 20 * scU, ty - 12 * scU], [tx + s * 24 * scU, ty + 10]], '#111'); P.poly(ctx, [[tx + s * 8 * scU, ty + 7], [tx + s * 19 * scU, ty - 9 * scU], [tx + s * 22 * scU, ty + 9]], '#9a9aa8'); P.poly(ctx, [[tx + s * 12 * scU, ty + 6], [tx + s * 18 * scU, ty - 3 * scU], [tx + s * 19 * scU, ty + 7]], '#d48b9c'); } }
   let src = img;
   spr(src, x, y, { ax, ay, flip, sx, sy, rot: o.rot, flash: o.flash, alpha: o.alpha });
   if (o.flash) return;
   // blink: green eyelid over the protruding eyeball
-  if (o.blink) { const [ex, ey] = ap('eye'); P.e(ctx, ex, ey, 9 * sc, 7 * sc * o.blink, '#2a8a1a'); P.r(ctx, ex - 9 * sc, ey + 6 * sc * o.blink - 1, 18 * sc, 1, '#000'); }
+  if (o.blink) { const [ex, ey] = ap('eye'); P.e(ctx, ex, ey, 9 * scU, 7 * scU * o.blink, '#2a8a1a'); P.r(ctx, ex - 9 * scU, ey + 6 * scU * o.blink - 1, 18 * scU, 1, '#000'); }
   // open maw for screams / bites
-  if (o.mouth > 0) { const [mx, my] = ap('mouth'); const m = o.mouth; P.e(ctx, mx, my, 15 * sc * m + 2, 11 * sc * m + 2, '#000'); P.e(ctx, mx, my, 15 * sc * m, 11 * sc * m, '#5a0010'); P.e(ctx, mx, my + 5 * m, 8 * sc * m, 4 * sc * m, '#e01a2a'); for (let i = -2; i <= 2; i++) P.poly(ctx, [[mx + i * 5 * m * sc - 2, my - 10 * m * sc], [mx + i * 5 * m * sc + 2, my - 10 * m * sc], [mx + i * 5 * m * sc, my - 5 * m * sc]], '#fff3c0'); }
+  if (o.mouth > 0) { const [mx, my] = ap('mouth'); const m = o.mouth; P.e(ctx, mx, my, 15 * scU * m + 2, 11 * scU * m + 2, '#000'); P.e(ctx, mx, my, 15 * scU * m, 11 * scU * m, '#5a0010'); P.e(ctx, mx, my + 5 * m, 8 * scU * m, 4 * scU * m, '#e01a2a'); for (let i = -2; i <= 2; i++) P.poly(ctx, [[mx + i * 5 * m * scU - 2, my - 10 * m * scU], [mx + i * 5 * m * scU + 2, my - 10 * m * scU], [mx + i * 5 * m * scU, my - 5 * m * scU]], '#fff3c0'); }
   // front overlays
-  if (o.form === 'pig') { const [mx, my] = ap('center'); const nx = mx + (flip ? 5 : -5) * sc; P.e(ctx, nx, my + 2, 9 * sc, 7 * sc, '#000'); P.e(ctx, nx, my + 2, 8 * sc, 6 * sc, '#ff8ab0'); P.e(ctx, nx - 3 * sc, my + 2, 1.8 * sc, 2.4 * sc, '#5a1a2a'); P.e(ctx, nx + 3 * sc, my + 2, 1.8 * sc, 2.4 * sc, '#5a1a2a'); const [tx, ty] = ap('top'); for (const s of [-1, 1]) { P.poly(ctx, [[tx + s * 8 * sc, ty + 6], [tx + s * 18 * sc, ty - 6 * sc], [tx + s * 20 * sc, ty + 10]], '#000'); P.poly(ctx, [[tx + s * 9 * sc, ty + 6], [tx + s * 17 * sc, ty - 3 * sc], [tx + s * 18 * sc, ty + 9]], '#ff8ab0'); } }
-  if (o.form === 'cow') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) { ctx.strokeStyle = '#000'; ctx.lineWidth = 6 * sc; ctx.beginPath(); ctx.moveTo(tx + s * 10 * sc, ty + 6); ctx.quadraticCurveTo(tx + s * 30 * sc, ty, tx + s * 26 * sc, ty - 16 * sc); ctx.stroke(); ctx.strokeStyle = '#efe2c4'; ctx.lineWidth = 4 * sc; ctx.stroke(); } const [cx2, cy2] = ap('center'); P.e(ctx, cx2 + 10 * sc, cy2 - 14 * sc, 6 * sc, 4 * sc, '#000a'); P.e(ctx, cx2 - 14 * sc, cy2 + 8 * sc, 4 * sc, 3 * sc, '#000a'); const [mx, my] = ap('mouth'); ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mx + (flip ? 10 : -10) * sc, my - 8 * sc, 4 * sc, .3, 2.8); ctx.stroke(); }
-  if (o.form === 'clown') { const [mx, my] = ap('center'); P.e(ctx, mx + (flip ? 4 : -4) * sc, my - 2, 6 * sc, 6 * sc, '#000'); P.e(ctx, mx + (flip ? 4 : -4) * sc, my - 2, 5 * sc, 5 * sc, '#ff1a2a'); P.r(ctx, mx + (flip ? 2 : -6) * sc, my - 5, 2, 2, '#fff'); }
-  if (o.form === 'bear') { const [bx, by] = ap('bottom'); for (const s of [-1, 1]) for (let i = 0; i < 3; i++) P.poly(ctx, [[bx + s * (10 + i * 5) * sc, by - 4], [bx + s * (12 + i * 5) * sc, by + 4], [bx + s * (14 + i * 5) * sc, by - 4]], '#fff8e0'); }
-  if (o.form === 'wolf') { const [mx, my] = ap('mouth'); P.poly(ctx, [[mx - 8 * sc, my - 6], [mx - 5 * sc, my + 6], [mx - 2 * sc, my - 6]], '#fff'); P.poly(ctx, [[mx + 4 * sc, my - 6], [mx + 7 * sc, my + 6], [mx + 10 * sc, my - 6]], '#fff'); }
+  if (o.form === 'pig') { const [mx, my] = ap('center'); const nx = mx + (flip ? 5 : -5) * scU; P.e(ctx, nx, my + 2, 9 * scU, 7 * scU, '#000'); P.e(ctx, nx, my + 2, 8 * scU, 6 * scU, '#ff8ab0'); P.e(ctx, nx - 3 * scU, my + 2, 1.8 * scU, 2.4 * scU, '#5a1a2a'); P.e(ctx, nx + 3 * scU, my + 2, 1.8 * scU, 2.4 * scU, '#5a1a2a'); const [tx, ty] = ap('top'); for (const s of [-1, 1]) { P.poly(ctx, [[tx + s * 8 * scU, ty + 6], [tx + s * 18 * scU, ty - 6 * scU], [tx + s * 20 * scU, ty + 10]], '#000'); P.poly(ctx, [[tx + s * 9 * scU, ty + 6], [tx + s * 17 * scU, ty - 3 * scU], [tx + s * 18 * scU, ty + 9]], '#ff8ab0'); } }
+  if (o.form === 'cow') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) { ctx.strokeStyle = '#000'; ctx.lineWidth = 6 * scU; ctx.beginPath(); ctx.moveTo(tx + s * 10 * scU, ty + 6); ctx.quadraticCurveTo(tx + s * 30 * scU, ty, tx + s * 26 * scU, ty - 16 * scU); ctx.stroke(); ctx.strokeStyle = '#efe2c4'; ctx.lineWidth = 4 * scU; ctx.stroke(); } const [cx2, cy2] = ap('center'); P.e(ctx, cx2 + 10 * scU, cy2 - 14 * scU, 6 * scU, 4 * scU, '#000a'); P.e(ctx, cx2 - 14 * scU, cy2 + 8 * scU, 4 * scU, 3 * scU, '#000a'); const [mx, my] = ap('mouth'); ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mx + (flip ? 10 : -10) * scU, my - 8 * scU, 4 * scU, .3, 2.8); ctx.stroke(); }
+  if (o.form === 'clown') { const [mx, my] = ap('center'); P.e(ctx, mx + (flip ? 4 : -4) * scU, my - 2, 6 * scU, 6 * scU, '#000'); P.e(ctx, mx + (flip ? 4 : -4) * scU, my - 2, 5 * scU, 5 * scU, '#ff1a2a'); P.r(ctx, mx + (flip ? 2 : -6) * scU, my - 5, 2, 2, '#fff'); }
+  if (o.form === 'bear') { const [bx, by] = ap('bottom'); for (const s of [-1, 1]) for (let i = 0; i < 3; i++) P.poly(ctx, [[bx + s * (10 + i * 5) * scU, by - 4], [bx + s * (12 + i * 5) * scU, by + 4], [bx + s * (14 + i * 5) * scU, by - 4]], '#fff8e0'); }
+  if (o.form === 'slime') { const [mx, my] = ap('mouth'); for (let i = 0; i < 4; i++) { const dy = ((G.t * 30 + i * 9) % 20); P.e(ctx, mx - 10 * scU + i * 7 * scU, my + 4 + dy, 3 * scU, 4 * scU, '#0a2a00'); P.e(ctx, mx - 10 * scU + i * 7 * scU, my + 4 + dy, 2 * scU, 3 * scU, '#7fff3a'); } }
+  if (o.form === 'wolf') { const [mx, my] = ap('mouth'); P.poly(ctx, [[mx - 8 * scU, my - 6], [mx - 5 * scU, my + 6], [mx - 2 * scU, my - 6]], '#fff'); P.poly(ctx, [[mx + 4 * scU, my - 6], [mx + 7 * scU, my + 6], [mx + 10 * scU, my - 6]], '#fff'); }
   return ap;
 }
-function heroMouth(x, y, face, form) { const mega = form === 'mega', name = mega ? 'hero_big' : 'hero', sc = mega ? .72 : 1, c = A(name).center, a = A(name).mouth; const flip = face !== HERO_FACE; return [x + (a[0] - c[0]) * sc * (flip ? -1 : 1), y + (a[1] - c[1]) * sc]; }
+function heroMouth(x, y, face, form) { const mega = form === 'mega', name = mega ? 'hero_big' : 'hero', sc = mega ? 1.08 * HD : HD, c = A(name).center, a = A(name).mouth; const flip = face !== HERO_FACE; return [x + (a[0] - c[0]) * sc * (flip ? -1 : 1), y + (a[1] - c[1]) * sc]; }
 
 // --------------------------------------------------------------------------- pigs
 const PIGS = {
@@ -86,12 +87,12 @@ function drawPig(id, x, y, o = {}) {
   const bob = st === 'idle' ? Math.round(Math.sin(t * 4) * 1) : st === 'walk' || st === 'run' ? (f % 2) : 0;
   const sq = o.sq || 1, sc = o.scale || 1;
   const b = body[f]; spr(b, x, y, { flip, sx: sc / sq, sy: sc * sq, flash: o.flash, alpha: o.alpha });
-  const hx = x + (flip ? -1 : 1) * (p.bw / 2 - 2) * sc, hy = y - (b.height - 4) * sc - bob + (st === 'attack' ? 2 : 0);
+  const hs = sc * HD; const hx = x + (flip ? -1 : 1) * (p.bw / 2 - 2) * sc, hy = y - (b.height - 4) * sc - bob + (st === 'attack' ? 2 : 0);
   const rot = (st === 'attack' ? .25 : st === 'hurt' ? -.3 : st === 'dance' ? Math.sin(t * 10) * .25 : 0) * (flip ? -1 : 1);
-  spr(head, hx, hy + 6 * sc, { flip, rot, sx: sc, sy: sc, flash: o.flash, alpha: o.alpha, ay: head.height - 6 });
+  spr(head, hx, hy + 6 * sc, { flip, rot, sx: hs, sy: hs, flash: o.flash, alpha: o.alpha, ay: head.height - 9 });
   if (o.flash) return;
   // accessories
-  const tx = hx + (flip ? 2 : -2), ty = hy - head.height * sc + 10;
+  const tx = hx + (flip ? 2 : -2), ty = hy - head.height * hs + 10;
   ctx.save(); ctx.translate(tx, ty); ctx.rotate(rot); ctx.scale(sc, sc);
   if (p.hat === 'straw') { P.e(ctx, 0, 0, 14, 4, '#000'); P.e(ctx, 0, 0, 13, 3, '#ffd860'); P.r(ctx, -7, -8, 14, 8, '#000'); P.r(ctx, -6, -7, 12, 7, '#f0c040'); P.r(ctx, -6, -3, 12, 2, '#c03030'); }
   if (p.hat === 'hard') { P.e(ctx, 0, -2, 11, 8, '#000'); P.e(ctx, 0, -2, 10, 7, '#ffcc22'); P.r(ctx, -12, 2, 24, 3, '#000'); P.r(ctx, -11, 2, 22, 2, '#ffcc22'); P.r(ctx, -1, -8, 2, 8, '#e0a010'); }
@@ -105,7 +106,7 @@ function drawBiker(x, y, o = {}) {
   const W2 = full.width, H2 = full.height, an = A('biker');
   const rw = an.rearWheel, piv = [rw[0], H2 - 2]; // pivot at rear tyre contact
   ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (flip) ctx.scale(-1, 1);
-  ctx.rotate(-(o.wheelie || 0) + (o.tilt || 0));
+  ctx.rotate(-(o.wheelie || 0) + (o.tilt || 0)); ctx.scale(HD * (o.scale || 1), HD * (o.scale || 1));
   ctx.translate(-piv[0], -piv[1]);
   const spd = o.speed === undefined ? 1 : o.speed, vib = spd > .05 ? (Math.floor(t * 30) % 2) : 0;
   if (o.flash) { ctx.drawImage(flashOf(full), 0, 0); ctx.restore(); return; }
@@ -114,7 +115,7 @@ function drawBiker(x, y, o = {}) {
   ctx.drawImage(bike, 0, H2 - bike.height);
   // spinning wheel spokes + tyre tread
   for (const k of ['rearWheel', 'frontWheel']) {
-    const [wx, wy] = an[k], rad = 15, ang = t * 18 * spd * (k === 'rearWheel' ? 1 : 1.03);
+    const [wx, wy] = an[k], rad = 22, ang = t * 18 * spd * (k === 'rearWheel' ? 1 : 1.03);
     ctx.strokeStyle = '#e8ecf4'; ctx.lineWidth = 1;
     for (let i = 0; i < 4; i++) { const a = ang + i * Math.PI / 4; ctx.beginPath(); ctx.moveTo(wx + Math.cos(a) * rad * .3, wy + Math.sin(a) * rad * .3); ctx.lineTo(wx + Math.cos(a) * rad * .8, wy + Math.sin(a) * rad * .8); ctx.stroke(); }
     ctx.fillStyle = '#fff'; for (let i = 0; i < 3; i++) { const a = -ang * 1 + i * 2.09; ctx.fillRect(Math.round(wx + Math.cos(a) * (rad + 1)), Math.round(wy + Math.sin(a) * (rad + 1)), 2, 2); }
@@ -133,7 +134,7 @@ function drawWolf(x, y, o = {}) {
   const flip = (o.face || 1) < 0, t = o.t || G.t, body = IMG.wolf_body, arm = IMG.wolf_arm; if (!body) return;
   const an = A('wolf_body'), sh = an.shoulder, br = 1 + Math.sin(t * 3) * .02 * (o.breath === undefined ? 1 : o.breath);
   const sc = o.scale || 1;
-  ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (flip) ctx.scale(-1, 1); ctx.scale(sc, sc);
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (flip) ctx.scale(-1, 1); ctx.scale(sc * HD, sc * HD);
   ctx.rotate(o.rot || 0);
   const sy = br * (o.sy || 1), sx = (2 - br) * (o.sx || 1);
   ctx.scale(sx, sy); ctx.translate(-body.width / 2, -body.height);
@@ -150,7 +151,7 @@ function drawWolf(x, y, o = {}) {
 function drawCow(x, y, o = {}) {
   const flip = (o.face || 1) < 0, t = o.t || G.t, body = IMG.cow_body, cape = IMG.cow_cape; if (!body) return;
   const an = A('cow_body'), can = A('cow_cape'), sc = o.scale || 1;
-  ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (flip) ctx.scale(-1, 1); ctx.scale(sc * (o.sx || 1), sc * (o.sy || 1)); ctx.rotate(o.rot || 0);
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (flip) ctx.scale(-1, 1); ctx.scale(sc * HD * (o.sx || 1), sc * HD * (o.sy || 1)); ctx.rotate(o.rot || 0);
   ctx.translate(-body.width / 2, -body.height);
   // cape: column-warped flutter, free (left) end waves hardest
   const amp = o.cape === undefined ? 3 : o.cape, neck = an.neck, cn = can.neck, cx0 = neck[0] - cn[0], cy0 = neck[1] - cn[1];
@@ -165,7 +166,7 @@ function drawCow(x, y, o = {}) {
 function drawSludge(x, y, o = {}) {
   const img = o.small ? IMG.gloopkin : IMG.sludge; if (!img) return;
   const t = o.t || G.t, wob = o.wobble === undefined ? 1 : o.wobble, flip = (o.face || -1) > 0;
-  const sy = (o.sy || 1) * (o.scale || 1), sx = (o.sx || 1) * (o.scale || 1);
+  const sy = (o.sy || 1) * (o.scale || 1) * HD, sx = (o.sx || 1) * (o.scale || 1) * HD;
   sprWarp(img, x, y, { flip, sy, sx, flash: o.flash, alpha: o.alpha, step: o.small ? 1 : 2 }, (v, r) => ({ dx: Math.sin(t * 3 + v * 7 + (o.phase || 0)) * wob * (1 - v) * (o.small ? 2 : 6), sx: 1 + Math.sin(t * 4 + v * 5) * .04 * wob + (o.bulge || 0) * Math.sin(v * Math.PI) }));
 }
 function drawGloopkin(x, y, o = {}) { drawSludge(x, y, Object.assign({ small: true }, o)); }

@@ -40,7 +40,7 @@ function composeSong(spec) {
         if (h !== '.' && !o.noHat) e.h = h === 'o' ? 2 : 1;
         if (s === 0 && (b === 0 || o.crashEvery) && o.crash !== false) e.c = 1;
         if (st.clang && st.clang[s % 16] === 'x') e.cl = 1;
-        if (o.fill && b === bars - 1 && s >= bar - 4) { delete e.k; e.tm = [190, 160, 130, 100][s - (bar - 4)]; e.s = (s % 2) ? .7 : 0; }
+        if (o.fill && (b % 2 === 1) && s >= bar - 4) { delete e.k; e.tm = [190, 160, 130, 100][s - (bar - 4)]; e.s = (s % 2) ? .7 : 0; }
       }
       if (o.gtrOn !== false) {
         const g = gp[s % gp.length];
@@ -52,13 +52,14 @@ function composeSong(spec) {
         }
       }
       if (o.bassOn !== false) {
-        const bs = o.bassPat || (spec.style === 'punk' || spec.style === 'thrash' ? 'x.x.x.x.x.x.x.x.' : spec.style === 'circus' ? 'x.....x.....' : 'x..x..x.x..x.x..');
-        if (bs[s % bs.length] === 'x') e.b = [cr - 12 + (spec.style === 'circus' && s === 6 ? 7 : 0), 2];
+        const bs = o.bassPat || (spec.style === 'punk' || spec.style === 'thrash' ? 'x.xxx.x.x.xxx.xo' : spec.style === 'circus' ? 'x.....x.....' : 'x..x.xo.x..x.xo.');
+        const bc = bs[s % bs.length]; if (bc === 'x' || bc === 'o') e.b = [cr - 12 + (bc === 'o' ? 12 : 0) + (spec.style === 'circus' && s === 6 ? 7 : 0), 2];
+        if (o.cowbell && s % 4 === 2) e.cb = .7;
       }
       if (o.lead) {
         const m = o.lead === 'solo' ? null : motif[s];
         if (o.lead === 'solo') { if (r() < .7 && s % (o.soloDiv || 1) === 0) e.l = [key + 24 + deg(ri(10) + (b % 2) * 2), 1, r() < .2 ? 2 : 0]; }
-        else if (m !== null && m !== undefined) { let l = 1; while (l < 4 && motif[(s + l) % bar] === null) l++; e.l = [key + 24 + deg(m + (o.motifShift || 0) + (b % 2 && o.answer ? 2 : 0)), l, r() < .15 ? 2 : 0]; }
+        else if (m !== null && m !== undefined) { let l = 1; while (l < 4 && motif[(s + l) % bar] === null) l++; e.l = [key + 24 + deg(m + (o.motifShift || 0) + (b % 2 && o.answer ? 2 : 0) + (b === 3 && o.answer ? -1 : 0)), l, r() < .15 ? 2 : 0, o.leadVol || 1]; }
       }
       if (o.organ && (s % (bar / 4) === 0)) { const beat = s / (bar / 4); if (st.bar === 12 ? beat > 0 : true) e.o = [[cr + 12, cr + 15 + (spec.scale === 'major' || spec.scale === 'mixo' ? 1 : 0), cr + 19], bar / 4 - 1]; }
       if (o.kazoo && motif[s] !== null && motif[s] !== undefined) e.z = [key + 36 + deg(motif[s]), 2];
@@ -68,9 +69,9 @@ function composeSong(spec) {
   }
   const org = !!st.organ, kaz = !!st.kazoo, pad = !!st.pad;
   parts.I = makePart('I', { bars: 2, gtrOn: spec.style === 'psych', drums: 'A', noHat: false, pad: true, organ: org, crash: false, leadAlways: false });
-  parts.A = makePart('A', { bars: 4, drums: 'A', organ: org && r() < .5, pad, fill: true, chugRoot: r() < .5 });
+  parts.A = makePart('A', { bars: 4, drums: 'A', organ: org && r() < .5, pad, fill: true, chugRoot: r() < .5, lead: 'motif', leadVol: .55, motifShift: -2 });
   parts.A2 = makePart('A2', { bars: 4, drums: 'B', dk: true, fill: true });
-  parts.B = makePart('B', { bars: 4, drums: 'B', lead: 'motif', answer: true, organ: org, kazoo: kaz, crashEvery: true });
+  parts.B = makePart('B', { bars: 4, drums: 'B', lead: 'motif', answer: true, organ: org, kazoo: kaz, crashEvery: true, fill: true, cowbell: spec.style === 'punk' || spec.style === 'comedy' || spec.style === 'circus' });
   parts.C = makePart('C', { bars: 2, drums: 'E', gtr: rp(st.gtr), tempo: spec.style === 'metal' ? 1 : .5 + (r() < .5 ? 0 : .5), chugRoot: true, progShift: 1 });
   parts.D = makePart('D', { bars: 4, drums: 'B', lead: 'solo', soloDiv: spec.style === 'psych' ? 2 : 1, pad, dk: spec.style !== 'psych' });
   // theatrical interruption: a sudden tempo/style swerve (polka kazoo, circus organ or spooky pad)
@@ -78,7 +79,7 @@ function composeSong(spec) {
   parts.E = makePart('E', { bars: 4, drums: 'E', dk: true, chugRoot: true, gtr: st.gtr[st.gtr.length - 1], lead: r() < .5 ? 'motif' : false, motifShift: 3, crashEvery: true });
   parts.F = makePart('F', { bars: 4, drums: 'E', dk: true, tempo: 1.18, lead: 'solo', progShift: 2 });
   const song = { id: spec.id, name: spec.name, style: spec.style, bpm: spec.bpm, div: st.div, parts, loopFrom: 1, swing: spec.swing || 0,
-    calm: ['I'], explore: spec.explore || ['I', 'A', 'B', 'A', 'C', 'B', 'X', 'A', 'D'], combat: ['A2', 'B', 'E', 'B', 'D'], boss: spec.boss || ['E', 'F', 'C', 'E', 'D', 'F'] };
+    calm: ['I'], explore: spec.explore || ['I', 'A', 'B', 'A', 'B', 'D', 'C', 'B', 'X', 'B'], combat: ['A2', 'B', 'E', 'B', 'D'], boss: spec.boss || ['E', 'F', 'C', 'E', 'D', 'F'] };
   return song;
 }
 const SONG_SPECS = [

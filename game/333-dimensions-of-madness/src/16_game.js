@@ -1,11 +1,13 @@
 // ============================================================================
 // Game: level lifecycle, entity management, scene runner, special objects
 // ============================================================================
-class HouseSite extends Ent { // straw / stick / brick houses for LEVEL 333
-  constructor(o) { super(o.x - 40, o.y - 80, 96, 80); this.kind = o.kind; this.built = false; this.gone = false; this.ground = o.y; }
+class HouseSite extends Ent { // straw / stick / brick houses for LEVEL 333 — press ATTACK to build
+  constructor(o) { super(o.x - 40, o.y - 80, 96, 80); this.kind = o.kind; this.built = false; this.gone = false; this.ground = o.y; this.scene = o.scene; }
+  activate() { if (this.built || Game.cutscene) return; const have = Game.flags[this.kind] || 0; Game.levelStats.built = have; AudioSys.play_sfx('select'); FX.debris(this.cx, this.cy, this.kind === 'straw' ? 'straw' : this.kind === 'stick' ? 'stick' : 'brick', 30); Game.runScene(this.scene); }
+  update() { this.t++; }
   draw(cx, cy) {
     if (this.gone) return; const x = Math.round(this.x - cx), y = Math.round(this.ground - cy), k = this.kind;
-    if (!this.built) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([4, 4]); ctx.strokeRect(x + 8, y - 56, 80, 56); ctx.beginPath(); ctx.moveTo(x, y - 56); ctx.lineTo(x + 48, y - 90); ctx.lineTo(x + 96, y - 56); ctx.stroke(); ctx.setLineDash([]); text(k.toUpperCase() + ' HOUSE SITE', x + 48, y - 100, { color: '#fff', align: 'center', outline: true }); return; }
+    if (!this.built) { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.strokeRect(x + 8, y - 56, 80, 56); ctx.beginPath(); ctx.moveTo(x, y - 56); ctx.lineTo(x + 48, y - 90); ctx.lineTo(x + 96, y - 56); ctx.stroke(); ctx.setLineDash([]); const near = Math.abs(Game.player.cx - this.cx) < 90; text(near ? 'PRESS ATTACK TO BUILD!' : k.toUpperCase() + ' HOUSE GOES HERE', x + 48, y - 104 + (near ? Math.sin(this.t * .2) * 2 : 0), { color: near ? '#ffe14d' : '#fff', align: 'center', outline: true }); text((Game.flags[k] || 0) + ' ' + k.toUpperCase() + ' COLLECTED', x + 48, y - 92, { color: '#fff', align: 'center', outline: true }); return; }
     const wall = k === 'straw' ? '#f0c040' : k === 'stick' ? '#a0662a' : '#c24a2a', roof = k === 'straw' ? '#d8a020' : k === 'stick' ? '#7a4a1a' : '#5a2a2a';
     O.r(x + 8, y - 56, 80, 56, wall); if (k === 'straw') for (let i = 0; i < 20; i++) P.r(ctx, x + 10 + (i * 13) % 76, y - 54 + (i * 7) % 50, 6, 1, '#b08a20');
     if (k === 'stick') for (let i = 0; i < 10; i++) P.r(ctx, x + 10 + i * 8, y - 56, 3, 56, '#6a3a10'); if (k === 'brick') for (let r = 0; r < 7; r++) for (let c = 0; c < 6; c++) P.r(ctx, x + 9 + c * 13 + (r % 2) * 6, y - 55 + r * 8, 12, 1, '#2a0a00');
@@ -13,7 +15,7 @@ class HouseSite extends Ent { // straw / stick / brick houses for LEVEL 333
   }
 }
 class Quest extends Ent { constructor(o) { super(o.x, o.y - 32, 16, 32); this.flag = o.flag; this.need = o.need; this.scene = o.scene; Game.need[o.flag] = o.need; Game.quest = this; this.silent = o.silent; }
-  update() { if (!this.dead && (Game.flags[this.flag] || 0) >= this.need && !Game.cutscene) { this.dead = true; Game.quest = null; Game.runScene(this.scene); } } }
+  update() { if (!this.dead && !Game.cutscene && (Game.player.x > this.x - 40 || (Game.flags[this.flag] || 0) >= this.need)) { this.dead = true; Game.quest = null; Game.runScene(this.scene); } } }
 class ChaseZone extends Ent { constructor(o) { super(o.x, 0, 16, 9999); this.o = o; this.on = false; }
   update(L) { if (!this.on && Game.player.x > this.x) { this.on = true; Game.startChase(this.o, this.x); } } }
 class ChaseEnd extends Ent { constructor(o) { super(o.x, 0, 16, 9999); this.o = o; } update() { if (!this.dead && Game.player.x > this.x) { this.dead = true; Game.endChase(this.o.scene); } } }
@@ -28,7 +30,7 @@ class GravityOrb extends Ent { constructor(o) { super(o.x, o.y, 20, 20); this.co
 class Coaster extends Ent { constructor(o) { super(o.x, o.y - 4, 48, 10); this.solid = true; this.oneway = true; this.len = o.len * TS; this.x0 = o.x; this.go = false; this.dx = 0; this.vy = 0; this.ride = 0; }
   update(L) { this.t++; const p = Game.player; if (p.riding === this) this.go = true; const ox = this.x; if (this.go && this.x < this.x0 + this.len) { this.ride = Math.min(4.2, this.ride + .05); this.x += this.ride; if (this.t % 8 === 0) AudioSys.play_sfx('coaster'); } this.dx = this.x - ox; if (p.riding === this) p.x += this.dx; }
   draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); O.r(x, y - 14, 48, 18, '#ff3a6a'); P.r(ctx, x + 4, y - 12, 40, 4, '#ffe14d'); for (const wx of [10, 38]) O.e(x + wx, y + 6, 5, 5, '#333'); if (!this.go) text('RIDE!', x + 24, y - 26, { color: '#ffe14d', align: 'center', outline: true, wave: 1 }); } }
-class SoundSwitch extends Switch { draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); O.r(x - 6, y - 12, 28, 30, this.on ? '#3a6a3a' : '#2a2a30'); P.e(ctx, x + 8, y + 4, 8 + (this.on ? 0 : Math.sin(G.t * 8) * 2), 8, this.on ? '#7fff3a' : '#555'); if (!this.on) text('SCREAM / BANG', x + 8, y - 24, { color: '#7fff3a', align: 'center', outline: true }); }
+class SoundSwitch extends Switch { draw(cx, cy) { const x = Math.round(this.x - cx), y = Math.round(this.y - cy); O.r(x - 6, y - 12, 28, 30, this.on ? '#3a6a3a' : '#2a2a30'); P.e(ctx, x + 8, y + 4, 8 + (this.on ? 0 : Math.sin(G.t * 8) * 2), 8, this.on ? '#7fff3a' : '#555'); if (!this.on) text('ATTACK!', x + 8, y - 24, { color: '#7fff3a', align: 'center', outline: true }); }
   update(L) { this.t++; } }
 class FinishLine extends Ent { constructor(o) { super(o.x, 0, 16, 9999); } update() { if (!Game.raceDone && Game.player.x > this.x) Game.raceWon(); }
   draw(cx, cy) { const x = Math.round(this.x - cx); for (let y = 0; y < H; y += 8) { P.r(ctx, x, y, 8, 8, (y / 8) % 2 ? '#fff' : '#000'); P.r(ctx, x + 8, y, 8, 8, (y / 8) % 2 ? '#000' : '#fff'); } text('FINISH', x + 8, 80, { color: '#ffe14d', align: 'center', outline: true, scale: 2 }); } }
@@ -41,6 +43,7 @@ const Game = {
   levelStats: { notes: 0, kills: 0, time: 0, shards: [] }, finishing: false, checkpoint: null, party: null, partyIdx: 0, followers: [], transformMenu: null,
   add(e) { this.ents.push(e); return e; }, countEnts(f) { let n = 0; for (const e of this.ents) if (!e.dead && f(e)) n++; return n; }, findEnt(f) { return this.ents.find(e => !e.dead && f(e)); },
   flag(n) { this.flags[n] = (this.flags[n] || 0) + 1; },
+  noteMilestone() { const n = this.levelStats.notes; if (n > 0 && n % 25 === 0) { HUD.banner(n + ' NOTES!!', '#ffe14d', pick(['HISTORY WILL REMEMBER THIS DAY.', 'THE NARRATOR IS CRYING.', 'SOMEBODY CALL YOUR MOM.', 'A STATUE WILL BE BUILT.', 'THE UNIVERSE IS 0.01% SAVED.'])); FX.confetti(this.player.cx, this.player.y - 100, 40); AudioSys.play_sfx('cheer'); } },
   shardsHave(id) { const d = Save.data.done[this.saveKey()]; return d && d.shards && d.shards[id]; },
   saveKey() { return this.def.id; },
   collectShard(id) { this.levelStats.shards[id] = true; },
@@ -52,16 +55,17 @@ const Game = {
     if (!keepStats) this.levelStats = { notes: 0, kills: 0, time: 0, shards: [], hits: 0 };
     const L = new Level(Object.assign({}, sub, { id: def.id + '_' + chapter })); this.L = L; L.solidEnts = [];
     const B = new Builder(L, sub); sub.build(B);
-    if (!sub.vertical) { const lastX = B.cx; if (lastX + 2 < L.w) { L.w = Math.max(lastX + 4, 60); const nt = new Uint8Array(L.w * L.h); for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) nt[y * L.w + x] = L.tiles[y * (def.w || 400) + x] || 0; L.tiles = nt; } }
+    if (!sub.vertical) { const lastX = B.cx; if (lastX + 2 < L.w) { L.w = Math.max(lastX + 4, 60); const nt = new Uint8Array(L.w * L.h); for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) nt[y * L.w + x] = L.tiles[y * (sub.w || 1400) + x] || 0; L.tiles = nt; } }
     if (sub.ceiling) for (let x = 0; x < L.w; x++) { L.tiles[x] = T_SOLID; L.tiles[L.w + x] = T_SOLID; }
     if (sub.styleShift) { L.styles = sub.styleShift.map(t => ({ th: THEMES[t], ts: buildTileset(THEMES[t], L.seed + t.length), bg: buildBackground(THEMES[t], L.seed + t.length) })); L.styleIdx = 0; L.styleT = 0; }
     L.buildChunks();
     // player
     const sx = L.startX || 48, sy = L.startY || this.groundY(L, Math.floor(sx / TS)) - 40;
     this.player = new Player(sx, sy); this.checkpoint = { x: sx, y: sy }; this.player.gdir = 1;
-    if (sub.party) { this.party = sub.party.slice(); this.partyIdx = 0; this.player.setChar(this.party[0]); this.followers = this.party.slice(1).filter(c => c !== 'monster').map((c, i) => new PigFollower(c, sx - 20 - i * 20, sy)); }
+    if (sub.party) { this.party = null; this.followers = sub.party.filter(c => c !== 'monster').map((c, i) => new PigFollower(c, sx - 20 - i * 20, sy)); }
     if (sub.race) this.player.vehicle = true;
     for (const s of L.spawns) this.spawn(s, L);
+    if (!sub.chapters && !sub.concert) this.decorateLevel(L, sub);
     if (sub.allyCow) this.add(new UdderlyAlly(sx - 60, sy - 60));
     Cam.follow(L, this.player.cx, this.player.cy, 1, true);
     AudioSys.play(sub.song || def.song); AudioSys.setIntensity(1);
@@ -70,6 +74,14 @@ const Game = {
     if (sub.intro) this.runScene(sub.intro);
     if (sub.wind) L.windGusts = true;
     if (sub.concert) { /* concert chapter starts from its intro scene */ }
+  },
+  decorateLevel(L, sub) { // campaign-wide: a set-piece spectacle, themed power-ups and generous checkpoints
+    const arenas = this.ents.filter(e => e instanceof Arena || e instanceof BossGate).map(e => [e.x - 80, e.x + (e.o && e.o.w || 600) + 80]);
+    const free = tx => !arenas.some(([a, b]) => tx * TS > a && tx * TS < b);
+    const flatAt = frac => { for (let tx = Math.floor(L.w * frac); tx < L.w - 10; tx++) { const gy = this.groundY(L, tx); if (gy < L.h * TS - 48 && this.groundY(L, tx + 1) === gy && this.groundY(L, tx - 1) === gy && free(tx)) return [tx, gy]; } return null; };
+    if (sub.spectacle) { const p = sub.vertical ? [8, 0] : flatAt(.42); if (p) this.add(new SetPiece({ x: p[0] * TS, kind: sub.spectacle })); }
+    if (sub.powers) sub.powers.forEach((k, i) => { const p = flatAt([.22, .62][i]); if (p) this.add(new PowerUp({ x: p[0] * TS, y: p[1] - 3 * TS, kind: k })); });
+    if (!sub.vertical && !sub.race) { const cps = this.ents.filter(e => e instanceof Checkpoint).map(e => e.x / TS); for (let tx = 40; tx < L.w - 30; tx += 38) { if (cps.some(c => Math.abs(c - tx) < 24)) continue; for (let k = 0; k < 10; k++) { const x = tx + k, gy = this.groundY(L, x); if (gy < L.h * TS - 48 && this.groundY(L, x + 1) === gy && free(x)) { this.add(new Checkpoint(x * TS, gy - 32)); cps.push(x); break; } } } }
   },
   groundY(L, tx) { for (let ty = 3; ty < L.h; ty++) if (L.solidAt(tx, ty) && !L.solidAt(tx, ty - 1) && !L.solidAt(tx, ty - 2)) return ty * TS; return L.h * TS - 48; },
   spawn(s, L) {
@@ -94,13 +106,19 @@ const Game = {
       case 'pull': { const p = this.add(new Pullable(s)); L.solidEnts.push(p); break; }
       case 'amp': { const a = this.add(new AmpTotem(s)); L.solidEnts.push(a); break; }
       case 'sign': this.add(new Sign(s)); break;
+      case 'power': this.add(new PowerUp({ x: s.x, y: s.y, kind: s.kind })); break;
+      case 'prompt': this.add(new Prompt(s)); break;
+      case 'joke': { const j = this.add(new JokeBlock(s)); L.solidEnts.push(j); break; }
+      case 'bigamp': this.add(new BigAmp(s)); break;
+      case 'meganote': this.add(new MegaNote(s)); break;
+      case 'setpiece': this.add(new SetPiece(s)); break;
       case 'housesite': this.add(new HouseSite(s)); break;
       case 'quest': this.add(new Quest(s)); break;
       case 'chasezone': case 'scrollzone': this.add(new ChaseZone(Object.assign({ collapse: s.type === 'scrollzone' }, s))); break;
       case 'chaseend': this.add(new ChaseEnd(s)); break;
       case 'bossgate': this.add(new BossGate(s)); break;
       case 'portal': this.add(new Portal(s)); break;
-      case 'gravity': this.add(new GravityOrb(s)); break;
+      case 'gravity': break; // gravity flips removed for clarity
       case 'coaster': { const c = this.add(new Coaster(s)); L.solidEnts.push(c); break; }
       case 'racestart': this.racer = this.add(new RazzRacer({ x: s.x + 20, y: s.y, finishX: 0 })); break;
       case 'finish': this.add(new FinishLine(s)); if (this.racer) this.racer.finishX = s.x; break;
@@ -121,11 +139,11 @@ const Game = {
     else { p.attacks = []; if (!p.onGround) { p.vy = Math.min(p.vy + PHYS.grav, 6); moveBody(p, L); } p.vx *= .8; if (p.dead) { p.dead++; if (p.dead > 80) this.respawn(); } }
     p.gdir = L.gravity;
     for (const f of this.followers) f.update(L, p, this.followers.indexOf(f));
-    for (const e of this.ents) if (!e.dead && (Math.abs(e.cx - p.cx) < W * 1.2 || e.isBoss || e instanceof MovingPlat || e instanceof Chaser || e instanceof RazzRacer || e instanceof Arena || e instanceof Quest || e instanceof UdderlyAlly || e instanceof Summon || e instanceof Coaster)) e.update(L);
+    for (const e of this.ents) if (!e.dead && (Math.abs(e.cx - p.cx) < W * 1.2 || e.isBoss || e instanceof MovingPlat || e instanceof Chaser || e instanceof GiantChaser || e instanceof SetPiece || e instanceof RazzRacer || e instanceof Arena || e instanceof Quest || e instanceof UdderlyAlly || e instanceof Summon || e instanceof Coaster)) e.update(L);
     // player attacks vs enemies & bosses
     if (p.attacks.length) for (const e of this.ents) {
       if (e.dead) continue;
-      if (e instanceof Enemy && e.wake) { for (const a of p.attacks) if (overlap(a, e)) { if (a.circle && dist(p.cx, p.cy, e.cx, e.cy) > a.circle) continue; if (a.kind === 'whip' && a.tongue) this.whipHitDone = true; e.hit(a.dmg, a); break; } }
+      if (e instanceof Enemy && e.wake) { for (const a of p.attacks) if (overlap(a, e)) { if (a.circle && dist(p.cx, p.cy, e.cx, e.cy) > a.circle) continue; if (e.hit(a.dmg, Object.assign({ dir: p.face }, a)) && a.kind === 'bash' && !p.onGround) { p.vy = -5.5; p.airSpun = false; FX.pop(e.cx, e.y - 8, 'BOING!', '#7fff3a'); } break; } }
       else if (e.isBoss) { const hb = e.hitbox(); for (const a of p.attacks) if (overlap(a, hb)) { if (a.circle && dist(p.cx, p.cy, hb.x + hb.w / 2, hb.y + hb.h / 2) > a.circle + Math.max(hb.w, hb.h) / 2) continue; e.hit(a.dmg, a); break; } }
       else if (e instanceof Pullable && p.tongueTip) { if (overlap(p.attacks[0], e)) e.pull(-p.face); }
     }
@@ -141,29 +159,36 @@ const Game = {
   // ------------------------------------------------------------------ draw
   draw() {
     const L = this.L, p = this.player; if (!L) return;
-    const cx = Math.round(Cam.x + Cam.ox()), cy = Math.round(Cam.y + Cam.oy());
-    // sky + parallax
-    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, L.bg.sky[0] || L.theme.sky[0]); g.addColorStop(1, L.bg.sky[1] || L.theme.sky[1]); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    const vprog = L.h * TS > H ? cy / (L.h * TS - H) : 0; const par = (img, f, oy) => { const ox = -((cx * f) % img.width + img.width) % img.width; const yy = Math.round(clamp(-cy * f * .5 + oy, -50, 30) + (L.def.vertical ? (1 - vprog) * 0 : 0)); ctx.drawImage(img, ox, yy); ctx.drawImage(img, ox + img.width, yy); };
-    par(L.bg.far, .15, 0); par(L.bg.mid, .4, 20);
-    // background props
-    for (const pr of L.props) if (pr.layer === 1) { const x = pr.x - cx * .9; if (x > -60 && x < W + 60) spr(pr.img, x, pr.y - cy, { alpha: .55 }); }
-    for (const pr of L.props) if (pr.layer === 0) { const x = pr.x - cx; if (x > -60 && x < W + 60) spr(pr.img, x, pr.y - cy); }
+    const sx = Cam.ox(), sy = Cam.oy(), cx = Cam.x + sx / ZOOM, cy = Cam.y + sy / ZOOM, scx = cx * ZOOM;
+    // ---- screen-space painted parallax backdrop
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (L.bg.skyC) ctx.drawImage(L.bg.skyC, 0, 0); else { ctx.fillStyle = L.theme.sky[0]; ctx.fillRect(0, 0, W, H); }
+    const vy = clamp((cy - (L.h * TS - VH)) * .25, -60, 0);
+    const par = (img, f, oy) => { const ox = -((scx * f) % img.width + img.width) % img.width, yy = Math.round(oy + vy * f * 2); ctx.drawImage(img, Math.round(ox), yy); ctx.drawImage(img, Math.round(ox) + img.width, yy); };
+    par(L.bg.far, .15, 0);
+    for (const fn of L.bg.anim) fn(ctx, G.t, scx);
+    par(L.bg.mid, .4, 10);
+    for (const fn of L.bg.animF || []) fn(ctx, G.t, scx);
+    // ---- world (zoomed)
+    ctx.setTransform(ZOOM, 0, 0, ZOOM, 0, 0);
+    for (const e of this.ents) if (e.drawBG && !e.dead) e.drawBG(cx, cy);
+    for (const pr of L.props) { const x = pr.x - cx; if (x > -80 && x < VW + 80) spr(pr.img, x, pr.y - cy, pr.img.hd ? { sx: HD, sy: HD } : {}); }
     L.drawTiles(cx, cy);
-    for (const e of this.ents) if (!e.dead && !(e instanceof Enemy) && !e.isBoss && Math.abs(e.cx - cx - W / 2) < W) e.draw(cx, cy);
+    for (const e of this.ents) if (!e.dead && !(e instanceof Enemy) && !e.isBoss && !(e instanceof SlimeBall) && !(e instanceof EnemyShot) && Math.abs(e.cx - cx - VW / 2) < VW) e.draw(cx, cy);
     for (const e of this.ents) if (!e.dead && e.isBoss) e.draw(cx, cy);
-    for (const e of this.ents) if (!e.dead && e instanceof Enemy && Math.abs(e.cx - cx - W / 2) < W * .7) e.draw(cx, cy);
+    for (const e of this.ents) if (!e.dead && e instanceof Enemy && Math.abs(e.cx - cx - VW / 2) < VW) e.draw(cx, cy);
     for (const f of this.followers) f.draw(cx, cy);
     for (const a of this.actors) a.draw(cx, cy);
     if (p.vehicle) drawVehicle(p, cx, cy); else p.draw(cx, cy);
     for (const e of this.ents) if (!e.dead && (e instanceof SlimeBall || e instanceof EnemyShot)) e.draw(cx, cy);
     FX.draw(cx, cy);
-    drawLighting(L, cx);
-    if (L.gravity < 0) { ctx.fillStyle = 'rgba(255,91,209,.06)'; ctx.fillRect(0, 0, W, H); }
-    if (this.chase && this.chase.collapse) { const x = L.scrollX - cx; const gg = ctx.createLinearGradient(x - 30, 0, x + 40, 0); gg.addColorStop(0, 'rgba(0,0,0,1)'); gg.addColorStop(1, 'rgba(60,0,80,0)'); ctx.fillStyle = gg; ctx.fillRect(0, 0, x + 40, H); }
+    for (const e of this.ents) if (e.drawFG && !e.dead) e.drawFG(cx, cy);
+    if (this.chase && this.chase.collapse) { const x = L.scrollX - cx; const gg = ctx.createLinearGradient(x - 30, 0, x + 40, 0); gg.addColorStop(0, 'rgba(20,0,30,1)'); gg.addColorStop(1, 'rgba(60,0,80,0)'); ctx.fillStyle = gg; ctx.fillRect(-10, -10, x + 50, VH + 20); }
+    // ---- screen-space overlays
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    drawLighting(L, scx);
     HUD.draw();
     if (this.cutscene) this.drawScene();
-    if (this.transformMenu) this.drawTransformMenu();
     if (G.debug) { text('ents ' + this.ents.length + ' fx ' + FX.list.length + ' x ' + (p.x | 0) + ' y ' + (p.y | 0) + ' ' + G.fps + 'fps', 4, H - 10, { color: '#0f0' }); }
   },
   // ------------------------------------------------------------------ gameplay helpers
@@ -211,7 +236,7 @@ const Game = {
     text('◄ ► choose    CONFIRM / ' + (K().form) + ' select', W / 2, 290, { color: '#aaa', align: 'center' });
   },
   // ------------------------------------------------------------------ chase / race
-  startChase(o, x) { const L = this.L; L.autoScroll = true; L.scrollX = Cam.x; this.chase = { speed: o.scroll, startX: x, collapse: o.collapse }; this.checkpoint = { x: x - 32, y: this.groundY(L, Math.floor(x / TS)) - 40 }; if (!o.collapse) { this.chaser = this.add(new Chaser({ x: Cam.x - 100, y: this.groundY(L, Math.floor(Cam.x / TS) + 2), rider: o.rider, lines: o.lines })); } AudioSys.setIntensity(2); HUD.banner(o.collapse ? 'THE STAGE IS COLLAPSING!' : 'CHASE!', '#ff3a3a'); },
+  startChase(o, x) { const L = this.L; L.autoScroll = true; L.scrollX = Cam.x; this.chase = { speed: o.scroll, startX: x, collapse: o.collapse }; this.checkpoint = { x: x - 32, y: this.groundY(L, Math.floor(x / TS)) - 40 }; if (o.giant) { this.chaser = this.add(new GiantChaser({ x: Cam.x - 100, y: this.groundY(L, Math.floor(Cam.x / TS) + 2) })); } else if (!o.collapse) { this.chaser = this.add(new Chaser({ x: Cam.x - 100, y: this.groundY(L, Math.floor(Cam.x / TS) + 2), rider: o.rider, lines: o.lines })); } AudioSys.setIntensity(2); HUD.banner(o.collapse ? 'THE STAGE IS COLLAPSING!' : o.giant ? 'RUN!!!' : 'CHASE!', '#ff3a3a'); },
   endChase(scene) { const L = this.L; L.autoScroll = false; this.chase = null; if (this.chaser) { this.chaser.dead = true; this.chaser = null; } AudioSys.setEngine(false); AudioSys.setIntensity(1); if (scene) this.runScene(scene); },
   raceWon() { this.raceDone = true; AudioSys.setEngine(false); AudioSys.play_sfx('cheer'); HUD.banner('YOU WIN!', '#7fff3a'); this.player.vehicle = true; this.runScene('L23_win', {}, () => { this.player.vehicle = false; this.finishLevel(); }); },
   raceLost() { this.raceDone = true; AudioSys.play_sfx('miss'); HUD.banner('RAZZ WINS...', '#ff3a3a'); this.runScene('L23_lose', {}, () => { this.restartLevel(); }); },
@@ -233,7 +258,7 @@ const Game = {
   respawn() {
     const p = this.player, cp = this.checkpoint, L = this.L; Save.write();
     const wasChar = p.char, form = p.form === 'mega' ? 'normal' : p.form, metal = p.metal;
-    this.player = new Player(cp.x, cp.y - 8); this.player.metal = Math.floor(metal / 2); if (wasChar !== 'monster') this.player.setChar(wasChar); else this.player.setForm(form, true);
+    this.player = new Player(cp.x, cp.y - 8); if (p.powerT > 0 && form !== 'mega') { this.player.setForm(form, true); this.player.powerT = p.powerT; }
     if (this.def.race || this.sub.race) { this.player.vehicle = true; if (this.racer) this.racer.x = Math.min(this.racer.x, cp.x - 40); }
     FX.ring(this.player.cx, this.player.cy, 50, '#7fff3a', 30); AudioSys.play_sfx('transform');
     if (this.boss || (this.bossGate && this.bossGate.used && !this.ents.some(e => e.isBoss && e.defeated))) { for (const e of this.ents) if (e.isBoss) e.dead = true; this.boss = null; L.camLock = null; if (this.bossGate) { this.bossGate.used = false; } L.wind = 0; L.gravity = 1; AudioSys.setEngine(false); AudioSys.setIntensity(1); const a = this.ents.find(e => e instanceof Arena); }
@@ -332,9 +357,9 @@ const Game = {
     spawnBoss() { const g = Game.bossGate; if (!g) return; const C = BOSS_CLASSES[g.o.kind]; const b = new C(g.o.x0 + g.o.w * .7, g.o.gy * TS, g.o); Game.add(b); Game.boss = b; Game.bossHits = Game.player.hitTaken; HUD.bossIntro = 120; AudioSys.setIntensity(3); AudioSys.setBossPhase(1); },
     gloopkins() { for (let i = 0; i < 3; i++) { const e = new Enemy({ kind: 'gloopkin', x: Game.player.cx + 100 + i * 40, y: Game.player.y - 30 }); e.wake = true; Game.add(e); } },
     ally() { if (!Game.ally) Game.add(new UdderlyAlly(Game.player.cx - 60, Game.player.cy - 80)); },
-    give(f) { if (Save.form(f)) { HUD.banner('UNLOCKED: ' + FORMS[f].name, '#7fff3a', FORMS[f].desc); AudioSys.play_sfx('power'); Game.player.transT = 60; } },
-    giveSummon(s) { if (Save.summon(s)) { HUD.toast('NEW SUMMON: ' + SUMMONS[s].name, '#5bd4ff'); AudioSys.play_sfx('power'); } if (!Save.data.summons.includes('pigs') && Game.def.id === 'L3') { } },
-    megaFree() { const p = Game.player; p.metal = 100; p.setForm('mega'); p.megaT = 99999; },
+    give(f) { Save.form(f); if (POWERS[f]) { Game.player.setPower(f); HUD.banner(POWERS[f].label, POWERS[f].col, POWERS[f].joke); AudioSys.play_sfx('power'); } },
+    giveSummon(s) { if (Save.summon(s)) { HUD.toast(SUMMONS[s].name + ' WILL SHOW UP TO HELP!', '#5bd4ff'); AudioSys.play_sfx('power'); } },
+    megaFree() { const p = Game.player; p.setPower('mega'); p.powerT = 60 * 60 * 5; },
     slowmo() { Game.slow = 240; },
     rescue() { Game.levelStats.rescued = (Game.levelStats.rescued || 0) + 1; FX.notes(Game.player.cx, Game.player.y, 6); const n = Game.cutscene.o.npc; if (n) { n.anim = 'dance'; n.leaveT = 90; } Game.player.hp = Math.min(Game.player.maxHp, Game.player.hp + 1); },
     startConcert(song, final) { Game.cutscene.concert = song; Game.cutscene.final = final; Game.cutscene.i = Game.cutscene.steps.length; }
