@@ -21,7 +21,7 @@ const HUD = {
       const k = b.hp / b.maxHp; ctx.fillStyle = b.vulnerable === false ? '#888' : '#ff2a4a'; ctx.fillRect(bx, by, bw * k, 10); ctx.fillStyle = '#ff8a9a'; ctx.fillRect(bx, by, bw * k, 2);
       for (const ph of b.phases.slice(1)) P.r(ctx, bx + bw * ph, by, 1, 10, '#000');
       text(b.short || b.name, W / 2, by - 11, { color: '#fff', align: 'center', outline: true });
-      if (this.bossIntro > 0) { const a = Math.min(1, this.bossIntro / 30); ctx.globalAlpha = a; text(b.name, W / 2, 120, { color: '#ff2a4a', align: 'center', scale: 3, outline: true }); ctx.globalAlpha = 1; }
+      if (this.bossIntro > 0) { const a = Math.min(1, this.bossIntro / 30); ctx.globalAlpha = a; text('BOSS', W / 2, 88, { color: '#ffe14d', align: 'center', outline: true }); text(b.name, W / 2, 100, { color: '#ff2a4a', align: 'center', scale: b.name.length > 30 ? 2 : 3, outline: true }); /* above the FIGHT! banner (y=132) */ ctx.globalAlpha = 1; }
     }
     // toasts and banners
     this.toasts.forEach((t, i) => { const a = Math.min(1, t.t / 30); ctx.globalAlpha = a; const w = textWidth(t.s) + (t.icon ? 22 : 10); panel(W / 2 - w / 2, 46 + i * 16, w, 12, { rim: t.col }); if (t.icon) ctx.drawImage(t.icon, W / 2 - w / 2 + 2, 44 + i * 16); text(t.s, W / 2 + (t.icon ? 8 : 0), 49 + i * 16, { color: t.col, align: 'center' }); ctx.globalAlpha = 1; });

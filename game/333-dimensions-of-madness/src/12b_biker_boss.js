@@ -4,7 +4,7 @@
 // fixed-anchor, transparent frames (nearest-neighbour, no smoothing), an
 // explicit boss state machine and a single encounter controller.
 // ============================================================================
-const BIKER_FRAME = { w: 340, h: 240, ax: 130, ay: 214 }; // HD pixels; anchor = rear tyre contact
+const BIKER_FRAME = { w: 470, h: 260, ax: 192, ay: 226 }; // HD pixels; anchor = rear tyre contact
 const BIKER_ANIMS = {};
 const BIKER_FPS = { idle: 8, drive: 14, tongue: 0, hit: 16, charge: 14, defeat: 7 };
 const BIKER_TONGUE_EXT = [0, 0, .35, .75, 1, 1, .45, 0]; // tongue extension per TONGUE frame

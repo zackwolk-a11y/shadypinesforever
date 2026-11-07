@@ -23,7 +23,8 @@ function drawTongue(x0, y0, x1, y1, thick = 5, sag = 6, pal = ['#1a0306', '#e01a
 // --------------------------------------------------------------------------- hero
 const HERO_FACE = 1; // eyeball at the back of the head, matching the tongue-attack frames
 function drawHero(x, y, o = {}) {
-  const mega = o.form === 'mega', img = o.closed ? (mega ? IMG.hero_big_closed : IMG.hero_closed) : (mega ? IMG.hero_big : IMG.hero), name = mega ? 'hero_big' : 'hero';
+  // the complete-mouth head is the default everywhere; the tongue only appears in the attack frames
+  const closed = o.closed !== false, mega = o.form === 'mega', img = closed ? (mega ? IMG.hero_big_closed : IMG.hero_closed) : (mega ? IMG.hero_big : IMG.hero), name = mega ? 'hero_big' : 'hero';
   const sc = (o.scale || 1) * (mega ? 1.08 * HD : HD);
   const flip = (o.face || -1) !== HERO_FACE, c = A(name).center, ax = c[0], ay = c[1];
   const sx = (o.sx || 1) * sc, sy = (o.sy || 1) * sc;

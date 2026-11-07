@@ -30,7 +30,7 @@ const STORY = {
     ['monster', 'BLAAARGH! ...oops. Me broke 333 dimensions.'],
     S => { S.music('L1'); S.title('THE WORST SHOW ON EARTH', 'World 1 - Twisted Fairy Tales'); return 10; }],
   L1_cheer: [S => { S.sfx('cheer'); FX.confetti(Game.player.cx, Game.player.y - 120, 40); HUD.banner('THE CROWD GOES WILD!', '#ffe14d', 'for... walking. Low bar.'); }],
-  L1_ready: [S => { S.sfx('stinger'); S.sfx('cheer'); FX.confetti(Game.player.cx, Game.player.y - 120, 80); S.shake(6, 20); HUD.banner("YOU'RE READY.", '#7fff3a', 'GO MAKE A MESS!'); }],
+  L1_ready: [S => { S.sfx('stinger'); S.sfx('cheer'); FX.confetti(Game.player.cx, Game.player.y - 120, 80); S.shake(6, 20); HUD.banner('GO MAKE A MESS!', '#7fff3a', "YOU'RE READY."); }],
   L2_intro: [S => { S.title('BACKSTAGE BEDLAM', 'The venue is collapsing into a puppet show'); return 80; }, ['monster', 'Backstage smell like socks and fear. Good smell.'], ['narrator', 'The dimensional quake has animated every prop, puppet and patch cable in the building. They want autographs. With teeth.']],
   L2_razz: [S => { S.sfx('rev'); return 20; }, ['razz', 'Name\'s ELECTRIC HARLEY HOUSE (OF LOVE). I need that SCREAM for my band!'], ['monster', 'No. Scream is mine.'],
     ['razz', 'Then meet me at the loading dock, pickle-face. Bring your tongue. I\'m bringing MINE.'], ['narrator', 'Nobody knew Harley had a tongue like that. Nobody wanted to.'],

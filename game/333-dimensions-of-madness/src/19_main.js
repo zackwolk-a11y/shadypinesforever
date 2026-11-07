@@ -17,6 +17,7 @@ function update() {
     case 'results': Results.update(); break;
     case 'concert': if (Concert.done) Concert.updateEnd(); else Concert.update(); break;
     case 'ending': Ending.update(); break;
+    case 'inspector': Inspector.update(); break;
   }
 }
 function draw() {
@@ -29,6 +30,7 @@ function draw() {
     case 'results': Results.draw(); break;
     case 'concert': Concert.draw(); break;
     case 'ending': Ending.draw(); break;
+    case 'inspector': Inspector.draw(); break;
   }
 }
 let _acc = 0, _last = performance.now(), _fpsT = 0, _fpsN = 0;
@@ -51,7 +53,7 @@ async function boot() {
   buildProceduralSprites(); buildIcons(); buildPigBodies(); bakeBikerFrames(); sliceTongueFrames();
   Save.load(); Touch.init(); applyTouchPref();
   if ('ontouchstart' in window && (Save.data.opt.touch || 'auto') === 'auto') Touch.enable();
-  Title.open();
+  Title.open(); if (location.hash === '#inspector') Inspector.open(); // developer sprite inspector
   requestAnimationFrame(loop);
 }
 // test / debug hooks (used by the automated test-suite)

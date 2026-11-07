@@ -9,4 +9,5 @@ node tests/smoke.js > /tmp/smoke.log && grep -q "PAGE ERRORS: \[\]" /tmp/smoke.l
 node tests/bosses.js
 node tests/biker_boss.js
 node tests/arenas.js
+node tests/sprites.js
 node tests/platform.js
