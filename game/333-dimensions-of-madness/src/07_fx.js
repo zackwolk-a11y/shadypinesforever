@@ -38,9 +38,17 @@ const FX = {
       }
     }
     for (const r of this.rings) { ctx.globalAlpha = r.life / r.max; ctx.strokeStyle = r.col; ctx.lineWidth = r.w; ctx.beginPath(); ctx.arc(Math.round(r.x - cx), Math.round(r.y - cy), r.r, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
-    for (const t of this.texts) text(t.s, t.x - cx, t.y - cy, { color: t.col, align: 'center', outline: true });
+    // impact words: placed so they never cover a face or another word (sticky offset, no jitter)
+    for (const t of this.texts) {
+      const w = (textWidth(t.s) + 4) * ZOOM, h = 11 * ZOOM, bx = (t.x - cx) * ZOOM - w / 2, by = (t.y - cy - 1) * ZOOM, prev = t.off || [0, 0];
+      let ch = null; for (const [dx, dy] of [prev, [0, 0], ...FX.POP_OFFS]) if (Layout.free({ x: bx + dx, y: by + dy, w, h })) { ch = [dx, dy]; break; }
+      if (!ch) { if (Layout.log) Layout.log.push({ x: bx, y: by, w, h, tag: 'pop', blocked: true, hidden: true }); continue; } // nowhere free: skip the word rather than cover a face
+      t.off = ch; const r = { x: bx + t.off[0], y: by + t.off[1], w, h, tag: 'pop' }; Layout.taken.push(r); if (Layout.log) Layout.log.push(r);
+      text(t.s, t.x - cx + t.off[0] / ZOOM, t.y - cy + t.off[1] / ZOOM, { color: t.col, align: 'center', outline: true });
+    }
   },
-  clear() { this.list = []; this.rings = []; this.texts = []; }
+  clear() { this.list = []; this.rings = []; this.texts = []; },
+  POP_OFFS: [...Array.from({ length: 14 }, (_, k) => [0, -(k + 1) * 9]), [0, 12], [0, 24], [0, 36], [-60, 0], [60, 0], [-60, -24], [60, -24], [-90, -12], [90, -12]]
 };
 const Cam = {
   x: 0, y: 0, shakeT: 0, shakeA: 0, zoom: 1, tx: 0, ty: 0,

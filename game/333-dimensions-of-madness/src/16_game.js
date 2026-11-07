@@ -174,22 +174,27 @@ const Game = {
     for (const fn of L.bg.animF || []) fn(ctx, G.t, scx);
     // ---- world (zoomed)
     ctx.setTransform(ZOOM, 0, 0, ZOOM, 0, 0);
+    Faces.clear(); Layout.reset(); Faces.on = true; // characters register their faces while drawing
     for (const e of this.ents) if (e.drawBG && !e.dead) e.drawBG(cx, cy);
     for (const pr of L.props) { const x = pr.x - cx; if (x > -80 && x < VW + 80) spr(pr.img, x, pr.y - cy, pr.img.hd ? { sx: HD, sy: HD } : {}); }
     L.drawTiles(cx, cy);
     for (const e of this.ents) if (!e.dead && !(e instanceof Enemy) && !e.isBoss && !(e instanceof SlimeBall) && !(e instanceof EnemyShot) && Math.abs(e.cx - cx - VW / 2) < VW) drawSafe(e, cx, cy);
-    for (const e of this.ents) if (!e.dead && e.isBoss) drawSafe(e, cx, cy);
-    for (const e of this.ents) if (!e.dead && e instanceof Enemy && Math.abs(e.cx - cx - VW / 2) < VW) drawSafe(e, cx, cy);
+    // bosses and enemies drawn without a cast draw-function get a face from the top of their body
+    const withFace = (e, k) => { const n0 = Faces.list.length; drawSafe(e, cx, cy); if (Faces.list.length === n0 && !e.dead) { const hb = e.hitbox ? e.hitbox() : e; Faces.add(hb.x + hb.w / 2 - cx, hb.y + hb.h * k - cy, Math.max(8, Math.min(hb.w, hb.h) * .42), e.isBoss ? 'boss' : 'enemy'); } };
+    for (const e of this.ents) if (!e.dead && e.isBoss) withFace(e, .3);
+    for (const e of this.ents) if (!e.dead && e instanceof Enemy && Math.abs(e.cx - cx - VW / 2) < VW) withFace(e, .32);
     for (const f of this.followers) drawSafe(f, cx, cy);
     for (const a of this.actors) drawSafe(a, cx, cy);
     if (p.vehicle) drawVehicle(p, cx, cy); else drawSafe(p, cx, cy);
     for (const e of this.ents) if (!e.dead && (e instanceof SlimeBall || e instanceof EnemyShot)) e.draw(cx, cy);
     FX.draw(cx, cy);
     for (const e of this.ents) if (e.drawFG && !e.dead) e.drawFG(cx, cy);
+    Faces.on = false;
     if (this.chase && this.chase.collapse) { const x = L.scrollX - cx; const gg = ctx.createLinearGradient(x - 30, 0, x + 40, 0); gg.addColorStop(0, 'rgba(20,0,30,1)'); gg.addColorStop(1, 'rgba(60,0,80,0)'); ctx.fillStyle = gg; ctx.fillRect(-10, -10, x + 50, VH + 20); }
     // ---- screen-space overlays
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     drawLighting(L, scx);
+    this.layoutScene();
     HUD.draw();
     if (this.cutscene) this.drawScene();
     if (G.debug) { text('ents ' + this.ents.length + ' fx ' + FX.list.length + ' x ' + (p.x | 0) + ' y ' + (p.y | 0) + ' ' + G.fps + 'fps', 4, H - 10, { color: '#0f0' }); }
@@ -325,6 +330,13 @@ const Game = {
     if (c.onDone) c.onDone();
     if (this.pendingWin && !this.cutscene) { const w = this.pendingWin; this.pendingWin = null; this.runScene(w.scene, {}, w.done); }
   },
+  // the dialogue box sits at the bottom unless a face is behind it there and the top is clear;
+  // reserved before the HUD lays out, so toasts and banners steer around it
+  layoutScene() {
+    const c = this.cutscene; if (!c || !c.dlg || c.card) return; const bottom = H - 92, top = c.free ? 8 : 22;
+    if (c.dlgY === undefined || Faces.hitRect(10, c.dlgY, W - 20, 70)) c.dlgY = Faces.hitRect(10, bottom, W - 20, 70) && !Faces.hitRect(10, top, W - 20, 70) ? top : bottom;
+    const r = { x: 10, y: c.dlgY, w: W - 20, h: 70, tag: 'dialogue' }; r.blocked = !!Faces.hitRect(r.x, r.y, r.w, r.h); c.dlgSeeThrough = r.blocked; Layout.taken.push(r); if (Layout.log) Layout.log.push(r);
+  },
   drawScene() {
     const c = this.cutscene; if (!c) return;
     if (c.card) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); text(c.card[0], W / 2, H / 2 - 20, { color: '#7fff3a', align: 'center', scale: 3, outline: '#300', wave: 1 }); text(c.card[1], W / 2, H / 2 + 20, { color: '#fff', align: 'center', scale: 1 }); }
@@ -332,12 +344,14 @@ const Game = {
     if (!c.free) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 18); ctx.fillRect(0, H - 18, W, 18); text('SKIP: ' + (Input.mode === 'touch' ? 'II' : Input.mode === 'pad' ? 'START' : 'ESC'), W - 6, 6, { color: '#666', align: 'right', shadow: false }); }
     if (c.dlg) {
       const d = c.dlg, who = CAST[d.who] || CAST.narrator, n = Math.floor(c.charT), str = d.text.slice(0, n);
-      const lines = wrapText(str, who.portrait ? 74 : 92), y = H - 92;
+      const lines = wrapText(str, who.portrait ? 74 : 92), y = c.dlgY === undefined ? H - 92 : c.dlgY;
+      if (c.dlgSeeThrough) ctx.globalAlpha = .55; // nowhere free: let the face show through
       panel(10, y, W - 20, 70, { rim: who.col }); let tx = 20;
       if (who.portrait) { const im = who.portrait(); if (im) { const s = Math.min(64 / im.height, 80 / im.width); ctx.save(); ctx.beginPath(); ctx.rect(14, y + 3, 84, 64); ctx.clip(); spr(im, 56, y + 66 + (d.who === 'monster' ? 6 : 0), { sx: s, sy: s, ay: im.height }); ctx.restore(); tx = 104; } }
       if (who.name) text(who.name, tx, y + 5, { color: who.col }); else if (d.who === 'narrator') text('NARRATOR', tx, y + 5, { color: '#888' });
       lines.slice(0, 5).forEach((l, i) => text(l, tx, y + 18 + i * 10, { color: '#fff' }));
       if (n >= d.text.length && Math.floor(G.t * 3) % 2) text('▼', W - 26, y + 58, { color: who.col });
+      ctx.globalAlpha = 1;
     }
   },
   // ------------------------------------------------------------------ scene API used by STORY steps

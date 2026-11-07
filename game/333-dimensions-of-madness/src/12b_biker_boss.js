@@ -118,6 +118,7 @@ class BikerBoss extends Boss {
     if (this.st === 'FIGHTING' && this.sub === 'TELEGRAPH' && this.kind === 'charge' && this.t % 10 < 6) { for (let i = 0; i < 3; i++) O.poly([[X + this.face * (60 + i * 30), Y - 6], [X + this.face * (76 + i * 30), Y - 12], [X + this.face * (60 + i * 30), Y - 18]], '#ff3a3a', 1.5); }
     if (this.tongue && this.tongue.tip) { const [tx, ty, mx, my] = this.tongue.tip; drawTongue(mx - cx, my - cy, tx - cx, ty - cy, 6, 4, ['#3a0018', '#ff6aa8', '#ffc0dc']); }
     spr(img, X, Y + 1, { ax: F.ax, ay: F.ay, sx: HD, sy: HD, flip: this.face < 0, flash: this.flash > 4 ? '#fff' : false });
+    { const H2 = IMG.biker.height, dx = (an.head[0] - an.rearWheel[0]) * HD, dy = (an.head[1] - (H2 - 2)) * HD; Faces.add(X + dx * (this.face < 0 ? -1 : 1), Y + 1 + dy, 24 * HD, 'harley'); }
     if (this.dizzy) for (let i = 0; i < 3; i++) { const a2 = this.t * .15 + i * 2.1; ctx.drawImage(ICON.star, X + this.face * 55 + Math.cos(a2) * 16 - 7, Y - 100 + Math.sin(a2) * 4); }
     if (this.st === 'FIGHTING' && this.sub === 'TELEGRAPH' && this.kind === 'tongue') text('!', X + this.face * 60, Y - 112 + Math.sin(this.t * .5) * 2, { color: '#ff3a3a', align: 'center', outline: true, scale: 2 });
   }

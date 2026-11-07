@@ -9,24 +9,50 @@ const HUD = {
   update() { for (const t of this.toasts) t.t--; this.toasts = this.toasts.filter(t => t.t > 0); for (const b of this.banners) b.t--; this.banners = this.banners.filter(b => b.t > 0); if (this.bossIntro > 0) this.bossIntro--; },
   draw() {
     const p = Game.player; if (!p) return;
-    // hearts (big, chunky)
+    // fixed HUD (cannot move): reserved so floating overlays avoid it; fades out while a face is underneath
+    const dim = (x, y, w, h) => { Layout.reserve(x, y, w, h, 'hud'); ctx.globalAlpha = Faces.hitRect(x, y, w, h, 0) ? .35 : 1; };
+    dim(6, 12, p.maxHp * 20 + 6, 28);
     for (let i = 0; i < p.maxHp; i++) { const full = i < p.hp, bump = full && i === p.hp - 1 ? Math.sin(G.t * 6) * .12 : 0; spr(full ? ICON.heart : ICON.heartE, 18 + i * 20, 26, { sx: 2.4 + bump, sy: 2.4 + bump }); }
-    // collectible counter
+    dim(W - 86, 6, 78, 26);
     panel(W - 84, 8, 74, 22, { rim: '#ffe14d', bg: 'rgba(26,11,34,.75)' }); spr(ICON.note, W - 72, 28, { sx: 1.8, sy: 1.8 }); text(String(Game.levelStats.notes), W - 54, 13, { color: '#ffe14d', scale: 2, outline: true });
-    // current power-up
-    if (p.powerT > 0 && POWERS[p.form] || p.form === 'mega') { const c = POWERS[p.form] ? POWERS[p.form].col : '#7fff3a'; panel(10, 44, 96, 26, { rim: c, bg: 'rgba(26,11,34,.75)' }); drawHero(26, 57, { face: 1, form: p.form, sx: .3, sy: .3 }); text(FORMS[p.form].name.replace(' POWER', '!'), 42, 49, { color: c, outline: true }); P.r(ctx, 42, 60, 58, 5, '#000'); P.r(ctx, 42, 60, 58 * Math.min(1, p.powerT / (p.powerMax || POWER_TIME)), 5, c); }
-    // boss bar
-    const b = Game.boss; if (b && !b.defeated) {
-      const bw = 300, bx = W / 2 - bw / 2, by = H - 30; panel(bx, by, bw, 10, { rim: '#ff3a3a', bg: '#200' });
+    if (p.powerT > 0 && POWERS[p.form] || p.form === 'mega') { const c = POWERS[p.form] ? POWERS[p.form].col : '#7fff3a'; dim(8, 42, 100, 30); panel(10, 44, 96, 26, { rim: c, bg: 'rgba(26,11,34,.75)' }); drawHero(26, 57, { face: 1, form: p.form, sx: .3, sy: .3 }); text(FORMS[p.form].name.replace(' POWER', '!'), 42, 49, { color: c, outline: true }); P.r(ctx, 42, 60, 58, 5, '#000'); P.r(ctx, 42, 60, 58 * Math.min(1, p.powerT / (p.powerMax || POWER_TIME)), 5, c); }
+    ctx.globalAlpha = 1;
+    const b = Game.boss, boss = b && !b.defeated;
+    if (boss) {
+      const bw = 300, bx = W / 2 - bw / 2, by = H - 30; dim(bx - 2, by - 13, bw + 4, 25);
+      panel(bx, by, bw, 10, { rim: '#ff3a3a', bg: '#200' });
       const k = b.hp / b.maxHp; ctx.fillStyle = b.vulnerable === false ? '#888' : '#ff2a4a'; ctx.fillRect(bx, by, bw * k, 10); ctx.fillStyle = '#ff8a9a'; ctx.fillRect(bx, by, bw * k, 2);
       for (const ph of b.phases.slice(1)) P.r(ctx, bx + bw * ph, by, 1, 10, '#000');
-      text(b.short || b.name, W / 2, by - 11, { color: '#fff', align: 'center', outline: true });
-      if (this.bossIntro > 0) { const a = Math.min(1, this.bossIntro / 30); ctx.globalAlpha = a; text('BOSS', W / 2, 88, { color: '#ffe14d', align: 'center', outline: true }); text(b.name, W / 2, 100, { color: '#ff2a4a', align: 'center', scale: b.name.length > 30 ? 2 : 3, outline: true }); /* above the FIGHT! banner (y=132) */ ctx.globalAlpha = 1; }
+      text(b.short || b.name, W / 2, by - 11, { color: '#fff', align: 'center', outline: true }); ctx.globalAlpha = 1;
+      // boss name card: preferred above the FIGHT! banner, moves to a free band if a face is there
+      if (this.bossIntro > 0) {
+        const sc = b.name.length > 30 ? 2 : 3, w = Math.max(textWidth(b.name, sc), 30) + 8, h = 14 + 8 * sc;
+        const r = this.cardR = Layout.place({ x: W / 2 - w / 2, y: 86, w, h }, this.stick(this.cardR, 86, [[0, -44], [0, 70], [0, 110], [0, -60], [-150, 0], [150, 0], [-150, 70], [150, 70], [-150, -44], [150, -44]]), 'bosscard');
+        ctx.globalAlpha = Math.min(1, this.bossIntro / 30) * (r.blocked ? .4 : 1); text('BOSS', r.x + r.w / 2, r.y + 2, { color: '#ffe14d', align: 'center', outline: true }); text(b.name, r.x + r.w / 2, r.y + 14, { color: '#ff2a4a', align: 'center', scale: sc, outline: true }); ctx.globalAlpha = 1;
+      } else this.cardR = null;
     }
-    // toasts and banners
-    this.toasts.forEach((t, i) => { const a = Math.min(1, t.t / 30); ctx.globalAlpha = a; const w = textWidth(t.s) + (t.icon ? 22 : 10); panel(W / 2 - w / 2, 46 + i * 16, w, 12, { rim: t.col }); if (t.icon) ctx.drawImage(t.icon, W / 2 - w / 2 + 2, 44 + i * 16); text(t.s, W / 2 + (t.icon ? 8 : 0), 49 + i * 16, { color: t.col, align: 'center' }); ctx.globalAlpha = 1; });
-    for (const bn of this.banners) { const k = bn.t / 150, a = Math.min(1, bn.t / 25, (150 - bn.t) / 10 + .2), s = bn.s.length > 26 ? 2 : 3; ctx.globalAlpha = a; text(bn.s, W / 2, 132 + (1 - ease.out(Math.min(1, (150 - bn.t) / 20))) * -30, { color: bn.col, align: 'center', scale: s, outline: true, wave: 1 }); if (bn.sub) text(bn.sub, W / 2, 162, { color: '#fff', align: 'center', outline: true }); ctx.globalAlpha = 1; }
-  }
+    // banners: centre of the screen unless a face (or the card) is there
+    for (const bn of this.banners) {
+      const a = Math.min(1, bn.t / 25, (150 - bn.t) / 10 + .2), offs = [[0, -46], [0, 48], [0, -84], [0, 84], [0, -104], [-140, 0], [140, 0], [-140, -46], [140, -46], [-140, 48], [140, 48]];
+      // full size first; if every spot is taken, retry smaller before falling back to see-through
+      let sc = bn.small ? 2 : bn.s.length > 26 ? 2 : 3, w = Math.max(textWidth(bn.s, sc), bn.sub ? textWidth(bn.sub) : 0) + 8, h = bn.sub ? 42 : 26;
+      let r = Layout.place({ x: W / 2 - w / 2, y: 130, w, h }, this.stick(bn.r, 130, offs), 'banner');
+      if (r.blocked && sc === 3) { Layout.taken.pop(); if (Layout.log) Layout.log.pop(); sc = 2; w = Math.max(textWidth(bn.s, 2), bn.sub ? textWidth(bn.sub) : 0) + 8; h = bn.sub ? 36 : 20; r = Layout.place({ x: W / 2 - w / 2, y: 130, w, h }, offs, 'banner'); bn.small = !r.blocked; }
+      bn.r = r; const cx2 = r.x + r.w / 2;
+      ctx.globalAlpha = a * (r.blocked ? .4 : 1); text(bn.s, cx2, r.y + 2 + (1 - ease.out(Math.min(1, (150 - bn.t) / 20))) * -2, /* entry stays inside its reserved rect */ { color: bn.col, align: 'center', scale: sc, outline: true, wave: 1 }); if (bn.sub) text(bn.sub, cx2, r.y + h - 10, { color: '#fff', align: 'center', outline: true }); ctx.globalAlpha = 1;
+    }
+    // toasts: a stacked block under the HUD row; moves up into the HUD row or down above the boss bar if needed
+    if (this.toasts.length) {
+      const ws = this.toasts.map(t => textWidth(t.s) + (t.icon ? 22 : 10)), w = Math.max(...ws) + 4, h = this.toasts.length * 16;
+      const low = H - (boss ? 48 : 30) - h - 46;
+      const r = this.toastR = Layout.place({ x: W / 2 - w / 2, y: 44, w, h }, this.stick(this.toastR, 44, [[0, -32], [0, low], [0, 40], [0, 80], [-170, 0], [170, 0], [-170, 40], [170, 40], [-170, low], [170, low], [-170, 80], [170, 80]]), 'toasts');
+      // nowhere at all (banner + card + dialogue + faces fill the screen): toasts wait until there is room
+      if (r.forced) { r.hidden = true; Layout.taken.splice(Layout.taken.indexOf(r), 1); for (const t of this.toasts) t.t = Math.max(t.t, 31); this.toastR = null; return; }
+      const tcx = r.x + r.w / 2; this.toasts.forEach((t, i) => { const a = Math.min(1, t.t / 30), y = r.y + 2 + i * 16, tw = ws[i]; ctx.globalAlpha = a * (r.blocked ? .4 : 1); panel(tcx - tw / 2, y, tw, 12, { rim: t.col }); if (t.icon) ctx.drawImage(t.icon, tcx - tw / 2 + 2, y - 2); text(t.s, tcx + (t.icon ? 8 : 0), y + 3, { color: t.col, align: 'center' }); ctx.globalAlpha = 1; });
+    } else this.toastR = null;
+  },
+  // keep last frame's spot first (no jumping back and forth), then the default, then the alternatives
+  stick(prev, y0, offs) { return prev ? [[0, prev.y - y0], [0, 0], ...offs] : offs; }
 };
 // ---------------------------------------------------------------- generic menu list
 function drawList(items, sel, x, y, o = {}) {

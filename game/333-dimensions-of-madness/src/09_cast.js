@@ -38,6 +38,7 @@ function drawHero(x, y, o = {}) {
   if (o.form === 'wolf') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) { P.poly(ctx, [[tx + s * 6 * scU, ty + 8], [tx + s * 20 * scU, ty - 12 * scU], [tx + s * 24 * scU, ty + 10]], '#111'); P.poly(ctx, [[tx + s * 8 * scU, ty + 7], [tx + s * 19 * scU, ty - 9 * scU], [tx + s * 22 * scU, ty + 9]], '#9a9aa8'); P.poly(ctx, [[tx + s * 12 * scU, ty + 6], [tx + s * 18 * scU, ty - 3 * scU], [tx + s * 19 * scU, ty + 7]], '#d48b9c'); } }
   let src = img;
   spr(src, x, y, { ax, ay, flip, sx, sy, rot: o.rot, flash: o.flash, alpha: o.alpha });
+  { const [fx, fy] = ap('center'); Faces.add(fx, fy, 30 * Math.abs(sx), 'moshmouth'); }
   if (o.flash) return;
   // blink: green eyelid over the protruding eyeball
   if (o.blink) { const [ex, ey] = ap('eye'); P.e(ctx, ex, ey, 9 * scU, 7 * scU * o.blink, '#2a8a1a'); P.r(ctx, ex - 9 * scU, ey + 6 * scU * o.blink - 1, 18 * scU, 1, '#000'); }
@@ -91,6 +92,7 @@ function drawPig(id, x, y, o = {}) {
   const hs = sc * HD; const hx = x + (flip ? -1 : 1) * (p.bw / 2 - 2) * sc, hy = y - (b.height - 4) * sc - bob + (st === 'attack' ? 2 : 0);
   const rot = (st === 'attack' ? .25 : st === 'hurt' ? -.3 : st === 'dance' ? Math.sin(t * 10) * .25 : 0) * (flip ? -1 : 1);
   spr(head, hx, hy + 6 * sc, { flip, rot, sx: hs, sy: hs, flash: o.flash, alpha: o.alpha, ay: head.height - 9 });
+  Faces.add(hx, hy + 6 * sc - (head.height - 9) * hs / 2, head.width * hs * .45, 'pig');
   if (o.flash) return;
   // accessories
   const tx = hx + (flip ? 2 : -2), ty = hy - head.height * hs + 10;
@@ -133,6 +135,7 @@ function drawBiker(x, y, o = {}) {
   }
   // mouth (open for the tongue attack / yelling)
   if (o.mouthOpen) { const [mx, my] = an.mouth; P.e(ctx, mx, my + ry, 5 + 4 * o.mouthOpen, 3 + 6 * o.mouthOpen, '#1a0306'); P.e(ctx, mx, my + ry + 2 * o.mouthOpen, 3 + 2 * o.mouthOpen, 2 + 3 * o.mouthOpen, '#ff6aa8'); }
+  Faces.add(an.head[0], an.head[1] + ry, 24, 'harley');
   if (o.dizzy) for (let i = 0; i < 3; i++) { const a2 = t * 6 + i * 2.1; PP.star(ctx, an.head[0] + Math.cos(a2) * 22, an.head[1] - 34 + Math.sin(a2) * 6 + ry, 5, '#ffe14d'); }
   ctx.restore();
   ctx.restore();
@@ -147,7 +150,7 @@ function tongueTipWorld(x, y, face, fi, scale = 1) { // tip of the drawn tongue 
   return [bx - tx * HD * scale * dir, by + ty * HD * scale]; }
 function drawTongueFrame(x, y, face, fi, o = {}) { // raw frames face LEFT
   const m = META.hero_tongue_sheet, img = IMG.hero_tongue && IMG.hero_tongue[fi]; if (!img) return; const [bx, by] = tongueBallPos(x, y, face, o.scale || 1), tilt = fi >= 2 && fi <= 6 ? TONGUE_TILT : 0;
-  spr(img, bx, by, { ax: m.anchor[0], ay: m.anchor[1], flip: face > 0, sx: HD * (o.scale || 1) * (o.sx || 1), sy: HD * (o.scale || 1) * (o.sy || 1), rot: (face > 0 ? -tilt : tilt) + (o.rot || 0), flash: o.flash }); }
+  spr(img, bx, by, { ax: m.anchor[0], ay: m.anchor[1], flip: face > 0, sx: HD * (o.scale || 1) * (o.sx || 1), sy: HD * (o.scale || 1) * (o.sy || 1), rot: (face > 0 ? -tilt : tilt) + (o.rot || 0), flash: o.flash }); Faces.add(bx, by, 30 * HD * (o.scale || 1), 'moshmouth'); }
 // bake helper: run a draw function into an offscreen canvas (global ctx is swapped while baking)
 function withCtx(c, fn) { const saved = ctx; ctx = c.ctx; try { fn(); } finally { ctx = saved; } }
 // --------------------------------------------------------------------------- werewolf
@@ -162,7 +165,7 @@ function drawWolf(x, y, o = {}) {
   const b = o.flash ? flashOf(body, o.flash === true ? '#fff' : o.flash) : body, a = o.flash ? flashOf(arm, o.flash === true ? '#fff' : o.flash) : arm;
   // arm swings from the shoulder; default pose is raised (as in the art)
   const ang = o.arm || 0, aa = A('wolf_arm').shoulder;
-  ctx.drawImage(b, 0, 0);
+  ctx.drawImage(b, 0, 0); Faces.add((an.eye[0] + an.mouth[0]) / 2, (an.eye[1] + an.mouth[1]) / 2, 40, 'wolf');
   ctx.save(); ctx.translate(sh[0], sh[1]); ctx.rotate(ang); ctx.drawImage(a, -aa[0], -aa[1]); ctx.restore();
   if (o.claw) { ctx.strokeStyle = `rgba(255,255,255,${o.claw})`; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(sh[0] - 10, sh[1] + 10, 40 + i * 5, -1.2, .9); ctx.stroke(); } }
   if (o.eyes) { const e = an.eye; ctx.fillStyle = '#ff2'; ctx.globalCompositeOperation = 'lighter'; ctx.fillRect(e[0] - 2, e[1] - 2, 5, 3); ctx.fillRect(e[0] + 8, e[1] - 1, 4, 3); ctx.globalCompositeOperation = 'source-over'; }
@@ -178,7 +181,7 @@ function drawCow(x, y, o = {}) {
   const amp = o.cape === undefined ? 3 : o.cape, neck = an.neck, cn = can.neck, cx0 = neck[0] - cn[0], cy0 = neck[1] - cn[1];
   const capeImg = o.flash ? flashOf(cape) : cape;
   for (let c = 0; c < cape.width; c += 2) { const u = c / cape.width; const dy = Math.sin(t * 12 + u * 7) * amp * (1 - u) + (1 - u) * (o.capeLift || 0); ctx.drawImage(capeImg, c, 0, 2, cape.height, cx0 + c - (1 - u) * (o.capeStretch || 0), cy0 + dy, 2, cape.height); }
-  ctx.drawImage(o.flash ? flashOf(body, o.flash === true ? '#fff' : o.flash) : body, 0, 0);
+  ctx.drawImage(o.flash ? flashOf(body, o.flash === true ? '#fff' : o.flash) : body, 0, 0); Faces.add(an.head[0] - 6, an.head[1] + 10, 34, 'cowgod');
   if (o.glow) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .4 + Math.sin(t * 10) * .2; ctx.drawImage(flashOf(body, o.glow, 1), 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   if (o.hypno) { const h = an.head; ctx.strokeStyle = '#ff2aff'; ctx.lineWidth = 1; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(h[0] - 12, h[1] - 14, 3 + i * 3 + (t * 8) % 3, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(h[0] + 10, h[1] - 14, 3 + i * 3 + (t * 8) % 3, 0, 7); ctx.stroke(); } }
   ctx.restore();
@@ -189,5 +192,9 @@ function drawSludge(x, y, o = {}) {
   const t = o.t || G.t, wob = o.wobble === undefined ? 1 : o.wobble, flip = (o.face || -1) > 0;
   const sy = (o.sy || 1) * (o.scale || 1) * HD, sx = (o.sx || 1) * (o.scale || 1) * HD;
   sprWarp(img, x, y, { flip, sy, sx, flash: o.flash, alpha: o.alpha, step: o.small ? 1 : 2 }, (v, r) => ({ dx: Math.sin(t * 3 + v * 7 + (o.phase || 0)) * wob * (1 - v) * (o.small ? 2 : 6), sx: 1 + Math.sin(t * 4 + v * 5) * .04 * wob + (o.bulge || 0) * Math.sin(v * Math.PI) }));
+  sludgeFace(x, y, o);
 }
+// Shitman's face (eyes + teeth) relative to the bottom-centre draw point
+function sludgeFace(x, y, o) { const img = o.small ? IMG.gloopkin : IMG.sludge, flip = (o.face || -1) > 0, sx = (o.sx || 1) * (o.scale || 1) * HD, sy = (o.sy || 1) * (o.scale || 1) * HD;
+  if (o.small) Faces.add(x, y - img.height * .5 * sy, img.width * .42 * sx, 'shitkin'); else Faces.add(x + (295 - img.width / 2) * sx * (flip ? -1 : 1), y - (img.height - 140) * sy, 78 * sx, 'shitman'); }
 function drawGloopkin(x, y, o = {}) { drawSludge(x, y, Object.assign({ small: true }, o)); }

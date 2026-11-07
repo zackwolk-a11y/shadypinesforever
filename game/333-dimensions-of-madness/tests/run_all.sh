@@ -10,4 +10,5 @@ node tests/bosses.js
 node tests/biker_boss.js
 node tests/arenas.js
 node tests/sprites.js
+node tests/overlays.js
 node tests/platform.js

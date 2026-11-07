@@ -146,6 +146,38 @@ function panel(x, y, w, h, o = {}) {
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x, y + h - 2, w, 2);
 }
 
+// ---------------------------------------------------------------- face-aware overlay layout
+// Every character registers where its face is on screen while it is drawn (Faces.add, in the current
+// canvas transform). Overlays drawn on top of the world - impact words, toasts, banners, the boss card,
+// the dialogue box - then place themselves with Layout.place() so they never cover a face, and never
+// overlap each other (Layout keeps the rects already taken this frame). Screen-pixel coordinates.
+const Faces = {
+  list: [], on: false,
+  clear() { this.list.length = 0; },
+  add(lx, ly, r, who) {
+    if (!this.on || ctx.canvas !== canvas) return; // only the live frame, never sprite bakes
+    const m = ctx.getTransform(), s = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c));
+    this.list.push({ x: m.a * lx + m.c * ly + m.e, y: m.b * lx + m.d * ly + m.f, r: Math.max(6, r * s), who });
+  },
+  hitRect(x, y, w, h, pad = 3) { for (const f of this.list) { const nx = clamp(f.x, x - pad, x + w + pad), ny = clamp(f.y, y - pad, y + h + pad); if ((nx - f.x) ** 2 + (ny - f.y) ** 2 < f.r * f.r) return f; } return null; }
+};
+const Layout = {
+  taken: [], log: null,
+  reset() { this.taken.length = 0; },
+  free(r, pad = 8, ignoreFaces) { if (r.y < 0 || r.y + r.h > H || r.x < 0 || r.x + r.w > W) return false; if (!ignoreFaces && Faces.hitRect(r.x, r.y, r.w, r.h)) return false; for (const t of this.taken) if (r.x < t.x + t.w + pad && r.x + r.w + pad > t.x && r.y < t.y + t.h + pad && r.y + r.h + pad > t.y) return false; return true; },
+  // try the preferred spot, then each candidate offset; returns the chosen rect and reserves it
+  place(r, offsets, tag) {
+    let best = null;
+    const list = offsets.some(o => !o[0] && !o[1]) ? offsets : [[0, 0], ...offsets];
+    for (const [dx, dy] of list) { const c = { x: r.x + dx, y: r.y + dy, w: r.w, h: r.h }; if (this.free(c)) { best = c; break; } }
+    // no spot clear of faces: still keep clear of the other overlays; the caller draws it see-through
+    if (!best) { for (const [dx, dy] of list) { const c = { x: r.x + dx, y: r.y + dy, w: r.w, h: r.h }; if (this.free(c, 8, true)) { best = c; break; } } if (best) best.blocked = true; else best = { x: r.x, y: r.y, w: r.w, h: r.h, blocked: true, forced: true }; }
+    best.tag = tag; this.taken.push(best); if (this.log) this.log.push(best); return best;
+  },
+  // reserve a fixed rect (HUD panels) without moving it
+  reserve(x, y, w, h, tag) { const r = { x, y, w, h, tag, fixed: true }; this.taken.push(r); if (this.log) this.log.push(r); return r; }
+};
+
 // ===== 01_input.js =====
 // ============================================================================
 // Input: keyboard, gamepad, touchscreen -> unified actions
@@ -1481,9 +1513,17 @@ const FX = {
       }
     }
     for (const r of this.rings) { ctx.globalAlpha = r.life / r.max; ctx.strokeStyle = r.col; ctx.lineWidth = r.w; ctx.beginPath(); ctx.arc(Math.round(r.x - cx), Math.round(r.y - cy), r.r, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
-    for (const t of this.texts) text(t.s, t.x - cx, t.y - cy, { color: t.col, align: 'center', outline: true });
+    // impact words: placed so they never cover a face or another word (sticky offset, no jitter)
+    for (const t of this.texts) {
+      const w = (textWidth(t.s) + 4) * ZOOM, h = 11 * ZOOM, bx = (t.x - cx) * ZOOM - w / 2, by = (t.y - cy - 1) * ZOOM, prev = t.off || [0, 0];
+      let ch = null; for (const [dx, dy] of [prev, [0, 0], ...FX.POP_OFFS]) if (Layout.free({ x: bx + dx, y: by + dy, w, h })) { ch = [dx, dy]; break; }
+      if (!ch) { if (Layout.log) Layout.log.push({ x: bx, y: by, w, h, tag: 'pop', blocked: true, hidden: true }); continue; } // nowhere free: skip the word rather than cover a face
+      t.off = ch; const r = { x: bx + t.off[0], y: by + t.off[1], w, h, tag: 'pop' }; Layout.taken.push(r); if (Layout.log) Layout.log.push(r);
+      text(t.s, t.x - cx + t.off[0] / ZOOM, t.y - cy + t.off[1] / ZOOM, { color: t.col, align: 'center', outline: true });
+    }
   },
-  clear() { this.list = []; this.rings = []; this.texts = []; }
+  clear() { this.list = []; this.rings = []; this.texts = []; },
+  POP_OFFS: [...Array.from({ length: 14 }, (_, k) => [0, -(k + 1) * 9]), [0, 12], [0, 24], [0, 36], [-60, 0], [60, 0], [-60, -24], [60, -24], [-90, -12], [90, -12]]
 };
 const Cam = {
   x: 0, y: 0, shakeT: 0, shakeA: 0, zoom: 1, tx: 0, ty: 0,
@@ -1611,6 +1651,7 @@ function drawHero(x, y, o = {}) {
   if (o.form === 'wolf') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) { P.poly(ctx, [[tx + s * 6 * scU, ty + 8], [tx + s * 20 * scU, ty - 12 * scU], [tx + s * 24 * scU, ty + 10]], '#111'); P.poly(ctx, [[tx + s * 8 * scU, ty + 7], [tx + s * 19 * scU, ty - 9 * scU], [tx + s * 22 * scU, ty + 9]], '#9a9aa8'); P.poly(ctx, [[tx + s * 12 * scU, ty + 6], [tx + s * 18 * scU, ty - 3 * scU], [tx + s * 19 * scU, ty + 7]], '#d48b9c'); } }
   let src = img;
   spr(src, x, y, { ax, ay, flip, sx, sy, rot: o.rot, flash: o.flash, alpha: o.alpha });
+  { const [fx, fy] = ap('center'); Faces.add(fx, fy, 30 * Math.abs(sx), 'moshmouth'); }
   if (o.flash) return;
   // blink: green eyelid over the protruding eyeball
   if (o.blink) { const [ex, ey] = ap('eye'); P.e(ctx, ex, ey, 9 * scU, 7 * scU * o.blink, '#2a8a1a'); P.r(ctx, ex - 9 * scU, ey + 6 * scU * o.blink - 1, 18 * scU, 1, '#000'); }
@@ -1664,6 +1705,7 @@ function drawPig(id, x, y, o = {}) {
   const hs = sc * HD; const hx = x + (flip ? -1 : 1) * (p.bw / 2 - 2) * sc, hy = y - (b.height - 4) * sc - bob + (st === 'attack' ? 2 : 0);
   const rot = (st === 'attack' ? .25 : st === 'hurt' ? -.3 : st === 'dance' ? Math.sin(t * 10) * .25 : 0) * (flip ? -1 : 1);
   spr(head, hx, hy + 6 * sc, { flip, rot, sx: hs, sy: hs, flash: o.flash, alpha: o.alpha, ay: head.height - 9 });
+  Faces.add(hx, hy + 6 * sc - (head.height - 9) * hs / 2, head.width * hs * .45, 'pig');
   if (o.flash) return;
   // accessories
   const tx = hx + (flip ? 2 : -2), ty = hy - head.height * hs + 10;
@@ -1706,6 +1748,7 @@ function drawBiker(x, y, o = {}) {
   }
   // mouth (open for the tongue attack / yelling)
   if (o.mouthOpen) { const [mx, my] = an.mouth; P.e(ctx, mx, my + ry, 5 + 4 * o.mouthOpen, 3 + 6 * o.mouthOpen, '#1a0306'); P.e(ctx, mx, my + ry + 2 * o.mouthOpen, 3 + 2 * o.mouthOpen, 2 + 3 * o.mouthOpen, '#ff6aa8'); }
+  Faces.add(an.head[0], an.head[1] + ry, 24, 'harley');
   if (o.dizzy) for (let i = 0; i < 3; i++) { const a2 = t * 6 + i * 2.1; PP.star(ctx, an.head[0] + Math.cos(a2) * 22, an.head[1] - 34 + Math.sin(a2) * 6 + ry, 5, '#ffe14d'); }
   ctx.restore();
   ctx.restore();
@@ -1720,7 +1763,7 @@ function tongueTipWorld(x, y, face, fi, scale = 1) { // tip of the drawn tongue 
   return [bx - tx * HD * scale * dir, by + ty * HD * scale]; }
 function drawTongueFrame(x, y, face, fi, o = {}) { // raw frames face LEFT
   const m = META.hero_tongue_sheet, img = IMG.hero_tongue && IMG.hero_tongue[fi]; if (!img) return; const [bx, by] = tongueBallPos(x, y, face, o.scale || 1), tilt = fi >= 2 && fi <= 6 ? TONGUE_TILT : 0;
-  spr(img, bx, by, { ax: m.anchor[0], ay: m.anchor[1], flip: face > 0, sx: HD * (o.scale || 1) * (o.sx || 1), sy: HD * (o.scale || 1) * (o.sy || 1), rot: (face > 0 ? -tilt : tilt) + (o.rot || 0), flash: o.flash }); }
+  spr(img, bx, by, { ax: m.anchor[0], ay: m.anchor[1], flip: face > 0, sx: HD * (o.scale || 1) * (o.sx || 1), sy: HD * (o.scale || 1) * (o.sy || 1), rot: (face > 0 ? -tilt : tilt) + (o.rot || 0), flash: o.flash }); Faces.add(bx, by, 30 * HD * (o.scale || 1), 'moshmouth'); }
 // bake helper: run a draw function into an offscreen canvas (global ctx is swapped while baking)
 function withCtx(c, fn) { const saved = ctx; ctx = c.ctx; try { fn(); } finally { ctx = saved; } }
 // --------------------------------------------------------------------------- werewolf
@@ -1735,7 +1778,7 @@ function drawWolf(x, y, o = {}) {
   const b = o.flash ? flashOf(body, o.flash === true ? '#fff' : o.flash) : body, a = o.flash ? flashOf(arm, o.flash === true ? '#fff' : o.flash) : arm;
   // arm swings from the shoulder; default pose is raised (as in the art)
   const ang = o.arm || 0, aa = A('wolf_arm').shoulder;
-  ctx.drawImage(b, 0, 0);
+  ctx.drawImage(b, 0, 0); Faces.add((an.eye[0] + an.mouth[0]) / 2, (an.eye[1] + an.mouth[1]) / 2, 40, 'wolf');
   ctx.save(); ctx.translate(sh[0], sh[1]); ctx.rotate(ang); ctx.drawImage(a, -aa[0], -aa[1]); ctx.restore();
   if (o.claw) { ctx.strokeStyle = `rgba(255,255,255,${o.claw})`; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(sh[0] - 10, sh[1] + 10, 40 + i * 5, -1.2, .9); ctx.stroke(); } }
   if (o.eyes) { const e = an.eye; ctx.fillStyle = '#ff2'; ctx.globalCompositeOperation = 'lighter'; ctx.fillRect(e[0] - 2, e[1] - 2, 5, 3); ctx.fillRect(e[0] + 8, e[1] - 1, 4, 3); ctx.globalCompositeOperation = 'source-over'; }
@@ -1751,7 +1794,7 @@ function drawCow(x, y, o = {}) {
   const amp = o.cape === undefined ? 3 : o.cape, neck = an.neck, cn = can.neck, cx0 = neck[0] - cn[0], cy0 = neck[1] - cn[1];
   const capeImg = o.flash ? flashOf(cape) : cape;
   for (let c = 0; c < cape.width; c += 2) { const u = c / cape.width; const dy = Math.sin(t * 12 + u * 7) * amp * (1 - u) + (1 - u) * (o.capeLift || 0); ctx.drawImage(capeImg, c, 0, 2, cape.height, cx0 + c - (1 - u) * (o.capeStretch || 0), cy0 + dy, 2, cape.height); }
-  ctx.drawImage(o.flash ? flashOf(body, o.flash === true ? '#fff' : o.flash) : body, 0, 0);
+  ctx.drawImage(o.flash ? flashOf(body, o.flash === true ? '#fff' : o.flash) : body, 0, 0); Faces.add(an.head[0] - 6, an.head[1] + 10, 34, 'cowgod');
   if (o.glow) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .4 + Math.sin(t * 10) * .2; ctx.drawImage(flashOf(body, o.glow, 1), 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   if (o.hypno) { const h = an.head; ctx.strokeStyle = '#ff2aff'; ctx.lineWidth = 1; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(h[0] - 12, h[1] - 14, 3 + i * 3 + (t * 8) % 3, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(h[0] + 10, h[1] - 14, 3 + i * 3 + (t * 8) % 3, 0, 7); ctx.stroke(); } }
   ctx.restore();
@@ -1762,7 +1805,11 @@ function drawSludge(x, y, o = {}) {
   const t = o.t || G.t, wob = o.wobble === undefined ? 1 : o.wobble, flip = (o.face || -1) > 0;
   const sy = (o.sy || 1) * (o.scale || 1) * HD, sx = (o.sx || 1) * (o.scale || 1) * HD;
   sprWarp(img, x, y, { flip, sy, sx, flash: o.flash, alpha: o.alpha, step: o.small ? 1 : 2 }, (v, r) => ({ dx: Math.sin(t * 3 + v * 7 + (o.phase || 0)) * wob * (1 - v) * (o.small ? 2 : 6), sx: 1 + Math.sin(t * 4 + v * 5) * .04 * wob + (o.bulge || 0) * Math.sin(v * Math.PI) }));
+  sludgeFace(x, y, o);
 }
+// Shitman's face (eyes + teeth) relative to the bottom-centre draw point
+function sludgeFace(x, y, o) { const img = o.small ? IMG.gloopkin : IMG.sludge, flip = (o.face || -1) > 0, sx = (o.sx || 1) * (o.scale || 1) * HD, sy = (o.sy || 1) * (o.scale || 1) * HD;
+  if (o.small) Faces.add(x, y - img.height * .5 * sy, img.width * .42 * sx, 'shitkin'); else Faces.add(x + (295 - img.width / 2) * sx * (flip ? -1 : 1), y - (img.height - 140) * sy, 78 * sx, 'shitman'); }
 function drawGloopkin(x, y, o = {}) { drawSludge(x, y, Object.assign({ small: true }, o)); }
 
 // ===== 09b_anims.js =====
@@ -3327,6 +3374,7 @@ class BikerBoss extends Boss {
     if (this.st === 'FIGHTING' && this.sub === 'TELEGRAPH' && this.kind === 'charge' && this.t % 10 < 6) { for (let i = 0; i < 3; i++) O.poly([[X + this.face * (60 + i * 30), Y - 6], [X + this.face * (76 + i * 30), Y - 12], [X + this.face * (60 + i * 30), Y - 18]], '#ff3a3a', 1.5); }
     if (this.tongue && this.tongue.tip) { const [tx, ty, mx, my] = this.tongue.tip; drawTongue(mx - cx, my - cy, tx - cx, ty - cy, 6, 4, ['#3a0018', '#ff6aa8', '#ffc0dc']); }
     spr(img, X, Y + 1, { ax: F.ax, ay: F.ay, sx: HD, sy: HD, flip: this.face < 0, flash: this.flash > 4 ? '#fff' : false });
+    { const H2 = IMG.biker.height, dx = (an.head[0] - an.rearWheel[0]) * HD, dy = (an.head[1] - (H2 - 2)) * HD; Faces.add(X + dx * (this.face < 0 ? -1 : 1), Y + 1 + dy, 24 * HD, 'harley'); }
     if (this.dizzy) for (let i = 0; i < 3; i++) { const a2 = this.t * .15 + i * 2.1; ctx.drawImage(ICON.star, X + this.face * 55 + Math.cos(a2) * 16 - 7, Y - 100 + Math.sin(a2) * 4); }
     if (this.st === 'FIGHTING' && this.sub === 'TELEGRAPH' && this.kind === 'tongue') text('!', X + this.face * 60, Y - 112 + Math.sin(this.t * .5) * 2, { color: '#ff3a3a', align: 'center', outline: true, scale: 2 });
   }
@@ -4030,22 +4078,27 @@ const Game = {
     for (const fn of L.bg.animF || []) fn(ctx, G.t, scx);
     // ---- world (zoomed)
     ctx.setTransform(ZOOM, 0, 0, ZOOM, 0, 0);
+    Faces.clear(); Layout.reset(); Faces.on = true; // characters register their faces while drawing
     for (const e of this.ents) if (e.drawBG && !e.dead) e.drawBG(cx, cy);
     for (const pr of L.props) { const x = pr.x - cx; if (x > -80 && x < VW + 80) spr(pr.img, x, pr.y - cy, pr.img.hd ? { sx: HD, sy: HD } : {}); }
     L.drawTiles(cx, cy);
     for (const e of this.ents) if (!e.dead && !(e instanceof Enemy) && !e.isBoss && !(e instanceof SlimeBall) && !(e instanceof EnemyShot) && Math.abs(e.cx - cx - VW / 2) < VW) drawSafe(e, cx, cy);
-    for (const e of this.ents) if (!e.dead && e.isBoss) drawSafe(e, cx, cy);
-    for (const e of this.ents) if (!e.dead && e instanceof Enemy && Math.abs(e.cx - cx - VW / 2) < VW) drawSafe(e, cx, cy);
+    // bosses and enemies drawn without a cast draw-function get a face from the top of their body
+    const withFace = (e, k) => { const n0 = Faces.list.length; drawSafe(e, cx, cy); if (Faces.list.length === n0 && !e.dead) { const hb = e.hitbox ? e.hitbox() : e; Faces.add(hb.x + hb.w / 2 - cx, hb.y + hb.h * k - cy, Math.max(8, Math.min(hb.w, hb.h) * .42), e.isBoss ? 'boss' : 'enemy'); } };
+    for (const e of this.ents) if (!e.dead && e.isBoss) withFace(e, .3);
+    for (const e of this.ents) if (!e.dead && e instanceof Enemy && Math.abs(e.cx - cx - VW / 2) < VW) withFace(e, .32);
     for (const f of this.followers) drawSafe(f, cx, cy);
     for (const a of this.actors) drawSafe(a, cx, cy);
     if (p.vehicle) drawVehicle(p, cx, cy); else drawSafe(p, cx, cy);
     for (const e of this.ents) if (!e.dead && (e instanceof SlimeBall || e instanceof EnemyShot)) e.draw(cx, cy);
     FX.draw(cx, cy);
     for (const e of this.ents) if (e.drawFG && !e.dead) e.drawFG(cx, cy);
+    Faces.on = false;
     if (this.chase && this.chase.collapse) { const x = L.scrollX - cx; const gg = ctx.createLinearGradient(x - 30, 0, x + 40, 0); gg.addColorStop(0, 'rgba(20,0,30,1)'); gg.addColorStop(1, 'rgba(60,0,80,0)'); ctx.fillStyle = gg; ctx.fillRect(-10, -10, x + 50, VH + 20); }
     // ---- screen-space overlays
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     drawLighting(L, scx);
+    this.layoutScene();
     HUD.draw();
     if (this.cutscene) this.drawScene();
     if (G.debug) { text('ents ' + this.ents.length + ' fx ' + FX.list.length + ' x ' + (p.x | 0) + ' y ' + (p.y | 0) + ' ' + G.fps + 'fps', 4, H - 10, { color: '#0f0' }); }
@@ -4181,6 +4234,13 @@ const Game = {
     if (c.onDone) c.onDone();
     if (this.pendingWin && !this.cutscene) { const w = this.pendingWin; this.pendingWin = null; this.runScene(w.scene, {}, w.done); }
   },
+  // the dialogue box sits at the bottom unless a face is behind it there and the top is clear;
+  // reserved before the HUD lays out, so toasts and banners steer around it
+  layoutScene() {
+    const c = this.cutscene; if (!c || !c.dlg || c.card) return; const bottom = H - 92, top = c.free ? 8 : 22;
+    if (c.dlgY === undefined || Faces.hitRect(10, c.dlgY, W - 20, 70)) c.dlgY = Faces.hitRect(10, bottom, W - 20, 70) && !Faces.hitRect(10, top, W - 20, 70) ? top : bottom;
+    const r = { x: 10, y: c.dlgY, w: W - 20, h: 70, tag: 'dialogue' }; r.blocked = !!Faces.hitRect(r.x, r.y, r.w, r.h); c.dlgSeeThrough = r.blocked; Layout.taken.push(r); if (Layout.log) Layout.log.push(r);
+  },
   drawScene() {
     const c = this.cutscene; if (!c) return;
     if (c.card) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); text(c.card[0], W / 2, H / 2 - 20, { color: '#7fff3a', align: 'center', scale: 3, outline: '#300', wave: 1 }); text(c.card[1], W / 2, H / 2 + 20, { color: '#fff', align: 'center', scale: 1 }); }
@@ -4188,12 +4248,14 @@ const Game = {
     if (!c.free) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 18); ctx.fillRect(0, H - 18, W, 18); text('SKIP: ' + (Input.mode === 'touch' ? 'II' : Input.mode === 'pad' ? 'START' : 'ESC'), W - 6, 6, { color: '#666', align: 'right', shadow: false }); }
     if (c.dlg) {
       const d = c.dlg, who = CAST[d.who] || CAST.narrator, n = Math.floor(c.charT), str = d.text.slice(0, n);
-      const lines = wrapText(str, who.portrait ? 74 : 92), y = H - 92;
+      const lines = wrapText(str, who.portrait ? 74 : 92), y = c.dlgY === undefined ? H - 92 : c.dlgY;
+      if (c.dlgSeeThrough) ctx.globalAlpha = .55; // nowhere free: let the face show through
       panel(10, y, W - 20, 70, { rim: who.col }); let tx = 20;
       if (who.portrait) { const im = who.portrait(); if (im) { const s = Math.min(64 / im.height, 80 / im.width); ctx.save(); ctx.beginPath(); ctx.rect(14, y + 3, 84, 64); ctx.clip(); spr(im, 56, y + 66 + (d.who === 'monster' ? 6 : 0), { sx: s, sy: s, ay: im.height }); ctx.restore(); tx = 104; } }
       if (who.name) text(who.name, tx, y + 5, { color: who.col }); else if (d.who === 'narrator') text('NARRATOR', tx, y + 5, { color: '#888' });
       lines.slice(0, 5).forEach((l, i) => text(l, tx, y + 18 + i * 10, { color: '#fff' }));
       if (n >= d.text.length && Math.floor(G.t * 3) % 2) text('▼', W - 26, y + 58, { color: who.col });
+      ctx.globalAlpha = 1;
     }
   },
   // ------------------------------------------------------------------ scene API used by STORY steps
@@ -4241,24 +4303,50 @@ const HUD = {
   update() { for (const t of this.toasts) t.t--; this.toasts = this.toasts.filter(t => t.t > 0); for (const b of this.banners) b.t--; this.banners = this.banners.filter(b => b.t > 0); if (this.bossIntro > 0) this.bossIntro--; },
   draw() {
     const p = Game.player; if (!p) return;
-    // hearts (big, chunky)
+    // fixed HUD (cannot move): reserved so floating overlays avoid it; fades out while a face is underneath
+    const dim = (x, y, w, h) => { Layout.reserve(x, y, w, h, 'hud'); ctx.globalAlpha = Faces.hitRect(x, y, w, h, 0) ? .35 : 1; };
+    dim(6, 12, p.maxHp * 20 + 6, 28);
     for (let i = 0; i < p.maxHp; i++) { const full = i < p.hp, bump = full && i === p.hp - 1 ? Math.sin(G.t * 6) * .12 : 0; spr(full ? ICON.heart : ICON.heartE, 18 + i * 20, 26, { sx: 2.4 + bump, sy: 2.4 + bump }); }
-    // collectible counter
+    dim(W - 86, 6, 78, 26);
     panel(W - 84, 8, 74, 22, { rim: '#ffe14d', bg: 'rgba(26,11,34,.75)' }); spr(ICON.note, W - 72, 28, { sx: 1.8, sy: 1.8 }); text(String(Game.levelStats.notes), W - 54, 13, { color: '#ffe14d', scale: 2, outline: true });
-    // current power-up
-    if (p.powerT > 0 && POWERS[p.form] || p.form === 'mega') { const c = POWERS[p.form] ? POWERS[p.form].col : '#7fff3a'; panel(10, 44, 96, 26, { rim: c, bg: 'rgba(26,11,34,.75)' }); drawHero(26, 57, { face: 1, form: p.form, sx: .3, sy: .3 }); text(FORMS[p.form].name.replace(' POWER', '!'), 42, 49, { color: c, outline: true }); P.r(ctx, 42, 60, 58, 5, '#000'); P.r(ctx, 42, 60, 58 * Math.min(1, p.powerT / (p.powerMax || POWER_TIME)), 5, c); }
-    // boss bar
-    const b = Game.boss; if (b && !b.defeated) {
-      const bw = 300, bx = W / 2 - bw / 2, by = H - 30; panel(bx, by, bw, 10, { rim: '#ff3a3a', bg: '#200' });
+    if (p.powerT > 0 && POWERS[p.form] || p.form === 'mega') { const c = POWERS[p.form] ? POWERS[p.form].col : '#7fff3a'; dim(8, 42, 100, 30); panel(10, 44, 96, 26, { rim: c, bg: 'rgba(26,11,34,.75)' }); drawHero(26, 57, { face: 1, form: p.form, sx: .3, sy: .3 }); text(FORMS[p.form].name.replace(' POWER', '!'), 42, 49, { color: c, outline: true }); P.r(ctx, 42, 60, 58, 5, '#000'); P.r(ctx, 42, 60, 58 * Math.min(1, p.powerT / (p.powerMax || POWER_TIME)), 5, c); }
+    ctx.globalAlpha = 1;
+    const b = Game.boss, boss = b && !b.defeated;
+    if (boss) {
+      const bw = 300, bx = W / 2 - bw / 2, by = H - 30; dim(bx - 2, by - 13, bw + 4, 25);
+      panel(bx, by, bw, 10, { rim: '#ff3a3a', bg: '#200' });
       const k = b.hp / b.maxHp; ctx.fillStyle = b.vulnerable === false ? '#888' : '#ff2a4a'; ctx.fillRect(bx, by, bw * k, 10); ctx.fillStyle = '#ff8a9a'; ctx.fillRect(bx, by, bw * k, 2);
       for (const ph of b.phases.slice(1)) P.r(ctx, bx + bw * ph, by, 1, 10, '#000');
-      text(b.short || b.name, W / 2, by - 11, { color: '#fff', align: 'center', outline: true });
-      if (this.bossIntro > 0) { const a = Math.min(1, this.bossIntro / 30); ctx.globalAlpha = a; text('BOSS', W / 2, 88, { color: '#ffe14d', align: 'center', outline: true }); text(b.name, W / 2, 100, { color: '#ff2a4a', align: 'center', scale: b.name.length > 30 ? 2 : 3, outline: true }); /* above the FIGHT! banner (y=132) */ ctx.globalAlpha = 1; }
+      text(b.short || b.name, W / 2, by - 11, { color: '#fff', align: 'center', outline: true }); ctx.globalAlpha = 1;
+      // boss name card: preferred above the FIGHT! banner, moves to a free band if a face is there
+      if (this.bossIntro > 0) {
+        const sc = b.name.length > 30 ? 2 : 3, w = Math.max(textWidth(b.name, sc), 30) + 8, h = 14 + 8 * sc;
+        const r = this.cardR = Layout.place({ x: W / 2 - w / 2, y: 86, w, h }, this.stick(this.cardR, 86, [[0, -44], [0, 70], [0, 110], [0, -60], [-150, 0], [150, 0], [-150, 70], [150, 70], [-150, -44], [150, -44]]), 'bosscard');
+        ctx.globalAlpha = Math.min(1, this.bossIntro / 30) * (r.blocked ? .4 : 1); text('BOSS', r.x + r.w / 2, r.y + 2, { color: '#ffe14d', align: 'center', outline: true }); text(b.name, r.x + r.w / 2, r.y + 14, { color: '#ff2a4a', align: 'center', scale: sc, outline: true }); ctx.globalAlpha = 1;
+      } else this.cardR = null;
     }
-    // toasts and banners
-    this.toasts.forEach((t, i) => { const a = Math.min(1, t.t / 30); ctx.globalAlpha = a; const w = textWidth(t.s) + (t.icon ? 22 : 10); panel(W / 2 - w / 2, 46 + i * 16, w, 12, { rim: t.col }); if (t.icon) ctx.drawImage(t.icon, W / 2 - w / 2 + 2, 44 + i * 16); text(t.s, W / 2 + (t.icon ? 8 : 0), 49 + i * 16, { color: t.col, align: 'center' }); ctx.globalAlpha = 1; });
-    for (const bn of this.banners) { const k = bn.t / 150, a = Math.min(1, bn.t / 25, (150 - bn.t) / 10 + .2), s = bn.s.length > 26 ? 2 : 3; ctx.globalAlpha = a; text(bn.s, W / 2, 132 + (1 - ease.out(Math.min(1, (150 - bn.t) / 20))) * -30, { color: bn.col, align: 'center', scale: s, outline: true, wave: 1 }); if (bn.sub) text(bn.sub, W / 2, 162, { color: '#fff', align: 'center', outline: true }); ctx.globalAlpha = 1; }
-  }
+    // banners: centre of the screen unless a face (or the card) is there
+    for (const bn of this.banners) {
+      const a = Math.min(1, bn.t / 25, (150 - bn.t) / 10 + .2), offs = [[0, -46], [0, 48], [0, -84], [0, 84], [0, -104], [-140, 0], [140, 0], [-140, -46], [140, -46], [-140, 48], [140, 48]];
+      // full size first; if every spot is taken, retry smaller before falling back to see-through
+      let sc = bn.small ? 2 : bn.s.length > 26 ? 2 : 3, w = Math.max(textWidth(bn.s, sc), bn.sub ? textWidth(bn.sub) : 0) + 8, h = bn.sub ? 42 : 26;
+      let r = Layout.place({ x: W / 2 - w / 2, y: 130, w, h }, this.stick(bn.r, 130, offs), 'banner');
+      if (r.blocked && sc === 3) { Layout.taken.pop(); if (Layout.log) Layout.log.pop(); sc = 2; w = Math.max(textWidth(bn.s, 2), bn.sub ? textWidth(bn.sub) : 0) + 8; h = bn.sub ? 36 : 20; r = Layout.place({ x: W / 2 - w / 2, y: 130, w, h }, offs, 'banner'); bn.small = !r.blocked; }
+      bn.r = r; const cx2 = r.x + r.w / 2;
+      ctx.globalAlpha = a * (r.blocked ? .4 : 1); text(bn.s, cx2, r.y + 2 + (1 - ease.out(Math.min(1, (150 - bn.t) / 20))) * -2, /* entry stays inside its reserved rect */ { color: bn.col, align: 'center', scale: sc, outline: true, wave: 1 }); if (bn.sub) text(bn.sub, cx2, r.y + h - 10, { color: '#fff', align: 'center', outline: true }); ctx.globalAlpha = 1;
+    }
+    // toasts: a stacked block under the HUD row; moves up into the HUD row or down above the boss bar if needed
+    if (this.toasts.length) {
+      const ws = this.toasts.map(t => textWidth(t.s) + (t.icon ? 22 : 10)), w = Math.max(...ws) + 4, h = this.toasts.length * 16;
+      const low = H - (boss ? 48 : 30) - h - 46;
+      const r = this.toastR = Layout.place({ x: W / 2 - w / 2, y: 44, w, h }, this.stick(this.toastR, 44, [[0, -32], [0, low], [0, 40], [0, 80], [-170, 0], [170, 0], [-170, 40], [170, 40], [-170, low], [170, low], [-170, 80], [170, 80]]), 'toasts');
+      // nowhere at all (banner + card + dialogue + faces fill the screen): toasts wait until there is room
+      if (r.forced) { r.hidden = true; Layout.taken.splice(Layout.taken.indexOf(r), 1); for (const t of this.toasts) t.t = Math.max(t.t, 31); this.toastR = null; return; }
+      const tcx = r.x + r.w / 2; this.toasts.forEach((t, i) => { const a = Math.min(1, t.t / 30), y = r.y + 2 + i * 16, tw = ws[i]; ctx.globalAlpha = a * (r.blocked ? .4 : 1); panel(tcx - tw / 2, y, tw, 12, { rim: t.col }); if (t.icon) ctx.drawImage(t.icon, tcx - tw / 2 + 2, y - 2); text(t.s, tcx + (t.icon ? 8 : 0), y + 3, { color: t.col, align: 'center' }); ctx.globalAlpha = 1; });
+    } else this.toastR = null;
+  },
+  // keep last frame's spot first (no jumping back and forth), then the default, then the alternatives
+  stick(prev, y0, offs) { return prev ? [[0, prev.y - y0], [0, 0], ...offs] : offs; }
 };
 // ---------------------------------------------------------------- generic menu list
 function drawList(items, sel, x, y, o = {}) {

@@ -89,6 +89,7 @@ Run `bash tests/run_all.sh`. It needs Node and Playwright with Chromium.
 - `autoplay.js`: a god-mode bot that tries to play each level through. It is diagnostic only; some levels need puzzle solving it cannot do.
 - `arenas.js`: every combat arena in all 30 levels spawns its enemies on screen and opens once they are beaten.
 - `sprites.js`: all six character groups and every required animation (438 frames): none blank, clipped or out of bounds; transparent backgrounds; hard alpha; no see-through holes in bodies; tyres solid; feet on the baseline; safe frame fallback; no blinking while invulnerable; the inspector draws every frame.
+- `overlays.js`: plays nine real scenes (tutorial, all cast boss fights, Level 333 with the pigs, Cowgod as an ally, dialogue) and checks every drawn frame: no impact word, toast, banner, boss card or dialogue box covers a character's face, and overlays keep at least 6px between each other.
 - `screenshots.js`: captures the gameplay screenshots in `screenshots/`.
 - `ui_screens.js`, `rig_preview.js`, `sprite_preview.js`: render screens and sprites to PNG for visual review.
 
@@ -98,6 +99,18 @@ Press **F9** (or open the file with `#inspector` at the end of the URL). It is n
 UP/DOWN picks the character, LEFT/RIGHT the animation. SPACE plays or pauses, `,` and `.` step frames, `-` and `+` change speed,
 B cycles light/dark checkerboard, black and white backgrounds, O toggles the overlays (frame bounds, opaque bounds, pivot,
 collision box, attack hitbox), G zooms and V validates every character. F9 or Esc leaves.
+
+## Faces stay visible
+
+Every character registers where its face is on screen while it is drawn (Moshmouth, the pigs, Electric Harley, the wolf,
+Cowgod, Shitman and Shitkins from their art anchors; other enemies and bosses from the top of their body). Everything
+drawn on top of the world then lays itself out around those faces and around each other:
+- impact words ("THWACK!", "ON BEAT!") move up, down or sideways to a free spot, and are skipped for a frame if none exists;
+- toasts, banners and the boss name card try the default spot, then other bands and the sides, then a smaller size;
+- the dialogue box moves to the top of the screen if a face is behind it at the bottom;
+- fixed HUD panels (hearts, notes, power-up, boss bar) fade to 35% while a face is under them;
+- if there is truly no free spot, the overlay is drawn see-through (40-55%) and never on top of another overlay.
+Items (notes, power-up bubbles, prompts, pickups) are drawn underneath the characters, so they cannot hide a face.
 
 ## Character repair report (what was actually wrong)
 

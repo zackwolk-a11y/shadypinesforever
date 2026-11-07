@@ -110,3 +110,35 @@ function panel(x, y, w, h, o = {}) {
   ctx.fillStyle = o.hi || 'rgba(255,255,255,.08)'; ctx.fillRect(x, y, w, 2);
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x, y + h - 2, w, 2);
 }
+
+// ---------------------------------------------------------------- face-aware overlay layout
+// Every character registers where its face is on screen while it is drawn (Faces.add, in the current
+// canvas transform). Overlays drawn on top of the world - impact words, toasts, banners, the boss card,
+// the dialogue box - then place themselves with Layout.place() so they never cover a face, and never
+// overlap each other (Layout keeps the rects already taken this frame). Screen-pixel coordinates.
+const Faces = {
+  list: [], on: false,
+  clear() { this.list.length = 0; },
+  add(lx, ly, r, who) {
+    if (!this.on || ctx.canvas !== canvas) return; // only the live frame, never sprite bakes
+    const m = ctx.getTransform(), s = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c));
+    this.list.push({ x: m.a * lx + m.c * ly + m.e, y: m.b * lx + m.d * ly + m.f, r: Math.max(6, r * s), who });
+  },
+  hitRect(x, y, w, h, pad = 3) { for (const f of this.list) { const nx = clamp(f.x, x - pad, x + w + pad), ny = clamp(f.y, y - pad, y + h + pad); if ((nx - f.x) ** 2 + (ny - f.y) ** 2 < f.r * f.r) return f; } return null; }
+};
+const Layout = {
+  taken: [], log: null,
+  reset() { this.taken.length = 0; },
+  free(r, pad = 8, ignoreFaces) { if (r.y < 0 || r.y + r.h > H || r.x < 0 || r.x + r.w > W) return false; if (!ignoreFaces && Faces.hitRect(r.x, r.y, r.w, r.h)) return false; for (const t of this.taken) if (r.x < t.x + t.w + pad && r.x + r.w + pad > t.x && r.y < t.y + t.h + pad && r.y + r.h + pad > t.y) return false; return true; },
+  // try the preferred spot, then each candidate offset; returns the chosen rect and reserves it
+  place(r, offsets, tag) {
+    let best = null;
+    const list = offsets.some(o => !o[0] && !o[1]) ? offsets : [[0, 0], ...offsets];
+    for (const [dx, dy] of list) { const c = { x: r.x + dx, y: r.y + dy, w: r.w, h: r.h }; if (this.free(c)) { best = c; break; } }
+    // no spot clear of faces: still keep clear of the other overlays; the caller draws it see-through
+    if (!best) { for (const [dx, dy] of list) { const c = { x: r.x + dx, y: r.y + dy, w: r.w, h: r.h }; if (this.free(c, 8, true)) { best = c; break; } } if (best) best.blocked = true; else best = { x: r.x, y: r.y, w: r.w, h: r.h, blocked: true, forced: true }; }
+    best.tag = tag; this.taken.push(best); if (this.log) this.log.push(best); return best;
+  },
+  // reserve a fixed rect (HUD panels) without moving it
+  reserve(x, y, w, h, tag) { const r = { x, y, w, h, tag, fixed: true }; this.taken.push(r); if (this.log) this.log.push(r); return r; }
+};
