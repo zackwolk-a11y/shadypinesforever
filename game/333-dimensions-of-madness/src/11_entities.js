@@ -18,7 +18,7 @@ const ENEMY_DEFS = {
   carton: { name: 'Expired Milk Carton', hp: 2, beh: 'walk', spd: .9, desc: 'Best before: three dimensions ago. Smells like a threat.' },
   bacon: { name: 'Bacon Serpent', hp: 2, beh: 'walk', spd: 1.5, desc: 'Sizzles when angry. Always angry.' },
   cultcow: { name: 'Udder Cultist', hp: 3, beh: 'walk', spd: .8, desc: 'Hooded farmhand devoted to the Holy Moo. Chants in 7/8 time.' },
-  gloopkin: { name: 'Gloopkin', hp: 2, beh: 'hop', spd: 1, split: true, desc: 'Spawn of the Golden Gloop. Splits in two when struck. Smells like honey and regret.' },
+  gloopkin: { name: 'Shitkin', hp: 2, beh: 'hop', spd: 1, split: true, desc: 'Spawn of Shitman. Splits in two when struck. Smells like honey and regret.' },
   shroom: { name: 'Eyecap Mushroom', hp: 2, beh: 'shoot', spd: 0, proj: 'spore', desc: 'Watches you. Judges you. Sneezes hallucinogenic spores.' },
   lava: { name: 'Lava Lamp Blob', hp: 2, beh: 'float', spd: .7, desc: 'Groovy, warm and burns on contact. Peace and love, mostly burns.' },
   spark: { name: 'Voltergeist', hp: 2, beh: 'fly', spd: 1.3, desc: 'An electric ghost living in the mansion wiring. Zaps on touch.' },
@@ -286,10 +286,23 @@ class Arena extends Ent { // locks camera and spawns waves
   update(L) {
     if (this.done) return; const p = Game.player;
     if (!this.active && p.x > this.x + 40 && p.x < this.x + this.w) { this.active = true; L.camLock = { x0: this.x - 16, x1: this.x + this.w + 16 }; AudioSys.setIntensity(2); this.next(); HUD.banner('FIGHT!', '#ff3a3a'); this.walls(true); }
+    if (this.active) this.rescue();
     if (this.active && this.spawned.every(e => e.dead)) { if (this.wave + 1 < this.o.waves.length) this.next(); else { this.done = true; this.active = false; L.camLock = null; AudioSys.setIntensity(1); this.walls(false); AudioSys.play_sfx('stinger'); HUD.banner('CLEARED!', '#7fff3a'); if (this.o.flag) Game.flag(this.o.flag); } }
   }
   walls(on) { const L = Game.L, tx0 = Math.floor(this.x / TS) - 1, tx1 = Math.floor((this.x + this.w) / TS); for (let ty = 0; ty < L.h - 2; ty++) { if (L.get(tx0, ty) === T_EMPTY || L.get(tx0, ty) === T_WALL) L.tiles[L.idx(tx0, ty)] = on ? T_WALL : T_EMPTY; if (L.get(tx1, ty) === T_EMPTY || L.get(tx1, ty) === T_WALL) L.tiles[L.idx(tx1, ty)] = on ? T_WALL : T_EMPTY; } }
-  next() { this.wave++; const kinds = this.o.waves[this.wave]; this.spawned = kinds.map((k, i) => { const e = new Enemy({ kind: k, x: this.x + 30 + ((i * 97) % (this.w - 60)), y: FLYING[k] ? 120 : 40 }); e.wake = true; if (!FLYING[k]) e.y = 60; Game.add(e); FX.ring(e.cx, e.cy, 20, '#ff5bd1'); return e; }); }
+  // spawn every wave relative to the arena's own floor (flyers used to spawn at a fixed y=120, which in
+  // low arenas - e.g. Level 4's candlestick room - put them above the camera where they could never be reached)
+  floorAt(x) { const L = Game.L; return Game.groundY(L, clamp(Math.floor(x / TS), 0, L.w - 1)); }
+  next() { this.wave++; const kinds = this.o.waves[this.wave]; this.spawned = kinds.map((k, i) => { const x = this.x + 30 + ((i * 97) % (this.w - 60)), gy = this.floorAt(x); const e = new Enemy({ kind: k, x, y: FLYING[k] ? gy - 64 - (i % 2) * 22 : gy - 70 }); e.wake = true; e.offT = 0; if (e.home) e.home.y = e.y; Game.add(e); FX.ring(e.cx, e.cy, 20, '#ff5bd1'); return e; }); }
+  // safety net: an enemy that stays out of view or out of the arena gets pulled back in; if it still
+  // can't be reached it pops, so a fight can never soft-lock
+  rescue() {
+    for (const e of this.spawned) { if (e.dead) continue;
+      const inView = e.cx > Cam.x - 8 && e.cx < Cam.x + VW + 8 && e.cy > Cam.y - 8 && e.cy < Cam.y + VH + 8, inArena = e.cx > this.x - 8 && e.cx < this.x + this.w + 8;
+      e.offT = inView && inArena ? 0 : (e.offT || 0) + 1; e.stuckT = (e.stuckT || 0) + (inView && inArena ? 0 : 1);
+      if (e.offT > 150) { const x = clamp(Game.player.cx + (Math.random() < .5 ? -1 : 1) * 90, this.x + 24, this.x + this.w - 40), gy = this.floorAt(x); e.x = x; e.y = FLYING[e.kind] ? gy - 70 : gy - e.h - 2; e.vx = e.vy = 0; if (e.home) { e.home.x = e.x; e.home.y = e.y; } e.offT = 0; FX.ring(e.cx, e.cy, 24, '#ff5bd1'); }
+      if (e.stuckT > 600) { e.hit(99, { kind: 'rescue' }); if (!e.dead) e.dead = true; } }
+  }
 }
 class Trigger extends Ent {
   constructor(o) { super(o.x, 0, o.w || 16, o.h || 9999); this.scene = o.scene; this.once = true; this.o = o; }

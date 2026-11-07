@@ -1,5 +1,5 @@
 // ============================================================================
-// LEVEL 2 BOSS: RAZZ VROOMBERG, BIKER DREAD
+// LEVEL 2 BOSS: ELECTRIC HARLEY HOUSE (OF LOVE)
 // Frame-based animations baked from the supplied biker art into fixed-size,
 // fixed-anchor, transparent frames (nearest-neighbour, no smoothing), an
 // explicit boss state machine and a single encounter controller.
@@ -36,7 +36,7 @@ function bakeBikerFrames() {
 const BIKER_STATES = ['INACTIVE', 'ENTERING', 'INTRO', 'FIGHTING', 'DEFEATED', 'EXITING', 'COMPLETE'];
 class BikerBoss extends Boss {
   constructor(enc) {
-    const gy = enc.gyPx; super(enc.x0 + enc.w + 140, gy - 70, 120, 70, {}); this.enc = enc; this.name = 'RAZZ VROOMBERG, BIKER DREAD'; this.setHp(24);
+    const gy = enc.gyPx; super(enc.x0 + enc.w + 140, gy - 70, 120, 70, {}); this.enc = enc; this.name = 'ELECTRIC HARLEY HOUSE (OF LOVE)'; this.short = 'ELECTRIC HARLEY'; /* full name on the intro card, short name on the health bar */ this.setHp(24);
     this.ground = gy; this.face = -1; this.st = 'ENTERING'; this.sub = null; this.stT = 0; this.subT = 0; this.anim = 'drive'; this.af = 0; this.aT = 0; this.hitT = 0; this.tongue = null; this.charge = null; this.vulnerable = false; this.phases = [1, .5];
     this.home = enc.x0 + enc.w * .72; this.attacks = 0; AudioSys.setEngine(true, .8); AudioSys.play_sfx('rev');
   }
@@ -54,10 +54,10 @@ class BikerBoss extends Boss {
     if (this.sub === 'ATTACK' && this.charge) { if (this.inv <= 0) { FX.pop(this.cx, this.ground - 80, 'TOO FAST! JUMP IT!', '#aaa'); this.inv = 20; } return false; }
     const ok = super.hit(dmg, a); if (ok) { this.hitT = 14; this.play('hit', true); Cam.shake(3, 6); if (this.sub === 'RECOVERY') this.subT = Math.max(0, this.subT - 6); } return ok;
   }
-  onPhase(p) { HUD.toast('RAZZ: "YOU SCRATCHED MY CHROME!!"', '#5bd4ff'); }
+  onPhase(p) { HUD.toast('ELECTRIC HARLEY: "YOU SCRATCHED MY CHROME!!"', '#5bd4ff'); }
   defeat() { // single authoritative end: health hit zero -> DEFEATED sequence (never despawns early)
     this.defeated = true; this.hp = 0; this.tongue = null; this.charge = null; this.setState('DEFEATED'); this.play('defeat', true); this.vulnerable = false;
-    AudioSys.setEngine(false); AudioSys.play_sfx('bossDie'); AudioSys.play_sfx('explode'); Cam.shake(8, 40); HUD.banner('RAZZ WIPES OUT!', '#5bd4ff');
+    AudioSys.setEngine(false); AudioSys.play_sfx('bossDie'); AudioSys.play_sfx('explode'); Cam.shake(8, 40); HUD.banner('ELECTRIC HARLEY WIPES OUT!', '#5bd4ff');
     for (const e of Game.ents) if (e instanceof EnemyShot) e.dead = true;
   }
   update(L) {
@@ -65,9 +65,9 @@ class BikerBoss extends Boss {
     const p = Game.player, ar = this.arena();
     switch (this.st) {
       case 'ENTERING': { this.play('drive'); this.face = -1; this.x = approach(this.x, this.home - this.w / 2, 4); if (this.t % 3 === 0) FX.smoke(this.x + this.w + 10, this.ground - 10, 2); if (Math.abs(this.x - (this.home - this.w / 2)) < 1) { this.setState('INTRO'); AudioSys.play_sfx('rev'); } break; }
-      case 'INTRO': { this.play('idle'); if (this.stT === 1) { HUD.toast('RAZZ: "TIME TO TASTE MY SECRET WEAPON: TONGUE!"', '#5bd4ff'); HUD.banner('FIGHT!', '#ff3a3a'); HUD.bossIntro = 90; AudioSys.setIntensity(3); AudioSys.setBossPhase(1); } if (this.stT > 50) { this.setState('FIGHTING'); this.setSub('IDLE'); this.vulnerable = true; } break; }
+      case 'INTRO': { this.play('idle'); if (this.stT === 1) { HUD.toast('ELECTRIC HARLEY: "TIME TO TASTE MY SECRET WEAPON: TONGUE!"', '#5bd4ff'); HUD.banner('FIGHT!', '#ff3a3a'); HUD.bossIntro = 90; AudioSys.setIntensity(3); AudioSys.setBossPhase(1); } if (this.stT > 50) { this.setState('FIGHTING'); this.setSub('IDLE'); this.vulnerable = true; } break; }
       case 'FIGHTING': this.fight(L, p, ar); break;
-      case 'DEFEATED': { if (this.stT % 10 === 0 && this.stT < 100) FX.smoke(this.cx + R(-30, 30), this.ground - 20, R(-1, 1)); if (this.af >= BIKER_ANIMS.defeat.length - 1 && this.stT > 120) { this.setState('EXITING'); HUD.toast('RAZZ: "OW. MY HAIR. OKAY... YOU WIN. THIS TIME."', '#5bd4ff'); } break; }
+      case 'DEFEATED': { if (this.stT % 10 === 0 && this.stT < 100) FX.smoke(this.cx + R(-30, 30), this.ground - 20, R(-1, 1)); if (this.af >= BIKER_ANIMS.defeat.length - 1 && this.stT > 120) { this.setState('EXITING'); HUD.toast('ELECTRIC HARLEY: "OW. MY HAIR. OKAY... YOU WIN. THIS TIME."', '#5bd4ff'); } break; }
       case 'EXITING': { if (this.stT > 90) this.setState('COMPLETE'); break; }
       case 'COMPLETE': break;
     }

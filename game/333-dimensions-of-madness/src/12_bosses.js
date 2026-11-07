@@ -26,10 +26,10 @@ class Boss extends Ent {
   contactDmg() { const p = Game.player; if (!this.defeated && this.state !== 'intro' && this.state !== 'stunned' && overlap(this.hitbox(), p)) { if (p.dashT > 0 && p.form === 'mega') this.hit(2, {}); else p.hurt(1, this.cx); } }
   commonUpdate() { this.t++; this.st++; if (this.flash > 0) this.flash--; if (this.inv > 0) this.inv--; if (this.state === 'dying') { if (this.st % 6 === 0) FX.burst(this.cx + R(-this.w / 2, this.w / 2), this.cy + R(-this.h / 2, this.h / 2), 14, ['#fff', '#ffe14d', '#ff5bd1'], { speed: 4 }); if (this.st > 120) this.dead = true; return false; } return true; }
 }
-// ---------------------------------------------------------------------------- BIG BAD BARNABY (werewolf)
+// ---------------------------------------------------------------------------- BIG BAD WOLF (werewolf)
 class WolfBoss extends Boss {
   constructor(x, y, o) {
-    super(x, y - 100, 64, 100, o); this.name = 'BIG BAD BARNABY'; this.ver = o.ver || 1; this.setHp([0, 30, 36, 44][this.ver]); this.face = -1; this.arm = 0; this.armV = 0; this.bike = null;
+    super(x, y - 100, 64, 100, o); this.name = 'BIG BAD WOLF'; this.ver = o.ver || 1; this.setHp([0, 30, 36, 44][this.ver]); this.face = -1; this.arm = 0; this.armV = 0; this.bike = null;
     this.phases = this.ver === 1 ? [1, .66, .33] : this.ver === 2 ? [1, .5] : [1, .66, .33]; this.ground = y; this.claw = 0; this.sxx = 1; this.syy = 1; this.rot = 0; this.enraged = false;
   }
   hitbox() { return { x: this.x + 8, y: this.y + 20, w: this.w - 16, h: this.h - 20 }; }
@@ -61,8 +61,8 @@ class WolfBoss extends Boss {
         break;
       case 'howl': this.rot = -.35; this.armT = -.5; if (this.st === 10) { AudioSys.play_sfx('howl'); Cam.shake(5, 50); } if (this.st % 12 === 0 && this.st < 60) FX.ring(this.cx, this.y + 20, 140, '#fff', 20, 3);
         if (this.st > 70) this.go('think'); break;
-      case 'callBike': // Barnaby whistles; Razz's motorcycle roars in and the werewolf rides it
-        this.vulnerable = false; if (this.st === 1) { AudioSys.play_sfx('rev'); HUD.banner('RAZZ ROLLS IN!', '#5bd4ff'); }
+      case 'callBike': // the Big Bad Wolf whistles; Harley's motorcycle roars in and the werewolf rides it
+        this.vulnerable = false; if (this.st === 1) { AudioSys.play_sfx('rev'); HUD.banner('ELECTRIC HARLEY ROLLS IN!', '#5bd4ff'); }
         if (this.st > 50) { this.bike = { x: Game.L.camLock ? Game.L.camLock.x0 - 120 : Cam.x - 120, dir: 1, passes: 0, spd: 0 }; this.go('bike'); } break;
       case 'bike': { const b = this.bike, a = Game.L.camLock || { x0: Cam.x, x1: Cam.x + W };
         AudioSys.setEngine(true, .7); b.spd = approach(b.spd, 5.5 * (this.enraged ? 1.2 : 1), .15); b.x += b.dir * b.spd; this.x = b.x - this.w / 2; this.y = this.ground - this.h - 26; this.face = b.dir;
@@ -97,9 +97,9 @@ class WolfBoss extends Boss {
     if (this.state === 'huff' && this.st >= 50 && this.st < 70) text('PUFF!!', x, y - this.h - 20, { color: '#ff3a3a', align: 'center', outline: true, scale: 2 });
   }
 }
-// ---------------------------------------------------------------------------- CAPTAIN UDDERLY (hypnotized)
+// ---------------------------------------------------------------------------- COWGOD (hypnotized)
 class CowBoss extends Boss {
-  constructor(x, y, o) { super(x, y - 90, 80, 70, o); this.name = 'CAPTAIN UDDERLY (HYPNOTIZED)'; this.setHp(30); this.ground = y; this.face = -1; this.rot = 0; this.cape = 3; this.capeStretch = 0; this.sxx = 1; this.syy = 1; this.hx = x; }
+  constructor(x, y, o) { super(x, y - 90, 80, 70, o); this.name = 'COWGOD (HYPNOTIZED)'; this.setHp(30); this.ground = y; this.face = -1; this.rot = 0; this.cape = 3; this.capeStretch = 0; this.sxx = 1; this.syy = 1; this.hx = x; }
   hitbox() { return { x: this.x + 10, y: this.y + 8, w: this.w - 20, h: this.h - 10 }; }
   update(L) {
     if (!this.commonUpdate()) return; const p = Game.player, a = L.camLock || { x0: Cam.x, x1: Cam.x + W }, mid = (a.x0 + a.x1) / 2, spd = 1 + (this.phase - 1) * .25;
@@ -130,7 +130,7 @@ class OverlordBoss extends Boss {
   onPhase(p) { if (p === 3) { HUD.banner('UDDER REACTOR EXPOSED!', '#ff5bd1'); FX.burst(this.x + 65, this.y + 110, 40, ['#fff', '#ccc', '#ff3a1a'], { speed: 5 }); } }
   update(L) {
     if (!this.commonUpdate()) return; const p = Game.player, spd = 1 + (this.phase - 1) * .3; this.legT += .05 * spd; this.mouthOpen = Math.max(0, this.mouthOpen - .05);
-    // Captain Udderly assists: dives in and stuns the mech periodically
+    // Cowgod assists: dives in and stuns the mech periodically
     if (--this.assistT <= 0 && Game.ally) { this.assistT = 420; Game.ally.dive(this.cx, this.y + 40); }
     switch (this.state) {
       case 'intro': if (this.st > 80) this.go('walk'); break;
@@ -270,7 +270,7 @@ class ClownBoss extends Boss {
     ctx.restore();
   }
 }
-// ---------------------------------------------------------------------------- KING OF THE GARBAGE HEAP + Golden Gloop core
+// ---------------------------------------------------------------------------- KING OF THE GARBAGE HEAP + Shitman core
 class HeapBoss extends Boss {
   constructor(x, y, o) {
     super(x - 100, y - 190, 200, 190, o); this.name = 'KING OF THE GARBAGE HEAP'; this.setHp(52); this.ground = y; this.cx0 = x;
@@ -281,7 +281,7 @@ class HeapBoss extends Boss {
   get vulnerableNow() { return !this.armor || this.junk.filter(j => j.alive).length <= 4; }
   hit(dmg, a) { if (this.armor && !this.vulnerableNow && !this.blobs && dmg > 0 && this.inv <= 0) { this.inv = 10; let n = 0; for (const j of this.junk) if (j.alive && n < 3) { j.alive = false; j.regen = 900; n++; FX.debris(this.cx0 + Math.cos(j.a) * j.r, this.ground - 90 + Math.sin(j.a) * j.r * .6, 'junk', 4); } AudioSys.play_sfx('break'); FX.pop(this.cx0, this.ground - 160, 'CLANG! ARMOUR OFF!', '#ffd23a'); return true; } return super.hit(dmg, a); }
   onPhase(p) {
-    if (p === 2) { this.armor = false; HUD.banner('THE GOLDEN GLOOP EMERGES!', '#ffd23a'); for (const j of this.junk) if (j.alive) { j.alive = false; FX.debris(this.cx0 + Math.cos(j.a) * j.r, this.ground - 90 + Math.sin(j.a) * j.r * .6, 'junk', 3); } Save.see('gloop'); }
+    if (p === 2) { this.armor = false; HUD.banner('SHITMAN EMERGES!', '#ffd23a'); for (const j of this.junk) if (j.alive) { j.alive = false; FX.debris(this.cx0 + Math.cos(j.a) * j.r, this.ground - 90 + Math.sin(j.a) * j.r * .6, 'junk', 3); } Save.see('gloop'); }
     if (p === 3) this.go('split');
   }
   update(L) {
@@ -355,7 +355,7 @@ class FeedbackBoss extends Boss {
       this.allyT = (this.allyT || 0) + 1;
       if (this.allyT % 300 === 40) { const a = ['pigs', 'razz', 'udderly', 'barnaby', 'gloop'][Math.floor(this.allyT / 300) % 5]; this.allyEvent = { k: a, t: 0 }; }
       if (this.allyEvent) { const e = this.allyEvent; e.t++;
-        if (e.t === 1) { HUD.banner({ pigs: 'THE PIGS STAMPEDE!', razz: 'RAZZ RAMS THE AMP!', udderly: 'UDDERLY DIVE-BOMBS!', barnaby: 'BARNABY HOWLS THE SHIELD DOWN!', gloop: 'THE GLOOP HOLDS IT STILL!' }[e.k], '#7fff3a', 'SHIELD DOWN - ATTACK!!'); AudioSys.play_sfx({ pigs: 'oink', razz: 'rev', udderly: 'moo', barnaby: 'howl', gloop: 'gloop' }[e.k], { pitch: 1 }); this.shieldDown = 220; }
+        if (e.t === 1) { HUD.banner({ pigs: 'THE PIGS STAMPEDE!', razz: 'ELECTRIC HARLEY RAMS THE AMP!', udderly: 'COWGOD DIVE-BOMBS!', barnaby: 'BIG BAD WOLF HOWLS THE SHIELD DOWN!', gloop: 'SHITMAN HOLDS IT STILL!' }[e.k], '#7fff3a', 'SHIELD DOWN - ATTACK!!'); AudioSys.play_sfx({ pigs: 'oink', razz: 'rev', udderly: 'moo', barnaby: 'howl', gloop: 'gloop' }[e.k], { pitch: 1 }); this.shieldDown = 220; }
         if (e.k === 'gloop' && e.t < 200) this.y = this.ground - 250;
         if (e.t === 40) { Cam.shake(8, 20); FX.ring(this.cx0, this.y + 100, 120, '#7fff3a'); super.hit(2, { kind: 'ally' }); }
         if (e.t > 220) this.allyEvent = null; }

@@ -1,12 +1,12 @@
 // ============================================================================
 // Allies, summons, chase & race sequences
 // ============================================================================
-class UdderlyAlly extends Ent { // Captain Udderly flies alongside and assists in fights
+class UdderlyAlly extends Ent { // Cowgod flies alongside and assists in fights
   constructor(x, y) { super(x, y, 40, 30); this.mode = 'follow'; this.st = 0; Game.ally = this; }
-  dive(tx, ty) { this.mode = 'dive'; this.st = 0; this.tx = tx; this.ty = ty; AudioSys.play_sfx('moo'); HUD.toast('CAPTAIN UDDERLY: "HOLY HEIFER, HOLD ON!"', '#fff'); }
+  dive(tx, ty) { this.mode = 'dive'; this.st = 0; this.tx = tx; this.ty = ty; AudioSys.play_sfx('moo'); HUD.toast('COWGOD: "HOLY HEIFER, HOLD ON!"', '#fff'); }
   update(L) {
     this.t++; this.st++; const p = Game.player;
-    if (this.mode === 'follow' && this.t % 1500 === 600 && p.form === 'normal') { Game.add(new PowerUp({ x: this.cx, y: this.cy, kind: 'cow', drop: true })); HUD.toast('UDDERLY: "SPECIAL DELIVERY, CITIZEN!"', '#fff'); AudioSys.play_sfx('moo'); }
+    if (this.mode === 'follow' && this.t % 1500 === 600 && p.form === 'normal') { Game.add(new PowerUp({ x: this.cx, y: this.cy, kind: 'cow', drop: true })); HUD.toast('COWGOD: "SPECIAL DELIVERY, CITIZEN!"', '#fff'); AudioSys.play_sfx('moo'); }
     if (this.mode === 'follow') { this.x = lerp(this.x, p.cx - p.face * 70, .04); this.y = lerp(this.y, p.cy - 90 + Math.sin(this.t * .05) * 10, .05); this.face = sign(p.cx - this.cx) || 1; }
     else if (this.mode === 'dive') { const k = Math.min(1, this.st / 30); this.x = lerp(this.x, this.tx, k * .3); this.y = lerp(this.y, this.ty, k * .3); this.face = sign(this.tx - this.cx) || 1;
       if (dist(this.cx, this.cy, this.tx, this.ty) < 30 || this.st > 60) { this.mode = 'follow'; Cam.shake(6, 14); AudioSys.play_sfx('bash'); FX.ring(this.tx, this.ty, 60, '#fff'); for (const e of Game.ents) if (e.isBoss && !e.defeated) { if (e.state !== 'dying' && e.go) { e.hit(3, { kind: 'ally' }); if (e instanceof OverlordBoss) e.go('stunned'); } } } }
@@ -16,8 +16,8 @@ class UdderlyAlly extends Ent { // Captain Udderly flies alongside and assists i
 // ---------------------------------------------------------------- summons (cost 50 METAL)
 const SUMMONS = {
   pigs: { name: 'THREE PIG STAMPEDE', desc: 'Hamwise honks (stun), Porkington throws sticks, Trufflina charges.' },
-  razz: { name: 'RAZZ ROAD RAGE', desc: 'Razz Vroomberg tears across the screen on his chopper.' },
-  udderly: { name: 'UDDERLY AIR STRIKE', desc: 'Captain Udderly dive-bombs every enemy on screen.' }
+  razz: { name: 'ELECTRIC HARLEY ROAD RAGE', desc: 'Electric Harley House (of Love) tears across the screen on his chopper.' },
+  udderly: { name: 'COWGOD AIR STRIKE', desc: 'Cowgod dive-bombs every enemy on screen.' }
 };
 class Summon extends Ent {
   constructor(kind) { super(Cam.x - 80, Game.player.y, 40, 40); this.kind = kind; this.dir = 1; this.ground = Game.player.y + Game.player.h; }
@@ -73,7 +73,7 @@ class RazzRacer extends Ent {
     if (this.x > this.finishX && !this.won && !Game.raceDone) { this.won = true; Game.raceLost(); }
     if (this.t % 300 === 100) { this.say = pick(this.lines); this.sayT = 140; } if (this.sayT > 0) this.sayT--;
   }
-  draw(cx, cy) { const x = this.x - cx, gy = this.ground - cy; if (x < -200 || x > W + 200) { const ex = clamp(x, 10, W - 10); text(x < 0 ? '◄ RAZZ' : 'RAZZ ►', ex, 60, { color: '#5bd4ff', align: x < 0 ? 'left' : 'right', outline: true }); return; }
+  draw(cx, cy) { const x = this.x - cx, gy = this.ground - cy; if (x < -200 || x > W + 200) { const ex = clamp(x, 10, W - 10); text(x < 0 ? '◄ ELECTRIC HARLEY' : 'ELECTRIC HARLEY ►', ex, 60, { color: '#5bd4ff', align: x < 0 ? 'left' : 'right', outline: true }); return; }
     drawBiker(x, gy, { face: 1, t: this.t / 60, speed: 1.8, wheelie: this.vy < 0 ? .3 : 0, turbo: this.vx > 5 });
     if (this.sayT > 0) text(this.say, x, gy - 90, { color: '#5bd4ff', align: 'center', outline: true }); }
 }
@@ -100,9 +100,9 @@ function updateVehicle(pl, L) {
   AudioSys.setEngine(true, .4 + pl.vx / 10);
 }
 function drawVehicle(pl, cx, cy) {
-  if (pl.dead) return; if (pl.inv > 0 && Math.floor(pl.inv / 4) % 2) return;
+  if (pl.dead) return; // (no more skipped frames while invulnerable: a gentle fade pulse instead)
   const x = pl.cx - cx, y = pl.y + pl.h - cy, rot = clamp(pl.vy * .04, -.3, .3);
-  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.save(); if (pl.inv > 0 && Math.floor(pl.inv / 6) % 2) ctx.globalAlpha = .7; ctx.translate(x, y); ctx.rotate(rot);
   if (pl.tongueTip) { const [tx, ty, mx, my] = pl.tongueTip; drawTongue(mx - pl.cx, my - pl.y - pl.h, tx - pl.cx, ty - pl.y - pl.h, 5, 3); }
   drawHero(0, -34, { face: 1, rot: Math.sin(pl.t * .3) * .05, sx: .8, sy: .8, mouth: I_mouth(pl) });
   const f = Math.floor(pl.t / 4) % 2; spr(SPR.cart[f], 0, 4, { sx: 1.2, sy: 1.1 });

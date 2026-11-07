@@ -13,11 +13,13 @@ function flipped(img) {
   let f = _flipCache.get(img); if (f) return f;
   f = makeCanvas(img.width, img.height); f.ctx.translate(img.width, 0); f.ctx.scale(-1, 1); f.ctx.drawImage(img, 0, 0); _flipCache.set(img, f); return f;
 }
-function flashOf(img, color = '#fff') {
+// hit flash: the sprite TINTED toward a colour (details stay visible). amt = 1 gives a flat silhouette,
+// which is only used for glow/aura layers drawn behind the real sprite - never in place of a character.
+function flashOf(img, color = '#fff', amt = .55) {
   const key = img; let m = _flashCache.get(key); if (!m) { m = {}; _flashCache.set(key, m); }
-  if (m[color]) return m[color];
-  const f = makeCanvas(img.width, img.height); f.ctx.drawImage(img, 0, 0); f.ctx.globalCompositeOperation = 'source-atop'; f.ctx.fillStyle = color; f.ctx.fillRect(0, 0, img.width, img.height);
-  return m[color] = f;
+  const k = color + amt; if (m[k]) return m[k];
+  const f = makeCanvas(img.width, img.height); f.ctx.drawImage(img, 0, 0); f.ctx.globalCompositeOperation = 'source-atop'; f.ctx.globalAlpha = amt; f.ctx.fillStyle = color; f.ctx.fillRect(0, 0, img.width, img.height);
+  return m[k] = f;
 }
 // draw sprite: (x,y) is the anchor point (default bottom-centre) in screen space
 function spr(img, x, y, o = {}) {

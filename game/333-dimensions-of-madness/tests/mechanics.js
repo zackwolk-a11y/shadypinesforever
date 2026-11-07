@@ -16,7 +16,7 @@ const { chromium } = require('playwright'); const path = require('path');
     const place = () => { const [x, gy] = flatSpot(); const pl = Gm.player; pl.x = x * 16; pl.y = gy - pl.h; pl.vx = pl.vy = 0; D.run(3); return pl; };
     const enemyAt = (dx, kind = 'puppet', dy = 0) => { const pl = Gm.player; const e = new Enemy({ kind, x: pl.cx + dx, y: pl.y + pl.h - 32 + dy }); e.wake = true; e.def = Object.assign({}, e.def, { beh: 'shoot' }); e.cool = 9999; Gm.add(e); D.run(1); return e; };
     // ---- three buttons only
-    t('only MOVE / JUMP / ATTACK (+pause) are bound', () => { const acts = new Set(Object.values(KEYMAP)); const extra = [...acts].filter(a => !['left', 'right', 'up', 'down', 'jump', 'whip', 'pause', 'confirm', 'back'].includes(a)); return { ok: !extra.length && document.querySelectorAll('.tb').length === 3, extra, touchButtons: document.querySelectorAll('.tb').length }; });
+    t('only MOVE / JUMP / ATTACK (+pause) are bound', () => { const acts = new Set(Object.values(KEYMAP)); const extra = [...acts].filter(a => !['left', 'right', 'up', 'down', 'jump', 'whip', 'pause', 'confirm', 'back'].includes(a)); return { ok: !extra.length && document.querySelectorAll('.tb:not([data-a=fs])').length === 3, extra, touchButtons: document.querySelectorAll('.tb:not([data-a=fs])').length }; });
     // ---- contextual ATTACK
     t('ATTACK near an enemy = tongue strike that defeats it', () => { const pl = fresh() && place(); pl.face = 1; const e = enemyAt(60); e.hp = 2; tap('whip'); D.run(40); return { ok: e.dead, dead: e.dead }; });
     t('tongue strike: wind-up -> launch -> impact -> retract -> recover, then fully gone', () => { const pl = fresh() && place(); pl.face = 1; const phases = []; let tipDuringIdle = false; D.Input._latch.whip = true;

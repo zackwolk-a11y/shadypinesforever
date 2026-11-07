@@ -19,14 +19,14 @@ const URL = 'file://' + path.resolve(__dirname, '../333-dimensions-of-madness.ht
   const ctxM = await b.newContext({ ...devices['iPhone 13 landscape'] }); const mp = await ctxM.newPage();
   await mp.goto(URL); await mp.waitForFunction(() => window.DIM333 && DIM333.G.state === 'title');
   await mp.tap('#screen'); await mp.waitForTimeout(300);
-  const touchOn = await mp.evaluate(() => document.getElementById('touch').classList.contains('on') && document.querySelectorAll('.tb').length);
+  const touchOn = await mp.evaluate(() => document.getElementById('touch').classList.contains('on') && document.querySelectorAll('.tb:not([data-a=fs])').length);
   ok(touchOn === 3, 'only JUMP, ATTACK and pause on the touch screen (' + touchOn + ' buttons)');
   await mp.screenshot({ path: OUT + '/mobile_title.png' });
   await mp.evaluate(() => { DIM333.load(0); }); await mp.waitForTimeout(300);
   for (let i = 0; i < 14; i++) { await mp.tap('#screen'); await mp.waitForTimeout(60); }
   await mp.evaluate(() => DIM333.skipScene()); await mp.waitForTimeout(400);
   const y0 = await mp.evaluate(() => DIM333.Game.player.y);
-  const jb = await mp.$$('.tb'); await jb[0].dispatchEvent('touchstart'); await mp.waitForTimeout(150);
+  const jb = await mp.$$('.tb:not([data-a=fs])'); await jb[0].dispatchEvent('touchstart'); await mp.waitForTimeout(150);
   const y1 = await mp.evaluate(() => DIM333.Game.player.y); await jb[0].dispatchEvent('touchend');
   ok(y1 < y0 - 5, `touch JUMP button makes the monster jump (${y0 | 0} -> ${y1 | 0})`);
   await mp.waitForTimeout(400); await mp.screenshot({ path: OUT + '/mobile_level.png' });

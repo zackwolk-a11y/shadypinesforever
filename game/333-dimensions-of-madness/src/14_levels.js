@@ -25,7 +25,7 @@ const LEVELS = [
       B.ground(4); B.spawn('prompt', B.cx + 2, B.gy - 2, { kind: 'attack', untilX: (B.cx + 12) * TS }); B.enemy('puppet', 8, { react: 'fly', tough: 1 }); B.spawn('bigamp', B.cx + 15, B.gy); B.ground(22);
       // ---- 45-60s COLLECT: a trail of notes to the golden pick
       B.spawn('prompt', B.cx + 1, B.gy - 2, { kind: 'collect', untilX: (B.cx + 8) * TS }); B.notes(8, 1, 2, 3); B.ground(14); B.step(-2); B.ground(6); B.spawn('meganote', B.cx - 3, B.gy - 2); B.ground(4); B.step(2); B.ground(6);
-      // ---- 60-90s BIG MOMENT: the Golden Gloop crashes through the wall. RUN!
+      // ---- 60-90s BIG MOMENT: Shitman crashes through the wall. RUN!
       B.spawn('setpiece', B.cx, B.gy, { kind: 'crash' }); B.ground(6); B.spawn('chasezone', B.cx, B.gy, { scroll: 1.7, giant: true }); B.ground(16); B.spawn('joke', B.cx - 6, B.gy); B.ground(10); B.gap(3); B.ground(12); B.spawn('joke', B.cx - 5, B.gy); B.ground(8); B.step(-2); B.ground(10); B.step(2); B.ground(10); B.gap(3); B.ground(14);
       B.spawn('chaseend', B.cx, B.gy, { scene: 'L1_ready' }); B.ground(4); B.checkpoint(); B.ground(8);
       // ---- the show goes on: one gimmick (the stage) built up with a few fun beats
@@ -42,7 +42,7 @@ const LEVELS = [
       B.ground(6); B.conveyor(10, 1); B.enemy('amp', 2); B.ground(10); B.auto(5, ['plats', 'hook', 'enemy', 'spikes', 'flat']); B.shard('high'); B.checkpoint();
       B.npc('razz', 'L2_razz', 6, { face: -1 }); B.ground(22);
       B.auto(6, ['flat', 'gap', 'enemy', 'conveyor', 'steps', 'wall']); B.shard('under'); B.auto(3, ['flat', 'plats', 'enemy']);
-      // ---- the designated fight zone: Razz Vroomberg, Biker Dread
+      // ---- the designated fight zone: Electric Harley House (of Love)
       B.ground(6); B.checkpoint(); B.ground(6); const x0 = B.cx; B.ground(25, false);
       B.spawn('bikerfight', x0, B.gy, { x0: x0 * TS, w: 25 * TS, gy: B.gy });
       B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); B.cx += 2;
@@ -57,7 +57,7 @@ const LEVELS = [
           B.ground(4); B.hookGap(12); put(-6, 4); B.ground(6); B.auto(3, ['flat', 'enemy', 'plats']); put(-3, 2); B.spawn('power', B.cx - 6, B.gy - 3, { kind: 'pig' }); B.auto(3, ['flat', 'gap', 'enemy']); put(-3, 2); B.shard('wall');
           B.ground(6); B.spawn('housesite', B.cx + 6, B.gy, { kind: 'straw', scene: 'L3_strawBuild' }); B.ground(20); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
       { name: 'Chapter 2: RUN, PIG, RUN!', intro: 'L3c2_intro', party: ['hamwise'], theme: 'meadow', song: 'chase',
-        build(B) { B.ground(10); B.spawn('chasezone', B.cx, B.gy, { scroll: 1.9, rider: 'barnaby', lines: ['LITTLE PIG! COME BACK!', 'Faster, Razz!', 'I just want to TALK! (and huff)'] });
+        build(B) { B.ground(10); B.spawn('chasezone', B.cx, B.gy, { scroll: 1.9, rider: 'barnaby', lines: ['LITTLE PIG! COME BACK!', 'Faster, Harley!', 'I just want to TALK! (and huff)'] });
           B.ground(14); B.gap(3); B.ground(10); B.spawn('joke', B.cx - 4, B.gy); B.ground(10); B.step(-2); B.ground(10); B.step(2); B.ground(8); B.gap(4); B.ground(12); B.notes(5, -10, 3, 2); B.spawn('joke', B.cx - 4, B.gy); B.ground(10); B.gap(3); B.ground(14); B.shard('high'); B.ground(12); B.gap(4); B.ground(16);
           B.spawn('chaseend', B.cx, B.gy, { scene: 'L3_meetPork' }); B.ground(20); B.exit(); } },
       { name: 'Chapter 3: THE STICK HOUSE', intro: 'L3c3_intro', party: ['porkington', 'hamwise'], theme: 'meadow', song: 'pigs',
@@ -67,7 +67,7 @@ const LEVELS = [
           B.auto(3, ['flat', 'enemy', 'plats', 'gap']); put(-3, 2); B.spawn('power', B.cx - 6, B.gy - 3, { kind: 'wolf' }); B.ground(4); bp(10); B.gap(8); B.ground(8); put(-4, 2); B.shard('high');
           B.auto(2, ['flat', 'enemy']); put(-2, 2); B.ground(6); B.spawn('housesite', B.cx + 6, B.gy, { kind: 'stick', scene: 'L3_stickBuild' }); B.ground(22); B.L.fill(B.cx, 0, B.cx + 1, B.L.h - 1, T_WALL); } },
       { name: 'Chapter 4: HOG WILD HIGHWAY', intro: 'L3c4_intro', party: ['hamwise', 'porkington'], theme: 'meadow', song: 'chase',
-        build(B) { B.ground(10); B.spawn('chasezone', B.cx, B.gy, { scroll: 2.0, rider: 'barnaby', lines: ['LITTLE PIGS, LITTLE PIGS!', 'Hit the gas, Razz!', 'BACON BACON BACON!'] });
+        build(B) { B.ground(10); B.spawn('chasezone', B.cx, B.gy, { scroll: 2.0, rider: 'barnaby', lines: ['LITTLE PIGS, LITTLE PIGS!', 'Hit the gas, Harley!', 'BACON BACON BACON!'] });
           for (let i = 0; i < 6; i++) { B.ground(12); B.gap(3 + (i % 2)); B.ground(8); if (i % 2) B.spawn('joke', B.cx - 4, B.gy); else B.notes(5, -9, 3, 2); B.ground(6); if (i === 2) B.shard('high'); if (i === 4) { B.step(-2); B.ground(8); B.step(2); } }
           B.ground(14); B.spawn('chaseend', B.cx, B.gy, { scene: 'L3_truffPunch' }); B.ground(14); B.exit(); } },
       { name: 'Chapter 5: THE BRICK HOUSE', intro: 'L3c5_intro', party: ['trufflina', 'porkington', 'hamwise'], theme: 'farm', song: 'L3',

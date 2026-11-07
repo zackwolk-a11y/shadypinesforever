@@ -38,6 +38,9 @@ class Actor { constructor(who, x, y, face, anim, o) { this.who = who; this.x = x
   update() { this.t++; if (this.mv) { const m = this.mv; m.t++; const k = Math.min(1, m.t / m.n); this.x = lerp(m.x0, m.x1, k); this.y = lerp(m.y0, m.y1, k); if (k >= 1) this.mv = null; } }
   draw(cx, cy) { drawActor(this.who, this.x - cx, this.y - cy, Object.assign({ face: this.face, t: this.t / 60, anim: this.mv ? 'walk' : this.anim }, this.o)); } }
 
+// every character/entity draws from a clean canvas state, so a leaked globalAlpha, blend mode or
+// transform from a particle/effect can never make a character translucent or invisible
+function drawSafe(e, cx, cy) { ctx.save(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none'; try { e.draw(cx, cy); } catch (err) { if (!drawSafe.warned) { drawSafe.warned = 1; console.warn('draw failed', e.constructor.name, err); } } ctx.restore(); }
 const Game = {
   ents: [], flags: {}, need: {}, actors: [], player: null, L: null, def: null, chapter: 0, cutscene: null, decoy: null, ally: null,
   levelStats: { notes: 0, kills: 0, time: 0, shards: [] }, finishing: false, checkpoint: null, party: null, partyIdx: 0, followers: [], transformMenu: null,
@@ -174,12 +177,12 @@ const Game = {
     for (const e of this.ents) if (e.drawBG && !e.dead) e.drawBG(cx, cy);
     for (const pr of L.props) { const x = pr.x - cx; if (x > -80 && x < VW + 80) spr(pr.img, x, pr.y - cy, pr.img.hd ? { sx: HD, sy: HD } : {}); }
     L.drawTiles(cx, cy);
-    for (const e of this.ents) if (!e.dead && !(e instanceof Enemy) && !e.isBoss && !(e instanceof SlimeBall) && !(e instanceof EnemyShot) && Math.abs(e.cx - cx - VW / 2) < VW) e.draw(cx, cy);
-    for (const e of this.ents) if (!e.dead && e.isBoss) e.draw(cx, cy);
-    for (const e of this.ents) if (!e.dead && e instanceof Enemy && Math.abs(e.cx - cx - VW / 2) < VW) e.draw(cx, cy);
-    for (const f of this.followers) f.draw(cx, cy);
-    for (const a of this.actors) a.draw(cx, cy);
-    if (p.vehicle) drawVehicle(p, cx, cy); else p.draw(cx, cy);
+    for (const e of this.ents) if (!e.dead && !(e instanceof Enemy) && !e.isBoss && !(e instanceof SlimeBall) && !(e instanceof EnemyShot) && Math.abs(e.cx - cx - VW / 2) < VW) drawSafe(e, cx, cy);
+    for (const e of this.ents) if (!e.dead && e.isBoss) drawSafe(e, cx, cy);
+    for (const e of this.ents) if (!e.dead && e instanceof Enemy && Math.abs(e.cx - cx - VW / 2) < VW) drawSafe(e, cx, cy);
+    for (const f of this.followers) drawSafe(f, cx, cy);
+    for (const a of this.actors) drawSafe(a, cx, cy);
+    if (p.vehicle) drawVehicle(p, cx, cy); else drawSafe(p, cx, cy);
     for (const e of this.ents) if (!e.dead && (e instanceof SlimeBall || e instanceof EnemyShot)) e.draw(cx, cy);
     FX.draw(cx, cy);
     for (const e of this.ents) if (e.drawFG && !e.dead) e.drawFG(cx, cy);
@@ -238,7 +241,7 @@ const Game = {
   startChase(o, x) { const L = this.L; L.autoScroll = true; L.scrollX = Cam.x; this.chase = { speed: o.scroll, startX: x, collapse: o.collapse }; this.checkpoint = { x: x - 32, y: this.groundY(L, Math.floor(x / TS)) - 40 }; if (o.giant) { this.chaser = this.add(new GiantChaser({ x: Cam.x - 100, y: this.groundY(L, Math.floor(Cam.x / TS) + 2) })); } else if (!o.collapse) { this.chaser = this.add(new Chaser({ x: Cam.x - 100, y: this.groundY(L, Math.floor(Cam.x / TS) + 2), rider: o.rider, lines: o.lines })); } AudioSys.setIntensity(2); HUD.banner(o.collapse ? 'THE STAGE IS COLLAPSING!' : o.giant ? 'RUN!!!' : 'CHASE!', '#ff3a3a'); },
   endChase(scene) { const L = this.L; L.autoScroll = false; this.chase = null; if (this.chaser) { this.chaser.dead = true; this.chaser = null; } AudioSys.setEngine(false); AudioSys.setIntensity(1); if (scene) this.runScene(scene); },
   raceWon() { this.raceDone = true; AudioSys.setEngine(false); AudioSys.play_sfx('cheer'); HUD.banner('YOU WIN!', '#7fff3a'); this.player.vehicle = true; this.runScene('L23_win', {}, () => { this.player.vehicle = false; this.finishLevel(); }); },
-  raceLost() { this.raceDone = true; AudioSys.play_sfx('miss'); HUD.banner('RAZZ WINS...', '#ff3a3a'); this.runScene('L23_lose', {}, () => { this.restartLevel(); }); },
+  raceLost() { this.raceDone = true; AudioSys.play_sfx('miss'); HUD.banner('ELECTRIC HARLEY WINS...', '#ff3a3a'); this.runScene('L23_lose', {}, () => { this.restartLevel(); }); },
   // ------------------------------------------------------------------ bosses
   bossDefeated(b) {
     this.boss = null; Save.see({ wolf: 'barnaby', cow: 'cowboss', overlord: 'overlord', puppetking: 'puppetking', devourer: 'devourer', clown: 'clownboss', heap: 'heap', feedback: 'feedback' }[this.bossGate ? this.bossGate.o.kind : ''] || 'barnaby');

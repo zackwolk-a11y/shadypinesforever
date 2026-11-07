@@ -99,7 +99,7 @@ class SetPiece extends Ent {
       case 'ampfall': if (k === 50) { Cam.shake(12, 30); AudioSys.play_sfx('explode'); AudioSys.play_sfx('riff'); FX.notes(this.ax, this.ay - 60, 14); for (let i = 0; i < 8; i++) Game.add(new Note(this.ax - 20 + i * 6, this.ay - 90, true)); } if (k > 160) this.finished = true; break;
       case 'cowstomp': if (k % 70 === 35 && k < 420) { Cam.shake(9, 18); AudioSys.play_sfx('rumble'); AudioSys.play_sfx('moo'); for (let i = 0; i < 3; i++) Game.add(new Note(Cam.x + R(40, VW - 40), Cam.y + 10, true)); } if (k > 460) this.finished = true; break;
       case 'stagecollapse': if (k % 40 === 10 && k < 260) { const x = p.cx + R(60, 220); Game.add(new FallingRig(x, Cam.y - 40)); } if (k > 300) this.finished = true; break;
-      case 'bikejump': if (k === 1) { AudioSys.play_sfx('rev'); HUD.toast(pick(['RAZZ: "COMING THROUGH, LETTUCE!"', 'RAZZ: "WATCH THE HAIR!"', 'RAZZ: "SICK JUMP, RIGHT?!"']), '#5bd4ff'); } if (k === 60) { AudioSys.play_sfx('land'); Cam.shake(5, 10); } if (k > 120) this.finished = true; break;
+      case 'bikejump': if (k === 1) { AudioSys.play_sfx('rev'); HUD.toast(pick(['ELECTRIC HARLEY: "COMING THROUGH, LETTUCE!"', 'ELECTRIC HARLEY: "WATCH THE HAIR!"', 'ELECTRIC HARLEY: "SICK JUMP, RIGHT?!"']), '#5bd4ff'); } if (k === 60) { AudioSys.play_sfx('land'); Cam.shake(5, 10); } if (k > 120) this.finished = true; break;
       default: if (k === 30) { Cam.shake(8, 30); AudioSys.play_sfx('rumble'); } if (k === 1) AudioSys.play_sfx(this.kind === 'moonface' ? 'scream' : this.kind === 'milkflood' ? 'splash' : 'explode', { power: 1.5 }); if (k > 300) this.finished = true;
     }
   }
@@ -132,7 +132,7 @@ class FallingRig extends Ent { // stage lights falling: telegraphed by a shadow
   update(L) { this.t++; if (this.wait > 0) { this.wait--; return; } this.vy = Math.min(this.vy + .5, 9); this.y += this.vy; const gy = Game.groundY(L, Math.floor(this.cx / TS)); if (this.y + this.h >= gy) { this.dead = true; Cam.shake(5, 10); AudioSys.play_sfx('break'); FX.burst(this.cx, gy - 6, 20, ['#ffe9a0', '#888', '#fff'], { speed: 4 }); } if (overlap(this, Game.player)) { Game.player.hurt(1, this.cx); this.dead = true; } }
   draw(cx, cy) { const gy = Game.groundY(Game.L, Math.floor(this.cx / TS)) - cy, x = this.cx - cx; ctx.fillStyle = `rgba(0,0,0,${this.wait > 0 ? .25 + Math.sin(this.t * .5) * .1 : .35})`; ctx.beginPath(); ctx.ellipse(x, gy, 22, 5, 0, 0, 7); ctx.fill(); if (this.wait > 0) { text('!', x, gy - 30, { color: '#ff3a3a', align: 'center', outline: true, scale: 2 }); return; } const y = this.y - cy; O.r(x - 20, y, 40, 12, '#333'); for (let i = 0; i < 3; i++) P.e(ctx, x - 12 + i * 12, y + 12, 5, 4, '#ffe9a0'); }
 }
-// giant chaser for escape sequences (the Golden Gloop rolls in behind you)
+// giant chaser for escape sequences (Shitman rolls in behind you)
 class GiantChaser extends Ent {
   constructor(o) { super(o.x, o.y, 120, 120); this.ground = o.y; }
   update(L) { this.t++; this.x = Cam.x - 70 + Math.sin(this.t * .05) * 8; const p = Game.player; if (p.x < this.x + 110) p.hurt(1, this.x); if (this.t % 30 === 0) { Cam.shake(3, 8); AudioSys.play_sfx('gloop'); } this.ground = Game.groundY(L, Math.floor((Cam.x + 60) / TS)); }

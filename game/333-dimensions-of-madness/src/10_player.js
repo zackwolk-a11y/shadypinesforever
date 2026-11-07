@@ -332,7 +332,9 @@ class Player {
       else if (k < 70) { spr(ICON.skull, this.cx - cx, this.cy - cy - (k - 30) * .8, { sx: 2, sy: 2, ay: 6, alpha: 1 - (k - 30) / 40 }); if (k % 5 === 0) FX.smoke(this.cx, this.cy, 0); }
       return;
     }
-    if (this.inv > 0 && Math.floor(this.inv / 4) % 2 && this.inv < 90) return;
+    // invulnerability used to SKIP drawing every other 4 frames (the blinking): now the hero always draws,
+    // with a short red hurt flash and then a soft white pulse while invulnerable
+    const invTint = this.inv > 84 ? '#ff3a3a' : this.inv > 0 && Math.floor(this.inv / 6) % 2 ? '#ffffff' : false;
     const x = this.cx - cx, y = this.y + this.h - cy;
     if (this.isPig()) {
       const st = !this.onGround ? 'jump' : Math.abs(this.vx) > .3 ? (Math.abs(this.vx) > 2.2 ? 'run' : 'walk') : this.whipT > 0 ? 'attack' : 'idle';
@@ -368,8 +370,8 @@ class Player {
     let mouth = this.screamT > 0 ? Math.min(1, this.screamT / 10) : 0;
     if (tg) mouth = tg.ph === 'wind' ? .45 + .5 * ease.out(tk) : tg.ph === 'recover' ? .9 * (1 - tk) : .95;
     if (this.gdir < 0) { sy = -sy; }
-    if (tg && !this.isPig() && IMG.hero_tongue && IMG.hero_tongue.length) { drawTongueFrame(this.cx - cx + px2, this.y + this.h / 2 - 4 - cy, this.face, this.tongueFrame(), { scale: this.form === 'mega' ? 1.5 : 1, flash: this.inv > 88 ? '#ff3a3a' : false }); }
-    else drawHero(x + px2, this.gdir < 0 ? this.y + this.h / 2 - cy : cyy, { closed: true, face: this.face, sx, sy, rot, blink, mouth, form: this.form, aura: this.transT > 0 || this.scream > 40 || this.metal >= 100 && this.t % 30 < 15, flash: this.inv > 88 ? '#ff3a3a' : false });
+    if (tg && !this.isPig() && IMG.hero_tongue && IMG.hero_tongue.length) { drawTongueFrame(this.cx - cx + px2, this.y + this.h / 2 - 4 - cy, this.face, this.tongueFrame(), { scale: this.form === 'mega' ? 1.5 : 1, flash: invTint }); }
+    else drawHero(x + px2, this.gdir < 0 ? this.y + this.h / 2 - cy : cyy, { closed: true, face: this.face, sx, sy, rot, blink, mouth, form: this.form, aura: this.transT > 0 || this.scream > 40 || this.metal >= 100 && this.t % 30 < 15, flash: invTint });
     if (this.scream > 10) { ctx.strokeStyle = `rgba(127,255,58,${this.scream / 60})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, cyy, 40 - (this.t % 10) * 2, 0, 7); ctx.stroke(); }
     if (this.stun) text('?!', x, cyy - 40, { color: '#ffe14d', align: 'center' });
     if (this.megaT > 0 && this.megaT < 180 && this.t % 20 < 10) text(Math.ceil(this.megaT / 60) + '', x, cyy - 60, { color: '#7fff3a', align: 'center', scale: 2 });

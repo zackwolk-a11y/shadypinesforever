@@ -199,19 +199,43 @@ save('cow_body', cow_body, CS, anchors=ca, src_origin=oc2)
 save('cow_cape', cow_cape, CS, anchors={'neck': (690, 540)}, src_origin=ocp)
 save('cow_portrait', cow_full, 140 / 700, anchors=ca, src_origin=oc)
 
-# Biker + motorcycle: rider (top) and bike (bottom) parts, wheel centres for spinning spokes
-biker_box = (1003, 22, 1528, 428)
-biker_full, ob = cut(lineup, box=biker_box)
-split_y = 258
-rider, orr = cut(lineup, box=(1003, 22, 1528, split_y))
-bike, obk = cut(lineup, box=(1003, split_y, 1528, 428))
-BS = 195 / 525
-banc = {'rearWheel': (1085, 336), 'frontWheel': (1430, 336), 'seat': (1230, 250), 'exhaust': (1010, 360),
-        'head': (1340, 120), 'hair': (1180, 100), 'mouth': (1318, 177)}
+# Electric Harley House (of Love) + motorcycle.
+# The cast lineup draws a BLACK bike on a BLACK background, so keying it erased the tank, seat, engine
+# and tyres and left a see-through chrome "wireframe". The bike is taken instead from the supplied
+# Level 2 boss reference (assets/source/biker_boss_reference.png, top-left), where the same rider sits
+# on a fully painted bike over a purple backdrop that can be keyed without touching the black paint.
+def key_biker_ref():
+    ref = Image.open(os.path.join(SRC, 'biker_boss_reference.png')).convert('RGB')
+    a = np.asarray(ref.crop((262, 0, 700, 286))).astype(int); H, W = a.shape[:2]
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]; mx = a.max(2)
+    bgc = (r > 17) & (g < r * .62) & (b >= r * .9) & (mx < 140)          # purple/navy backdrop
+    bgc |= (b > r + 15) & (g < r * .72) & (mx < 130) & (r > 40)           # violet glow (top right)
+    bgc |= (r > 30) & (g < r * .45) & (mx < 75) & (b > g)                 # maroon haze (top)
+    bgc |= (b > r + 30) & (b > g + 50) & (mx < 190) & (r > 25)
+    yy, xx = np.mgrid[0:H, 0:W]
+    cloud = (a.min(2) > 95) & (mx - a.min(2) < 60) & (b >= r) & (xx < 55)  # exhaust smoke at the far left
+    passable = bgc | cloud
+    bg = np.zeros((H, W), bool); bg[0] = passable[0]; bg[-1] = passable[-1]; bg[:, 0] = passable[:, 0]; bg[:, -1] = passable[:, -1]
+    while True:   # flood from the borders: black outlines stop it, so black paint inside is kept
+        n = bg.copy(); n[1:] |= bg[:-1]; n[:-1] |= bg[1:]; n[:, 1:] |= bg[:, :-1]; n[:, :-1] |= bg[:, 1:]; n &= passable
+        if (n == bg).all(): break
+        bg = n
+    pocket = (r > 17) & (g < r * .5) & (b > r + 6) & (mx < 70)          # backdrop seen between frame tubes
+    bg |= pocket | (bgc & (yy < 40)) | (yy >= 271) | ((yy < 8) & (mx < 70))
+    out = np.zeros((H, W, 4), np.uint8); out[..., :3] = a; out[..., 3] = np.where(bg, 0, 255)
+    return Image.fromarray(out, 'RGBA')
+bk = key_biker_ref()
+rider_poly = [(23, 50), (48, 20), (108, 0), (268, 0), (298, 50), (298, 90), (353, 90), (358, 120), (308, 130), (268, 150), (228, 165), (173, 172), (158, 165), (83, 155), (58, 120)]
+biker_full, ob = cut(bk, box=(0, 0, bk.width, bk.height))
+rider, orr = cut(bk, pts=rider_poly, box=(0, 0, bk.width, bk.height))  # full-size layer so it overlays 1:1
+bike, obk = cut(bk, box=(0, 0, bk.width, bk.height), exclude=[rider_poly])
+BS = 200 / 438
+banc = {'rearWheel': (70, 220), 'frontWheel': (367, 220), 'seat': (153, 167), 'exhaust': (45, 235),
+        'head': (253, 77), 'hair': (133, 73), 'mouth': (263, 97)}
 save('biker', biker_full, BS, anchors=banc, src_origin=ob)
 save('biker_rider', rider, BS, anchors=banc, src_origin=orr, do_outline=False)
-save('biker_bike', bike, BS, anchors=banc, src_origin=obk, do_outline=False)
-save('biker_portrait', biker_full, 150 / 525, anchors=banc, src_origin=ob)
+save('biker_bike', bike, BS, anchors=banc, src_origin=obk, do_outline=False, keep=0)
+save('biker_portrait', biker_full, 150 / 438, anchors=banc, src_origin=ob)
 smoke, osm = cut(lineup, box=(876, 280, 1003, 405))
 save('smoke', smoke, 0.18, src_origin=osm)
 

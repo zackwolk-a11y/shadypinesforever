@@ -20,7 +20,7 @@ const HUD = {
       const bw = 300, bx = W / 2 - bw / 2, by = H - 30; panel(bx, by, bw, 10, { rim: '#ff3a3a', bg: '#200' });
       const k = b.hp / b.maxHp; ctx.fillStyle = b.vulnerable === false ? '#888' : '#ff2a4a'; ctx.fillRect(bx, by, bw * k, 10); ctx.fillStyle = '#ff8a9a'; ctx.fillRect(bx, by, bw * k, 2);
       for (const ph of b.phases.slice(1)) P.r(ctx, bx + bw * ph, by, 1, 10, '#000');
-      text(b.name, W / 2, by - 11, { color: '#fff', align: 'center', outline: true });
+      text(b.short || b.name, W / 2, by - 11, { color: '#fff', align: 'center', outline: true });
       if (this.bossIntro > 0) { const a = Math.min(1, this.bossIntro / 30); ctx.globalAlpha = a; text(b.name, W / 2, 120, { color: '#ff2a4a', align: 'center', scale: 3, outline: true }); ctx.globalAlpha = 1; }
     }
     // toasts and banners
@@ -89,7 +89,7 @@ MH.controls = { update(m) { if (Input.pressed.back || Input.pressed.confirm) Men
 MH.forms = { update(m) { if (Input.pressed.back || Input.pressed.confirm) Menus.close(); },
   draw(m) { ctx.fillStyle = 'rgba(8,0,16,.94)'; ctx.fillRect(0, 0, W, H); text('POWER-UPS & PALS', W / 2, 20, { color: '#7fff3a', align: 'center', scale: 2, outline: true });
     ['pig', 'wolf', 'cow', 'slime'].forEach((f, i) => { const y = 60 + i * 52, P_ = POWERS[f]; drawHero(60, y + 18, { face: 1, form: f, sx: .6, sy: .6 }); text(P_.label, 100, y + 4, { color: P_.col, scale: 2 }); text(FORMS[f].desc, 100, y + 24, { color: '#ddd' }); });
-    text('PALS (they help automatically)', 430, 50, { color: '#5bd4ff' }); [['THE THREE PIGS', 'Honk, throw sticks, punch.'], ['CAPTAIN UDDERLY', 'Delivers COW POWER from the sky.'], ['RAZZ VROOMBERG', 'Jumps his chopper over you. Show-off.']].forEach((r, i) => { text(r[0], 430, 70 + i * 36, { color: '#fff' }); text(r[1], 430, 82 + i * 36, { color: '#999' }); }); } };
+    text('PALS (they help automatically)', 430, 50, { color: '#5bd4ff' }); [['THE THREE LITTLE PIGS', 'Honk, throw sticks, punch.'], ['COWGOD', 'Delivers COW POWER from the sky.'], ['ELECTRIC HARLEY', 'Jumps his chopper over you. Show-off.']].forEach((r, i) => { text(r[0], 430, 70 + i * 36, { color: '#fff' }); text(r[1], 430, 82 + i * 36, { color: '#999' }); }); } };
 MH.ency = {
   keys: () => Object.keys(ENCY),
   update(m) { const ks = this.keys(), cols = 6; if (m.detail) { if (Input.pressed.back || Input.pressed.confirm) { m.detail = false; AudioSys.play_sfx('back'); } return; }

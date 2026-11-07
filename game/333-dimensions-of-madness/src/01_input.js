@@ -42,10 +42,11 @@ window.addEventListener('keydown', e => {
   AudioSys.unlock();
 });
 // F (or the options menu) toggles fullscreen; vendor-prefixed fallbacks for Safari
+function fullscreenSupported() { const d = document, el = d.documentElement; return !!((d.fullscreenEnabled || d.webkitFullscreenEnabled) && (el.requestFullscreen || el.webkitRequestFullscreen)); }
 function toggleFullscreen() {
   const d = document, el = d.documentElement;
   try {
-    if (!(d.fullscreenElement || d.webkitFullscreenElement)) { const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => { }); }
+    if (!(d.fullscreenElement || d.webkitFullscreenElement)) { const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); const lock = () => { try { const o = screen.orientation; if (o && o.lock) o.lock('landscape').catch(() => { }); } catch (e) { } }; if (r && r.then) r.then(lock, () => { }); else lock(); }
     else { const r = (d.exitFullscreen || d.webkitExitFullscreen).call(d); if (r && r.catch) r.catch(() => { }); }
   } catch (err) { }
 }
@@ -57,6 +58,14 @@ const Touch = {
   buttons: [['jump', 'JUMP', -64, -70, 92], ['whip', 'ATTACK', -196, -50, 84], ['pause', 'II', -36, 'top', 34]],
   init() {
     const root = document.getElementById('touch');
+    // fullscreen button (top-right, beside pause). Fires on touchEND: browsers only grant fullscreen to a
+    // completed tap. On landscape-capable phones it also locks the screen to landscape.
+    if (fullscreenSupported()) {
+      const fs = document.createElement('div'); fs.className = 'tb'; fs.dataset.a = 'fs'; fs.textContent = '⛶'; fs.style.width = fs.style.height = '34px'; fs.style.right = '58px'; fs.style.top = '10px';
+      fs.addEventListener('touchstart', e => { e.preventDefault(); fs.classList.add('down'); }, { passive: false });
+      fs.addEventListener('touchend', e => { e.preventDefault(); fs.classList.remove('down'); toggleFullscreen(); }, { passive: false });
+      root.appendChild(fs);
+    }
     for (const [act, label, rx, ry, size] of this.buttons) {
       const el = document.createElement('div'); el.className = 'tb'; el.dataset.a = act; el.textContent = label;
       el.style.width = el.style.height = size + 'px';

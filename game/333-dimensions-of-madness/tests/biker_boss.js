@@ -83,7 +83,7 @@ const FIGHTER = `window.FIGHT = function (opts = {}) {
   await mp.goto(URL); await mp.waitForFunction(() => window.DIM333 && DIM333.G.state === 'title'); await mp.tap('#screen'); await mp.addScriptTag({ content: FIGHTER });
   const m = await mp.evaluate(() => { const D = DIM333; D.god(); D.load(1); const Gm = D.Game, enc = Gm.ents.find(e => e instanceof BikerEncounter); Gm.player.x = enc.x0 - 80; Gm.player.y = enc.gyPx - 40; const atk = document.querySelector('.tb[data-a=whip]');
     const touch = () => { atk.dispatchEvent(new Event('touchstart', { cancelable: true })); setTimeout(() => {}, 0); atk.dispatchEvent(new Event('touchend', { cancelable: true })); };
-    const l = FIGHT({ frames: 12000, touch }); return { end: D.G.state, hp: l.hpSeen.length, buttons: document.querySelectorAll('.tb').length }; });
+    const l = FIGHT({ frames: 12000, touch }); return { end: D.G.state, hp: l.hpSeen.length, buttons: document.querySelectorAll('.tb:not([data-a=fs])').length }; });
   await mp.screenshot({ path: `${OUT}/6_mobile.png` });
   ok(m.end === 'results' && m.hp > 4 && merrs.length === 0, 'mobile: the fight is won using the touch ATTACK button', m);
   console.log(fail ? fail + ' FAILED' : 'BIKER BOSS: ALL CHECKS PASS'); await b.close(); process.exit(fail ? 1 : 0);

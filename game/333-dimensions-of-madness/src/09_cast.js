@@ -29,7 +29,7 @@ function drawHero(x, y, o = {}) {
   const sx = (o.sx || 1) * sc, sy = (o.sy || 1) * sc;
   const scU = sc / HD; const ap = k => { const a = A(name)[k]; let dx = (a[0] - ax) * sx, dy = (a[1] - ay) * sy; if (flip) dx = -dx; const cs = Math.cos(o.rot || 0), sn = Math.sin(o.rot || 0); return [x + dx * cs - dy * sn, y + dx * sn + dy * cs]; };
   if (mega) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 10, x, y, 80); g.addColorStop(0, 'rgba(127,255,58,.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x - 80, y - 80, 160, 160); ctx.restore(); }
-  if (o.aura) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .5 + Math.sin(G.t * 20) * .2; spr(flashOf(img, '#7fff3a'), x, y, { ax, ay, flip, sx: sx * 1.12, sy: sy * 1.12, rot: o.rot }); ctx.restore(); }
+  if (o.aura) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .5 + Math.sin(G.t * 20) * .2; spr(flashOf(img, '#7fff3a', 1), x, y, { ax, ay, flip, sx: sx * 1.12, sy: sy * 1.12, rot: o.rot }); ctx.restore(); }
   // form overlays drawn behind the head
   if (o.form === 'pig') { const [tx, ty] = ap('center'); const bx = tx + (flip ? -24 : 24) * scU; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(bx, ty + 4, 4, 0, 5); ctx.stroke(); ctx.strokeStyle = '#ff8ab0'; ctx.lineWidth = 2; ctx.stroke(); }
   if (o.form === 'clown') { const [tx, ty] = ap('top'); for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { P.e(ctx, tx + s * (22 + i * 4) * scU, ty + (6 + i * 6) * scU, 8 * scU, 7 * scU, '#000'); P.e(ctx, tx + s * (22 + i * 4) * scU, ty + (6 + i * 6) * scU, 7 * scU, 6 * scU, ['#b04bff', '#ff5bd1', '#5bd4ff'][i]); } }
@@ -109,7 +109,7 @@ function drawBiker(x, y, o = {}) {
   ctx.rotate(-(o.wheelie || 0) + (o.tilt || 0)); ctx.scale(HD * (o.scale || 1), HD * (o.scale || 1));
   ctx.translate(-piv[0], -piv[1]);
   const spd = o.speed === undefined ? 1 : o.speed, vib = spd > .05 ? (Math.floor(t * 30) % 2) : 0;
-  if (o.flash) { ctx.drawImage(flashOf(full), 0, 0); ctx.restore(); return; }
+  if (o.flash) { ctx.drawImage(flashOf(full, o.flash === true ? '#fff' : o.flash), 0, 0); ctx.restore(); return; }
   // turbo flame
   if (o.turbo) { const ex = an.exhaust; for (let i = 0; i < 3; i++) { const L = 14 + Math.random() * 14; P.poly(ctx, [[ex[0], ex[1] - 4], [ex[0] - L - i * 4, ex[1] + (i - 1) * 3], [ex[0], ex[1] + 4]], ['#ff3a1a', '#ffa01a', '#fff36b'][i]); } }
   ctx.drawImage(bike, 0, H2 - bike.height);
@@ -178,11 +178,11 @@ function drawCow(x, y, o = {}) {
   const capeImg = o.flash ? flashOf(cape) : cape;
   for (let c = 0; c < cape.width; c += 2) { const u = c / cape.width; const dy = Math.sin(t * 12 + u * 7) * amp * (1 - u) + (1 - u) * (o.capeLift || 0); ctx.drawImage(capeImg, c, 0, 2, cape.height, cx0 + c - (1 - u) * (o.capeStretch || 0), cy0 + dy, 2, cape.height); }
   ctx.drawImage(o.flash ? flashOf(body, o.flash === true ? '#fff' : o.flash) : body, 0, 0);
-  if (o.glow) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .4 + Math.sin(t * 10) * .2; ctx.drawImage(flashOf(body, o.glow), 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+  if (o.glow) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .4 + Math.sin(t * 10) * .2; ctx.drawImage(flashOf(body, o.glow, 1), 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   if (o.hypno) { const h = an.head; ctx.strokeStyle = '#ff2aff'; ctx.lineWidth = 1; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(h[0] - 12, h[1] - 14, 3 + i * 3 + (t * 8) % 3, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(h[0] + 10, h[1] - 14, 3 + i * 3 + (t * 8) % 3, 0, 7); ctx.stroke(); } }
   ctx.restore();
 }
-// --------------------------------------------------------------------------- golden sludge
+// --------------------------------------------------------------------------- Shitman
 function drawSludge(x, y, o = {}) {
   const img = o.small ? IMG.gloopkin : IMG.sludge; if (!img) return;
   const t = o.t || G.t, wob = o.wobble === undefined ? 1 : o.wobble, flip = (o.face || -1) > 0;
