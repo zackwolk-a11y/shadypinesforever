@@ -14,9 +14,13 @@ const AudioSys = {
     try {
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
       const ac = this.ac = new AC();
-      this.master = ac.createGain(); this.master.gain.value = .9;
-      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = .004; comp.release.value = .15;
-      this.master.connect(comp); comp.connect(ac.destination);
+      // master: headroom -> gentle glue compressor -> soft top end -> brickwall limiter -> output trim (never clips)
+      this.master = ac.createGain(); this.master.gain.value = .55;
+      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 3; comp.attack.value = .01; comp.release.value = .2;
+      const tame = ac.createBiquadFilter(); tame.type = 'highshelf'; tame.frequency.value = 6000; tame.gain.value = -4;
+      const lim = ac.createDynamicsCompressor(); lim.threshold.value = -6; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .001; lim.release.value = .1;
+      this.out = ac.createGain(); this.out.gain.value = .9;
+      this.master.connect(comp); comp.connect(tame); tame.connect(lim); lim.connect(this.out); this.out.connect(ac.destination);
       this.music = ac.createGain(); this.music.connect(this.master);
       this.sfx = ac.createGain(); this.sfx.connect(this.master);
       this.applyVolumes();
@@ -24,33 +28,37 @@ const AudioSys = {
       const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = nb.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       this.noise = nb;
-      this.distCurve = this.makeCurve(260); this.softCurve = this.makeCurve(18);
+      this.distCurve = this.makeCurve(5); this.softCurve = this.makeCurve(1.5);
       // guitar buses (double tracked L/R)
       this.gtr = [-.65, .65].map(p => {
-        const pre = ac.createGain(); pre.gain.value = 2.4;
-        const ws = ac.createWaveShaper(); ws.curve = this.distCurve; ws.oversample = '2x';
+        const pre = ac.createGain(); pre.gain.value = 1.6;
+        const tone = ac.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 2600; tone.Q.value = .5;
+        const ws = ac.createWaveShaper(); ws.curve = this.distCurve; ws.oversample = '4x';
         const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 90;
-        const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200; lp.Q.value = .8;
-        const mid = ac.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 700; mid.gain.value = -5; mid.Q.value = 1;
-        const out = ac.createGain(); out.gain.value = .085;
+        const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3400; lp.Q.value = .6;
+        const cab = ac.createBiquadFilter(); cab.type = 'lowpass'; cab.frequency.value = 5000; cab.Q.value = .5;
+        const mid = ac.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 700; mid.gain.value = -4; mid.Q.value = 1;
+        const out = ac.createGain(); out.gain.value = .12;
         const pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
-        pre.connect(ws); ws.connect(hp); hp.connect(mid); mid.connect(lp); lp.connect(out);
+        pre.connect(tone); tone.connect(ws); ws.connect(hp); hp.connect(mid); mid.connect(lp); lp.connect(cab); cab.connect(out);
         if (pan) { pan.pan.value = p; out.connect(pan); pan.connect(this.music); } else out.connect(this.music);
         return pre;
       });
       // lead bus with delay
-      const lpre = ac.createGain(); lpre.gain.value = 3;
-      const lws = ac.createWaveShaper(); lws.curve = this.distCurve;
-      const llp = ac.createBiquadFilter(); llp.type = 'lowpass'; llp.frequency.value = 3600;
-      const lout = ac.createGain(); lout.gain.value = .075;
-      const dl = ac.createDelay(1); dl.delayTime.value = .33; const fb = ac.createGain(); fb.gain.value = .32;
-      lpre.connect(lws); lws.connect(llp); llp.connect(lout); lout.connect(this.music); lout.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(this.music);
+      const lpre = ac.createGain(); lpre.gain.value = 1.4;
+      const ltone = ac.createBiquadFilter(); ltone.type = 'lowpass'; ltone.frequency.value = 3200; ltone.Q.value = .5;
+      const lws = ac.createWaveShaper(); lws.curve = this.distCurve; lws.oversample = '4x';
+      const llp = ac.createBiquadFilter(); llp.type = 'lowpass'; llp.frequency.value = 3800; llp.Q.value = .6;
+      const lout = ac.createGain(); lout.gain.value = .11;
+      const dl = ac.createDelay(1); dl.delayTime.value = .33; const fb = ac.createGain(); fb.gain.value = .28;
+      const dlp = ac.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2200; dl.connect(dlp); dlp.connect(fb);
+      lpre.connect(ltone); ltone.connect(lws); lws.connect(llp); llp.connect(lout); lout.connect(this.music); lout.connect(dl); fb.connect(dl); dlp.connect(this.music);
       this.lead = lpre; this.leadDelay = dl;
       // bass bus
-      const bws = ac.createWaveShaper(); bws.curve = this.softCurve; const blp = ac.createBiquadFilter(); blp.type = 'lowpass'; blp.frequency.value = 900;
-      const bout = ac.createGain(); bout.gain.value = .32; bws.connect(blp); blp.connect(bout); bout.connect(this.music); this.bass = bws;
+      const bws = ac.createWaveShaper(); bws.curve = this.softCurve; bws.oversample = '2x'; const blp = ac.createBiquadFilter(); blp.type = 'lowpass'; blp.frequency.value = 900;
+      const bout = ac.createGain(); bout.gain.value = .3; bws.connect(blp); blp.connect(bout); bout.connect(this.music); this.bass = bws;
       // drum bus
-      const dc = ac.createDynamicsCompressor(); dc.threshold.value = -10; dc.ratio.value = 6; const dout = ac.createGain(); dout.gain.value = .9;
+      const dc = ac.createDynamicsCompressor(); dc.threshold.value = -12; dc.ratio.value = 3; dc.attack.value = .008; dc.release.value = .12; const dout = ac.createGain(); dout.gain.value = .8;
       dc.connect(dout); dout.connect(this.music); this.drums = dc;
       // clean bus (organ / kazoo / pads)
       const cl = ac.createGain(); cl.gain.value = .5; cl.connect(this.music); this.clean = cl;
@@ -58,7 +66,7 @@ const AudioSys = {
       setInterval(() => this.schedule(), 25);
     } catch (e) { console.warn('audio init failed', e); }
   },
-  makeCurve(k) { const n = 2048, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; c[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return c; },
+  makeCurve(k) { const n = 4096, c = new Float32Array(n), t = Math.tanh(k); for (let i = 0; i < n; i++) { const x = i * 2 / (n - 1) - 1; c[i] = Math.tanh(k * x) / t; } return c; },
   unlock() { if (!this.ac) this.init(); if (this.ac && this.ac.state !== 'running') { this.ac.resume().then(() => { this.resync(); }); } },
   running() { return this.ac && this.ac.state === 'running'; },
   now() { return this.running() ? this.ac.currentTime : G.t; },
@@ -85,7 +93,7 @@ const AudioSys = {
   leadNote(t, midi, dur, bend = 0, vol = 1) {
     const g = this.ac.createGain(); g.connect(this.lead); this.env(g, t, .01, .5 * vol, dur, .12);
     const o = this.osc('sawtooth', mtof(midi), t, t + dur + .2, g);
-    const o2 = this.osc('square', mtof(midi), t, t + dur + .2, g, 6);
+    const o2 = this.osc('triangle', mtof(midi), t, t + dur + .2, g, 6);
     if (bend) { o.frequency.setValueAtTime(mtof(midi - bend), t); o.frequency.linearRampToValueAtTime(mtof(midi), t + Math.min(.12, dur)); }
     const lfo = this.ac.createOscillator(), lg = this.ac.createGain(); lfo.frequency.value = 6; lg.gain.value = 9; lfo.connect(lg); lg.connect(o.detune); lg.connect(o2.detune); lfo.start(t + .1); lfo.stop(t + dur + .2);
   },
@@ -121,8 +129,8 @@ const AudioSys = {
     const g = this.ac.createGain(); g.connect(this.drums); g.gain.setValueAtTime(.45 * vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .09);
     const o = this.osc('triangle', 200, t, t + .1, g); o.frequency.exponentialRampToValueAtTime(140, t + .08);
   },
-  hat(t, open, vol = 1) { this.noiseHit(t, this.drums, 'highpass', 7800, .5, .22 * vol, open ? .2 : .035); },
-  crash(t, vol = 1) { this.noiseHit(t, this.drums, 'highpass', 4500, .4, .45 * vol, 1.3, .9); },
+  hat(t, open, vol = 1) { this.noiseHit(t, this.drums, 'bandpass', 8500, .8, .16 * vol, open ? .18 : .035); },
+  crash(t, vol = 1) { this.noiseHit(t, this.drums, 'bandpass', 6000, .5, .32 * vol, 1.3, .9); },
   tom(t, f, vol = 1) { const g = this.ac.createGain(); g.connect(this.drums); g.gain.setValueAtTime(.9 * vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .25); const o = this.osc('sine', f, t, t + .26, g); o.frequency.exponentialRampToValueAtTime(f * .55, t + .2); },
   cowbell(t, vol = 1) { const bp = this.ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 800; bp.Q.value = 3; const g = this.ac.createGain(); bp.connect(g); g.connect(this.drums); g.gain.setValueAtTime(.35 * vol, t); g.gain.exponentialRampToValueAtTime(.001, t + .18); this.osc('square', 560, t, t + .2, bp); this.osc('square', 845, t, t + .2, bp); },
   clang(t, vol = 1) {
@@ -200,10 +208,10 @@ const AudioSys = {
   setEngine(on, rpm = .5) {
     if (!this.sfxOn()) return;
     if (on && !this.engine) {
-      const ac = this.ac, g = ac.createGain(); g.gain.value = 0; const ws = ac.createWaveShaper(); ws.curve = this.distCurve;
+      const ac = this.ac, g = ac.createGain(); g.gain.value = 0; const ws = ac.createWaveShaper(); ws.curve = this.softCurve; ws.oversample = '2x';
       const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; ws.connect(lp); lp.connect(g); g.connect(this.sfx);
       const o1 = ac.createOscillator(); o1.type = 'sawtooth'; const o2 = ac.createOscillator(); o2.type = 'square';
-      const lfo = ac.createOscillator(); lfo.type = 'square'; const lg = ac.createGain(); lfo.connect(lg); lg.connect(g.gain);
+      const lfo = ac.createOscillator(); lfo.type = 'triangle'; const lg = ac.createGain(); lfo.connect(lg); lg.connect(g.gain);
       const pre = ac.createGain(); pre.gain.value = .5; o1.connect(pre); o2.connect(pre); pre.connect(ws);
       o1.start(); o2.start(); lfo.start(); this.engine = { g, o1, o2, lfo, lg, lp };
     }

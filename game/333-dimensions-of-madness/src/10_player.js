@@ -190,14 +190,14 @@ class Player {
   contextAttack(L, up, down) {
     const f = this.form, G_ = Game; this.atkCd = 14; this.idleT = 0; const air = !this.onGround || Math.abs(this.vy) > 1;
     const near = (cls, r) => G_.ents.find(e => !e.dead && e instanceof cls && Math.abs(e.cx - this.cx) < r && Math.abs(e.cy - this.cy) < r + 20);
+    // 0) swing: ANY attack (normal or power-up, in the air or on the ground) grabs a hook that is close enough
+    { const h = G_.nearestHook(this); if (h && (air || h.y < this.cy - 24)) { this.startGrapple(h, !air); return; } }
     // 1) power-up attacks
     if (f === 'slime') { const [mx, my] = heroMouth(this.cx, this.cy, this.face, f); for (const a of [-.25, 0, .25]) G_.add(new SlimeBall(mx, my - 2, this.face * 5.5, -1.5 + a * 6, true, 2)); AudioSys.play_sfx('spit'); this.screamT = 10; return; }
     if (f === 'wolf') { this.screamT = 30; this.atkCd = 40; AudioSys.play_sfx('howl'); Cam.shake(4, 16); FX.ring(this.cx, this.cy, 150, '#fff', 30, 4); G_.stunAll(this.cx, this.cy, 150, 150); this.attack({ x: this.cx - 150, y: this.cy - 120, w: 300, h: 240, dmg: 2, kind: 'howl', circle: 150 }); G_.megaScream(this.cx, this.cy, 150); return; }
     if (f === 'pig') { this.dashT = 30; this.atkCd = 30; AudioSys.play_sfx('oink', { pitch: 1 }); FX.ring(this.cx, this.cy, 24, '#ff8ab0', 10, 2); return; }
     if (f === 'cow') { if (air) { this.stompT = 1; AudioSys.play_sfx('moo'); } else { this.dashT = 28; this.atkCd = 30; AudioSys.play_sfx('moo'); } return; }
     if (f === 'mega') { this.bashT = 26; this.atkCd = 20; AudioSys.play_sfx('bash'); Cam.shake(3, 8); return; }
-    // 2) grapple: in the air near a hook
-    if (air) { const h = G_.nearestHook(this); if (h) { this.startGrapple(h); return; } }
     // 3) interact with things nearby
     const sw = G_.ents.find(e => !e.dead && e instanceof Switch && !e.on && Math.abs(e.cx - this.cx) < 70 && Math.abs(e.cy - this.cy) < 90); if (sw) { this.face = sign(sw.cx - this.cx) || this.face; this.startTongue({ target: sw, onReach: () => sw.activate() }); return; }
     const bp = G_.ents.find(e => !e.dead && e instanceof Blueprint && !e.built && this.cx > e.x - 40 && this.cx < e.x + e.w + 40 && Math.abs(e.y - this.y) < 80); if (bp) { bp.build(); return; }
@@ -283,11 +283,13 @@ class Player {
     FX.burst(tx, ty, 14, ['#fff', '#ffe14d', '#ff3a3a'], { speed: 3.5 }); FX.ring(tx, ty, 18, '#fff', 10, 3); FX.pop(tx, ty - 10, pick(['THWACK!', 'SHLAP!', 'SPLORT!']), '#fff'); AudioSys.play_sfx('bite'); Cam.shake(2, 5); G.hitstop = Math.max(G.hitstop, 3);
   }
   // ------------------------------------------------------------------ grapple
-  startGrapple(h) {
-    this.tng = null;
-    const dx = this.cx - h.x, dy = this.cy - h.y; const len = clamp(Math.hypot(dx, dy), 30, 130);
+  startGrapple(h, fromGround) {
+    this.tng = null; this.dashT = 0; this.bashT = 0;
+    const dx = this.cx - h.x, dy = this.cy - h.y; const len = clamp(Math.hypot(dx, dy) - (fromGround ? 16 : 0), 30, 130);
     this.grapple = { h, len, ang: Math.atan2(dx, dy), av: 0 };
     const tang = Math.cos(this.grapple.ang) * this.vx - Math.sin(this.grapple.ang) * this.vy; this.grapple.av = tang / len;
+    // from the ground: yank up off the floor and kick the swing off in the facing direction
+    if (fromGround) { this.onGround = false; this.y -= 6; this.grapple.av += this.face * .05; }
     AudioSys.play_sfx('slurp'); this.grappleCount++; if (this.grappleCount >= 50) Save.achieve('allGrapple');
   }
   updateGrapple(L, left, right, up, down, P_) {
@@ -367,7 +369,7 @@ class Player {
     if (tg) mouth = tg.ph === 'wind' ? .45 + .5 * ease.out(tk) : tg.ph === 'recover' ? .9 * (1 - tk) : .95;
     if (this.gdir < 0) { sy = -sy; }
     if (tg && !this.isPig() && IMG.hero_tongue && IMG.hero_tongue.length) { drawTongueFrame(this.cx - cx + px2, this.y + this.h / 2 - 4 - cy, this.face, this.tongueFrame(), { scale: this.form === 'mega' ? 1.5 : 1, flash: this.inv > 88 ? '#ff3a3a' : false }); }
-    else drawHero(x + px2, this.gdir < 0 ? this.y + this.h / 2 - cy : cyy, { closed: true, tongueIn: !tg && !this.grapple, face: this.face, sx, sy, rot, blink, mouth, form: this.form, aura: this.transT > 0 || this.scream > 40 || this.metal >= 100 && this.t % 30 < 15, flash: this.inv > 88 ? '#ff3a3a' : false });
+    else drawHero(x + px2, this.gdir < 0 ? this.y + this.h / 2 - cy : cyy, { closed: true, face: this.face, sx, sy, rot, blink, mouth, form: this.form, aura: this.transT > 0 || this.scream > 40 || this.metal >= 100 && this.t % 30 < 15, flash: this.inv > 88 ? '#ff3a3a' : false });
     if (this.scream > 10) { ctx.strokeStyle = `rgba(127,255,58,${this.scream / 60})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, cyy, 40 - (this.t % 10) * 2, 0, 7); ctx.stroke(); }
     if (this.stun) text('?!', x, cyy - 40, { color: '#ffe14d', align: 'center' });
     if (this.megaT > 0 && this.megaT < 180 && this.t % 20 < 10) text(Math.ceil(this.megaT / 60) + '', x, cyy - 60, { color: '#7fff3a', align: 'center', scale: 2 });

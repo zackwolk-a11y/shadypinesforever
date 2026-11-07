@@ -70,7 +70,7 @@ MH.options = {
       else if (c === 'DIFFICULTY') { const L_ = ['easy', 'normal', 'hard']; o.diff = L_[(L_.indexOf(o.diff) + dd + 3) % 3]; }
       else if (c === 'SCREEN SHAKE') o.shake = !o.shake;
       else if (c === 'TOUCH CONTROLS') { const L_ = ['auto', 'on', 'off']; o.touch = L_[(L_.indexOf(o.touch || 'auto') + dd + 3) % 3]; applyTouchPref(); }
-      else if (c === 'FULLSCREEN' && Input.pressed.confirm) { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); } catch (e) { } }
+      else if (c === 'FULLSCREEN' && Input.pressed.confirm) { toggleFullscreen(); }
       else if (c === 'ERASE SAVE DATA' && Input.pressed.confirm) Menus.open('confirmErase');
       else if (c === 'BACK' && Input.pressed.confirm) { Save.write(); Menus.close(); }
       AudioSys.play_sfx('menu'); Save.write();
@@ -82,10 +82,10 @@ MH.confirmErase = { update(m) { if (Input.pressed.left || Input.pressed.right) m
   draw(m) { ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillRect(0, 0, W, H); panel(W / 2 - 130, 140, 260, 70, { rim: '#ff3a3a' }); text('ERASE ALL PROGRESS?', W / 2, 152, { color: '#ff3a3a', align: 'center' }); text((m.sel === 0 ? '► ' : '  ') + 'NO', W / 2 - 50, 180, { color: m.sel === 0 ? '#fff' : '#888', align: 'center' }); text((m.sel === 1 ? '► ' : '  ') + 'YES, ERASE', W / 2 + 50, 180, { color: m.sel === 1 ? '#fff' : '#888', align: 'center' }); } };
 MH.controls = { update(m) { if (Input.pressed.back || Input.pressed.confirm) Menus.close(); },
   draw() { ctx.fillStyle = 'rgba(8,0,16,.94)'; ctx.fillRect(0, 0, W, H); text('CONTROLS', W / 2, 30, { color: '#7fff3a', align: 'center', scale: 3, outline: true });
-    const rows = [['MOVE', 'ARROWS / WASD', 'STICK / D-PAD', 'LEFT STICK'], ['JUMP', 'SPACE / Z', 'A', 'JUMP'], ['ATTACK', 'X / J / C / SHIFT', 'X  B  Y  RB', 'ATTACK'], ['PAUSE', 'ESC / P', 'START', 'II']];
+    const rows = [['MOVE', 'ARROWS / WASD', 'STICK / D-PAD', 'LEFT STICK'], ['JUMP', 'SPACE / Z', 'A', 'JUMP'], ['ATTACK', 'X / J / C / SHIFT', 'X  B  Y  RB', 'ATTACK'], ['PAUSE', 'ESC / P', 'START', 'II'], ['FULLSCREEN', 'F', '-', '-']];
     text('KEYBOARD', 250, 90, { color: '#ffe14d' }); text('GAMEPAD', 400, 90, { color: '#ffe14d' }); text('TOUCH', 530, 90, { color: '#ffe14d' });
-    rows.forEach((r, i) => { text(r[0], 60, 112 + i * 26, { color: '#fff', scale: 2 }); text(r[1], 250, 116 + i * 26, { color: '#aaa' }); text(r[2], 400, 116 + i * 26, { color: '#aaa' }); text(r[3], 530, 116 + i * 26, { color: '#aaa' }); });
-    ['ATTACK is smart: it whips, smashes walls, spins in the air, rolls when you run,', 'swings from hooks, builds houses and flips switches - whatever makes sense.', 'Grab glowing bubbles for temporary PIG, WOLF, COW or SLIME power!'].forEach((l, i) => text(l, W / 2, 240 + i * 14, { color: '#5bd4ff', align: 'center' })); } };
+    rows.forEach((r, i) => { text(r[0], 60, 108 + i * 24, { color: '#fff', scale: 2 }); text(r[1], 250, 112 + i * 24, { color: '#aaa' }); text(r[2], 400, 112 + i * 24, { color: '#aaa' }); text(r[3], 530, 112 + i * 24, { color: '#aaa' }); });
+    ['ATTACK is smart: it whips, smashes walls, spins in the air, rolls when you run,', 'builds houses and flips switches - whatever makes sense.', 'Near a hook, ANY attack (even a power-up one) swings from it automatically.', 'Grab glowing bubbles for temporary PIG, WOLF, COW or SLIME power!'].forEach((l, i) => text(l, W / 2, 238 + i * 14, { color: '#5bd4ff', align: 'center' })); } };
 MH.forms = { update(m) { if (Input.pressed.back || Input.pressed.confirm) Menus.close(); },
   draw(m) { ctx.fillStyle = 'rgba(8,0,16,.94)'; ctx.fillRect(0, 0, W, H); text('POWER-UPS & PALS', W / 2, 20, { color: '#7fff3a', align: 'center', scale: 2, outline: true });
     ['pig', 'wolf', 'cow', 'slime'].forEach((f, i) => { const y = 60 + i * 52, P_ = POWERS[f]; drawHero(60, y + 18, { face: 1, form: f, sx: .6, sy: .6 }); text(P_.label, 100, y + 4, { color: P_.col, scale: 2 }); text(FORMS[f].desc, 100, y + 24, { color: '#ddd' }); });

@@ -38,8 +38,17 @@ window.addEventListener('keydown', e => {
   const a = KEYMAP[e.code]; if (a) { if (!Input._down[a]) Input._latch[a] = true; Input._down[a] = true; e.preventDefault(); Input.mode = 'keys'; }
   if (e.code === 'Escape') Input._down.back = true;
   if (e.code === 'F3') G.debug = !G.debug;
+  if (e.code === 'KeyF' && !e.repeat) { e.preventDefault(); toggleFullscreen(); }
   AudioSys.unlock();
 });
+// F (or the options menu) toggles fullscreen; vendor-prefixed fallbacks for Safari
+function toggleFullscreen() {
+  const d = document, el = d.documentElement;
+  try {
+    if (!(d.fullscreenElement || d.webkitFullscreenElement)) { const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => { }); }
+    else { const r = (d.exitFullscreen || d.webkitExitFullscreen).call(d); if (r && r.catch) r.catch(() => { }); }
+  } catch (err) { }
+}
 window.addEventListener('keyup', e => { const a = KEYMAP[e.code]; if (a) Input._down[a] = false; if (e.code === 'Escape') Input._down.back = false; });
 window.addEventListener('blur', () => { Input._down = {}; });
 
