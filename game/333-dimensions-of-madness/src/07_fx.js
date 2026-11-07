@@ -50,7 +50,7 @@ const Cam = {
     this.look = lerp(this.look || 0, facing * VW * .12, instant ? 1 : .025);
     let tx = px - VW / 2 + this.look, ty = this.ty0 === undefined ? py - VH * .56 : this.ty0;
     const want = py - VH * .56; if (instant || Math.abs(want - ty) > 18) ty = lerp(ty, want, instant ? 1 : .08); this.ty0 = ty;
-    if (L.camLock) { tx = clamp(tx, L.camLock.x0, L.camLock.x1 - VW); }
+    if (L.camLock) { tx = clamp(tx, L.camLock.x0, L.camLock.x1 - VW); if (L.camLock.gy) ty = L.camLock.gy - VH * .86; } // gy: arena floor low on screen (room for big flying bosses)
     tx = clamp(tx, 0, L.w * TS - VW); ty = clamp(ty, 0, L.h * TS - VH);
     if (L.autoScroll) tx = Math.max(this.x, L.scrollX);
     if (instant) { this.x = tx; this.y = ty; } else { this.x = lerp(this.x, tx, L.autoScroll ? 1 : .1); this.y = lerp(this.y, ty, .1); }

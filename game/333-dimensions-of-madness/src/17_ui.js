@@ -210,7 +210,7 @@ const Title = {
     drawPig('hamwise', px, 352, { face: 1, state: 'walk', t }); drawPig('porkington', px - 30, 352, { face: 1, state: 'walk', t: t + .2 }); drawPig('trufflina', px - 66, 352, { face: 1, state: 'walk', t: t + .4 });
     drawBiker(px - 160, 354, { face: 1, t, speed: 1, wheelie: Math.sin(t) > .6 ? .25 : 0 });
     drawWolf(W + 300 - ((t * 32) % (W + 600)), 356, { face: -1, t, scale: .42, arm: Math.sin(t * 4) * .6 });
-    drawCow(W + 380 - ((t * 32) % (W + 600)), 300, { face: -1, t, scale: .35, rot: -.1 * Math.sin(t) });
+    drawCow(W + 380 - ((t * 32) % (W + 600)), 300, { face: -1, t, scale: .55, rot: -.1 * Math.sin(t) });
     drawSludge(W + 470 - ((t * 32) % (W + 600)), 358, { face: -1, t, scale: .2 });
     if (!this.pressed) { if (Math.floor(t * 2) % 2) text(Input.mode === 'touch' ? 'TAP TO ROCK' : 'PRESS ANY BUTTON', W / 2, 300, { color: '#fff', align: 'center', scale: 2, outline: true }); }
     else { panel(W / 2 - 100, 236, 200, this.items().length * 14 + 8, { rim: '#7fff3a', bg: 'rgba(20,8,30,.9)' }); drawList(this.items(), this.sel, W / 2 - 84, 242, { gap: 14, w: 190 }); }

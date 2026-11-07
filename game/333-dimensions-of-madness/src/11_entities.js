@@ -320,7 +320,7 @@ function drawActor(who, x, y, o = {}) {
     case 'hamwise': case 'porkington': case 'trufflina': drawPig(who, x, y, { face: o.face, state: o.anim === 'dance' ? 'dance' : o.anim || 'idle', t }); break;
     case 'razz': drawBiker(x, y, { face: o.face, t, speed: o.anim === 'idle' ? .1 : 1, wheelie: o.anim === 'wheelie' ? .35 + Math.sin(t * 4) * .05 : 0 }); break;
     case 'barnaby': drawWolf(x, y, { face: o.face, t, arm: o.anim === 'howl' ? -.3 : Math.sin(t * 2) * .2, rot: o.anim === 'howl' ? -.2 : 0, scale: o.scale || .7 }); break;
-    case 'udderly': drawCow(x, y - (o.anim === 'fly' ? 20 + Math.sin(t * 3) * 6 : 0), { face: o.face, t, scale: o.scale || .6, rot: o.anim === 'fly' ? -.15 : 0, hypno: o.hypno }); break;
+    case 'udderly': drawCow(x, y - (o.anim === 'fly' ? 20 + Math.sin(t * 3) * 6 : 0), { face: o.face, t, scale: o.scale || 1.05, rot: o.anim === 'fly' ? -.15 : 0, hypno: o.hypno }); break;
     case 'gloop': drawSludge(x, y, { face: o.face, t, scale: o.scale || .45 }); break;
     case 'gloopkin': drawGloopkin(x, y, { face: o.face, t }); break;
     case 'bear': spr(SPR.bear[Math.floor(t * 2) % 2], x, y, { flip: (o.face || 1) < 0 }); break;

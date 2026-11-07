@@ -99,29 +99,30 @@ class WolfBoss extends Boss {
 }
 // ---------------------------------------------------------------------------- COWGOD (hypnotized)
 class CowBoss extends Boss {
-  constructor(x, y, o) { super(x, y - 90, 80, 70, o); this.name = 'COWGOD (HYPNOTIZED)'; this.setHp(30); this.ground = y; this.face = -1; this.rot = 0; this.cape = 3; this.capeStretch = 0; this.sxx = 1; this.syy = 1; this.hx = x; }
+  constructor(x, y, o) { super(x - 35, y - 170, 150, 120, o); this.name = 'COWGOD (HYPNOTIZED)'; this.setHp(30); this.ground = y; this.face = -1; this.rot = 0; this.cape = 3; this.capeStretch = 0; this.sxx = 1; this.syy = 1; this.hx = x; }
   hitbox() { return { x: this.x + 10, y: this.y + 8, w: this.w - 20, h: this.h - 10 }; }
   update(L) {
     if (!this.commonUpdate()) return; const p = Game.player, a = L.camLock || { x0: Cam.x, x1: Cam.x + W }, mid = (a.x0 + a.x1) / 2, spd = 1 + (this.phase - 1) * .25;
+    if (L.camLock) L.camLock.gy = this.ground; // frame the arena with the floor low: Cowgod is BIG and needs sky
     this.rot = lerp(this.rot, 0, .08); this.cape = lerp(this.cape, 3, .05); this.capeStretch = lerp(this.capeStretch, 0, .1); this.sxx = lerp(this.sxx, 1, .15); this.syy = lerp(this.syy, 1, .15);
     switch (this.state) {
-      case 'intro': this.y = this.ground - 160 + Math.sin(this.t * .05) * 8; if (this.st > 60) this.go('hover'); break;
-      case 'hover': this.face = sign(p.cx - this.cx) || -1; this.x = lerp(this.x, p.cx - this.w / 2 - this.face * 120, .02); this.y = lerp(this.y, this.ground - 170 + Math.sin(this.t * .06) * 14, .05);
+      case 'intro': this.y = this.ground - 196 + Math.sin(this.t * .05) * 8; if (this.st > 60) this.go('hover'); break;
+      case 'hover': this.face = sign(p.cx - this.cx) || -1; this.x = lerp(this.x, p.cx - this.w / 2 - this.face * 160, .02); this.y = lerp(this.y, this.ground - 196 + Math.sin(this.t * .06) * 8, .05);
         if (this.st > 80 / spd) this.go(pick(this.phase === 1 ? ['swoop', 'charge'] : ['swoop', 'stomp', 'charge'])); break;
       case 'swoop': { if (this.st === 1) { this.sx0 = this.x; this.tx = p.cx; AudioSys.play_sfx('flap'); AudioSys.play_sfx('moo'); }
-        const k = this.st / (70 / spd); this.x = lerp(this.sx0, this.tx - this.w / 2 + this.face * 220, k); this.y = this.ground - 170 + Math.sin(k * Math.PI) * 130; this.rot = .3 * this.face * Math.cos(k * Math.PI); this.cape = 7; this.capeStretch = 6;
+        const k = this.st / (70 / spd); this.x = lerp(this.sx0, this.tx - this.w / 2 + this.face * 260, k); this.y = this.ground - 196 + Math.sin(k * Math.PI) * (196 - this.h); this.rot = .3 * this.face * Math.cos(k * Math.PI); this.cape = 7; this.capeStretch = 6;
         if (this.st % 4 === 0) FX.add({ x: this.cx - this.face * 30, y: this.cy, vx: -this.face, vy: 0, col: '#ff3a3a', size: 2, life: 20, grav: 0 });
         Game.bossAttack(this.hitbox()); if (k >= 1) this.go('hover'); break; }
       case 'charge': if (this.st < 30) { this.y = lerp(this.y, this.ground - this.h, .2); this.syy = .9; this.face = sign(p.cx - this.cx) || -1; } else { if (this.st === 30) AudioSys.play_sfx('moo'); this.x += this.face * 6.5 * spd; this.cape = 8; this.capeStretch = 10; this.rot = .1 * this.face; if (this.st % 2 === 0) FX.dust(this.cx - this.face * 30, this.ground, 1); Game.bossAttack(this.hitbox()); if (this.x < a.x0 - 20 || this.x + this.w > a.x1 + 20) { this.x = clamp(this.x, a.x0 - 20, a.x1 - this.w + 20); Cam.shake(6, 12); AudioSys.play_sfx('bash'); this.go('dizzy'); } } break;
       case 'dizzy': this.y = this.ground - this.h; if (this.st > 90 - this.phase * 15) this.go('hover'); break;
-      case 'stomp': if (this.st < 50) { this.x = lerp(this.x, p.cx - this.w / 2, .08); this.y = lerp(this.y, this.ground - 230, .1); } else if (this.st === 50) { this.vy = 2; } else { this.vy += .8; this.y += this.vy; this.syy = 1.2; this.sxx = .85; if (this.y + this.h >= this.ground) { this.y = this.ground - this.h; this.syy = .65; this.sxx = 1.35; Cam.shake(8, 16); AudioSys.play_sfx('bash'); AudioSys.play_sfx('rumble'); FX.ring(this.cx, this.ground, 120, '#fff', 20, 4); FX.dust(this.cx, this.ground, 16); Game.bossAttack({ x: this.cx - 90, y: this.ground - 16, w: 180, h: 16 }); Game.add(new EnemyShot(this.cx, this.ground - 8, -3.2, 0, 'wave')); Game.add(new EnemyShot(this.cx, this.ground - 8, 3.2, 0, 'wave')); this.go('dizzy'); } } break;
+      case 'stomp': if (this.st < 50) { this.x = lerp(this.x, p.cx - this.w / 2, .08); this.y = lerp(this.y, this.ground - 200, .1); } else if (this.st === 50) { this.vy = 2; } else { this.vy += .8; this.y += this.vy; this.syy = 1.2; this.sxx = .85; if (this.y + this.h >= this.ground) { this.y = this.ground - this.h; this.syy = .65; this.sxx = 1.35; Cam.shake(8, 16); AudioSys.play_sfx('bash'); AudioSys.play_sfx('rumble'); FX.ring(this.cx, this.ground, 120, '#fff', 20, 4); FX.dust(this.cx, this.ground, 16); Game.bossAttack({ x: this.cx - 90, y: this.ground - 16, w: 180, h: 16 }); Game.add(new EnemyShot(this.cx, this.ground - 8, -3.2, 0, 'wave')); Game.add(new EnemyShot(this.cx, this.ground - 8, 3.2, 0, 'wave')); this.go('dizzy'); } } break;
       case 'cape': this.cape = 14; this.rot = Math.sin(this.st * .4) * .2; if (this.st % 10 === 0) { AudioSys.play_sfx('flap'); Game.add(new EnemyShot(this.cx, this.cy, R(-4, 4), R(-3, -1), 'spore')); } Game.L.wind = this.face * -.15; if (this.st > 80) { Game.L.wind = 0; this.go('hover'); } break;
       case 'dying': this.y = Math.min(this.y + 1, this.ground - this.h); break;
     }
     if (this.state !== 'swoop' && this.state !== 'charge' && this.state !== 'dying' && this.state !== 'intro') this.contactDmg();
   }
-  draw(cx, cy) { const x = this.cx - cx, y = this.y + this.h - cy + 10; drawCow(x, y, { face: this.face, t: this.t / 60, scale: .62 * this.sxx, sy: this.syy / this.sxx, rot: this.rot, cape: this.cape, capeStretch: this.capeStretch, hypno: !this.defeated, flash: this.flash > 0 ? '#fff' : false });
-    if (this.state === 'dizzy') for (let i = 0; i < 3; i++) { const a = this.t * .12 + i * 2.1; ctx.drawImage(ICON.star, x + Math.cos(a) * 20 - 7, y - 90 + Math.sin(a) * 4); } }
+  draw(cx, cy) { const x = this.cx - cx, y = this.y + this.h - cy + 10; drawCow(x, y, { face: this.face, t: this.t / 60, scale: 1.18 * this.sxx, sy: this.syy / this.sxx, rot: this.rot, cape: this.cape, capeStretch: this.capeStretch, hypno: !this.defeated, flash: this.flash > 0 ? '#fff' : false });
+    if (this.state === 'dizzy') for (let i = 0; i < 3; i++) { const a = this.t * .12 + i * 2.1; ctx.drawImage(ICON.star, x + Math.cos(a) * 34 - 7, y - 150 + Math.sin(a) * 5); } }
 }
 // ---------------------------------------------------------------------------- BOVINE OVERLORD (mech cow)
 class OverlordBoss extends Boss {
@@ -378,7 +379,7 @@ class FeedbackBoss extends Boss {
     if (this.allyEvent) { const e = this.allyEvent, k = e.t / 60, gy = this.ground - cy;
       if (e.k === 'pigs') { const px = -60 + e.t * 5; drawPig('trufflina', px + 40, gy, { face: 1, state: 'run', t: k }); drawPig('porkington', px, gy, { face: 1, state: 'run', t: k + .2 }); drawPig('hamwise', px - 36, gy, { face: 1, state: 'run', t: k + .4, prop: 'kazoo' }); }
       if (e.k === 'razz') drawBiker(-80 + e.t * 7, gy, { face: 1, t: k, speed: 2, turbo: true, wheelie: .25 });
-      if (e.k === 'udderly') drawCow(x - 200 + e.t * 4, y - 60 + Math.min(e.t, 40) * 3, { face: 1, t: k, scale: .5, rot: .5, cape: 10, capeStretch: 8 });
+      if (e.k === 'udderly') drawCow(x - 200 + e.t * 4, y - 60 + Math.min(e.t, 40) * 3, { face: 1, t: k, scale: .9, rot: .5, cape: 10, capeStretch: 8 });
       if (e.k === 'barnaby') { drawWolf(60, gy, { face: 1, t: k, scale: .55, rot: -.35, arm: -.4 }); if (e.t % 10 === 0) FX.ring(60 + cx, this.ground - 90, 160, '#fff', 20, 2); }
       if (e.k === 'gloop') { drawSludge(x + 30, gy + 4, { t: k, scale: .7, sx: 1.8, sy: .5, wobble: 2 }); }
     }

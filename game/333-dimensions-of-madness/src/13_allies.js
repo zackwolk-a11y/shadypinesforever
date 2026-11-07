@@ -7,11 +7,11 @@ class UdderlyAlly extends Ent { // Cowgod flies alongside and assists in fights
   update(L) {
     this.t++; this.st++; const p = Game.player;
     if (this.mode === 'follow' && this.t % 1500 === 600 && p.form === 'normal') { Game.add(new PowerUp({ x: this.cx, y: this.cy, kind: 'cow', drop: true })); HUD.toast('COWGOD: "SPECIAL DELIVERY, CITIZEN!"', '#fff'); AudioSys.play_sfx('moo'); }
-    if (this.mode === 'follow') { this.x = lerp(this.x, p.cx - p.face * 70, .04); this.y = lerp(this.y, p.cy - 90 + Math.sin(this.t * .05) * 10, .05); this.face = sign(p.cx - this.cx) || 1; }
+    if (this.mode === 'follow') { this.x = lerp(this.x, p.cx - p.face * 105, .04); this.y = lerp(this.y, p.cy - 62 + Math.sin(this.t * .05) * 8, .05); this.face = sign(p.cx - this.cx) || 1; }
     else if (this.mode === 'dive') { const k = Math.min(1, this.st / 30); this.x = lerp(this.x, this.tx, k * .3); this.y = lerp(this.y, this.ty, k * .3); this.face = sign(this.tx - this.cx) || 1;
       if (dist(this.cx, this.cy, this.tx, this.ty) < 30 || this.st > 60) { this.mode = 'follow'; Cam.shake(6, 14); AudioSys.play_sfx('bash'); FX.ring(this.tx, this.ty, 60, '#fff'); for (const e of Game.ents) if (e.isBoss && !e.defeated) { if (e.state !== 'dying' && e.go) { e.hit(3, { kind: 'ally' }); if (e instanceof OverlordBoss) e.go('stunned'); } } } }
   }
-  draw(cx, cy) { drawCow(this.cx - cx, this.y + this.h - cy + 30, { face: this.face, t: this.t / 60, scale: .42, rot: this.mode === 'dive' ? .5 * this.face : -.12 * this.face, cape: this.mode === 'dive' ? 9 : 4, capeStretch: this.mode === 'dive' ? 8 : 0 }); }
+  draw(cx, cy) { drawCow(this.cx - cx, this.y + this.h - cy + 30, { face: this.face, t: this.t / 60, scale: .8, rot: this.mode === 'dive' ? .5 * this.face : -.12 * this.face, cape: this.mode === 'dive' ? 9 : 4, capeStretch: this.mode === 'dive' ? 8 : 0 }); }
 }
 // ---------------------------------------------------------------- summons (cost 50 METAL)
 const SUMMONS = {
@@ -35,7 +35,7 @@ class Summon extends Ent {
     const x = this.x - cx, gy = this.ground - cy;
     if (this.kind === 'pigs') { drawPig('trufflina', x + 40, gy, { face: 1, state: 'run', t: this.t / 60 }); drawPig('porkington', x, gy, { face: 1, state: 'run', t: this.t / 60 + .2 }); drawPig('hamwise', x - 36, gy, { face: 1, state: 'run', t: this.t / 60 + .4, prop: 'kazoo' }); }
     if (this.kind === 'razz') drawBiker(x, gy, { face: 1, t: this.t / 60, speed: 2, turbo: true, wheelie: .15 });
-    if (this.kind === 'udderly') drawCow(x, gy - 80, { face: 1, t: this.t / 60, scale: .5, rot: -.1, cape: 8, capeStretch: 6 });
+    if (this.kind === 'udderly') drawCow(x, gy - 80, { face: 1, t: this.t / 60, scale: .9, rot: -.1, cape: 8, capeStretch: 6 });
   }
 }
 // ---------------------------------------------------------------- chase pursuer (backstage / pig chase)

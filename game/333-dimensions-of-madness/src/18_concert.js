@@ -78,7 +78,7 @@ const Ending = {
     drawPig('trufflina', 216, 300, { face: 1, state: Math.floor(t * 2) % 2 ? 'attack' : 'idle', t, sq: 1 + Math.sin(t * 8) * .06 });
     const rx = W / 2 + Math.cos(t * .8) * 220, dir = -Math.sin(t * .8); drawBiker(rx, 302, { face: dir > 0 ? 1 : -1, t, speed: 1.4, wheelie: .3 + Math.sin(t * 3) * .1, turbo: true }); if (k % 3 === 0) FX.smoke(rx - (dir > 0 ? 60 : -60), 292, -dir * 2);
     drawWolf(540, 302, { face: -1, t, scale: .5, rot: -.35, arm: -.4 + Math.sin(t * 3) * .2 }); if (k % 90 === 0) { AudioSys.play_sfx('howl'); FX.ring(530, 220, 60, '#fff', 30, 2); }
-    drawCow(W / 2 + Math.cos(t * 1.4) * 160, 120 + Math.sin(t * 2.8) * 40, { face: Math.sin(t * 1.4) < 0 ? 1 : -1, t, scale: .38, rot: Math.sin(t * 1.4) * .3, cape: 8, capeStretch: 6 });
+    drawCow(W / 2 + Math.cos(t * 1.4) * 160, 120 + Math.sin(t * 2.8) * 40, { face: Math.sin(t * 1.4) < 0 ? 1 : -1, t, scale: .6, rot: Math.sin(t * 1.4) * .3, cape: 8, capeStretch: 6 });
     const gm = Math.floor(t / 2) % 3; if (gm === 0) drawSludge(420, 302, { t, scale: .3, sy: 1 + Math.sin(t * 4) * .4, wobble: 2 }); else if (gm === 1) { for (const s of [-1, 0, 1]) drawSludge(420 + s * 26, 302, { t: t + s, scale: .14, sy: 1 + Math.abs(Math.sin(t * 6 + s)) * .5 }); } else drawSludge(420, 302, { t, scale: .3, sx: 1.6, sy: .6, wobble: 3, bulge: .2 });
     FX.draw(0, 0);
     // credits roll
