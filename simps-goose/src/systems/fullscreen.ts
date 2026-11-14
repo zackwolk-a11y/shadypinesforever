@@ -22,6 +22,7 @@ export async function toggleFullscreen() {
     // landscape is nicer on phones when the browser allows locking it (ignored elsewhere)
     try { await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape'); } catch { /* not allowed */ }
   } catch {
-    notify('FULLSCREEN NOT AVAILABLE HERE', 'OPEN THE GAME IN ITS OWN BROWSER TAB, OR ADD IT TO YOUR HOME SCREEN');
+    const ios = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    notify(ios ? 'IPHONE: TAP SHARE, THEN ADD TO HOME SCREEN' : 'FULLSCREEN NOT AVAILABLE HERE', ios ? 'OPEN IT FROM YOUR HOME SCREEN FOR FULL SCREEN' : 'OPEN THE GAME IN ITS OWN BROWSER TAB');
   }
 }
