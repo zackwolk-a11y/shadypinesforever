@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Infinitely Love Healing Arts — Rest · Reset · Revive</title>
+<meta name="description" content="Infinitely Love Healing Arts in Portland, OR. Thai massage, yoga, fusion bellydance and herbal products.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Della+Respira&family=Montserrat:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#330c05; --tan:#9f8769; --sand:#d9a97f; --stone:#b3ac9c; --cream:#ffeddf;
+    --peach:#edb498; --clay:#d49f7e; --terra:#b17252; --sage:#5d855d; --rose:#ee9999;
+    --text:#7e5115;
+    --head:'Della Respira',Georgia,'Times New Roman',serif;
+    --body:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --bg:#ffeddf;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--body);color:var(--text);background:var(--bg);line-height:1.65;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:var(--head);font-weight:400;color:var(--ink);line-height:1.15;text-wrap:balance}
+  a{color:inherit}
+  #scene{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block}
+  main,header,footer{position:relative;z-index:1}
+
+  /* nav */
+  header{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px clamp(16px,4vw,48px);background:rgba(237,180,152,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:box-shadow .3s}
+  header.scrolled{box-shadow:0 6px 24px rgba(51,12,5,.14)}
+  .brand{display:flex;align-items:center;text-decoration:none;font-family:var(--head);font-size:1.15rem;color:var(--ink);min-height:44px}
+  .brand img{height:44px;width:auto;display:block}
+  nav{display:flex;align-items:center;gap:clamp(10px,2vw,26px);font-size:.84rem;font-weight:500;letter-spacing:.04em}
+  nav a{text-decoration:none;color:var(--ink);padding:6px 0;border-bottom:1px solid transparent;transition:border-color .2s}
+  nav a:hover,nav a:focus-visible{border-color:var(--ink)}
+  nav a.hide-sm{display:none}
+  @media(min-width:760px){nav a.hide-sm{display:inline}}
+
+  .btn{display:inline-block;font-family:var(--body);font-weight:600;font-size:.95rem;letter-spacing:.06em;text-decoration:none;padding:13px 34px;border-radius:5px;background:var(--sand);color:var(--ink);border:2px solid var(--sand);transition:transform .2s,background .2s,box-shadow .2s;box-shadow:0 6px 18px rgba(51,12,5,.14)}
+  .btn:hover,.btn:focus-visible{background:#ca9a70;border-color:#ca9a70;transform:translateY(-2px);box-shadow:0 10px 24px rgba(51,12,5,.2)}
+  .btn.ghost{background:transparent;border-color:currentColor;box-shadow:none}
+  .btn.ghost:hover,.btn.ghost:focus-visible{background:rgba(255,237,223,.25)}
+  nav .btn{padding:8px 18px;font-size:.8rem;border-bottom-width:2px}
+  .link{font-weight:600;font-size:.88rem;letter-spacing:.05em;color:var(--ink);text-underline-offset:4px}
+
+  section{position:relative;padding:clamp(72px,12vh,140px) clamp(20px,6vw,80px)}
+  .wrap{max-width:1160px;margin:0 auto}
+  .kicker{font-size:.78rem;font-weight:600;letter-spacing:.28em;text-transform:uppercase;color:var(--terra)}
+
+  /* 3D stages: empty boxes the WebGL objects are pinned to */
+  .stage{width:100%;aspect-ratio:1/1;max-height:62vh;margin:0 auto}
+
+  /* hero */
+  #hero{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding-top:96px}
+  #hero .stage{aspect-ratio:2.1/1;max-width:900px;max-height:44vh}
+  #hero h1{font-size:clamp(2.6rem,8vw,5.6rem);margin:10px 0 26px;letter-spacing:.02em}
+  #hero h1 span{display:inline-block;opacity:0;transform:translateY(24px) rotateX(-50deg);transform-origin:50% 100%;animation:rise .9s cubic-bezier(.2,.8,.2,1) forwards}
+  #hero h1 span:nth-child(2){animation-delay:.25s}
+  #hero h1 span:nth-child(3){animation-delay:.5s}
+  #hero h1 i{font-style:normal;color:var(--sand);padding:0 .12em}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media(max-width:620px){#hero h1 span{display:block}#hero h1 i{display:none}}
+  #hero .where{margin-top:22px;font-size:.86rem;letter-spacing:.05em}
+  .cue{margin-top:38px;width:22px;height:36px;border:2px solid var(--tan);border-radius:12px;position:relative;opacity:.8}
+  .cue::after{content:"";position:absolute;left:50%;top:6px;width:4px;height:7px;margin-left:-2px;border-radius:2px;background:var(--tan);animation:cue 1.8s ease-in-out infinite}
+  @keyframes cue{0%{transform:translateY(0);opacity:1}70%{transform:translateY(12px);opacity:0}100%{opacity:0}}
+
+  /* offerings */
+  .intro{text-align:center;max-width:680px;margin:0 auto}
+  .intro h2{font-size:clamp(2rem,5vw,3.2rem);margin-top:10px}
+  .row{display:grid;grid-template-columns:1fr;gap:clamp(12px,3vw,56px);align-items:center;margin-top:clamp(40px,9vh,110px)}
+  @media(min-width:860px){
+    .row{grid-template-columns:1fr 1fr}
+    .row.flip .stage{order:2}
+  }
+  .card{background:rgba(255,246,238,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(159,135,105,.28);border-radius:14px;padding:clamp(24px,4vw,44px);box-shadow:0 20px 50px rgba(51,12,5,.1);transform-style:preserve-3d;transition:transform .25s ease-out,box-shadow .25s}
+  .card h3{font-size:clamp(1.6rem,3.4vw,2.3rem);margin:8px 0 12px}
+  .card p{margin-bottom:16px}
+  .num{font-family:var(--head);font-size:1rem;color:var(--terra);letter-spacing:.2em}
+
+  /* about */
+  #about .card{max-width:820px;margin:0 auto;text-align:center}
+  #about h2{font-size:clamp(1.9rem,4.4vw,2.8rem);margin:10px 0 16px}
+
+  /* quote */
+  #quote{min-height:80svh;display:flex;align-items:center;justify-content:center;text-align:center}
+  #quote blockquote{font-family:var(--head);font-size:clamp(2rem,6.4vw,4.4rem);color:#fff;line-height:1.2;text-shadow:0 2px 24px rgba(51,12,5,.25)}
+  #quote cite{display:block;margin-top:22px;font-family:var(--head);font-style:normal;font-size:clamp(1.1rem,2.4vw,1.5rem);color:#fff}
+
+  /* membership */
+  #membership h2{font-size:clamp(1.9rem,4.6vw,3rem);margin:10px 0 6px}
+  .price{font-family:var(--head);font-size:clamp(2.4rem,6vw,3.6rem);color:var(--ink);line-height:1}
+  .price small{font-family:var(--body);font-size:.9rem;letter-spacing:.06em;color:var(--text)}
+  .perks{list-style:none;margin:18px 0 22px;display:grid;gap:10px}
+  .perks li{padding-left:30px;position:relative}
+  .perks li::before{content:"∞";position:absolute;left:0;top:-3px;font-size:1.25rem;color:var(--terra)}
+  .faq{margin-top:clamp(36px,7vh,72px);display:grid;gap:10px;max-width:860px;margin-left:auto;margin-right:auto}
+  .faq h3{font-size:1.5rem;margin:18px 0 4px;text-align:center}
+  details{background:rgba(255,246,238,.78);border:1px solid rgba(159,135,105,.28);border-radius:10px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  summary{cursor:pointer;list-style:none;padding:15px 48px 15px 20px;font-weight:600;color:var(--ink);position:relative}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:1.4rem;font-weight:400;transition:transform .25s}
+  details[open] summary::after{transform:translateY(-50%) rotate(45deg)}
+  details p{padding:0 20px 16px}
+  .thanks{text-align:center;font-family:var(--head);font-size:clamp(1.2rem,2.6vw,1.6rem);color:var(--ink);margin-top:clamp(30px,6vh,60px)}
+
+  /* visit */
+  #visit{color:var(--cream);text-align:center;min-height:90svh;display:flex;align-items:center}
+  #visit .wrap{width:100%}
+  #visit h2{color:var(--cream);font-size:clamp(2.2rem,6vw,4rem);margin:10px 0 22px}
+  #visit .kicker{color:var(--peach)}
+  #visit .stage{aspect-ratio:2.4/1;max-width:520px;max-height:26vh}
+  .info{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:22px;margin:34px auto;max-width:860px}
+  .info div{padding:20px;border:1px solid rgba(255,237,223,.25);border-radius:12px;background:rgba(51,12,5,.6)}
+  .info b{display:block;font-family:var(--head);font-weight:400;font-size:1.2rem;color:var(--peach);margin-bottom:6px}
+  .info a{text-underline-offset:4px}
+  .actions{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+  #visit .btn.ghost{color:var(--cream)}
+  footer{color:rgba(255,237,223,.7);text-align:center;font-size:.78rem;padding:26px 20px 34px}
+
+  /* reveal */
+  .reveal{opacity:0;transform:translateY(34px);transition:opacity .9s ease,transform .9s cubic-bezier(.2,.8,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+  #visit :focus-visible{outline-color:var(--cream)}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .reveal{opacity:1;transform:none;transition:none}
+    #hero h1 span{animation:none;opacity:1;transform:none}
+    .cue::after{animation:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-hidden="true"></canvas>
+
+<header id="top">
+  <a class="brand" href="#hero" aria-label="Infinitely Love Healing Arts — home">
+    <img src="https://assets.vagaro.com/business/z3ltpjiomevxvu1sd7qro0/Compressed/pDF7C_temp_183234566_221155_$2025_01_28_08_50_49_0987.png"
+         alt="Infinitely Love Healing Arts" onerror="this.replaceWith(document.createTextNode('Infinitely Love Healing Arts'))">
+  </a>
+  <nav aria-label="Primary">
+    <a class="hide-sm" href="#offerings">Offerings</a>
+    <a class="hide-sm" href="#about">About</a>
+    <a class="hide-sm" href="#membership">Membership</a>
+    <a class="hide-sm" href="#visit">Visit</a>
+    <a class="btn" href="https://mysite.vagaro.com/infinitelylove/book-now">Book Now</a>
+  </nav>
+</header>
+
+<main>
+  <section id="hero" data-bg="#ffeddf">
+    <div class="stage" data-obj="infinity"></div>
+    <p class="kicker">Massage | Herbs | Holistic Wellness</p>
+    <h1><span>Rest</span><i>·</i><span>Reset</span><i>·</i><span>Revive</span></h1>
+    <a class="btn" href="https://mysite.vagaro.com/infinitelylove/book-now">Book Now</a>
+    <p class="where">Portland, Oregon · inside the Glimmer Wellness Center</p>
+    <div class="cue" aria-hidden="true"></div>
+  </section>
+
+  <section id="offerings" data-bg="#fbe3d2">
+    <div class="wrap">
+      <div class="intro reveal">
+        <p class="kicker">Offerings</p>
+        <h2>Healing arts for body, breath and spirit</h2>
+      </div>
+
+      <div class="row">
+        <div class="stage" data-obj="stones"></div>
+        <div class="card reveal" data-tilt>
+          <span class="num">01</span>
+          <h3>Thai Massage</h3>
+          <p>Traditional Thai massage from a licensed massage therapist and traditional Thai Medicine practitioner, with 60-minute sessions and longer.</p>
+          <a class="link" href="https://mysite.vagaro.com/infinitelylove/services">View services →</a>
+        </div>
+      </div>
+
+      <div class="row flip">
+        <div class="stage" data-obj="lotus"></div>
+        <div class="card reveal" data-tilt>
+          <span class="num">02</span>
+          <h3>Yoga &amp; Meditation</h3>
+          <p>Private yoga and guided meditation sessions, shaped around you.</p>
+          <a class="link" href="https://mysite.vagaro.com/infinitelylove/classes">View classes →</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="stage" data-obj="veil"></div>
+        <div class="card reveal" data-tilt>
+          <span class="num">03</span>
+          <h3>Fusion Bellydance</h3>
+          <p>Fusion bellydance and functional fitness training sessions that bring movement into your wellness practice.</p>
+          <a class="link" href="https://mysite.vagaro.com/infinitelylove/classes">View classes →</a>
+        </div>
+      </div>
+
+      <div class="row flip">
+        <div class="stage" data-obj="herbs"></div>
+        <div class="card reveal" data-tilt>
+          <span class="num">04</span>
+          <h3>Herbs</h3>
+          <p>Herbal medicinal and nutritive products to carry the care home with you.</p>
+          <a class="link" href="https://mysite.vagaro.com/infinitelylove/products">Shop products →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="about" data-bg="#f3c9ae">
+    <div class="wrap">
+      <div class="card reveal" data-tilt>
+        <p class="kicker">About</p>
+        <h2>Founded by Jordan Sun</h2>
+        <p>Infinitely Love Healing Arts, founded by Jordan Sun, a licensed massage therapist, traditional Thai Medicine practitioner and graduate student in the field of counseling &amp; dance movement therapy, is located within the Glimmer Wellness Center. Offerings include Thai Massage, Yoga, Fusion Bellydance and Herbal medicinal &amp; nutritive products.</p>
+        <a class="link" href="https://mysite.vagaro.com/infinitelylove/about">Hours, team &amp; more →</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="quote" data-bg="#9f8769">
+    <figure class="reveal">
+      <blockquote>”I left feeling rejuvenated!”</blockquote>
+      <figcaption><cite>— F. S.</cite></figcaption>
+      <p style="margin-top:26px"><a class="btn ghost" style="color:#fff" href="https://mysite.vagaro.com/infinitelylove/reviews">Read reviews</a></p>
+    </figure>
+  </section>
+
+  <section id="membership" data-bg="#ffeddf">
+    <div class="wrap">
+      <div class="row" style="margin-top:0">
+        <div class="stage" data-obj="circle"></div>
+        <div class="card reveal" data-tilt>
+          <p class="kicker">Membership</p>
+          <h2>The Infinite Care Circle</h2>
+          <p class="price">$105 <small>/ month · month-to-month</small></p>
+          <ul class="perks">
+            <li>One 60-minute session credit every month</li>
+            <li>15% discount on every service we offer</li>
+            <li>Priority booking, up to 3 months in advance</li>
+            <li>Unused credits roll over while your membership is active</li>
+          </ul>
+          <a class="btn" href="https://mysite.vagaro.com/infinitelylove/memberships">Join the Circle</a>
+        </div>
+      </div>
+
+      <div class="faq reveal">
+        <h3>FAQs</h3>
+        <details>
+          <summary>What is The Infinite Care Circle Membership?</summary>
+          <p>It is our flexible, month-to-month plan designed to make continuous self-care a priority with Infinitely Love Healing Arts. For a fixed monthly fee, you secure one session credit per month and unlock a significant discount across all our services.</p>
+        </details>
+        <details>
+          <summary>How much is the membership?</summary>
+          <p>The monthly fee is $105.</p>
+        </details>
+        <details>
+          <summary>What is the biggest member benefit?</summary>
+          <p>Your top benefits are Priority Booking (allowing you to book appointments up to 3 months in advance) and a 15% Discount applied to every single service we offer, including longer massages, private yoga, meditation, and fitness.</p>
+        </details>
+        <h3>Using Your Credits</h3>
+        <details>
+          <summary>What is included in my monthly fee?</summary>
+          <p>Your $105 fee secures you one 60-Minute Session Credit.</p>
+        </details>
+        <details>
+          <summary>What if I want a 90-minute massage instead?</summary>
+          <p>Your $105 monthly fee acts as a credit that can be applied to any service. You simply pay the discounted difference at the time of your appointment. Example: For a 90-minute massage, the final out-of-pocket cost is only $43.75 after applying your 15% discount and your $105 monthly credit.</p>
+        </details>
+        <details>
+          <summary>Does my discount apply to other services like yoga?</summary>
+          <p>Yes. The 15% Member Discount applies to all of your services: private yoga, fusion bellydance, guided meditation, and functional fitness training sessions.</p>
+        </details>
+        <h3>Policies and Expiration</h3>
+        <details>
+          <summary>What if I don’t use my credit one month? Does it roll over?</summary>
+          <p>Yes. All unused monthly credits roll over and accumulate in your account as long as your membership is active.</p>
+        </details>
+        <details>
+          <summary>How long do I have to use my rolled-over credits?</summary>
+          <p>All accumulated credits expire one year (12 months) from the original date of purchase. We recommend booking regularly to utilize your benefits.</p>
+        </details>
+        <details>
+          <summary>Can I cancel my membership anytime?</summary>
+          <p>Yes. The membership is month-to-month. You can cancel or freeze anytime without penalty by simply providing written notice before your next scheduled billing date.</p>
+        </details>
+        <details>
+          <summary>What happens to my credits if I cancel?</summary>
+          <p>Upon cancellation, any remaining unexpired credits must be redeemed within 90 days.</p>
+        </details>
+      </div>
+      <p class="thanks reveal">Thank you for your ongoing support! It’s an honor to support your healing journey!</p>
+    </div>
+  </section>
+
+  <section id="visit" data-bg="#330c05">
+    <div class="wrap reveal">
+      <div class="stage" data-obj="infinity2"></div>
+      <p class="kicker">Reservations</p>
+      <h2>Your dream session awaits…</h2>
+      <div class="actions">
+        <a class="btn" href="https://mysite.vagaro.com/infinitelylove/book-now">Book Now</a>
+        <a class="btn ghost" href="https://mysite.vagaro.com/infinitelylove/gift-certificates">Gift Certificates</a>
+      </div>
+      <div class="info">
+        <div><b>Visit</b>Glimmer Wellness Center<br>205 Southeast Grand Avenue, Suite 201<br>Portland, OR 97214<br><a href="https://www.google.com/maps/search/?api=1&query=205+SE+Grand+Ave+Suite+201+Portland+OR+97214" target="_blank" rel="noopener">Get directions</a></div>
+        <div><b>Call</b><a href="tel:+15037317182">(503) 731-7182</a></div>
+        <div><b>Write</b><a href="mailto:jordan@infinitelylove.com">jordan@infinitelylove.com</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer data-bg="#330c05">
+  © Infinitely Love Healing Arts · Booking powered by <a href="https://mysite.vagaro.com/infinitelylove">Vagaro</a>
+</footer>
+
+<script src="vendor/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- page behaviour that works without WebGL ---------- */
+var header = document.getElementById('top');
+var io = new IntersectionObserver(function(es){
+  es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+},{threshold:.15});
+document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+
+// background colour follows whichever section sits at the middle of the viewport
+var bgEls = Array.prototype.slice.call(document.querySelectorAll('[data-bg]'));
+function hex(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
+var bgCols = bgEls.map(function(el){ return hex(el.dataset.bg); });
+var bgNow = bgCols[0].slice();
+function updateBg(){
+  var mid = innerHeight/2, i, r, a = 0, b = 0, t = 0;
+  for(i=0;i<bgEls.length;i++){
+    r = bgEls[i].getBoundingClientRect();
+    if(r.top <= mid){ a = i; b = Math.min(i+1,bgEls.length-1);
+      var blend = innerHeight*.6;                      // start blending near the section's end
+      t = Math.max(0,Math.min(1,(mid-(r.bottom-blend/2))/blend)); }
+  }
+  t = t*t*(3-2*t);
+  for(i=0;i<3;i++) bgNow[i] = bgCols[a][i] + (bgCols[b][i]-bgCols[a][i])*t;
+  document.documentElement.style.setProperty('--bg','rgb('+bgNow.map(Math.round).join(',')+')');
+}
+function onScroll(){ header.classList.toggle('scrolled', scrollY>10); updateBg(); }
+addEventListener('scroll', onScroll, {passive:true}); onScroll();
+
+// cards lean toward the pointer
+if(!reduce && matchMedia('(hover:hover)').matches){
+  document.querySelectorAll('[data-tilt]').forEach(function(c){
+    c.addEventListener('pointermove', function(e){
+      var r = c.getBoundingClientRect();
+      var x = (e.clientX-r.left)/r.width-.5, y = (e.clientY-r.top)/r.height-.5;
+      c.style.transform = 'perspective(900px) rotateY('+(x*7)+'deg) rotateX('+(-y*7)+'deg) translateZ(6px)';
+    });
+    c.addEventListener('pointerleave', function(){ c.style.transform=''; });
+  });
+}
+
+/* ---------- 3D scene ---------- */
+if(!window.THREE) return;
+var canvas = document.getElementById('scene'), renderer;
+try{ renderer = new THREE.WebGLRenderer({canvas:canvas, antialias:true, alpha:true}); }
+catch(err){ canvas.style.display='none'; return; }
+renderer.setPixelRatio(Math.min(devicePixelRatio||1, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+var scene = new THREE.Scene();
+var FOV = 35, CAM_Z = 10;
+var camera = new THREE.PerspectiveCamera(FOV, 1, .1, 60);
+camera.position.z = CAM_Z;
+
+// soft studio-like environment so glossy surfaces have something warm to reflect
+(function(){
+  var envScene = new THREE.Scene();
+  var g = new THREE.SphereGeometry(20, 32, 16), cols = [], p = g.attributes.position;
+  var top = new THREE.Color('#fff6ec'), mid = new THREE.Color('#edb498'), bot = new THREE.Color('#7a4a36'), c = new THREE.Color();
+  for(var i=0;i<p.count;i++){ var y = p.getY(i)/20;
+    if(y>0) c.copy(mid).lerp(top, y); else c.copy(mid).lerp(bot, -y);
+    cols.push(c.r,c.g,c.b); }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cols,3));
+  envScene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({vertexColors:true, side:THREE.BackSide})));
+  var glow = new THREE.Mesh(new THREE.PlaneGeometry(14,8), new THREE.MeshBasicMaterial({color:0xffffff}));
+  glow.position.set(4,12,6); glow.lookAt(0,0,0); envScene.add(glow);
+  var pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(envScene, .04).texture;
+  pm.dispose();
+})();
+
+scene.add(new THREE.HemisphereLight(0xfff3e6, 0xb17252, .7));
+var sun = new THREE.DirectionalLight(0xffe2c4, 1.6); sun.position.set(4,6,8); scene.add(sun);
+var rim = new THREE.DirectionalLight(0xee9999, .7); rim.position.set(-6,-2,3); scene.add(rim);
+
+var C = { ink:0x330c05, tan:0x9f8769, sand:0xd9a97f, stone:0xb3ac9c, cream:0xffeddf, peach:0xedb498,
+          terra:0xb17252, sage:0x5d855d, rose:0xee9999, gold:0xe2b26a };
+function mat(color, o){ return new THREE.MeshStandardMaterial(Object.assign({color:color, roughness:.5, metalness:0}, o||{})); }
+
+/* ---- shared geometry builders ---- */
+// A cupped petal/leaf: a plane narrowed to a point at both ends and curved in two directions.
+function petalGeometry(len, wid, cup, bend){
+  var g = new THREE.PlaneGeometry(1, 1, 8, 14), p = g.attributes.position;
+  for(var i=0;i<p.count;i++){
+    var u = p.getX(i)*2, v = p.getY(i)+.5;               // u -1..1 across, v 0..1 along
+    var w = Math.pow(Math.sin(Math.PI*Math.min(1,v*.92+.04)), .75);
+    var x = u*.5*wid*w, y = v*len;
+    var z = cup*(u*u)*w*wid + bend*v*v*len;
+    p.setXYZ(i, x, y, z);
+  }
+  g.computeVertexNormals(); return g;
+}
+function lemniscate(a, lift){
+  var pts = [];
+  for(var i=0;i<160;i++){ var t = i/160*Math.PI*2, s = Math.sin(t), d = 1+s*s;
+    pts.push(new THREE.Vector3(a*Math.cos(t)/d, a*s*Math.cos(t)/d, lift*s)); }
+  return new THREE.CatmullRomCurve3(pts, true);
+}
+
+/* ---- objects; each is built to fit roughly inside a 2-unit box ---- */
+var builders = {};
+var tickers = [];   // per-frame animation callbacks: fn(time, delta)
+
+function buildInfinity(wide, dark){
+  var grp = new THREE.Group();
+  var curve = lemniscate(wide, .22);
+  var ribbon = new THREE.Mesh(new THREE.TubeGeometry(curve, 320, .085, 20, true),
+    new THREE.MeshPhysicalMaterial({color: dark?C.sand:C.terra, roughness:.22, metalness:.55, clearcoat:.6, clearcoatRoughness:.2, envMapIntensity:1.3}));
+  grp.add(ribbon);
+  var halo = new THREE.Mesh(new THREE.TubeGeometry(lemniscate(wide, -.22), 240, .018, 8, true), mat(dark?C.rose:C.gold, {roughness:.3, metalness:.7}));
+  halo.scale.setScalar(1.14); grp.add(halo);
+  // motes of light streaming around the loop
+  var N = 90, pos = new Float32Array(N*3), seeds = [];
+  for(var i=0;i<N;i++) seeds.push({u:Math.random(), r:.12+Math.random()*.22, a:Math.random()*6.28, s:.03+Math.random()*.03});
+  var pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  var motes = new THREE.Points(pg, new THREE.PointsMaterial({color: dark?0xffe7c9:0xffffff, size:.05, transparent:true, opacity:.9, depthWrite:false, blending: dark?THREE.AdditiveBlending:THREE.NormalBlending}));
+  grp.add(motes);
+  var v = new THREE.Vector3();
+  function place(t){
+    for(var i=0;i<N;i++){ var s = seeds[i]; curve.getPointAt((s.u+t*s.s)%1, v);
+      pos[i*3] = v.x+Math.cos(s.a+t)*s.r; pos[i*3+1] = v.y+Math.sin(s.a+t*1.3)*s.r; pos[i*3+2] = v.z+Math.sin(s.a*2+t)*s.r; }
+    pg.attributes.position.needsUpdate = true;
+  }
+  place(0);
+  tickers.push(function(t){ if(!grp.visible) return; place(t);
+    grp.rotation.y = Math.sin(t*.35)*.5; grp.rotation.x = Math.sin(t*.27)*.16; });
+  return grp;
+}
+builders.infinity  = function(){ var g = buildInfinity(1.9, false); g.userData.fit = {w:4.0, h:1.9}; return g; };
+builders.infinity2 = function(){ var g = buildInfinity(1.9, true);  g.userData.fit = {w:4.0, h:1.7}; return g; };
+
+builders.stones = function(){
+  var grp = new THREE.Group(), y = -.95;
+  var spec = [[.95,.30,0x6b4a3a],[.74,.25,C.tan],[.56,.21,C.stone],[.40,.17,C.sand],[.26,.13,C.cream]];
+  var sph = new THREE.SphereGeometry(1, 48, 32);
+  spec.forEach(function(s, i){
+    var m = new THREE.Mesh(sph, mat(s[2], {roughness:.62, envMapIntensity:.7}));
+    m.scale.set(s[0], s[1], s[0]*.92); y += s[1]; m.position.set(Math.sin(i*2.1)*.05, y, Math.cos(i*1.7)*.04); y += s[1]-.015;
+    m.rotation.y = i*1.3; grp.add(m);
+  });
+  var ripple = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.2, 80), new THREE.MeshBasicMaterial({color:C.tan, transparent:true, opacity:.5, side:THREE.DoubleSide}));
+  ripple.rotation.x = -Math.PI/2; ripple.position.y = -.95; grp.add(ripple);
+  tickers.push(function(t){ if(!grp.visible) return; grp.rotation.y = t*.25; grp.position.y += Math.sin(t*.9)*.03;
+    var k = (t*.25)%1; ripple.scale.setScalar(.8+k*.7); ripple.material.opacity = .55*(1-k); });
+  grp.rotation.x = .28;
+  return grp;
+};
+
+builders.lotus = function(){
+  var grp = new THREE.Group(), flower = new THREE.Group();
+  var rings = [ {n:6, len:.62, wid:.34, tilt:.35, col:0xf7b8b0},
+                {n:8, len:.86, wid:.44, tilt:.72, col:C.rose},
+                {n:10,len:1.02,wid:.5,  tilt:1.08,col:0xf6c9bd},
+                {n:12,len:1.08,wid:.5,  tilt:1.36,col:C.cream} ];
+  rings.forEach(function(r, ri){
+    var g = petalGeometry(r.len, r.wid, .9, -.18);
+    var m = mat(r.col, {side:THREE.DoubleSide, roughness:.55});
+    for(var i=0;i<r.n;i++){
+      var pivot = new THREE.Group(), petal = new THREE.Mesh(g, m);
+      petal.rotation.x = r.tilt; pivot.rotation.y = i/r.n*Math.PI*2 + ri*.4; pivot.add(petal); flower.add(pivot);
+      petal.userData.tilt = r.tilt;
+    }
+  });
+  var heart = new THREE.Mesh(new THREE.SphereGeometry(.16, 24, 16), mat(0xf6d645, {roughness:.4, emissive:0x7a5a00, emissiveIntensity:.35}));
+  heart.scale.y = .7; heart.position.y = .1; flower.add(heart);
+  var pad = new THREE.Mesh(new THREE.CylinderGeometry(1.08, 1.04, .04, 64), mat(C.sage, {roughness:.7}));
+  pad.position.y = -.06; grp.add(pad);
+  flower.position.y = 0; grp.add(flower);
+  grp.position.y = -.35; grp.rotation.x = .55;
+  var inner = new THREE.Group(); inner.add(grp);
+  tickers.push(function(t){ if(!inner.visible) return; flower.rotation.y = t*.18; pad.rotation.y = -t*.05;
+    var breathe = Math.sin(t*.8)*.07;                     // petals open and close like a slow breath
+    flower.children.forEach(function(pv){ var p = pv.children[0]; if(p && p.userData.tilt!==undefined) p.rotation.x = p.userData.tilt + breathe; });
+  });
+  return inner;
+};
+
+builders.veil = function(){
+  var grp = new THREE.Group();
+  function ribbon(color, phase, radius, width){
+    var SU = 90, SV = 10, g = new THREE.PlaneGeometry(1,1,SU,SV), p = g.attributes.position;
+    var m = new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({color:color, side:THREE.DoubleSide, roughness:.45, sheen:1, sheenColor:new THREE.Color(0xffffff), sheenRoughness:.4, transparent:true, opacity:.94}));
+    function shape(t){
+      for(var j=0;j<=SV;j++) for(var i=0;i<=SU;i++){
+        var u = i/SU, v = j/SV, k = j*(SU+1)+i;
+        var ang = u*Math.PI*3.4 + t*.9 + phase;
+        var r = radius*(.55+.55*Math.sin(u*Math.PI)) + Math.sin(u*9+t*1.7+phase)*.06;
+        var y = (u-.5)*2.1 + (v-.5)*width*(.5+Math.sin(u*Math.PI)) + Math.sin(u*6-t*1.3+phase)*.1;
+        p.setXYZ(k, Math.cos(ang)*r, y, Math.sin(ang)*r);
+      }
+      p.needsUpdate = true; g.computeVertexNormals();
+    }
+    shape(0); m.userData.shape = shape; m.frustumCulled = false; return m;
+  }
+  var a = ribbon(C.rose, 0, .78, .5), b = ribbon(C.terra, Math.PI, .6, .34), c = ribbon(C.gold, Math.PI/2, .95, .12);
+  grp.add(a, b, c);
+  tickers.push(function(t){ if(!grp.visible || reduce) return; a.userData.shape(t); b.userData.shape(t*1.15); c.userData.shape(t*.85); });
+  grp.rotation.z = .12;
+  return grp;
+};
+
+builders.herbs = function(){
+  var grp = new THREE.Group();
+  var prof = [[0,-.02],[.42,0],[.5,.06],[.78,.5],[.9,.74],[.86,.78],[.72,.56],[.44,.16],[0,.14]].map(function(a){ return new THREE.Vector2(a[0],a[1]); });
+  var bowl = new THREE.Mesh(new THREE.LatheGeometry(prof, 64), mat(C.stone, {roughness:.75, side:THREE.DoubleSide}));
+  bowl.position.y = -.95; grp.add(bowl);
+  var pestle = new THREE.Group();
+  var shaft = new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,1.15,24), mat(C.tan,{roughness:.6}));
+  var knob = new THREE.Mesh(new THREE.SphereGeometry(.15,24,16), mat(C.tan,{roughness:.6})); knob.position.y = -.58; knob.scale.y = .8;
+  pestle.add(shaft, knob); pestle.position.set(.34,-.2,.05); pestle.rotation.z = -.62; grp.add(pestle);
+  // sprigs rising out of the bowl
+  var leafG = petalGeometry(.42, .2, .7, .12), sprigs = [];
+  [[-.38,.25,-.45,C.sage],[.02,-.2,.1,0x7ba06f],[-.1,.5,-.05,0x4d7350]].forEach(function(s, si){
+    var sprig = new THREE.Group();
+    var curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0), new THREE.Vector3(.05,.5,.02), new THREE.Vector3(-.03,1,.06), new THREE.Vector3(.08,1.5,0)]);
+    sprig.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, .018, 8), mat(0x4d7350,{roughness:.7})));
+    var lm = mat(s[3], {side:THREE.DoubleSide, roughness:.6});
+    for(var i=0;i<9;i++){
+      var u = .18+i*.095, pt = curve.getPointAt(Math.min(u,1)), leaf = new THREE.Mesh(leafG, lm), holder = new THREE.Group();
+      holder.position.copy(pt); holder.rotation.y = i*2.4; leaf.rotation.x = 1.05; leaf.scale.setScalar(1-u*.45);
+      holder.add(leaf); sprig.add(holder);
+    }
+    var tip = new THREE.Mesh(leafG, lm); tip.position.copy(curve.getPointAt(1)); tip.scale.setScalar(.6); sprig.add(tip);
+    sprig.position.set(s[0], -.55, s[1]); sprig.rotation.z = s[2]; sprig.userData.base = s[2]; sprig.userData.ph = si*1.9;
+    grp.add(sprig); sprigs.push(sprig);
+  });
+  tickers.push(function(t){ if(!grp.visible) return; grp.rotation.y = Math.sin(t*.3)*.6;
+    sprigs.forEach(function(s){ s.rotation.z = s.userData.base + Math.sin(t*.9+s.userData.ph)*.06; s.rotation.x = Math.sin(t*.7+s.userData.ph)*.05; }); });
+  grp.rotation.x = .32; grp.position.y = -.05;
+  var outer = new THREE.Group(); outer.add(grp); return outer;
+};
+
+builders.circle = function(){
+  var grp = new THREE.Group(), ring = new THREE.Group();
+  ring.add(new THREE.Mesh(new THREE.TorusGeometry(1.02, .03, 16, 160), mat(C.gold, {metalness:.8, roughness:.22})));
+  var beadG = new THREE.SphereGeometry(.085, 24, 16), beads = [];
+  for(var i=0;i<12;i++){                                   // twelve months around the circle
+    var a = i/12*Math.PI*2, b = new THREE.Mesh(beadG, mat(i%3===0?C.rose:(i%3===1?C.sand:C.sage), {roughness:.3, metalness:.2}));
+    b.position.set(Math.cos(a)*1.02, Math.sin(a)*1.02, 0); ring.add(b); beads.push(b);
+  }
+  grp.add(ring);
+  var inf = new THREE.Mesh(new THREE.TubeGeometry(lemniscate(.62,.08), 200, .04, 14, true),
+    new THREE.MeshPhysicalMaterial({color:C.terra, metalness:.55, roughness:.22, clearcoat:.6}));
+  grp.add(inf);
+  tickers.push(function(t){ if(!grp.visible) return; ring.rotation.z = -t*.2; grp.rotation.y = Math.sin(t*.4)*.55; grp.rotation.x = Math.sin(t*.3)*.2;
+    inf.rotation.y = t*.6;
+    var active = Math.floor(t*.8)%12;                      // one bead "lights" at a time, like a monthly credit landing
+    beads.forEach(function(b,i){ var target = i===active?1.7:1; b.scale.setScalar(b.scale.x+(target-b.scale.x)*.12); });
+  });
+  return grp;
+};
+
+/* ---- pin each object to its DOM stage ---- */
+var pins = [];
+document.querySelectorAll('.stage').forEach(function(el){
+  var make = builders[el.dataset.obj]; if(!make) return;
+  var obj = make(), holder = new THREE.Group();
+  holder.add(obj); holder.visible = false; scene.add(holder);
+  pins.push({el:el, holder:holder, obj:obj, fit:obj.userData.fit||{w:2.3,h:2.3}, s:0});
+});
+
+/* ---- drifting petals with depth parallax ---- */
+var PETALS = innerWidth < 700 ? 46 : 90;
+var petalMesh = new THREE.InstancedMesh(petalGeometry(.3,.17,.8,.2), new THREE.MeshStandardMaterial({side:THREE.DoubleSide, roughness:.6, transparent:true, opacity:.9}), PETALS);
+var petalData = [], dummy = new THREE.Object3D(), pc = new THREE.Color();
+var petalCols = [C.rose, C.peach, C.sand, 0xf6c9bd, C.sage, C.cream, C.terra];
+for(var i=0;i<PETALS;i++){
+  petalData.push({x:Math.random()*2-1, y:Math.random(), z:-7+Math.random()*8.2, rx:Math.random()*6.28, ry:Math.random()*6.28, rz:Math.random()*6.28,
+    spin:.2+Math.random()*.6, fall:.012+Math.random()*.03, sway:Math.random()*6.28, size:.6+Math.random()*.9});
+  petalMesh.setColorAt(i, pc.setHex(petalCols[i%petalCols.length]));
+}
+petalMesh.frustumCulled = false; scene.add(petalMesh);
+
+/* ---- sizing ---- */
+var vw = 1, vh = 1, unitsPerPx = 1;
+function resize(){
+  vw = innerWidth; vh = innerHeight;
+  renderer.setSize(vw, vh, false);
+  camera.aspect = vw/vh; camera.updateProjectionMatrix();
+  unitsPerPx = 2*CAM_Z*Math.tan(FOV*Math.PI/360)/vh;      // world units per CSS pixel on the z=0 plane
+}
+addEventListener('resize', resize); resize();
+
+var pointer = {x:0, y:0, tx:0, ty:0};
+addEventListener('pointermove', function(e){ pointer.tx = e.clientX/vw*2-1; pointer.ty = e.clientY/vh*2-1; }, {passive:true});
+
+var clock = new THREE.Clock(), time = 0, running = true;
+document.addEventListener('visibilitychange', function(){ running = !document.hidden; if(running){ clock.getDelta(); requestAnimationFrame(frame); } });
+
+function frame(){
+  if(!running) return;
+  var dt = Math.min(clock.getDelta(), .05);
+  if(!reduce) time += dt;
+  pointer.x += (pointer.tx-pointer.x)*.05; pointer.y += (pointer.ty-pointer.y)*.05;
+
+  // keep every object locked to its stage element
+  for(var i=0;i<pins.length;i++){
+    var p = pins[i], r = p.el.getBoundingClientRect();
+    var on = r.bottom > -vh*.25 && r.top < vh*1.25 && r.width > 0;
+    p.holder.visible = on;
+    if(!on){ p.s = 0; continue; }
+    p.holder.position.set((r.left+r.width/2-vw/2)*unitsPerPx, -(r.top+r.height/2-vh/2)*unitsPerPx, 0);
+    var target = Math.min(r.width*unitsPerPx/p.fit.w, r.height*unitsPerPx/p.fit.h);
+    var seen = r.top < vh*.92 && r.bottom > vh*.08 ? 1 : .6;   // grows in as it enters the view
+    p.s += (seen-p.s)*(reduce?1:.07);
+    p.holder.scale.setScalar(Math.max(.0001, target*p.s));
+    p.holder.rotation.y = pointer.x*.35; p.holder.rotation.x = pointer.y*.22;
+  }
+  for(i=0;i<tickers.length;i++) tickers[i](time, dt);
+
+  // petals: wrap inside the view volume, deeper ones scroll slower
+  var sy = scrollY*unitsPerPx;
+  for(i=0;i<PETALS;i++){
+    var d = petalData[i], depth = (CAM_Z-d.z)/CAM_Z;         // >1 behind the z=0 plane
+    var halfH = vh*unitsPerPx*depth/2+.6, halfW = vw*unitsPerPx*depth/2+.6;
+    var yy = (d.y*halfH*2 - time*d.fall*halfH*2 + sy*(.25+.6/depth)) % (halfH*2);
+    if(yy<0) yy += halfH*2;
+    dummy.position.set(d.x*halfW + Math.sin(time*.4+d.sway)*.35 + pointer.x*.25/depth, yy-halfH, d.z);
+    dummy.rotation.set(d.rx+time*d.spin, d.ry+time*d.spin*.7, d.rz+time*d.spin*.4);
+    dummy.scale.setScalar(d.size);
+    dummy.updateMatrix(); petalMesh.setMatrixAt(i, dummy.matrix);
+  }
+  petalMesh.instanceMatrix.needsUpdate = true;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
