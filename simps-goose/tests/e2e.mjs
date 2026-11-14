@@ -215,9 +215,10 @@ await p.close();
   await m.waitForTimeout(300);
   const cdp = await m.context().newCDPSession(m);
   // map game coords → page coords (canvas FIT)
-  const toPage = (gx, gy) => m.evaluate(([gx, gy]) => { const c = document.querySelector('canvas').getBoundingClientRect(), g = window.__SIMPS.game, ox = g.scene.getScene('UI').cameras.main.x; return { x: c.left + (gx + ox) * c.width / g.scale.width, y: c.top + gy * c.height / 270 }; }, [gx, gy]); // HUD is a centred 480 frame inside the (possibly wider) canvas
+  // find a touch button on screen (the HUD may be pinned to the edges of a wider canvas)
+  const btnPage = (a) => m.evaluate((a) => { const c = document.querySelector('canvas').getBoundingClientRect(), g = window.__SIMPS.game, ui = g.scene.getScene('UI'), cam = ui.cameras.main, b = ui.touchBtns.find((b) => b.a === a); return { x: c.left + (b.x - cam.scrollX + cam.x) * c.width / g.scale.width, y: c.top + (b.y - cam.scrollY + cam.y) * c.height / 270 }; }, a);
   const touch = async (pts, type) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((q, i) => ({ x: q.x, y: q.y, id: i })) });
-  const R = await toPage(86, 236), J = await toPage(442, 232), H = await toPage(394, 246);
+  const R = await btnPage('right'), J = await btnPage('jump'), H = await btnPage('honk');
   const a0 = await st(m);
   await touch([R], 'touchStart'); await m.waitForTimeout(700);
   const a1 = await st(m);

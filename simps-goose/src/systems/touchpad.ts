@@ -9,6 +9,7 @@
  */
 import { Controls, Action } from './input';
 import { toggleFullscreen } from './fullscreen';
+import { visibleSize } from './view';
 
 const BUTTONS: { a: Action[]; label: string; cls: string }[] = [
   { a: ['up'], label: '▲', cls: 'up' }, { a: ['left'], label: '◀', cls: 'left' }, { a: ['right'], label: '▶', cls: 'right' }, { a: ['down'], label: '▼', cls: 'down' },
@@ -102,10 +103,17 @@ export function installTouchpad(isTouch: () => boolean) {
     document.body.classList.toggle('ask-rotate', portrait && touch && !rotateDismissed);
     if (!portrait) rotateDismissed = true; // once they've turned it, never nag again this session
     document.body.style.setProperty('--bar', side ? bar + 'px' : '0px');
+    // landscape: pin the game to the area Safari actually shows (its toolbars can sit over a 100%-height page)
+    const gameEl = document.getElementById('game');
+    if (gameEl) {
+      if (!portrait) { const v = visibleSize(); gameEl.style.top = v.top + 'px'; gameEl.style.height = v.h + 'px'; gameEl.style.bottom = 'auto'; }
+      else { gameEl.style.top = ''; gameEl.style.height = ''; gameEl.style.bottom = ''; }
+    }
     place(side ? 'side' : 'pad');
     window.dispatchEvent(new Event('resize-game'));
   };
   window.addEventListener('resize', update); window.addEventListener('orientationchange', update);
+  window.visualViewport?.addEventListener('resize', update); window.visualViewport?.addEventListener('scroll', update);
   update();
   setInterval(update, 1000);
 }

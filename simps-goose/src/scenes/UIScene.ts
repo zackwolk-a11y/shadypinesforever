@@ -14,6 +14,7 @@ import { POWERS, PowerId } from '../data/recipes';
 import { BURPS, BurpId } from '../data/coffee';
 import { GS } from '../systems/gamestate';
 import { portraitPad } from '../systems/touchpad';
+import { VIEW } from '../systems/view';
 import { toggleFullscreen } from '../systems/fullscreen';
 
 interface MenuItem { label: () => string; act: (dir: number) => void; t?: Phaser.GameObjects.BitmapText }
@@ -36,7 +37,7 @@ export class UIScene extends Phaser.Scene {
   bossBar: Phaser.GameObjects.Container | null = null; bossFill!: Phaser.GameObjects.Graphics;
   clearCard: Phaser.GameObjects.Container | null = null;
 
-  abil: Phaser.GameObjects.Image[] = [];
+  abil: Phaser.GameObjects.Image[] = []; hudR!: Phaser.GameObjects.Container;
   constructor() { super('UI'); }
   /** Owner abilities row: Power Honk, Double Bubble, Super Burp. */
   setAbilities(o: { ph: boolean; db: boolean; sb: boolean }) { [o.ph, o.db, o.sb].forEach((v, i) => { const a = this.abil[i]; if (a && a.visible !== v) { a.setVisible(v); if (v) this.pulse(a); } }); }
@@ -48,6 +49,8 @@ export class UIScene extends Phaser.Scene {
     this.buildPicker();
     this.touchOn = this.registry.get('touch') === true;
     if (this.touchOn) this.buildTouch();
+    this.applyEdges();
+    const onView = () => this.applyEdges(); this.game.events.on('view:changed', onView); this.events.once('shutdown', () => this.game.events.off('view:changed', onView));
     const ev = this.game.events;
     const on = (n: string, f: (...a: never[]) => void) => { ev.on(n, f, this); this.events.once('shutdown', () => ev.off(n, f, this)); };
     on('hud:reset', ((o: { dropTotal: number; leafTotal?: number; level?: string }) => { this.dropTotal = o.dropTotal; this.leafTotal = o.leafTotal ?? 3; this.resetHud(); if (o.level) this.levelBanner(o.level); }) as never);
@@ -78,6 +81,7 @@ export class UIScene extends Phaser.Scene {
   // ------------------------------------------------------------ HUD
   buildHud() {
     this.hud = this.add.container(0, 0).setDepth(10);
+    this.hudR = this.add.container(0, 0).setDepth(10); // right-edge HUD (pause / sound / fullscreen)
     const g = this.add.graphics();
     g.fillStyle(C.ink, 0.72).fillRoundedRect(4, 4, 150, 20, 4).lineStyle(1, C.red1, 1).strokeRoundedRect(4.5, 4.5, 149, 19, 4);
     this.hud.add(g);
@@ -106,7 +110,7 @@ export class UIScene extends Phaser.Scene {
       const b = this.add.graphics().fillStyle(C.ink, 0.72).fillRoundedRect(452, y, 24, 16, 3).lineStyle(1, C.st3).strokeRoundedRect(452.5, y + 0.5, 23, 15, 3);
       const t = txt(this, 464, y + 3, label, { align: 'center', outline: false, color: C.wht });
       const z = this.add.zone(452, y, 24, 16).setOrigin(0).setInteractive({ useHandCursor: true }).on(ev, (_p: unknown, _x: unknown, _y: unknown, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); f(); });
-      this.hud.add([b, t, z]);
+      this.hudR.add([b, t, z]);
       return t;
     };
     btn(4, 'II', () => this.openPause());
@@ -343,11 +347,19 @@ export class UIScene extends Phaser.Scene {
     for (const [a, label, r] of defs) this.touchBtns.push({ a, label, r, x: 0, y: 0, down: false });
     this.layoutTouch();
   }
+  /** Pin the HUD to the screen edges (wide phones): left block left, right block right. */
+  applyEdges() {
+    const ox = VIEW.ox;
+    this.hud.x = -ox; this.hudR.x = ox; this.slot.x = 424 + ox;
+    this.layoutTouch();
+  }
   layoutTouch() {
     if (!this.touchOn) return;
     const pos: Record<string, [number, number]> = { left: [34, 236], right: [86, 236], jump: [442, 232], honk: [394, 246], ability: [446, 182], interact: [398, 200] };
+    const ox = VIEW.ox; // wide screens: d-pad hugs the left edge, action buttons the right edge
     for (const b of this.touchBtns) {
       [b.x, b.y] = pos[b.a];
+      b.x += b.a === 'left' || b.a === 'right' ? -ox : ox;
       b.g?.destroy();
       b.g = this.add.graphics().setDepth(5);
       const t = txt(this, b.x, b.y - 4, b.label, { align: 'center', outline: false, color: C.wht });
