@@ -347,7 +347,14 @@ const AudioSys = {
     } catch (e) { console.warn('audio init failed', e); }
   },
   makeCurve(k) { const n = 4096, c = new Float32Array(n), t = Math.tanh(k); for (let i = 0; i < n; i++) { const x = i * 2 / (n - 1) - 1; c[i] = Math.tanh(k * x) / t; } return c; },
-  unlock() { if (!this.ac) this.init(); if (this.ac && this.ac.state !== 'running') { this.ac.resume().then(() => { this.resync(); }); } },
+  // Browsers keep audio off until a real user gesture. Mobile browsers only accept touchEND / click /
+  // keydown (not touchstart), so this runs from all of them (see the listeners at the end of this file).
+  // A one-sample silent buffer is also started inside the gesture: older iOS needs it to really unmute.
+  unlock() {
+    if (!this.ac) this.init(); if (!this.ac) return; this.wanted = true;
+    if (!this.primed) { try { const s = this.ac.createBufferSource(); s.buffer = this.ac.createBuffer(1, 1, 22050); s.connect(this.ac.destination); s.start(0); this.primed = true; } catch (e) { } }
+    if (this.ac.state !== 'running') { const r = this.ac.resume(); if (r && r.then) r.then(() => this.resync(), () => { }); }
+  },
   running() { return this.ac && this.ac.state === 'running'; },
   now() { return this.running() ? this.ac.currentTime : G.t; },
   resync() { if (this.song) { this.nextTime = this.now() + .08; this.beatTimes = []; } },
@@ -564,6 +571,11 @@ const SFX = {
   bossDie(t) { for (let i = 0; i < 6; i++) { this.noiseHit(t + i * .18, this.sfx, 'lowpass', 900, .5, .9, .6, .5); this.sweep(t + i * .18, 'sine', 140, 30, .4, .5); } this.crash(t + 1.1); },
   ticket(t) { this.sweep(t, 'triangle', 1500, 1500, .05, .1); }
 };
+
+// unlock audio from every gesture the browsers accept (capture phase: runs even where a handler calls preventDefault)
+for (const ev of ['touchend', 'pointerup', 'mouseup', 'click', 'keydown']) window.addEventListener(ev, () => AudioSys.unlock(), { capture: true, passive: true });
+// coming back to the tab/app (or an iOS interruption ending): resume if the player had already turned sound on
+document.addEventListener('visibilitychange', () => { if (!document.hidden && AudioSys.wanted && AudioSys.ac && AudioSys.ac.state !== 'running') AudioSys.ac.resume().then(() => AudioSys.resync(), () => { }); });
 
 // ===== 03_music.js =====
 // ============================================================================
