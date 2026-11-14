@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { installTouchpad } from './systems/touchpad';
+import { installView, desiredWidth } from './systems/view';
+import { LevelScene } from './levels/LevelScene';
 import { setFullscreenNotifier } from './systems/fullscreen';
 import { BootScene, InputScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
@@ -20,10 +22,11 @@ import { TrueEndScene } from './scenes/TrueEndScene';
 import { JournalScene } from './scenes/JournalScene';
 
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS = {};
+const touchDevice = () => ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: 480,
+  width: desiredWidth(touchDevice()), // widens on phones held sideways so the game fills the screen
   height: 270,
   pixelArt: true,
   roundPixels: true,
@@ -34,6 +37,7 @@ const game = new Phaser.Game({
   scene: [BootScene, InputScene, TitleScene, IntroScene, StoreScene, StockroomScene, LabScene, DimensionScene, BossCarbScene, FakeEndScene, CafeScene, WaterfrontScene, OgopogoScene, TrueEndScene, UIScene, MixerScene, CoffeeScene, JournalScene],
 });
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.game = game;
+game.events.once('ready', () => installView(game, touchDevice, (s) => s instanceof LevelScene));
 installTouchpad(() => game.registry.get('touch') === true || ('ontouchstart' in window || navigator.maxTouchPoints > 0));
 for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => { setTimeout(() => game.scale.refresh(), 60); game.events.emit('fullscreen:change'); });
 setFullscreenNotifier((m, sub) => game.events.emit('hud:toast', m, 0xffc94a, sub));

@@ -96,7 +96,7 @@ export function installTouchpad(isTouch: () => boolean) {
     const insets = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
     // sideways: game at full height; whatever width is left over becomes the two button columns
     const bar = Math.floor((W - insets - (H * 16) / 9) / 2 + Math.max(parseFloat(cs.paddingLeft) || 0, parseFloat(cs.paddingRight) || 0));
-    const side = touch && !portrait && bar >= 64;
+    const side = false && bar >= 64; // sideways: original in-game buttons; the game itself widens to fill the screen (see view.ts)
     document.body.classList.toggle('pad-on', portrait && touch);
     document.body.classList.toggle('side-on', side);
     document.body.classList.toggle('ask-rotate', portrait && touch && !rotateDismissed);

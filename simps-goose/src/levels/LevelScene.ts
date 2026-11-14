@@ -26,6 +26,7 @@ import { SFX } from '../audio/sfx';
 import { MUSIC, Song } from '../audio/music';
 import { Dialogue, Line } from '../ui/Dialogue';
 import { txt } from '../art/font';
+import { routeCameras } from '../systems/view';
 
 export type Phase = 'intro' | 'play' | 'picker' | 'cutscene' | 'frozen';
 export type PickupKind = 'drop' | 'leaf' | 'badge' | 'bottle' | 'card' | 'star' | 'bean' | 'token';
@@ -65,7 +66,7 @@ export abstract class LevelScene extends Phaser.Scene {
   checkpointSprites: { img: Phaser.GameObjects.Sprite; x: number; y: number; on: boolean }[] = [];
   stomps = 0;
   dialogue: Dialogue | null = null;
-  outfitBadge: Phaser.GameObjects.Image | null = null; offTopT = 0; stuckT = 0; lastHint = ''; hintWin: Phaser.GameObjects.Container | null = null;
+  outfitBadge: Phaser.GameObjects.Image | null = null; uiCam?: Phaser.Cameras.Scene2D.Camera; offTopT = 0; stuckT = 0; lastHint = ''; hintWin: Phaser.GameObjects.Container | null = null;
   cHold = -1; superCd = 0;
 
   // ---------------------------------------------------------------- hooks
@@ -89,6 +90,7 @@ export abstract class LevelScene extends Phaser.Scene {
   /** Call first in create(). */
   initLevel(o: { w: number; h: number; floor: number; bg: number; spawn: { x: number; y: number } }) {
     this.resetBase();
+    this.uiCam = undefined; // cameras are rebuilt on every (re)start
     this.worldW = o.w; this.worldH = o.h; this.floorY = o.floor;
     this.cameras.main.setBounds(0, 0, o.w, o.h).setBackgroundColor(o.bg).setRoundPixels(true);
     this.world = new PhysicsWorld();
@@ -431,6 +433,7 @@ export abstract class LevelScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- loop
   update(_t: number, deltaMs: number) {
+    routeCameras(this);
     if (this.phase === 'frozen') return;
     const dt = Math.min(deltaMs / 1000, 1 / 20);
     const hadDialogue = !!this.dialogue;
