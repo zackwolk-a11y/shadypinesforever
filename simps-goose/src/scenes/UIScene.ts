@@ -364,7 +364,8 @@ export class UIScene extends Phaser.Scene {
     for (const b of this.touchBtns) {
       [b.x, b.y] = pos[b.a];
       b.x += ox;
-      b.g?.destroy(); (b.g?.getData('t') as Phaser.GameObjects.BitmapText | undefined)?.destroy();
+      (b.g?.getData('t') as Phaser.GameObjects.BitmapText | undefined)?.destroy(); // label first: once the graphic is destroyed its data is gone
+      b.g?.destroy();
       b.g = this.add.graphics().setDepth(5);
       const t = txt(this, b.x, b.y - 4, b.label, { align: 'center', outline: false, color: C.wht });
       t.setDepth(6).setAlpha(0.9);
