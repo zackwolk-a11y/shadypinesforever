@@ -49,7 +49,15 @@ export class UIScene extends Phaser.Scene {
     this.buildHud();
     this.buildPicker();
     this.touchOn = this.registry.get('touch') === true;
-    if (this.touchOn) this.buildTouch();
+    if (this.touchOn) {
+      this.buildTouch();
+      this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        if (this.ended || this.menu || this.picker.visible || portraitPad()) return;
+        const w = this.cameras.main.getWorldPoint(p.x, p.y);
+        const b = this.btnAt(w.x, w.y);
+        if (b) { Controls.setTouch(b.a, true); if (b.a === 'interact') Controls.setTouch('confirm', true); }
+      });
+    }
     this.applyEdges();
     const onView = () => this.applyEdges(); this.game.events.on('view:changed', onView); this.events.once('shutdown', () => this.game.events.off('view:changed', onView));
     const ev = this.game.events;
@@ -345,7 +353,7 @@ export class UIScene extends Phaser.Scene {
   // ------------------------------------------------------------ touch
   buildTouch() {
     // right thumb: action buttons (bigger + more forgiving than before). left thumb: a drag stick.
-    const defs: [Action, string, number][] = [['jump', 'JUMP', 28], ['honk', 'HONK', 21], ['ability', 'POWER', 21], ['interact', 'SIP', 19]];
+    const defs: [Action, string, number][] = [['jump', 'JUMP', 31], ['honk', 'HONK', 21], ['ability', 'POWER', 20], ['interact', 'SIP', 19]];
     for (const [a, label, r] of defs) this.touchBtns.push({ a, label, r, x: 0, y: 0, down: false });
     this.stickG = this.add.graphics().setDepth(5);
     this.stickHint = txt(this, 0, 0, '< >', { align: 'center', outline: false, color: C.wht }).setDepth(6).setAlpha(0.6);
@@ -359,7 +367,7 @@ export class UIScene extends Phaser.Scene {
   }
   layoutTouch() {
     if (!this.touchOn) return;
-    const pos: Record<string, [number, number]> = { jump: [446, 230], honk: [392, 248], ability: [450, 176], interact: [398, 198] };
+    const pos: Record<string, [number, number]> = { jump: [438, 218], honk: [384, 244], ability: [452, 160], interact: [392, 190] }; // JUMP up + in from the corner (iPhone's home-swipe area)
     const ox = VIEW.ox; // wide screens: stick hugs the left edge, action buttons the right edge
     for (const b of this.touchBtns) {
       [b.x, b.y] = pos[b.a];
@@ -386,6 +394,13 @@ export class UIScene extends Phaser.Scene {
     g.clear().fillStyle(C.ink, this.stick ? 0.45 : 0.3).fillCircle(base.x, base.y, 30).lineStyle(2, C.red1, this.stick ? 0.9 : 0.55).strokeCircle(base.x, base.y, 30);
     g.fillStyle(this.stick ? C.red1 : C.ink, this.stick ? 0.85 : 0.5).fillCircle(k.x, k.y, 14).lineStyle(2, C.wht, this.stick ? 0.9 : 0.4).strokeCircle(k.x, k.y, 14);
     this.stickHint?.setPosition(base.x, base.y - 4).setVisible(!this.stick);
+  }
+  /** Which action button a point hits: the nearest within a generous reach; anywhere else lower-right = JUMP. */
+  btnAt(x: number, y: number): TouchBtn | null {
+    let best: TouchBtn | null = null, bd = 1e9;
+    for (const b of this.touchBtns) { const d = Math.hypot(x - b.x, y - b.y) - b.r; if (d < 12 && d < bd) { bd = d; best = b; } }
+    if (!best && x > 330 + VIEW.ox && y > 120) best = this.touchBtns.find((b) => b.a === 'jump') ?? null;
+    return best;
   }
   updateTouch() {
     if (!this.touchOn || this.ended) return;
@@ -414,8 +429,7 @@ export class UIScene extends Phaser.Scene {
     for (const p of ptrs) {
       if (p === stickP) continue;
       const w = cam.getWorldPoint(p.x, p.y);
-      let best: TouchBtn | null = null, bd = 1e9;
-      for (const b of this.touchBtns) { const d = Math.hypot(w.x - b.x, w.y - b.y) - b.r; if (d < 12 && d < bd) { bd = d; best = b; } }
+      const best = this.btnAt(w.x, w.y);
       if (best) pressed.add(best);
     }
     let changed = !!stickP !== this.stickWas; this.stickWas = !!stickP;

@@ -70,7 +70,8 @@ export class Person {
   cheer() { this.setState('cheer', 99); }
   /** play an arbitrary animation (talk, pour, drink, point, hold, toast, clip, catch, wave...) for dur seconds */
   act(anim: string, dur = 1.5) { this.state = 'gesture'; this.t = dur; const k = `p_${this.key}_${anim}`; if (this.sprite.scene.anims.exists(k)) this.sprite.play(k, true); }
-  walkTo(x: number, speed = 40, then?: () => void) { this.facing = x > this.x ? 1 : -1; this.setState('walk', 99); this.sprite.scene.tweens.add({ targets: this.sprite, x, duration: Math.abs(x - this.x) / speed * 1000, onComplete: () => { this.setState(this.staff ? 'idle' : 'browse', 1); then?.(); } }); }
+  get owner() { return this.key === 'dave' || this.key === 'gerry'; }
+  walkTo(x: number, speed = 40, then?: () => void) { this.facing = x > this.x ? 1 : -1; this.setState('walk', 99); if (this.owner && speed > 95) this.play('flee'); /* fast = the running frames, so feet keep up */ this.sprite.scene.tweens.add({ targets: this.sprite, x, duration: Math.abs(x - this.x) / speed * 1000, onComplete: () => { this.setState(this.staff ? 'idle' : 'browse', 1); then?.(); } }); }
   update(dt: number) {
     this.cooldown -= dt;
     this.t -= dt;
@@ -99,6 +100,9 @@ export class Person {
         break;
       case 'cheer': break;
     }
-    this.sprite.setFlipX(this.facing < 0);
+    // Dave + Gerry's hand-drawn walk/run frames face LEFT (their standing frames face right): flip those the other way
+    const anim = this.sprite.anims.currentAnim?.key ?? '';
+    const leftFacingFrames = this.owner && (anim.endsWith('_walk') || anim.endsWith('_flee'));
+    this.sprite.setFlipX(leftFacingFrames ? this.facing > 0 : this.facing < 0);
   }
 }

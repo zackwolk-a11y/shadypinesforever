@@ -16,6 +16,7 @@ import { WORLD_W, WORLD_H, FLOOR, CEIL, L, BG_PARALLAX, BG_W, bgX, solids } from
 import { TRIDENT_STAND } from '../art/motifs';
 import { LevelScene, Rect, SwitchLike } from '../levels/LevelScene';
 import { GS } from '../systems/gamestate';
+import type { PowerId } from '../data/recipes';
 import { complete, unlock, StageId, save, update } from '../systems/save';
 import { txt } from '../art/font';
 import type { Platform } from '../systems/physics';
@@ -53,7 +54,7 @@ export class StoreScene extends LevelScene {
   valves: SyrupValve[] = []; seq = [1, 0, 2]; seqIdx = 0; workshopOn = false; workshopDone = false; finalSwitch: { x: number; on: boolean; img: Phaser.GameObjects.Image } | null = null;
   wsBubbles: { b: import('../entities/Bubbles').Bubble; x0: number; x1: number; ph: number; sp: number }[] = []; overfill: { img: Phaser.GameObjects.Image; x: number; y: number; t: number; dead: number }[] = [];
   gaugeImg: Phaser.GameObjects.Image | null = null;
-  sampledAny = false; ropeLeft = true; checklistSeen = false; objT!: Phaser.GameObjects.BitmapText; objBg!: Phaser.GameObjects.Rectangle; checklist: Phaser.GameObjects.Container | null = null; pushBack = 0;
+  sampledAny = false; ropeLeft = true; checklistSeen = false; ropeToastAt = -99999; objT!: Phaser.GameObjects.BitmapText; objBg!: Phaser.GameObjects.Rectangle; checklist: Phaser.GameObjects.Container | null = null; pushBack = 0;
   rope: Platform | null = null; ropeSign: Phaser.GameObjects.Container | null = null; daveNagT = 0; ropeImg: Phaser.GameObjects.Image | null = null; returning = false; welcomeDone = false;
   wallShelfHonks = 0;
   bumpedWall = 0;
@@ -84,7 +85,7 @@ export class StoreScene extends LevelScene {
     this.finishInit({ music: 'store', spawnX: this.returning ? 1524 : undefined, spawnY: this.returning ? FLOOR : undefined });
     this.boxWall = new BoxWall(this, this.world, L.boxWall.x, L.boxWall.cols, L.boxWall.rows, L.boxWall.bw, L.boxWall.bh);
     const bw = this.boxWall;
-    this.breakables.push({ get broken() { return bw.toppled; }, rect: () => bw.rect(), by: ['dash', 'shot'], smash: (dir: number) => bw.topple(dir, this.world, (x, y) => this.fx.dust(x, y, 6)) });
+    this.breakables.push({ get broken() { return bw.toppled; }, rect: () => bw.rect(), by: ['dash', 'shot', 'powerhonk'], smash: (dir: number) => bw.topple(dir, this.world, (x, y) => this.fx.dust(x, y, 6)) });
     this.add.image(L.boxWall.x + 24, FLOOR - 92, 'signDelivery').setOrigin(0.5, 1).setDepth(37);
     this.lift = new TridentLift(this, this.world, L.lift.x, L.lift.low, L.lift.high);
     this.sampling = new Sampling(this);
@@ -404,13 +405,15 @@ export class StoreScene extends LevelScene {
   atStockDoor() { const d = this.goose.x - STOCK_X; return d > -26 && d < 8; }
   enterStockroom() {
     const got = this.pickups.filter((p) => p.got).map((p) => p.id);
-    this.registry.set('storeSnap', { got, counts: { ...this.counts }, sampled: (this.sampling as unknown as { done?: string[] }).done ?? [] });
+    this.registry.set('storeSnap', { got, counts: { ...this.counts }, sampled: (this.sampling as unknown as { done?: string[] }).done ?? [], power: this.power, powerT: this.powerT });
     SFX.door(); this.phase = 'cutscene';
     GS.persistRun();
     this.goTo('Stockroom');
   }
   restoreSnap() {
-    const snap = this.registry.get('storeSnap') as { got: string[]; counts: Record<string, number> } | undefined;
+    const snap = this.registry.get('storeSnap') as { got: string[]; counts: Record<string, number>; power?: PowerId | null; powerT?: number } | undefined;
+    // keep the sample power you had before the stockroom (topped up so you can still bust the boxes)
+    if (snap?.power) this.time.delayedCall(300, () => { this.setPower(snap.power!); this.powerT = Math.max(this.powerT, snap.powerT ?? 0); });
     if (snap) for (const pk of this.pickups) if (snap.got.includes(pk.id)) { pk.got = true; pk.img.destroy(); pk.shade?.destroy(); this.counts[pk.kind]++; }
     this.game.events.emit('hud:drops', this.counts.drop + this.counts.bean, this.totals.drop + this.totals.bean);
     this.game.events.emit('hud:leaf', this.counts.leaf, this.totals.leaf);
@@ -430,7 +433,7 @@ export class StoreScene extends LevelScene {
     const use = this.touch ? 'SIP' : 'E';
     if (!this.sampledAny && !save().stockDone) return `NEXT: SIP A FREE SAMPLE AT THE COUNTER (${use})`;
     if (!save().stockDone) return `NEXT: GO THROUGH THE STOCK DOOR (${use}) AFTER THE SAMPLES`;
-    if (!this.boxWall.toppled && this.goose.x < L.boxWall.x) return this.power === 'cola' ? `NEXT: DASH INTO THE BOX WALL (${this.touch ? 'POWER' : 'C'})` : 'NEXT: GET A COLA SAMPLE, THEN DASH THROUGH THE BOXES';
+    if (!this.boxWall.toppled && this.goose.x < L.boxWall.x) return this.power === 'cola' ? `NEXT: DASH INTO THE BOX WALL (${this.touch ? 'POWER' : 'C'})` : save().powerHonk ? `NEXT: HOLD ${this.touch ? 'HONK' : 'X'} BY THE BOXES FOR A POWER HONK (OR COLA + DASH)` : 'NEXT: GET A COLA SAMPLE, THEN DASH THROUGH THE BOXES';
     if (this.fountain.stage < 2) return `NEXT: HONK AT THE FOUNTAIN TWICE (${this.touch ? 'HONK' : 'X'})`;
     if (!this.workshopDone) {
       if (!this.workshopOn) return "NEXT: DAVE'S BUBBLE WORKSHOP, UNDER THE MEZZANINE";
@@ -573,6 +576,11 @@ export class StoreScene extends LevelScene {
         this.dave.say(this.sampledAny ? "GOOSE! I NEED YOUR HELP IN THE STOCKROOM. IT'S THIS DOOR!" : 'TRY A SAMPLE, THEN COME HELP ME IN THE STOCKROOM!', 3400);
         this.dave.act('point', 1.5); SFX.hey(this.dave.pitch);
       }
+    }
+    // bumping (or dashing) into the stockroom barrier: say clearly what it is
+    if (this.rope && this.rope.active && this.phase === 'play' && g.x > 1500 && g.x < 1546 && (this.goose.body.hitWall === 1 || this.goose.dashing) && this.time.now - this.ropeToastAt > 5000) {
+      this.ropeToastAt = this.time.now;
+      this.game.events.emit('hud:toast', 'STOCKROOM FIRST!', C.red0, this.touch ? 'HELP DAVE: STOCK DOOR, PRESS SIP' : 'HELP DAVE: STOCK DOOR, PRESS E');
     }
     if (this.rope && this.phase === 'play' && g.x > 1500 && g.x < 1546 && this.goose.body.hitWall === 1) { this.dave.lastLine = this.dave.lastLine || 0; if (this.time.now - this.dave.lastLine > 2500) { this.dave.say('STOCKROOM FIRST! LEND US A WING?', 1800); this.dave.act('point', 1); } }
     if (!this.workshopOn && !this.workshopDone && this.phase === 'play' && g.x > WS.x - 40 && g.y > FLOOR - 40) {
