@@ -218,16 +218,19 @@ await p.close();
   // find a touch button on screen (the HUD may be pinned to the edges of a wider canvas)
   const btnPage = (a) => m.evaluate((a) => { const c = document.querySelector('canvas').getBoundingClientRect(), g = window.__SIMPS.game, ui = g.scene.getScene('UI'), cam = ui.cameras.main, b = ui.touchBtns.find((b) => b.a === a); return { x: c.left + (b.x - cam.scrollX + cam.x) * c.width / g.scale.width, y: c.top + (b.y - cam.scrollY + cam.y) * c.height / 270 }; }, a);
   const touch = async (pts, type) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((q, i) => ({ x: q.x, y: q.y, id: i })) });
-  const R = await btnPage('right'), J = await btnPage('jump'), H = await btnPage('honk');
+  const J = await btnPage('jump'), H = await btnPage('honk');
+  // left thumb: put it down on the stick, then drag right
+  const S0 = await m.evaluate(() => { const c = document.querySelector('canvas').getBoundingClientRect(), g = window.__SIMPS.game, ui = g.scene.getScene('UI'), cam = ui.cameras.main, h = ui.stickHome; return { x: c.left + (h.x - cam.scrollX + cam.x) * c.width / g.scale.width, y: c.top + (h.y - cam.scrollY) * c.height / 270 }; });
+  const R = { x: S0.x + 40, y: S0.y };
   const a0 = await st(m);
-  await touch([R], 'touchStart'); await m.waitForTimeout(700);
+  await touch([S0], 'touchStart'); await m.waitForTimeout(60); await touch([R], 'touchMove'); await m.waitForTimeout(700);
   const a1 = await st(m);
   await touch([R, J], 'touchStart'); await m.waitForTimeout(120);
   const a2 = await st(m);
   await m.screenshot({ path: `${SHOTS}/20-mobile-touch.png` });
   await touch([], 'touchEnd'); await m.waitForTimeout(600);
-  ok('mobile: touch RIGHT moves goose', a1.x > a0.x + 30, `${a0.x} → ${a1.x}`);
-  ok('mobile: multi-touch RIGHT+JUMP jumps', !a2.ground || a2.y < 330, JSON.stringify(a2));
+  ok('mobile: drag stick RIGHT moves goose', a1.x > a0.x + 30, `${a0.x} → ${a1.x}`);
+  ok('mobile: multi-touch stick + JUMP jumps', !a2.ground || a2.y < 330, JSON.stringify(a2));
   await touch([H], 'touchStart'); await m.waitForTimeout(100); await touch([], 'touchEnd'); await m.waitForTimeout(400);
   ok('mobile: HONK button honks', (await m.evaluate(() => window.__SIMPS.store.honkCount)) >= 1);
   await m.close();

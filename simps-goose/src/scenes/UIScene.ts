@@ -29,6 +29,7 @@ export class UIScene extends Phaser.Scene {
   menu: Phaser.GameObjects.Container | null = null; menuItems: MenuItem[] = []; menuSel = 0; menuKind: 'pause' | 'end' | null = null;
   toastQ: [string, number, string?][] = []; toastBusy = false;
   touchBtns: TouchBtn[] = []; touchOn = false;
+  stickG?: Phaser.GameObjects.Graphics; stickHint?: Phaser.GameObjects.BitmapText; stick: { x: number; y: number } | null = null; stickKnob = { x: 0, y: 0 }; stickHome = { x: 50, y: 230 }; stickWas = false;
   muteBtn!: Phaser.GameObjects.BitmapText;
   dropTotal = 0; leafTotal = 3;
   ended = false;
@@ -43,7 +44,7 @@ export class UIScene extends Phaser.Scene {
   setAbilities(o: { ph: boolean; db: boolean; sb: boolean }) { [o.ph, o.db, o.sb].forEach((v, i) => { const a = this.abil[i]; if (a && a.visible !== v) { a.setVisible(v); if (v) this.pulse(a); } }); }
 
   create() {
-    this.pickerCards = []; this.touchBtns = []; this.menu = null; this.menuKind = null; this.toastQ = []; this.toastBusy = false; this.ended = false; this.hearts = []; this.bossBar = null; this.clearCard = null;
+    this.pickerCards = []; this.touchBtns = []; this.stick = null; this.stickG = undefined; this.stickHint = undefined; this.menu = null; this.menuKind = null; this.toastQ = []; this.toastBusy = false; this.ended = false; this.hearts = []; this.bossBar = null; this.clearCard = null;
     this.input.addPointer(4);
     this.buildHud();
     this.buildPicker();
@@ -322,7 +323,7 @@ export class UIScene extends Phaser.Scene {
     this.ended = true;
     this.picker.setVisible(false);
     this.tweens.add({ targets: [this.hud], alpha: 0, duration: 400 });
-    this.touchBtns.forEach((b) => b.g?.setVisible(false));
+    this.touchBtns.forEach((b) => b.g?.setVisible(false)); this.stickG?.setVisible(false); this.stickHint?.setVisible(false);
     // classic freeze-frame arrow banner
     const c = this.add.container(-260, 214).setDepth(25);
     const g = this.add.graphics();
@@ -343,8 +344,11 @@ export class UIScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ touch
   buildTouch() {
-    const defs: [Action, string, number][] = [['left', '<', 22], ['right', '>', 22], ['jump', 'JUMP', 24], ['honk', 'HONK', 18], ['ability', 'POWER', 18], ['interact', 'SIP', 16]];
+    // right thumb: action buttons (bigger + more forgiving than before). left thumb: a drag stick.
+    const defs: [Action, string, number][] = [['jump', 'JUMP', 28], ['honk', 'HONK', 21], ['ability', 'POWER', 21], ['interact', 'SIP', 19]];
     for (const [a, label, r] of defs) this.touchBtns.push({ a, label, r, x: 0, y: 0, down: false });
+    this.stickG = this.add.graphics().setDepth(5);
+    this.stickHint = txt(this, 0, 0, '< >', { align: 'center', outline: false, color: C.wht }).setDepth(6).setAlpha(0.6);
     this.layoutTouch();
   }
   /** Pin the HUD to the screen edges (wide phones): left block left, right block right. */
@@ -355,41 +359,74 @@ export class UIScene extends Phaser.Scene {
   }
   layoutTouch() {
     if (!this.touchOn) return;
-    const pos: Record<string, [number, number]> = { left: [34, 236], right: [86, 236], jump: [442, 232], honk: [394, 246], ability: [446, 182], interact: [398, 200] };
-    const ox = VIEW.ox; // wide screens: d-pad hugs the left edge, action buttons the right edge
+    const pos: Record<string, [number, number]> = { jump: [446, 230], honk: [392, 248], ability: [450, 176], interact: [398, 198] };
+    const ox = VIEW.ox; // wide screens: stick hugs the left edge, action buttons the right edge
     for (const b of this.touchBtns) {
       [b.x, b.y] = pos[b.a];
-      b.x += b.a === 'left' || b.a === 'right' ? -ox : ox;
-      b.g?.destroy();
+      b.x += ox;
+      b.g?.destroy(); (b.g?.getData('t') as Phaser.GameObjects.BitmapText | undefined)?.destroy();
       b.g = this.add.graphics().setDepth(5);
       const t = txt(this, b.x, b.y - 4, b.label, { align: 'center', outline: false, color: C.wht });
-      t.setDepth(6).setAlpha(0.85);
+      t.setDepth(6).setAlpha(0.9);
       b.g.setData('t', t);
     }
+    this.stickHome = { x: 50 - ox, y: 230 };
     this.drawTouch();
   }
   drawTouch() {
     for (const b of this.touchBtns) {
       if (!b.g) continue;
-      b.g.clear().fillStyle(b.down ? C.red1 : C.ink, b.down ? 0.75 : 0.42).fillCircle(b.x, b.y, b.r).lineStyle(2, b.down ? C.wht : C.red1, 0.8).strokeCircle(b.x, b.y, b.r);
+      b.g.clear().fillStyle(b.down ? C.red1 : C.ink, b.down ? 0.8 : 0.35).fillCircle(b.x, b.y, b.r).lineStyle(2, b.down ? C.wht : C.red1, b.down ? 1 : 0.7).strokeCircle(b.x, b.y, b.r);
     }
+    // the stick: a base ring where the thumb landed (or its resting spot) + a knob that follows the drag
+    const g = this.stickG; if (!g) return;
+    const base = this.stick ?? this.stickHome;
+    const k = this.stick ? this.stickKnob : base;
+    g.clear().fillStyle(C.ink, this.stick ? 0.45 : 0.3).fillCircle(base.x, base.y, 30).lineStyle(2, C.red1, this.stick ? 0.9 : 0.55).strokeCircle(base.x, base.y, 30);
+    g.fillStyle(this.stick ? C.red1 : C.ink, this.stick ? 0.85 : 0.5).fillCircle(k.x, k.y, 14).lineStyle(2, C.wht, this.stick ? 0.9 : 0.4).strokeCircle(k.x, k.y, 14);
+    this.stickHint?.setPosition(base.x, base.y - 4).setVisible(!this.stick);
   }
   updateTouch() {
     if (!this.touchOn || this.ended) return;
     const dom = portraitPad();
     this.touchBtns.forEach((b) => { b.g?.setVisible(!dom); (b.g?.getData('t') as Phaser.GameObjects.BitmapText | undefined)?.setVisible(!dom); });
+    this.stickG?.setVisible(!dom); this.stickHint?.setVisible(!dom && !this.stick);
     if (dom) return;
-    const ptrs = this.input.manager.pointers.filter((p) => p.isDown);
-    let changed = false;
+    const cam = this.cameras.main;
     const blocking = !!this.menu || this.picker.visible;
+    const ptrs = blocking ? [] : this.input.manager.pointers.filter((p) => p.isDown);
+    // the left third of the screen (below the HUD) is the stick zone: put a thumb anywhere there and drag
+    const zoneR = 170 - VIEW.ox * 0.2;
+    let stickP: Phaser.Input.Pointer | null = null;
+    for (const p of ptrs) { const d = cam.getWorldPoint(p.downX, p.downY); if (d.x < zoneR && d.y > 64) { stickP = p; break; } }
+    let L = false, R = false, U = false, D = false;
+    if (stickP) {
+      const o = cam.getWorldPoint(stickP.downX, stickP.downY), c = cam.getWorldPoint(stickP.x, stickP.y);
+      const dx = c.x - o.x, dy = c.y - o.y, dist = Math.hypot(dx, dy), m = Math.min(dist, 20) / (dist || 1);
+      this.stick = { x: o.x, y: o.y }; this.stickKnob = { x: o.x + dx * m, y: o.y + dy * m };
+      L = dx < -6; R = dx > 6;
+      U = dy < -16 && Math.abs(dy) > Math.abs(dx) * 0.7; D = dy > 16 && Math.abs(dy) > Math.abs(dx) * 0.7;
+    } else this.stick = null;
+    Controls.setTouch('left', L); Controls.setTouch('right', R); Controls.setTouch('up', U); Controls.setTouch('down', D);
+    // buttons: each finger presses only the NEAREST button within reach (generous margin, no double-presses)
+    const pressed = new Set<TouchBtn>();
+    for (const p of ptrs) {
+      if (p === stickP) continue;
+      const w = cam.getWorldPoint(p.x, p.y);
+      let best: TouchBtn | null = null, bd = 1e9;
+      for (const b of this.touchBtns) { const d = Math.hypot(w.x - b.x, w.y - b.y) - b.r; if (d < 12 && d < bd) { bd = d; best = b; } }
+      if (best) pressed.add(best);
+    }
+    let changed = !!stickP !== this.stickWas; this.stickWas = !!stickP;
     for (const b of this.touchBtns) {
-      const down = !blocking && ptrs.some((p) => { const w = this.cameras.main.getWorldPoint(p.x, p.y); return Math.hypot(w.x - b.x, w.y - b.y) < b.r + 6; });
+      const down = pressed.has(b);
       if (down !== b.down) { b.down = down; changed = true; }
       Controls.setTouch(b.a, down);
       if (b.a === 'interact') Controls.setTouch('confirm', down);
     }
-    if (changed) this.drawTouch();
+    if (changed || stickP) this.drawTouch();
   }
+
 
   update() {
     this.updateTouch();

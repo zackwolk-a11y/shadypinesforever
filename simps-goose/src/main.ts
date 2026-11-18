@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { installTouchpad } from './systems/touchpad';
 import { installView, desiredWidth } from './systems/view';
+import { installPwa } from './systems/pwa';
 import { LevelScene } from './levels/LevelScene';
 import { setFullscreenNotifier } from './systems/fullscreen';
 import { BootScene, InputScene } from './scenes/BootScene';
@@ -38,6 +39,7 @@ const game = new Phaser.Game({
 });
 (window as unknown as { __SIMPS: Record<string, unknown> }).__SIMPS.game = game;
 game.events.once('ready', () => installView(game, touchDevice, (s) => s instanceof LevelScene));
+installPwa();
 installTouchpad(() => game.registry.get('touch') === true || ('ontouchstart' in window || navigator.maxTouchPoints > 0));
 for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => { setTimeout(() => game.scale.refresh(), 60); game.events.emit('fullscreen:change'); });
 setFullscreenNotifier((m, sub) => game.events.emit('hud:toast', m, 0xffc94a, sub));
